@@ -6755,9 +6755,9 @@ export default function UpRepDemo() {
               </div>
               <div className="flex gap-2">
                 {(() => {
-                  // Drag handlers for week schedule
+                  // Drag handlers for week schedule (works for both workouts and rest days)
                   const handleDragStart = (day, isBeforeProgram) => {
-                    if (day.isPast || !day.workout || isBeforeProgram) return;
+                    if (day.isPast || isBeforeProgram) return;
                     setDraggedDay(day);
                   };
                   const handleDragOver = (day) => {
@@ -6777,7 +6777,7 @@ export default function UpRepDemo() {
                     const isMissed = day.isPast && day.workout && !day.completed && !isBeforeProgram;
                     const isDragging = draggedDay?.dateKey === day.dateKey;
                     const isDragOver = dragOverDay?.dateKey === day.dateKey;
-                    const canDrag = !day.isPast && day.workout && !isBeforeProgram;
+                    const canDrag = !day.isPast && !isBeforeProgram;
 
                     return (
                       <button
