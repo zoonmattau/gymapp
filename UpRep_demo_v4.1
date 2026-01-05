@@ -1,0 +1,3160 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
+import { ChevronRight, ChevronLeft, Check, Plus, Minus, Play, X, Droplets, Moon, TrendingUp, User, Home, Dumbbell, Apple, BarChart3, Trophy, Flame, Clock, Target, Info, Calendar, AlertCircle, Zap, Coffee, Utensils, ChevronDown, ChevronUp, Eye, Undo2 } from 'lucide-react';
+
+const COLORS = {
+  primary: '#FF4D4D',
+  primaryDark: '#CC3D3D',
+  accent: '#00D9FF',
+  background: '#0F0F1A',
+  surface: '#1A1A2E',
+  surfaceLight: '#252540',
+  text: '#FFFFFF',
+  textSecondary: '#B0B0C0',
+  textMuted: '#6B6B80',
+  success: '#00E676',
+  warning: '#FFB300',
+  error: '#FF5252',
+};
+
+const GOAL_INFO = {
+  build_muscle: {
+    title: 'Building Muscle & Size',
+    icon: '💪',
+    overview: "Building muscle is a journey of consistency, not a sprint.",
+    requirements: [
+      { icon: '🏋️', title: 'Progressive Overload', desc: 'Gradually increase weight, reps, or sets over time.' },
+      { icon: '📅', title: 'Consistency', desc: 'Results come from stacking sessions week after week.' },
+      { icon: '🍗', title: 'Protein-Rich Diet', desc: 'Aim for 1.6-2.2g protein per kg bodyweight daily.' },
+      { icon: '😴', title: 'Quality Sleep', desc: '7-9 hours per night for muscle repair.' },
+    ],
+    minDays: 3,
+    idealDays: '4-5',
+  },
+  lose_fat: {
+    title: 'Losing Fat & Getting Lean',
+    icon: '🔥',
+    overview: "Fat loss is about creating a sustainable calorie deficit.",
+    requirements: [
+      { icon: '🍽️', title: 'Calorie Deficit', desc: 'Eat slightly less than you burn (300-500 cal deficit).' },
+      { icon: '🏃', title: 'Cardio + Weights', desc: 'Combine resistance training with cardio.' },
+      { icon: '🍗', title: 'High Protein', desc: 'Keep protein high to preserve muscle.' },
+    ],
+    minDays: 3,
+    idealDays: '4-6',
+  },
+  strength: {
+    title: 'Getting Stronger',
+    icon: '🏋️',
+    overview: "Strength is built through heavy compound lifts.",
+    requirements: [
+      { icon: '🎯', title: 'Heavy Compounds', desc: 'Focus on squat, bench, deadlift, overhead press.' },
+      { icon: '📈', title: 'Low Reps, High Weight', desc: '1-6 rep range with heavy loads.' },
+    ],
+    minDays: 3,
+    idealDays: '3-4',
+  },
+  fitness: {
+    title: 'General Fitness & Health',
+    icon: '❤️',
+    overview: "Overall fitness combines strength, cardio, and mobility.",
+    requirements: [
+      { icon: '🔄', title: 'Variety', desc: 'Mix resistance training, cardio, and flexibility work.' },
+      { icon: '❤️', title: 'Heart Health', desc: '150 mins moderate cardio per week minimum.' },
+    ],
+    minDays: 2,
+    idealDays: '3-5',
+  },
+};
+
+// Weight Goal Step Component - defined outside main component to prevent recreation
+const WeightGoalStep = ({ userData, setUserData, COLORS }) => {
+  const currentWeightRef = React.useRef(null);
+  const goalWeightRef = React.useRef(null);
+  
+  // Reasonable human weight bounds (in kg)
+  const MIN_WEIGHT = 35;
+  const MAX_WEIGHT = 250;
+  
+  const currentW = parseFloat(userData.currentWeight) || 0;
+  const goalW = parseFloat(userData.goalWeight) || 0;
+  const diff = goalW - currentW;
+  const weeks = userData.programWeeks || 16;
+  const weeklyChange = currentW && goalW ? (diff / weeks) : 0;
+  
+  // Weight validation
+  const isValidWeight = (w) => w >= MIN_WEIGHT && w <= MAX_WEIGHT;
+  const currentWeightValid = !userData.currentWeight || isValidWeight(currentW);
+  const goalWeightValid = !userData.goalWeight || isValidWeight(goalW);
+  
+  const getSuggestedGoal = () => {
+    if (!currentW || !isValidWeight(currentW)) return '';
+    if (userData.goal === 'lose_fat') return (currentW * 0.9).toFixed(1);
+    if (userData.goal === 'build_muscle' || userData.goal === 'strength') return (currentW * 1.05).toFixed(1);
+    return currentW.toFixed(1);
+  };
+  
+  const getWarning = () => {
+    if (!currentW || !goalW) return null;
+    if (!isValidWeight(currentW) || !isValidWeight(goalW)) return null; // Handled separately
+    
+    const absWeekly = Math.abs(weeklyChange);
+    
+    if (userData.goal === 'lose_fat') {
+      if (diff > 0) return { type: 'error', msg: 'Your goal weight is higher than current. For fat loss, set a lower target.' };
+      if (absWeekly > 1) return { type: 'error', msg: `Losing ${absWeekly.toFixed(1)}kg/week is too aggressive. Max recommended: 1kg/week.` };
+      if (absWeekly > 0.75) return { type: 'warning', msg: `${absWeekly.toFixed(1)}kg/week is ambitious. Consider a slower pace for sustainability.` };
+    } else if (userData.goal === 'build_muscle' || userData.goal === 'strength') {
+      if (diff < 0) return { type: 'error', msg: 'Your goal weight is lower than current. For muscle gain, set a higher target.' };
+      if (absWeekly > 0.5) return { type: 'error', msg: `Gaining ${absWeekly.toFixed(1)}kg/week may lead to excess fat. Max recommended: 0.5kg/week.` };
+      if (absWeekly > 0.35) return { type: 'warning', msg: `${absWeekly.toFixed(1)}kg/week is ambitious. Slower gains = leaner results.` };
+    }
+    return null;
+  };
+  
+  const warning = getWarning();
+  
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="text-sm mb-2 block" style={{ color: COLORS.textMuted }}>Current Weight (kg)</label>
+        <input
+          ref={currentWeightRef}
+          type="text"
+          inputMode="decimal"
+          defaultValue={userData.currentWeight}
+          onBlur={e => {
+            const val = e.target.value.replace(/[^0-9.]/g, '');
+            setUserData(p => ({...p, currentWeight: val}));
+          }}
+          placeholder="e.g. 80"
+          className="w-full p-4 rounded-xl text-xl font-bold text-center"
+          style={{ 
+            backgroundColor: COLORS.surface, 
+            color: COLORS.text, 
+            border: `2px solid ${!currentWeightValid ? COLORS.error : COLORS.surfaceLight}` 
+          }}
+        />
+        {!currentWeightValid && (
+          <p className="text-xs mt-1" style={{ color: COLORS.error }}>
+            Please enter a realistic weight ({MIN_WEIGHT}-{MAX_WEIGHT}kg)
+          </p>
+        )}
+      </div>
+      
+      <div>
+        <div className="flex justify-between items-center mb-2">
+          <label className="text-sm" style={{ color: COLORS.textMuted }}>Goal Weight (kg)</label>
+          {userData.currentWeight && !userData.goalWeight && isValidWeight(currentW) && (
+            <button 
+              onClick={() => {
+                const suggested = getSuggestedGoal();
+                if (goalWeightRef.current) goalWeightRef.current.value = suggested;
+                setUserData(p => ({...p, goalWeight: suggested}));
+              }}
+              className="text-xs px-2 py-1 rounded-full"
+              style={{ backgroundColor: COLORS.primary + '20', color: COLORS.primary }}
+            >
+              Use Suggested: {getSuggestedGoal()}kg
+            </button>
+          )}
+        </div>
+        <input
+          ref={goalWeightRef}
+          type="text"
+          inputMode="decimal"
+          defaultValue={userData.goalWeight}
+          onBlur={e => {
+            const val = e.target.value.replace(/[^0-9.]/g, '');
+            setUserData(p => ({...p, goalWeight: val}));
+          }}
+          placeholder="e.g. 75"
+          className="w-full p-4 rounded-xl text-xl font-bold text-center"
+          style={{ 
+            backgroundColor: COLORS.surface, 
+            color: COLORS.text, 
+            border: `2px solid ${!goalWeightValid ? COLORS.error : COLORS.surfaceLight}` 
+          }}
+        />
+        {!goalWeightValid && (
+          <p className="text-xs mt-1" style={{ color: COLORS.error }}>
+            Please enter a realistic weight ({MIN_WEIGHT}-{MAX_WEIGHT}kg)
+          </p>
+        )}
+      </div>
+
+      <div>
+        <label className="text-sm mb-2 block" style={{ color: COLORS.textMuted }}>Program Duration</label>
+        <div className="flex gap-2">
+          {[12, 16, 20, 24].map(w => (
+            <button
+              key={w}
+              onClick={() => setUserData(p => ({...p, programWeeks: w}))}
+              className="flex-1 py-3 rounded-xl text-sm font-semibold"
+              style={{ 
+                backgroundColor: userData.programWeeks === w ? COLORS.primary : COLORS.surface,
+                color: userData.programWeeks === w ? COLORS.text : COLORS.textMuted,
+                border: `2px solid ${userData.programWeeks === w ? COLORS.primary : COLORS.surfaceLight}`
+              }}
+            >
+              {w} weeks
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {currentWeightValid && goalWeightValid && currentW > 0 && goalW > 0 && (
+        <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-sm" style={{ color: COLORS.textMuted }}>Total Change</span>
+            <span className="font-bold" style={{ color: diff < 0 ? COLORS.accent : COLORS.success }}>
+              {diff > 0 ? '+' : ''}{diff.toFixed(1)}kg
+            </span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-sm" style={{ color: COLORS.textMuted }}>Weekly Target</span>
+            <span className="font-bold" style={{ color: COLORS.text }}>
+              {weeklyChange > 0 ? '+' : ''}{weeklyChange.toFixed(2)}kg/week
+            </span>
+          </div>
+        </div>
+      )}
+
+      {warning && (
+        <div 
+          className="p-4 rounded-xl flex items-start gap-3"
+          style={{ backgroundColor: warning.type === 'error' ? COLORS.error + '20' : COLORS.warning + '20' }}
+        >
+          <AlertCircle size={20} color={warning.type === 'error' ? COLORS.error : COLORS.warning} className="flex-shrink-0 mt-0.5" />
+          <p className="text-sm" style={{ color: warning.type === 'error' ? COLORS.error : COLORS.warning }}>
+            {warning.msg}
+          </p>
+        </div>
+      )}
+
+      {!warning && currentWeightValid && goalWeightValid && currentW > 0 && goalW > 0 && (
+        <div 
+          className="p-4 rounded-xl flex items-start gap-3"
+          style={{ backgroundColor: COLORS.success + '20' }}
+        >
+          <Check size={20} color={COLORS.success} className="flex-shrink-0 mt-0.5" />
+          <p className="text-sm" style={{ color: COLORS.success }}>
+            This is a healthy, sustainable goal. You're set for success!
+          </p>
+        </div>
+      )}
+      
+      <p className="text-xs text-center" style={{ color: COLORS.textMuted }}>
+        Tap outside the input to update calculations
+      </p>
+    </div>
+  );
+};
+
+// Meal Entry Modal - separate component to prevent input focus loss
+const MealEntryModal = ({ COLORS, onClose, onSave }) => {
+  const [name, setName] = React.useState('');
+  const [calories, setCalories] = React.useState('');
+  const [protein, setProtein] = React.useState('');
+  
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.8)' }}>
+      <div className="w-full max-w-sm rounded-2xl p-6" style={{ backgroundColor: COLORS.surface }}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xl font-bold" style={{ color: COLORS.text }}>Add Meal</h3>
+          <button onClick={onClose} className="p-2 rounded-full" style={{ backgroundColor: COLORS.surfaceLight }}>
+            <X size={20} color={COLORS.textMuted} />
+          </button>
+        </div>
+        
+        <div className="space-y-4 mb-6">
+          <div>
+            <label className="text-sm mb-1 block" style={{ color: COLORS.textMuted }}>Meal Name</label>
+            <input
+              type="text"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="e.g. Chicken & Rice"
+              className="w-full p-3 rounded-xl text-sm"
+              style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-sm mb-1 block" style={{ color: COLORS.textMuted }}>Calories</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={calories}
+                onChange={e => setCalories(e.target.value.replace(/\D/g, ''))}
+                placeholder="0"
+                className="w-full p-3 rounded-xl text-sm text-center"
+                style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+              />
+            </div>
+            <div>
+              <label className="text-sm mb-1 block" style={{ color: COLORS.textMuted }}>Protein (g)</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={protein}
+                onChange={e => setProtein(e.target.value.replace(/\D/g, ''))}
+                placeholder="0"
+                className="w-full p-3 rounded-xl text-sm text-center"
+                style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex gap-3">
+          <button 
+            onClick={onClose}
+            className="flex-1 py-3 rounded-xl font-semibold"
+            style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.textMuted }}
+          >
+            Cancel
+          </button>
+          <button 
+            onClick={() => onSave(parseInt(calories) || 0, parseInt(protein) || 0)}
+            className="flex-1 py-3 rounded-xl font-semibold"
+            style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+          >
+            Add Meal
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Water Entry Modal - separate component to prevent input focus loss
+const WaterEntryModal = ({ COLORS, onClose, onSave }) => {
+  const [amount, setAmount] = React.useState('');
+  
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.8)' }}>
+      <div className="w-full max-w-sm rounded-2xl p-6" style={{ backgroundColor: COLORS.surface }}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xl font-bold" style={{ color: COLORS.text }}>Add Water</h3>
+          <button onClick={onClose} className="p-2 rounded-full" style={{ backgroundColor: COLORS.surfaceLight }}>
+            <X size={20} color={COLORS.textMuted} />
+          </button>
+        </div>
+        
+        <div className="grid grid-cols-3 gap-2 mb-4">
+          {[250, 500, 750, 1000, 1500, 2000].map(amt => (
+            <button
+              key={amt}
+              onClick={() => setAmount(amt.toString())}
+              className="py-3 rounded-xl text-sm font-semibold"
+              style={{ 
+                backgroundColor: amount === amt.toString() ? '#448AFF' : COLORS.surfaceLight, 
+                color: amount === amt.toString() ? COLORS.text : '#448AFF' 
+              }}
+            >
+              {amt >= 1000 ? `${amt/1000}L` : `${amt}ml`}
+            </button>
+          ))}
+        </div>
+
+        <div className="mb-6">
+          <label className="text-sm mb-1 block" style={{ color: COLORS.textMuted }}>Custom Amount (ml)</label>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={amount}
+            onChange={e => setAmount(e.target.value.replace(/\D/g, ''))}
+            placeholder="Enter ml"
+            className="w-full p-3 rounded-xl text-center text-xl font-bold"
+            style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+          />
+        </div>
+
+        <div className="flex gap-3">
+          <button 
+            onClick={onClose}
+            className="flex-1 py-3 rounded-xl font-semibold"
+            style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.textMuted }}
+          >
+            Cancel
+          </button>
+          <button 
+            onClick={() => onSave(parseInt(amount) || 0)}
+            className="flex-1 py-3 rounded-xl font-semibold"
+            style={{ backgroundColor: '#448AFF', color: COLORS.text }}
+          >
+            Add Water
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const WORKOUT_EXERCISES = [
+  { id: 'bench', name: 'Bench Press', sets: 4, targetReps: 8, suggestedWeight: 62.5, lastWeight: 60, lastReps: [8, 8, 7, 6], restTime: 180, muscleGroup: 'Chest',
+    history: [
+      { date: 'Jan 1', weight: 55, reps: [8,8,8,7], e1rm: 69 },
+      { date: 'Jan 3', weight: 57.5, reps: [8,8,7,6], e1rm: 72 },
+      { date: 'Jan 6', weight: 60, reps: [8,8,7,6], e1rm: 75 },
+    ],
+    alternatives: ['Dumbbell Bench Press', 'Machine Chest Press', 'Push Ups', 'Floor Press']
+  },
+  { id: 'ohp', name: 'Overhead Press', sets: 3, targetReps: 10, suggestedWeight: 42.5, lastWeight: 40, lastReps: [10, 9, 8], restTime: 150, muscleGroup: 'Shoulders',
+    history: [
+      { date: 'Jan 1', weight: 35, reps: [10,10,9], e1rm: 47 },
+      { date: 'Jan 3', weight: 37.5, reps: [10,9,8], e1rm: 50 },
+      { date: 'Jan 6', weight: 40, reps: [10,9,8], e1rm: 53 },
+    ],
+    alternatives: ['Dumbbell Shoulder Press', 'Arnold Press', 'Machine Shoulder Press', 'Landmine Press']
+  },
+  { id: 'incline', name: 'Incline DB Press', sets: 3, targetReps: 12, suggestedWeight: 26, lastWeight: 24, lastReps: [12, 11, 10], restTime: 120, muscleGroup: 'Upper Chest',
+    history: [
+      { date: 'Jan 1', weight: 20, reps: [12,12,11], e1rm: 28 },
+      { date: 'Jan 3', weight: 22, reps: [12,11,10], e1rm: 31 },
+      { date: 'Jan 6', weight: 24, reps: [12,11,10], e1rm: 34 },
+    ],
+    alternatives: ['Incline Barbell Press', 'Low Incline DB Press', 'Incline Machine Press', 'Cable Incline Fly']
+  },
+  { id: 'lateral', name: 'Lateral Raises', sets: 3, targetReps: 15, suggestedWeight: 10, lastWeight: 10, lastReps: [15, 14, 12], restTime: 90, muscleGroup: 'Side Delts',
+    history: [
+      { date: 'Jan 1', weight: 8, reps: [15,15,14], e1rm: 12 },
+      { date: 'Jan 3', weight: 8, reps: [15,15,15], e1rm: 12 },
+      { date: 'Jan 6', weight: 10, reps: [15,14,12], e1rm: 15 },
+    ],
+    alternatives: ['Cable Lateral Raises', 'Machine Lateral Raises', 'Leaning Lateral Raises', 'Y Raises']
+  },
+  { id: 'tricep', name: 'Tricep Pushdowns', sets: 3, targetReps: 12, suggestedWeight: 27.5, lastWeight: 25, lastReps: [12, 12, 10], restTime: 90, muscleGroup: 'Triceps',
+    history: [
+      { date: 'Jan 1', weight: 20, reps: [12,12,12], e1rm: 28 },
+      { date: 'Jan 3', weight: 22.5, reps: [12,12,11], e1rm: 32 },
+      { date: 'Jan 6', weight: 25, reps: [12,12,10], e1rm: 35 },
+    ],
+    alternatives: ['Rope Pushdowns', 'Overhead Tricep Extension', 'Skull Crushers', 'Dips']
+  },
+];
+
+// All available exercises for search/swap
+const ALL_EXERCISES = [
+  { name: 'Bench Press', muscleGroup: 'Chest' },
+  { name: 'Dumbbell Bench Press', muscleGroup: 'Chest' },
+  { name: 'Incline Bench Press', muscleGroup: 'Upper Chest' },
+  { name: 'Incline DB Press', muscleGroup: 'Upper Chest' },
+  { name: 'Machine Chest Press', muscleGroup: 'Chest' },
+  { name: 'Cable Fly', muscleGroup: 'Chest' },
+  { name: 'Push Ups', muscleGroup: 'Chest' },
+  { name: 'Dips', muscleGroup: 'Chest/Triceps' },
+  { name: 'Overhead Press', muscleGroup: 'Shoulders' },
+  { name: 'Dumbbell Shoulder Press', muscleGroup: 'Shoulders' },
+  { name: 'Arnold Press', muscleGroup: 'Shoulders' },
+  { name: 'Lateral Raises', muscleGroup: 'Side Delts' },
+  { name: 'Cable Lateral Raises', muscleGroup: 'Side Delts' },
+  { name: 'Front Raises', muscleGroup: 'Front Delts' },
+  { name: 'Face Pulls', muscleGroup: 'Rear Delts' },
+  { name: 'Tricep Pushdowns', muscleGroup: 'Triceps' },
+  { name: 'Rope Pushdowns', muscleGroup: 'Triceps' },
+  { name: 'Skull Crushers', muscleGroup: 'Triceps' },
+  { name: 'Overhead Tricep Extension', muscleGroup: 'Triceps' },
+  { name: 'Close Grip Bench', muscleGroup: 'Triceps' },
+  { name: 'Barbell Row', muscleGroup: 'Back' },
+  { name: 'Dumbbell Row', muscleGroup: 'Back' },
+  { name: 'Lat Pulldown', muscleGroup: 'Back' },
+  { name: 'Pull Ups', muscleGroup: 'Back' },
+  { name: 'Seated Cable Row', muscleGroup: 'Back' },
+  { name: 'Bicep Curls', muscleGroup: 'Biceps' },
+  { name: 'Hammer Curls', muscleGroup: 'Biceps' },
+  { name: 'Preacher Curls', muscleGroup: 'Biceps' },
+  { name: 'Squat', muscleGroup: 'Legs' },
+  { name: 'Leg Press', muscleGroup: 'Legs' },
+  { name: 'Romanian Deadlift', muscleGroup: 'Hamstrings' },
+  { name: 'Leg Curl', muscleGroup: 'Hamstrings' },
+  { name: 'Leg Extension', muscleGroup: 'Quads' },
+  { name: 'Calf Raises', muscleGroup: 'Calves' },
+];
+
+const RPE_SCALE = [
+  { value: 1, label: '1', desc: 'Warmup' },
+  { value: 5, label: '5', desc: 'Moderate' },
+  { value: 7, label: '7', desc: 'Hard - 3 reps left' },
+  { value: 8, label: '8', desc: 'Very hard - 2 reps left' },
+  { value: 9, label: '9', desc: 'Near max - 1 rep left' },
+  { value: 10, label: '10', desc: 'Failure' },
+];
+
+// LoginScreen as separate component
+function LoginScreen({ onBack, onLogin, COLORS }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  
+  return (
+    <div className="flex flex-col h-full p-6">
+      <button onClick={onBack} className="mb-6">
+        <ChevronLeft size={24} color={COLORS.text} />
+      </button>
+      <div className="flex-1">
+        <h1 className="text-3xl font-bold mb-2" style={{ color: COLORS.text }}>Welcome Back</h1>
+        <p className="mb-8" style={{ color: COLORS.textSecondary }}>Log in to continue your fitness journey</p>
+        <div className="space-y-4">
+          <div>
+            <label className="text-sm mb-2 block" style={{ color: COLORS.textSecondary }}>Email</label>
+            <input type="email" placeholder="your@email.com" value={email}
+              onChange={e => setEmail(e.target.value)}
+              className="w-full p-4 rounded-xl outline-none" 
+              style={{ backgroundColor: COLORS.surface, color: COLORS.text, border: `1px solid ${COLORS.surfaceLight}` }} />
+          </div>
+          <div>
+            <label className="text-sm mb-2 block" style={{ color: COLORS.textSecondary }}>Password</label>
+            <input type="password" placeholder="••••••••" value={password}
+              onChange={e => setPassword(e.target.value)}
+              className="w-full p-4 rounded-xl outline-none" 
+              style={{ backgroundColor: COLORS.surface, color: COLORS.text, border: `1px solid ${COLORS.surfaceLight}` }} />
+          </div>
+        </div>
+      </div>
+      <button onClick={onLogin} disabled={!email || !password}
+        className="w-full py-4 rounded-xl font-semibold text-lg"
+        style={{ backgroundColor: COLORS.primary, color: COLORS.text, opacity: email && password ? 1 : 0.5 }}>
+        Log In
+      </button>
+    </div>
+  );
+}
+
+// RegisterScreen as separate component
+function RegisterScreen({ onBack, onRegister, COLORS }) {
+  const [regData, setRegData] = useState({
+    firstName: '', lastName: '', email: '', password: '', confirmPassword: '', dob: '', weight: ''
+  });
+  
+  const isValid = regData.firstName && regData.lastName && regData.email && 
+    regData.password && regData.password === regData.confirmPassword;
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
+        <button onClick={onBack}><ChevronLeft size={24} color={COLORS.text} /></button>
+        <h2 className="text-lg font-bold" style={{ color: COLORS.text }}>Create Account</h2>
+      </div>
+      <div className="flex-1 overflow-auto p-6">
+        <div className="space-y-4">
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <label className="text-sm mb-2 block" style={{ color: COLORS.textSecondary }}>First Name</label>
+              <input type="text" placeholder="First name" value={regData.firstName}
+                onChange={e => setRegData(p => ({...p, firstName: e.target.value}))}
+                className="w-full p-4 rounded-xl outline-none" 
+                style={{ backgroundColor: COLORS.surface, color: COLORS.text, border: `1px solid ${COLORS.surfaceLight}` }} />
+            </div>
+            <div className="flex-1">
+              <label className="text-sm mb-2 block" style={{ color: COLORS.textSecondary }}>Last Name</label>
+              <input type="text" placeholder="Last name" value={regData.lastName}
+                onChange={e => setRegData(p => ({...p, lastName: e.target.value}))}
+                className="w-full p-4 rounded-xl outline-none" 
+                style={{ backgroundColor: COLORS.surface, color: COLORS.text, border: `1px solid ${COLORS.surfaceLight}` }} />
+            </div>
+          </div>
+          <div>
+            <label className="text-sm mb-2 block" style={{ color: COLORS.textSecondary }}>Email</label>
+            <input type="email" placeholder="your@email.com" value={regData.email}
+              onChange={e => setRegData(p => ({...p, email: e.target.value}))}
+              className="w-full p-4 rounded-xl outline-none" 
+              style={{ backgroundColor: COLORS.surface, color: COLORS.text, border: `1px solid ${COLORS.surfaceLight}` }} />
+          </div>
+          <div>
+            <label className="text-sm mb-2 block" style={{ color: COLORS.textSecondary }}>Password</label>
+            <input type="password" placeholder="••••••••" value={regData.password}
+              onChange={e => setRegData(p => ({...p, password: e.target.value}))}
+              className="w-full p-4 rounded-xl outline-none" 
+              style={{ backgroundColor: COLORS.surface, color: COLORS.text, border: `1px solid ${COLORS.surfaceLight}` }} />
+          </div>
+          <div>
+            <label className="text-sm mb-2 block" style={{ color: COLORS.textSecondary }}>Confirm Password</label>
+            <input type="password" placeholder="••••••••" value={regData.confirmPassword}
+              onChange={e => setRegData(p => ({...p, confirmPassword: e.target.value}))}
+              className="w-full p-4 rounded-xl outline-none" 
+              style={{ backgroundColor: COLORS.surface, color: COLORS.text, 
+                border: `1px solid ${regData.confirmPassword && regData.password !== regData.confirmPassword ? COLORS.error : COLORS.surfaceLight}` }} />
+          </div>
+        </div>
+      </div>
+      <div className="p-6 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+        <button onClick={() => onRegister(regData)} disabled={!isValid}
+          className="w-full py-4 rounded-xl font-semibold text-lg"
+          style={{ backgroundColor: COLORS.primary, color: COLORS.text, opacity: isValid ? 1 : 0.5 }}>
+          Create Account
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ActiveWorkoutScreen as separate component
+function ActiveWorkoutScreen({ onClose, COLORS, availableTime = 60 }) {
+  const [phase, setPhase] = useState('overview'); // 'overview', 'workout', 'workoutOverview', 'complete'
+  const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
+  const [currentSetIndex, setCurrentSetIndex] = useState(0);
+  const [isResting, setIsResting] = useState(false);
+  const [restTimeLeft, setRestTimeLeft] = useState(0);
+  const [completedSets, setCompletedSets] = useState([]);
+  const [currentSetData, setCurrentSetData] = useState({ weight: 0, reps: 0 });
+  const [showExerciseHistory, setShowExerciseHistory] = useState(null);
+  const [showSwapExercise, setShowSwapExercise] = useState(null);
+  const [swapSearch, setSwapSearch] = useState('');
+  const [exercises, setExercises] = useState([...WORKOUT_EXERCISES]);
+  const [showAddExercise, setShowAddExercise] = useState(false);
+  const [addExerciseSearch, setAddExerciseSearch] = useState('');
+
+  // Filter exercises based on available time
+  const exercisesForTime = exercises.slice(0, Math.max(2, Math.floor(availableTime / 12)));
+  
+  const totalSets = exercisesForTime.reduce((acc, ex) => acc + ex.sets, 0);
+  const completedSetsCount = completedSets.length;
+  const progressPercent = (completedSetsCount / totalSets) * 100;
+  const currentExercise = exercisesForTime[currentExerciseIndex];
+
+  useEffect(() => {
+    if (currentExercise) {
+      setCurrentSetData({ weight: currentExercise.suggestedWeight, reps: currentExercise.targetReps });
+    }
+  }, [currentExerciseIndex, currentSetIndex]);
+
+  useEffect(() => {
+    let interval;
+    if (isResting && restTimeLeft > 0) {
+      interval = setInterval(() => setRestTimeLeft(prev => prev - 1), 1000);
+    } else if (restTimeLeft === 0 && isResting) {
+      setIsResting(false);
+    }
+    return () => clearInterval(interval);
+  }, [isResting, restTimeLeft]);
+
+  const formatTime = (seconds) => `${Math.floor(seconds / 60)}:${(seconds % 60).toString().padStart(2, '0')}`;
+
+  const completeSet = () => {
+    setCompletedSets(prev => [...prev, { exerciseId: currentExercise.id, setIndex: currentSetIndex, weight: currentSetData.weight, reps: currentSetData.reps }]);
+    if (currentSetIndex < currentExercise.sets - 1) {
+      setRestTimeLeft(currentExercise.restTime);
+      setIsResting(true);
+      setCurrentSetIndex(prev => prev + 1);
+    } else if (currentExerciseIndex < exercisesForTime.length - 1) {
+      setRestTimeLeft(currentExercise.restTime);
+      setIsResting(true);
+      setCurrentExerciseIndex(prev => prev + 1);
+      setCurrentSetIndex(0);
+    } else {
+      setPhase('complete');
+    }
+  };
+
+  const swapExercise = (exerciseIndex, newExerciseName) => {
+    const newExercise = { ...exercises[exerciseIndex], name: newExerciseName, id: newExerciseName.toLowerCase().replace(/\s/g, '_') };
+    setExercises(prev => prev.map((ex, i) => i === exerciseIndex ? newExercise : ex));
+    setShowSwapExercise(null);
+    setSwapSearch('');
+  };
+
+  const addExercise = (exerciseName) => {
+    const newEx = {
+      id: exerciseName.toLowerCase().replace(/\s/g, '_'),
+      name: exerciseName,
+      sets: 3,
+      targetReps: 10,
+      suggestedWeight: 20,
+      lastWeight: 0,
+      lastReps: [0, 0, 0],
+      restTime: 120,
+      muscleGroup: ALL_EXERCISES.find(e => e.name === exerciseName)?.muscleGroup || 'Other',
+      history: [],
+      alternatives: []
+    };
+    setExercises(prev => [...prev, newEx]);
+    setShowAddExercise(false);
+    setAddExerciseSearch('');
+  };
+
+  const addSetToExercise = (exerciseIndex) => {
+    setExercises(prev => prev.map((ex, i) => i === exerciseIndex ? { ...ex, sets: ex.sets + 1, lastReps: [...ex.lastReps, ex.targetReps] } : ex));
+  };
+
+  const getCompletedForExercise = (exId) => completedSets.filter(s => s.exerciseId === exId);
+  const getUpcomingExercises = () => exercisesForTime.slice(currentExerciseIndex + 1);
+  const filteredSwapExercises = ALL_EXERCISES.filter(ex => ex.name.toLowerCase().includes(swapSearch.toLowerCase()));
+  const filteredAddExercises = ALL_EXERCISES.filter(ex => ex.name.toLowerCase().includes(addExerciseSearch.toLowerCase()));
+
+  // EXERCISE HISTORY MODAL
+  if (showExerciseHistory !== null) {
+    const exercise = exercisesForTime[showExerciseHistory];
+    const maxE1rm = Math.max(...(exercise.history?.map(h => h.e1rm) || [0]));
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
+        <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
+          <button onClick={() => setShowExerciseHistory(null)}><ChevronLeft size={24} color={COLORS.text} /></button>
+          <h2 className="text-lg font-bold" style={{ color: COLORS.text }}>{exercise.name} History</h2>
+        </div>
+        <div className="flex-1 overflow-auto p-4">
+          <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
+            <p className="text-sm mb-2" style={{ color: COLORS.textMuted }}>Estimated 1RM Progress</p>
+            <div className="h-32 flex items-end gap-2">
+              {exercise.history?.map((h, i) => (
+                <div key={i} className="flex-1 flex flex-col items-center">
+                  <div className="w-full rounded-t" style={{ backgroundColor: COLORS.primary, height: `${(h.e1rm / maxE1rm) * 100}%`, minHeight: 8 }} />
+                  <p className="text-xs mt-1 font-bold" style={{ color: COLORS.text }}>{h.e1rm}kg</p>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>{h.date}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+          <p className="font-semibold mb-3" style={{ color: COLORS.text }}>Previous Sessions</p>
+          <div className="space-y-3">
+            {exercise.history?.map((session, i) => (
+              <div key={i} className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+                <div className="flex justify-between items-center mb-2">
+                  <p className="font-semibold" style={{ color: COLORS.text }}>{session.date}</p>
+                  <span className="text-xs px-2 py-1 rounded" style={{ backgroundColor: COLORS.accent + '20', color: COLORS.accent }}>e1RM: {session.e1rm}kg</span>
+                </div>
+                <p style={{ color: COLORS.textSecondary }}>{session.weight}kg × {session.reps.join(', ')} reps</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="p-4"><button onClick={() => setShowExerciseHistory(null)} className="w-full py-4 rounded-xl font-semibold" style={{ backgroundColor: COLORS.primary, color: COLORS.text }}>Back to Workout</button></div>
+      </div>
+    );
+  }
+
+  // SWAP EXERCISE MODAL
+  if (showSwapExercise !== null) {
+    const exercise = exercisesForTime[showSwapExercise];
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
+        <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
+          <button onClick={() => { setShowSwapExercise(null); setSwapSearch(''); }}><ChevronLeft size={24} color={COLORS.text} /></button>
+          <h2 className="text-lg font-bold" style={{ color: COLORS.text }}>Swap {exercise.name}</h2>
+        </div>
+        <div className="flex-1 overflow-auto p-4">
+          <input type="text" placeholder="Search exercises..." value={swapSearch} onChange={e => setSwapSearch(e.target.value)}
+            className="w-full p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface, color: COLORS.text, border: `1px solid ${COLORS.surfaceLight}` }} />
+          <p className="text-sm font-semibold mb-2" style={{ color: COLORS.text }}>Suggested Alternatives</p>
+          <div className="space-y-2 mb-4">
+            {exercise.alternatives?.map(alt => (
+              <button key={alt} onClick={() => swapExercise(showSwapExercise, alt)} className="w-full p-4 rounded-xl text-left flex justify-between items-center" style={{ backgroundColor: COLORS.surface }}>
+                <span style={{ color: COLORS.text }}>{alt}</span>
+                <ChevronRight size={18} color={COLORS.textMuted} />
+              </button>
+            ))}
+          </div>
+          {swapSearch && (
+            <>
+              <p className="text-sm font-semibold mb-2" style={{ color: COLORS.text }}>Search Results</p>
+              <div className="space-y-2">
+                {filteredSwapExercises.slice(0, 8).map(ex => (
+                  <button key={ex.name} onClick={() => swapExercise(showSwapExercise, ex.name)} className="w-full p-4 rounded-xl text-left flex justify-between items-center" style={{ backgroundColor: COLORS.surface }}>
+                    <div>
+                      <p style={{ color: COLORS.text }}>{ex.name}</p>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>{ex.muscleGroup}</p>
+                    </div>
+                    <ChevronRight size={18} color={COLORS.textMuted} />
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ADD EXERCISE MODAL
+  if (showAddExercise) {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
+        <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
+          <button onClick={() => { setShowAddExercise(false); setAddExerciseSearch(''); }}><ChevronLeft size={24} color={COLORS.text} /></button>
+          <h2 className="text-lg font-bold" style={{ color: COLORS.text }}>Add Exercise</h2>
+        </div>
+        <div className="flex-1 overflow-auto p-4">
+          <input type="text" placeholder="Search exercises..." value={addExerciseSearch} onChange={e => setAddExerciseSearch(e.target.value)}
+            className="w-full p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface, color: COLORS.text, border: `1px solid ${COLORS.surfaceLight}` }} />
+          <div className="space-y-2">
+            {filteredAddExercises.map(ex => (
+              <button key={ex.name} onClick={() => addExercise(ex.name)} className="w-full p-4 rounded-xl text-left flex justify-between items-center" style={{ backgroundColor: COLORS.surface }}>
+                <div>
+                  <p style={{ color: COLORS.text }}>{ex.name}</p>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>{ex.muscleGroup}</p>
+                </div>
+                <Plus size={18} color={COLORS.primary} />
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // WORKOUT OVERVIEW (during workout)
+  if (phase === 'workoutOverview') {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
+        <div className="p-4 border-b flex items-center justify-between" style={{ borderColor: COLORS.surfaceLight }}>
+          <div className="flex items-center gap-3">
+            <button onClick={() => setPhase('workout')}><ChevronLeft size={24} color={COLORS.text} /></button>
+            <h2 className="text-lg font-bold" style={{ color: COLORS.text }}>Workout Overview</h2>
+          </div>
+          <span className="text-sm" style={{ color: COLORS.textMuted }}>{completedSetsCount}/{totalSets} sets</span>
+        </div>
+        <div className="flex-1 overflow-auto p-4">
+          {exercisesForTime.map((exercise, exIdx) => {
+            const exCompletedSets = getCompletedForExercise(exercise.id);
+            const isCurrentEx = exIdx === currentExerciseIndex;
+            const isCompleted = exCompletedSets.length === exercise.sets;
+            return (
+              <div key={exercise.id} className="mb-3 p-4 rounded-xl" style={{ backgroundColor: COLORS.surface, border: isCurrentEx ? `2px solid ${COLORS.primary}` : 'none' }}>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    {isCompleted ? <Check size={18} color={COLORS.success} /> : isCurrentEx ? <Play size={18} color={COLORS.primary} /> : <div className="w-4.5 h-4.5" />}
+                    <p className="font-semibold" style={{ color: isCompleted ? COLORS.success : COLORS.text }}>{exercise.name}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => addSetToExercise(exIdx)} className="p-1 rounded" style={{ backgroundColor: COLORS.surfaceLight }}><Plus size={14} color={COLORS.textMuted} /></button>
+                    <button onClick={() => setShowSwapExercise(exIdx)} className="p-1 rounded" style={{ backgroundColor: COLORS.surfaceLight }}><Undo2 size={14} color={COLORS.textMuted} /></button>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  {Array(exercise.sets).fill(0).map((_, setIdx) => {
+                    const completedSet = exCompletedSets[setIdx];
+                    return (
+                      <div key={setIdx} className="px-2 py-1 rounded text-xs" style={{ backgroundColor: completedSet ? COLORS.success + '20' : COLORS.surfaceLight, color: completedSet ? COLORS.success : COLORS.textMuted }}>
+                        {completedSet ? `${completedSet.weight}×${completedSet.reps}` : `Set ${setIdx + 1}`}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+          <button onClick={() => setShowAddExercise(true)} className="w-full p-4 rounded-xl flex items-center justify-center gap-2" style={{ backgroundColor: COLORS.surfaceLight, border: `2px dashed ${COLORS.textMuted}` }}>
+            <Plus size={18} color={COLORS.textMuted} /><span style={{ color: COLORS.textMuted }}>Add Exercise</span>
+          </button>
+        </div>
+        <div className="p-4 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+          <div className="h-2 rounded-full overflow-hidden mb-3" style={{ backgroundColor: COLORS.surfaceLight }}>
+            <div className="h-full rounded-full" style={{ backgroundColor: COLORS.primary, width: `${progressPercent}%` }} />
+          </div>
+          <button onClick={() => setPhase('workout')} className="w-full py-4 rounded-xl font-semibold" style={{ backgroundColor: COLORS.primary, color: COLORS.text }}>Continue Workout</button>
+        </div>
+      </div>
+    );
+  }
+
+  // INITIAL OVERVIEW PHASE
+  if (phase === 'overview') {
+    // Workout purpose descriptions
+    const workoutPurpose = {
+      title: "Push Day A",
+      focus: "Chest, Shoulders & Triceps",
+      description: "This workout focuses on pushing movements to build upper body strength. You'll target your chest with pressing exercises, shoulders with overhead work, and finish with tricep isolation to maximize arm development.",
+      goals: ["Build pressing strength", "Develop chest & shoulder mass", "Progressive overload on compound lifts"]
+    };
+    
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
+        <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
+          <button onClick={onClose}><X size={24} color={COLORS.text} /></button>
+          <h2 className="text-lg font-bold" style={{ color: COLORS.text }}>{workoutPurpose.title}</h2>
+        </div>
+        <div className="flex-1 overflow-auto p-4">
+          <div className="text-center mb-4">
+            <span className="text-5xl">💪</span>
+            <h3 className="text-2xl font-bold mt-3" style={{ color: COLORS.text }}>Today's Workout</h3>
+            <p style={{ color: COLORS.textSecondary }}>{exercisesForTime.length} exercises • ~{availableTime} mins</p>
+          </div>
+          
+          {/* Workout Purpose Section */}
+          <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.primary + '15', border: `1px solid ${COLORS.primary}40` }}>
+            <div className="flex items-center gap-2 mb-2">
+              <Target size={18} color={COLORS.primary} />
+              <span className="font-semibold" style={{ color: COLORS.primary }}>{workoutPurpose.focus}</span>
+            </div>
+            <p className="text-sm mb-3" style={{ color: COLORS.textSecondary }}>{workoutPurpose.description}</p>
+            <div className="flex flex-wrap gap-2">
+              {workoutPurpose.goals.map((goal, i) => (
+                <span key={i} className="text-xs px-2 py-1 rounded-full" style={{ backgroundColor: COLORS.surface, color: COLORS.text }}>
+                  ✓ {goal}
+                </span>
+              ))}
+            </div>
+          </div>
+          
+          <div className="space-y-3 mb-6">
+            {exercisesForTime.map((exercise, i) => (
+              <div key={exercise.id} className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+                <div className="flex items-center justify-between mb-2">
+                  <button onClick={() => setShowExerciseHistory(i)} className="flex items-center gap-3 flex-1 text-left">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '20' }}>
+                      <span className="font-bold" style={{ color: COLORS.primary }}>{i + 1}</span>
+                    </div>
+                    <div>
+                      <p className="font-semibold" style={{ color: COLORS.text }}>{exercise.name}</p>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>{exercise.muscleGroup} • Tap to view history</p>
+                    </div>
+                  </button>
+                  <div className="flex items-center gap-2">
+                    <div className="text-right mr-2">
+                      <p className="font-semibold" style={{ color: COLORS.text }}>{exercise.sets} × {exercise.targetReps}</p>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>{exercise.suggestedWeight}kg</p>
+                    </div>
+                    <button onClick={() => setShowSwapExercise(i)} className="p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
+                      <Undo2 size={16} color={COLORS.textMuted} />
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-2 pt-2 border-t flex items-center justify-between" style={{ borderColor: COLORS.surfaceLight }}>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>Last: {exercise.lastWeight}kg × {exercise.lastReps.join(', ')}</p>
+                  {exercise.suggestedWeight > exercise.lastWeight && (
+                    <span className="text-xs px-2 py-0.5 rounded" style={{ backgroundColor: COLORS.success + '20', color: COLORS.success }}>+{(exercise.suggestedWeight - exercise.lastWeight).toFixed(1)}kg</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          <button onClick={() => setShowAddExercise(true)} className="w-full p-4 rounded-xl flex items-center justify-center gap-2 mb-4" style={{ backgroundColor: COLORS.surfaceLight, border: `2px dashed ${COLORS.textMuted}` }}>
+            <Plus size={18} color={COLORS.textMuted} /><span style={{ color: COLORS.textMuted }}>Add Exercise</span>
+          </button>
+          <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surfaceLight }}>
+            <p className="text-sm" style={{ color: COLORS.textSecondary }}>💡 <strong style={{ color: COLORS.text }}>Tip:</strong> Tap any exercise to view history & progress charts. Use the swap button to substitute exercises.</p>
+          </div>
+        </div>
+        <div className="p-4 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+          <button onClick={() => setPhase('workout')} className="w-full py-4 rounded-xl font-semibold flex items-center justify-center gap-2" style={{ backgroundColor: COLORS.primary, color: COLORS.text }}>Start Workout <Play size={20} /></button>
+        </div>
+      </div>
+    );
+  }
+
+  // COMPLETE PHASE
+  if (phase === 'complete') {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
+        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+          <span className="text-6xl mb-4">🎉</span>
+          <h2 className="text-3xl font-bold mb-2" style={{ color: COLORS.text }}>Workout Complete!</h2>
+          <p className="mb-6" style={{ color: COLORS.textSecondary }}>You crushed {completedSetsCount} sets across {exercisesForTime.length} exercises</p>
+          <div className="grid grid-cols-2 gap-4 w-full max-w-xs mb-6">
+            <div className="p-4 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}><p className="text-2xl font-bold" style={{ color: COLORS.primary }}>{completedSetsCount}</p><p className="text-xs" style={{ color: COLORS.textMuted }}>Total Sets</p></div>
+            <div className="p-4 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}><p className="text-2xl font-bold" style={{ color: COLORS.success }}>{exercisesForTime.length}</p><p className="text-xs" style={{ color: COLORS.textMuted }}>Exercises</p></div>
+          </div>
+          <div className="w-full max-w-xs p-4 rounded-xl" style={{ backgroundColor: COLORS.success + '15' }}><p className="text-sm" style={{ color: COLORS.success }}>✓ Progress saved! Keep it up for your next session.</p></div>
+        </div>
+        <div className="p-4 border-t" style={{ borderColor: COLORS.surfaceLight }}><button onClick={onClose} className="w-full py-4 rounded-xl font-semibold" style={{ backgroundColor: COLORS.success, color: COLORS.text }}>Done</button></div>
+      </div>
+    );
+  }
+
+  // REST SCREEN
+  if (isResting) {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
+        <div className="p-4 border-b flex items-center justify-between" style={{ borderColor: COLORS.surfaceLight }}>
+          <div className="flex items-center gap-3">
+            <button onClick={onClose}><X size={24} color={COLORS.text} /></button>
+            <h2 className="text-lg font-bold" style={{ color: COLORS.text }}>Rest</h2>
+          </div>
+          <button onClick={() => setPhase('workoutOverview')} className="px-3 py-1 rounded-lg text-sm" style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.textSecondary }}>Overview</button>
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center p-6">
+          <span className="text-5xl mb-4">😤</span>
+          <p className="text-lg mb-2" style={{ color: COLORS.textSecondary }}>Rest before</p>
+          <h3 className="text-2xl font-bold mb-6" style={{ color: COLORS.text }}>{currentExercise.name} - Set {currentSetIndex + 1}</h3>
+          <div className="w-40 h-40 rounded-full flex items-center justify-center mb-6" style={{ backgroundColor: COLORS.accent + '20', border: `4px solid ${COLORS.accent}` }}>
+            <p className="text-5xl font-bold" style={{ color: COLORS.accent }}>{formatTime(restTimeLeft)}</p>
+          </div>
+          <p className="text-sm mb-6" style={{ color: COLORS.textMuted }}>Target: {currentExercise.suggestedWeight}kg × {currentExercise.targetReps} reps</p>
+          <button onClick={() => { setIsResting(false); setRestTimeLeft(0); }} className="px-6 py-3 rounded-xl font-semibold" style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text }}>Skip Rest</button>
+        </div>
+        <div className="p-4 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+          <div className="flex items-center justify-between mb-2"><span className="text-sm" style={{ color: COLORS.textMuted }}>Progress</span><span className="text-sm font-semibold" style={{ color: COLORS.text }}>{completedSetsCount}/{totalSets} sets</span></div>
+          <div className="h-3 rounded-full overflow-hidden" style={{ backgroundColor: COLORS.surfaceLight }}><div className="h-full rounded-full transition-all" style={{ backgroundColor: COLORS.primary, width: `${progressPercent}%` }} /></div>
+        </div>
+      </div>
+    );
+  }
+
+  // ACTIVE WORKOUT PHASE
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
+      <div className="p-4 border-b flex items-center justify-between" style={{ borderColor: COLORS.surfaceLight }}>
+        <div className="flex items-center gap-3">
+          <button onClick={onClose}><X size={24} color={COLORS.text} /></button>
+          <div><h2 className="text-lg font-bold" style={{ color: COLORS.text }}>{currentExercise.name}</h2><p className="text-xs" style={{ color: COLORS.textMuted }}>{currentExercise.muscleGroup}</p></div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setShowSwapExercise(currentExerciseIndex)} className="p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}><Undo2 size={16} color={COLORS.textMuted} /></button>
+          <button onClick={() => setPhase('workoutOverview')} className="px-3 py-1 rounded-lg text-sm" style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.textSecondary }}>Overview</button>
+          <span className="px-3 py-1 rounded-full text-sm font-semibold" style={{ backgroundColor: COLORS.primary + '20', color: COLORS.primary }}>Set {currentSetIndex + 1}/{currentExercise.sets}</span>
+        </div>
+      </div>
+      <div className="flex-1 overflow-auto p-4">
+        <div className="p-6 rounded-2xl mb-4 text-center" style={{ backgroundColor: COLORS.surface }}>
+          <p className="text-sm mb-2" style={{ color: COLORS.textSecondary }}>Target for this set</p>
+          <div className="flex items-center justify-center gap-4 mb-4">
+            <div><p className="text-4xl font-bold" style={{ color: COLORS.primary }}>{currentExercise.suggestedWeight}</p><p className="text-sm" style={{ color: COLORS.textMuted }}>kg</p></div>
+            <span className="text-2xl" style={{ color: COLORS.textMuted }}>×</span>
+            <div><p className="text-4xl font-bold" style={{ color: COLORS.primary }}>{currentExercise.targetReps}</p><p className="text-sm" style={{ color: COLORS.textMuted }}>reps</p></div>
+          </div>
+          <div className="pt-3 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+            <p className="text-xs" style={{ color: COLORS.textMuted }}>Last: {currentExercise.lastWeight}kg × {currentExercise.lastReps[currentSetIndex] || currentExercise.lastReps[0]} reps
+              {currentExercise.suggestedWeight > currentExercise.lastWeight && <span style={{ color: COLORS.success }}> (+{(currentExercise.suggestedWeight - currentExercise.lastWeight).toFixed(1)}kg)</span>}
+            </p>
+          </div>
+        </div>
+        <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
+          <p className="text-sm font-semibold mb-3" style={{ color: COLORS.text }}>Log your actual performance:</p>
+          <div className="flex items-center gap-4">
+            <div className="flex-1">
+              <label className="text-xs mb-1 block" style={{ color: COLORS.textMuted }}>Weight (kg)</label>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setCurrentSetData(prev => ({...prev, weight: Math.max(0, prev.weight - 2.5)}))} className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: COLORS.surfaceLight }}><Minus size={16} color={COLORS.text} /></button>
+                <input type="number" value={currentSetData.weight} onChange={e => setCurrentSetData(prev => ({...prev, weight: parseFloat(e.target.value) || 0}))} className="flex-1 p-3 rounded-lg text-center text-xl font-bold" style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }} />
+                <button onClick={() => setCurrentSetData(prev => ({...prev, weight: prev.weight + 2.5}))} className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: COLORS.surfaceLight }}><Plus size={16} color={COLORS.text} /></button>
+              </div>
+            </div>
+            <div className="flex-1">
+              <label className="text-xs mb-1 block" style={{ color: COLORS.textMuted }}>Reps</label>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setCurrentSetData(prev => ({...prev, reps: Math.max(0, prev.reps - 1)}))} className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: COLORS.surfaceLight }}><Minus size={16} color={COLORS.text} /></button>
+                <input type="number" value={currentSetData.reps} onChange={e => setCurrentSetData(prev => ({...prev, reps: parseInt(e.target.value) || 0}))} className="flex-1 p-3 rounded-lg text-center text-xl font-bold" style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }} />
+                <button onClick={() => setCurrentSetData(prev => ({...prev, reps: prev.reps + 1}))} className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: COLORS.surfaceLight }}><Plus size={16} color={COLORS.text} /></button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="p-3 rounded-xl mb-4 flex items-center gap-3" style={{ backgroundColor: COLORS.accent + '15' }}><Clock size={18} color={COLORS.accent} /><p className="text-sm" style={{ color: COLORS.textSecondary }}><strong style={{ color: COLORS.accent }}>{formatTime(currentExercise.restTime)}</strong> rest after this set</p></div>
+        {completedSets.filter(s => s.exerciseId === currentExercise.id).length > 0 && (
+          <div className="mb-4"><p className="text-sm font-semibold mb-2" style={{ color: COLORS.text }}>Completed Sets</p><div className="flex gap-2">{completedSets.filter(s => s.exerciseId === currentExercise.id).map((s, i) => (<div key={i} className="px-3 py-2 rounded-lg" style={{ backgroundColor: COLORS.success + '20' }}><p className="text-xs font-semibold" style={{ color: COLORS.success }}>Set {i + 1}</p><p className="text-xs" style={{ color: COLORS.textMuted }}>{s.weight}kg × {s.reps}</p></div>))}</div></div>
+        )}
+        {getUpcomingExercises().length > 0 && (<div><p className="text-sm font-semibold mb-2" style={{ color: COLORS.text }}>Up Next</p><div className="space-y-2">{getUpcomingExercises().slice(0, 2).map((ex, i) => (<div key={ex.id} className="p-3 rounded-lg flex items-center justify-between" style={{ backgroundColor: COLORS.surfaceLight }}><div className="flex items-center gap-2"><span className="text-sm" style={{ color: COLORS.textMuted }}>{currentExerciseIndex + 2 + i}.</span><span className="text-sm" style={{ color: COLORS.text }}>{ex.name}</span></div><span className="text-xs" style={{ color: COLORS.textMuted }}>{ex.sets} × {ex.targetReps}</span></div>))}</div></div>)}
+      </div>
+      <div className="p-4 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+        <div className="flex items-center justify-between mb-2"><span className="text-sm" style={{ color: COLORS.textMuted }}>Progress</span><span className="text-sm font-semibold" style={{ color: COLORS.text }}>{completedSetsCount}/{totalSets} sets</span></div>
+        <div className="h-2 rounded-full overflow-hidden mb-4" style={{ backgroundColor: COLORS.surfaceLight }}><div className="h-full rounded-full transition-all" style={{ backgroundColor: COLORS.primary, width: `${progressPercent}%` }} /></div>
+        <button onClick={completeSet} className="w-full py-4 rounded-xl font-semibold flex items-center justify-center gap-2" style={{ backgroundColor: COLORS.success, color: COLORS.text }}><Check size={20} /> Complete Set</button>
+      </div>
+    </div>
+  );
+}
+
+// Main App Component
+export default function UpRepDemo() {
+  const [currentScreen, setCurrentScreen] = useState('welcome');
+  const [activeTab, setActiveTab] = useState('home');
+  const [showActiveWorkout, setShowActiveWorkout] = useState(false);
+  const [workoutTime, setWorkoutTime] = useState(60);
+  const [showTimeEditor, setShowTimeEditor] = useState(false);
+  const [showReschedule, setShowReschedule] = useState(false);
+  const [showPausePlan, setShowPausePlan] = useState(false);
+  const [rescheduleOption, setRescheduleOption] = useState(null);
+  const [todayWorkout, setTodayWorkout] = useState({ type: 'Push Day', name: 'Push Day A', exercises: 5, duration: 60 });
+  const [showStreakCalendar, setShowStreakCalendar] = useState(null);
+  const [streakCalendarMonth, setStreakCalendarMonth] = useState(0); // January 2026
+  const [streakCalendarYear, setStreakCalendarYear] = useState(2026);
+  const [selectedStreakDay, setSelectedStreakDay] = useState(null);
+  const [pauseDuration, setPauseDuration] = useState(null);
+  const [pauseCalendarMonth, setPauseCalendarMonth] = useState(0); // January 2026
+  const [pauseCalendarYear, setPauseCalendarYear] = useState(2026);
+  const [onboardingStep, setOnboardingStep] = useState(0);
+  const [showGoalInfo, setShowGoalInfo] = useState(null);
+  const [hoveredGoal, setHoveredGoal] = useState(null);
+  const [waterIntake, setWaterIntake] = useState(1250);
+  const [caloriesIntake, setCaloriesIntake] = useState(1450);
+  const [proteinIntake, setProteinIntake] = useState(95);
+  const [sleepHours, setSleepHours] = useState(7.5);
+  const [bedTime, setBedTime] = useState('22:30');
+  const [wakeTime, setWakeTime] = useState('06:30');
+  const [lastNightBedTime, setLastNightBedTime] = useState('23:00');
+  const [lastNightWakeTime, setLastNightWakeTime] = useState('06:30');
+  const [lastNightConfirmed, setLastNightConfirmed] = useState(false);
+  
+  // Local editing refs for sleep (prevents scroll on each keystroke)
+  const sleepEditRefs = {
+    lastBedH: React.useRef(null),
+    lastBedM: React.useRef(null),
+    lastWakeH: React.useRef(null),
+    lastWakeM: React.useRef(null),
+    bedH: React.useRef(null),
+    bedM: React.useRef(null),
+    wakeH: React.useRef(null),
+    wakeM: React.useRef(null),
+  };
+  
+  // Pause/Reschedule status
+  const [isPaused, setIsPaused] = useState(false);
+  const [pauseReturnDate, setPauseReturnDate] = useState(null);
+  const [isRescheduled, setIsRescheduled] = useState(false);
+  const [originalWorkout, setOriginalWorkout] = useState(null);
+  
+  // Supplements
+  const [supplements, setSupplements] = useState([
+    { id: 'creatine', name: 'Creatine', dosage: '5g', taken: true },
+    { id: 'vitamin_d', name: 'Vitamin D', dosage: '2000 IU', taken: true },
+    { id: 'omega3', name: 'Omega 3', dosage: '1000mg', taken: false },
+    { id: 'protein', name: 'Protein Shake', dosage: '30g', taken: false },
+  ]);
+  const [showAddSupplement, setShowAddSupplement] = useState(false);
+  const [newSupplementName, setNewSupplementName] = useState('');
+  const [newSupplementDosage, setNewSupplementDosage] = useState('');
+  
+  const [userData, setUserData] = useState({
+    firstName: '', lastName: '', email: '', goal: null, experience: null,
+    daysPerWeek: 4, sessionDuration: 60, dob: '', weight: '',
+    currentWeight: '', goalWeight: '', programWeeks: 16
+  });
+
+  // Overview stats
+  const [overviewStats, setOverviewStats] = useState({
+    startingWeight: 85.0,
+    currentWeight: 81.2,
+    targetWeight: 75.0,
+    weeklyTarget: -0.5, // kg per week (negative = loss, positive = gain)
+    totalWorkouts: 47,
+    programWeek: 12,
+    programLength: 16,
+  });
+
+  const [showWeighIn, setShowWeighIn] = useState(false);
+  const [weighInValue, setWeighInValue] = useState('');
+  const [weighInDate, setWeighInDate] = useState(new Date().toISOString().split('T')[0]);
+
+  // Meal and water tracking modals
+  const [showMealEntry, setShowMealEntry] = useState(false);
+  const [showWaterEntry, setShowWaterEntry] = useState(false);
+
+  const [selectedChart, setSelectedChart] = useState('weight');
+  const chartData = {
+    weight: [
+      { week: '1', value: 85.0, expected: 85.0 }, { week: '2', value: 84.7, expected: 84.5 }, { week: '3', value: 84.4, expected: 84.0 }, { week: '4', value: 84.1, expected: 83.5 },
+      { week: '5', value: 83.8, expected: 83.0 }, { week: '6', value: 83.4, expected: 82.5 }, { week: '7', value: 83.1, expected: 82.0 }, { week: '8', value: 82.8, expected: 81.5 },
+      { week: '9', value: 82.4, expected: 81.0 }, { week: '10', value: 82.0, expected: 80.5 }, { week: '11', value: 81.6, expected: 80.0 }, { week: '12', value: 81.2, expected: 79.5 }
+    ],
+    workouts: [
+      { week: '1', value: 3, expected: 4 }, { week: '2', value: 3, expected: 4 }, { week: '3', value: 4, expected: 4 }, { week: '4', value: 4, expected: 4 },
+      { week: '5', value: 3, expected: 4 }, { week: '6', value: 4, expected: 4 }, { week: '7', value: 4, expected: 4 }, { week: '8', value: 4, expected: 4 },
+      { week: '9', value: 5, expected: 4 }, { week: '10', value: 4, expected: 4 }, { week: '11', value: 5, expected: 4 }, { week: '12', value: 5, expected: 4 }
+    ],
+    bench: [
+      { week: '1', value: 60, expected: 60 }, { week: '2', value: 60, expected: 62 }, { week: '3', value: 62.5, expected: 64 }, { week: '4', value: 67.5, expected: 66 },
+      { week: '5', value: 67.5, expected: 68 }, { week: '6', value: 70, expected: 70 }, { week: '7', value: 70, expected: 72 }, { week: '8', value: 72.5, expected: 74 },
+      { week: '9', value: 75, expected: 76 }, { week: '10', value: 75, expected: 78 }, { week: '11', value: 77.5, expected: 80 }, { week: '12', value: 80, expected: 82 }
+    ],
+    squat: [
+      { week: '1', value: 80, expected: 80 }, { week: '2', value: 82.5, expected: 82.5 }, { week: '3', value: 85, expected: 85 }, { week: '4', value: 90, expected: 87.5 },
+      { week: '5', value: 92.5, expected: 90 }, { week: '6', value: 95, expected: 92.5 }, { week: '7', value: 97.5, expected: 95 }, { week: '8', value: 100, expected: 97.5 },
+      { week: '9', value: 102.5, expected: 100 }, { week: '10', value: 105, expected: 102.5 }, { week: '11', value: 107.5, expected: 105 }, { week: '12', value: 110, expected: 107.5 }
+    ],
+  };
+  const chartLabels = { weight: 'kg', workouts: 'sessions', bench: 'kg', squat: 'kg' };
+
+  // Sleep chart data
+  const sleepChartData = [
+    { week: '1', value: 6.5, goal: 8 }, { week: '2', value: 7.0, goal: 8 }, { week: '3', value: 6.8, goal: 8 }, { week: '4', value: 7.2, goal: 8 },
+    { week: '5', value: 7.5, goal: 8 }, { week: '6', value: 7.3, goal: 8 }, { week: '7', value: 7.8, goal: 8 }, { week: '8', value: 7.5, goal: 8 },
+    { week: '9', value: 7.2, goal: 8 }, { week: '10', value: 7.6, goal: 8 }, { week: '11', value: 7.4, goal: 8 }, { week: '12', value: 7.5, goal: 8 }
+  ];
+
+  const [streaks] = useState({
+    weeklyWorkouts: { weeksCompleted: 12 },
+    calories: { daysInRow: 5 },
+    protein: { daysInRow: 8 },
+    water: { daysInRow: 3 },
+    sleep: { daysInRow: 4 },
+    supplements: { daysInRow: 6 },
+  });
+
+  // Welcome Screen
+  const WelcomeScreen = () => (
+    <div className="flex flex-col items-center justify-center h-full p-6 text-center">
+      <div className="w-24 h-24 rounded-3xl flex items-center justify-center mb-6" style={{ backgroundColor: COLORS.surface }}>
+        <Dumbbell size={48} color={COLORS.primary} />
+      </div>
+      <h1 className="text-4xl font-bold mb-2" style={{ color: COLORS.text }}>UpRep</h1>
+      <p className="text-lg mb-2" style={{ color: COLORS.textSecondary }}>Your Personal Fitness Journey</p>
+      <p className="text-sm mb-8" style={{ color: COLORS.textMuted }}>Track workouts, hit goals, transform your body</p>
+      <button onClick={() => setCurrentScreen('register')}
+        className="w-full py-4 rounded-xl font-semibold text-lg flex items-center justify-center gap-2 mb-3"
+        style={{ backgroundColor: COLORS.primary, color: COLORS.text }}>
+        Get Started <ChevronRight size={20} />
+      </button>
+      <button onClick={() => setCurrentScreen('login')}
+        className="w-full py-4 rounded-xl font-semibold text-lg mb-6"
+        style={{ backgroundColor: COLORS.surface, color: COLORS.text, border: `1px solid ${COLORS.surfaceLight}` }}>
+        Log In
+      </button>
+    </div>
+  );
+
+  // Dashboard Screen
+  const DashboardScreen = () => {
+    const userName = userData.firstName || 'Matt';
+    const hasProgress = userData.goal !== null;
+
+    return (
+      <div className="flex flex-col h-full">
+        <div className="flex-1 overflow-auto p-6">
+          <div className="flex items-center justify-center gap-2 mb-4">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: COLORS.primary }}>
+              <Dumbbell size={18} color={COLORS.text} />
+            </div>
+            <span className="text-xl font-bold" style={{ color: COLORS.text }}>UpRep</span>
+          </div>
+          <div className="text-center mb-6">
+            <p className="text-lg mb-1" style={{ color: COLORS.textSecondary }}>Welcome back,</p>
+            <h1 className="text-3xl font-bold" style={{ color: COLORS.text }}>{userName}! 👋</h1>
+          </div>
+          
+          {!hasProgress && (
+            <>
+              <div className="p-6 rounded-2xl mb-4" style={{ backgroundColor: COLORS.surface }}>
+                <div className="text-center mb-4"><span className="text-4xl">🚀</span></div>
+                <h2 className="text-xl font-bold mb-2 text-center" style={{ color: COLORS.text }}>
+                  Ready to Transform with UpRep?
+                </h2>
+                <p className="text-center mb-4" style={{ color: COLORS.textSecondary }}>
+                  Your personalized fitness journey is just a few taps away
+                </p>
+              </div>
+              <div className="space-y-3 mb-6">
+                {[
+                  { icon: Target, label: 'Personalized Plans', desc: 'Workouts tailored to your goals', color: COLORS.primary },
+                  { icon: TrendingUp, label: 'Progress Tracking', desc: 'Watch your PRs climb', color: COLORS.accent },
+                  { icon: Apple, label: 'Nutrition Tracking', desc: 'Hit your macros', color: COLORS.success },
+                  { icon: Flame, label: 'Stay Motivated', desc: 'Streaks & achievements', color: COLORS.warning },
+                ].map((item, i) => (
+                  <div key={i} className="p-4 rounded-xl flex items-center gap-4" style={{ backgroundColor: COLORS.surface }}>
+                    <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: item.color + '20' }}>
+                      <item.icon size={24} color={item.color} />
+                    </div>
+                    <div>
+                      <p className="font-semibold" style={{ color: COLORS.text }}>{item.label}</p>
+                      <p className="text-sm" style={{ color: COLORS.textSecondary }}>{item.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+        {!hasProgress && (
+          <div className="p-6 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+            <button onClick={() => setCurrentScreen('onboarding')}
+              className="w-full py-4 rounded-xl font-semibold text-lg flex items-center justify-center gap-2"
+              style={{ backgroundColor: COLORS.primary, color: COLORS.text }}>
+              Start Your UpRep Journey <ChevronRight size={20} />
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Goal Info Modal
+  const GoalInfoModal = ({ goal, onClose, onSelect }) => {
+    const info = GOAL_INFO[goal];
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
+        <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
+          <button onClick={onClose}><ChevronLeft size={24} color={COLORS.text} /></button>
+          <h2 className="text-lg font-bold" style={{ color: COLORS.text }}>{info.title}</h2>
+        </div>
+        <div className="flex-1 overflow-auto p-4">
+          <div className="text-center mb-6">
+            <span className="text-6xl">{info.icon}</span>
+            <p className="mt-4" style={{ color: COLORS.textSecondary }}>{info.overview}</p>
+          </div>
+          <div className="space-y-3">
+            {info.requirements.map((req, i) => (
+              <div key={i} className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+                <div className="flex items-start gap-3">
+                  <span className="text-2xl">{req.icon}</span>
+                  <div>
+                    <p className="font-semibold" style={{ color: COLORS.text }}>{req.title}</p>
+                    <p className="text-sm" style={{ color: COLORS.textSecondary }}>{req.desc}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="p-4 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+          <button onClick={() => onSelect(goal)} className="w-full py-4 rounded-xl font-semibold"
+            style={{ backgroundColor: COLORS.primary, color: COLORS.text }}>
+            Select This Goal
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // Onboarding Screen
+  const OnboardingScreen = () => {
+    const steps = [
+      {
+        title: "What's your main goal?",
+        subtitle: "Select a goal, tap ⓘ to learn more",
+        content: (
+          <div className="space-y-3">
+            {Object.entries(GOAL_INFO).map(([id, goal]) => (
+              <div key={id}>
+                <div
+                  className="w-full p-4 rounded-xl flex items-center gap-4 text-left cursor-pointer"
+                  style={{ backgroundColor: userData.goal === id ? COLORS.primary + '20' : COLORS.surface,
+                    border: `2px solid ${userData.goal === id ? COLORS.primary : COLORS.surfaceLight}`,
+                    borderRadius: hoveredGoal === id ? '12px 12px 0 0' : '12px' }}
+                  onClick={() => { setUserData(p => ({...p, goal: id})); setHoveredGoal(id); }}
+                >
+                  <span className="text-3xl">{goal.icon}</span>
+                  <div className="flex-1">
+                    <p className="font-semibold" style={{ color: userData.goal === id ? COLORS.primary : COLORS.text }}>{goal.title}</p>
+                  </div>
+                  {userData.goal === id && <Check size={20} color={COLORS.primary} />}
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setHoveredGoal(hoveredGoal === id ? null : id); }}
+                    className="p-2 rounded-full"
+                    style={{ backgroundColor: hoveredGoal === id ? COLORS.primary : COLORS.surfaceLight }}
+                  >
+                    <Info size={18} color={hoveredGoal === id ? COLORS.text : COLORS.textMuted} />
+                  </button>
+                </div>
+                
+                {/* Info Panel - Inline, pushes content down */}
+                {hoveredGoal === id && (
+                  <div 
+                    className="p-4 rounded-b-xl"
+                    style={{ backgroundColor: COLORS.surfaceLight, borderTop: `1px solid ${COLORS.surface}` }}
+                  >
+                    <p className="text-sm mb-3" style={{ color: COLORS.textSecondary }}>{goal.overview}</p>
+                    <div className="space-y-2">
+                      {goal.requirements.map((req, i) => (
+                        <div key={i} className="flex items-start gap-2">
+                          <span className="text-sm">{req.icon}</span>
+                          <div>
+                            <p className="text-sm font-semibold" style={{ color: COLORS.text }}>{req.title}</p>
+                            <p className="text-xs" style={{ color: COLORS.textMuted }}>{req.desc}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-3 pt-3 border-t flex justify-between text-xs" style={{ borderColor: COLORS.surface }}>
+                      <span style={{ color: COLORS.textMuted }}>Min: {goal.minDays} days/week</span>
+                      <span style={{ color: COLORS.accent }}>Ideal: {goal.idealDays} days/week</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )
+      },
+      {
+        title: "Set your weight goals",
+        subtitle: "We'll create a safe, sustainable plan",
+        content: null // Will be rendered separately to avoid re-creation
+      },
+      {
+        title: "Your experience level?",
+        content: (
+          <div className="space-y-3">
+            {[
+              { id: 'beginner', label: 'Beginner', desc: 'New to working out' },
+              { id: 'intermediate', label: 'Intermediate', desc: '1-3 years experience' },
+              { id: 'advanced', label: 'Advanced', desc: '3+ years experience' },
+            ].map(level => (
+              <button key={level.id} onClick={() => setUserData(p => ({...p, experience: level.id}))}
+                className="w-full p-4 rounded-xl text-left"
+                style={{ backgroundColor: userData.experience === level.id ? COLORS.primary + '20' : COLORS.surface,
+                  border: `2px solid ${userData.experience === level.id ? COLORS.primary : COLORS.surfaceLight}` }}>
+                <p className="font-semibold" style={{ color: userData.experience === level.id ? COLORS.primary : COLORS.text }}>{level.label}</p>
+                <p className="text-sm" style={{ color: COLORS.textSecondary }}>{level.desc}</p>
+              </button>
+            ))}
+          </div>
+        )
+      },
+    ];
+
+    const step = steps[onboardingStep];
+    
+    // Weight bounds
+    const MIN_WEIGHT = 35;
+    const MAX_WEIGHT = 250;
+    const isValidWeight = (w) => w >= MIN_WEIGHT && w <= MAX_WEIGHT;
+    
+    // Check for weight step errors
+    const getWeightError = () => {
+      if (onboardingStep !== 1) return false;
+      const currentW = parseFloat(userData.currentWeight) || 0;
+      const goalW = parseFloat(userData.goalWeight) || 0;
+      if (!currentW || !goalW) return false;
+      
+      // Check bounds
+      if (!isValidWeight(currentW) || !isValidWeight(goalW)) return true;
+      
+      const diff = goalW - currentW;
+      const weeks = userData.programWeeks || 16;
+      const weeklyChange = Math.abs(diff / weeks);
+      
+      if (userData.goal === 'lose_fat' && diff > 0) return true;
+      if ((userData.goal === 'build_muscle' || userData.goal === 'strength') && diff < 0) return true;
+      if (userData.goal === 'lose_fat' && weeklyChange > 1) return true;
+      if ((userData.goal === 'build_muscle' || userData.goal === 'strength') && weeklyChange > 0.5) return true;
+      return false;
+    };
+    
+    const canProceed = 
+      onboardingStep === 0 ? userData.goal : 
+      onboardingStep === 1 ? (userData.currentWeight && userData.goalWeight && !getWeightError()) :
+      userData.experience;
+
+    return (
+      <div className="flex flex-col h-full">
+        <div className="flex items-center gap-3 p-4">
+          <button onClick={() => onboardingStep > 0 ? setOnboardingStep(onboardingStep - 1) : setCurrentScreen('dashboard')}>
+            <ChevronLeft size={24} color={COLORS.text} />
+          </button>
+          <div className="flex-1 flex gap-1">
+            {steps.map((_, i) => (
+              <div key={i} className="flex-1 h-1 rounded-full" 
+                style={{ backgroundColor: i <= onboardingStep ? COLORS.primary : COLORS.surfaceLight }} />
+            ))}
+          </div>
+        </div>
+        <div className="flex-1 overflow-auto px-6 pb-4">
+          <h2 className="text-2xl font-bold mb-2" style={{ color: COLORS.text }}>{step.title}</h2>
+          {step.subtitle && <p className="mb-6" style={{ color: COLORS.textSecondary }}>{step.subtitle}</p>}
+          {onboardingStep === 1 ? (
+            <WeightGoalStep 
+              userData={userData} 
+              setUserData={setUserData} 
+              COLORS={COLORS} 
+            />
+          ) : step.content}
+        </div>
+        <div className="p-6">
+          <button onClick={() => {
+            if (onboardingStep < steps.length - 1) {
+              setOnboardingStep(onboardingStep + 1);
+            } else {
+              // Set up program based on user-entered weights
+              const currentW = parseFloat(userData.currentWeight) || 80;
+              const goalW = parseFloat(userData.goalWeight) || 75;
+              const weeks = userData.programWeeks || 16;
+              const weeklyTarget = (goalW - currentW) / weeks;
+              
+              setOverviewStats(prev => ({
+                ...prev,
+                startingWeight: currentW,
+                currentWeight: currentW,
+                targetWeight: goalW,
+                weeklyTarget: parseFloat(weeklyTarget.toFixed(2)),
+                programWeek: 1,
+                programLength: weeks,
+              }));
+              setCurrentScreen('main');
+            }
+          }}
+            disabled={!canProceed} className="w-full py-4 rounded-xl font-semibold text-lg"
+            style={{ backgroundColor: COLORS.primary, color: COLORS.text, opacity: canProceed ? 1 : 0.5 }}>
+            {onboardingStep < steps.length - 1 ? 'Continue' : 'Start Training'}
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // Reschedule Modal
+  const RescheduleModal = () => {
+    // Base schedule for the next 14 days
+    const baseSchedule = [
+      { day: 'Wed', date: 'Jan 8', type: 'Push Day', isToday: true },
+      { day: 'Thu', date: 'Jan 9', type: 'Pull Day' },
+      { day: 'Fri', date: 'Jan 10', type: 'Leg Day' },
+      { day: 'Sat', date: 'Jan 11', type: 'Rest' },
+      { day: 'Sun', date: 'Jan 12', type: 'Rest' },
+      { day: 'Mon', date: 'Jan 13', type: 'Push Day' },
+      { day: 'Tue', date: 'Jan 14', type: 'Pull Day' },
+      { day: 'Wed', date: 'Jan 15', type: 'Leg Day' },
+      { day: 'Thu', date: 'Jan 16', type: 'Rest' },
+      { day: 'Fri', date: 'Jan 17', type: 'Push Day' },
+      { day: 'Sat', date: 'Jan 18', type: 'Pull Day' },
+      { day: 'Sun', date: 'Jan 19', type: 'Rest' },
+      { day: 'Mon', date: 'Jan 20', type: 'Leg Day' },
+      { day: 'Tue', date: 'Jan 21', type: 'Rest' },
+    ];
+
+    const dayNames = ['Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Mon', 'Tue'];
+    const dates = ['Jan 8', 'Jan 9', 'Jan 10', 'Jan 11', 'Jan 12', 'Jan 13', 'Jan 14', 'Jan 15', 'Jan 16', 'Jan 17', 'Jan 18', 'Jan 19', 'Jan 20', 'Jan 21'];
+
+    const getUpdatedSchedule = () => {
+      if (!rescheduleOption) return baseSchedule;
+
+      const workouts = baseSchedule.map(d => d.type);
+      let newSchedule = [];
+
+      if (rescheduleOption === 'shift1') {
+        // Shift all workouts by 1 day, today becomes rest
+        newSchedule = dates.map((date, i) => ({
+          day: dayNames[i % 7],
+          date,
+          type: i === 0 ? 'Rest' : workouts[i - 1],
+          isToday: i === 0,
+          changed: i <= workouts.findIndex((w, idx) => idx > 0 && workouts[idx] !== workouts[idx-1]) + 1
+        }));
+        // Mark first few as changed
+        for (let i = 0; i < 5; i++) newSchedule[i].changed = true;
+      } else if (rescheduleOption === 'shift2') {
+        // Shift all workouts by 2 days
+        newSchedule = dates.map((date, i) => ({
+          day: dayNames[i % 7],
+          date,
+          type: i < 2 ? 'Rest' : workouts[i - 2],
+          isToday: i === 0,
+          changed: i < 6
+        }));
+      } else if (rescheduleOption === 'shift3') {
+        // Shift all workouts by 3 days
+        newSchedule = dates.map((date, i) => ({
+          day: dayNames[i % 7],
+          date,
+          type: i < 3 ? 'Rest' : workouts[i - 3],
+          isToday: i === 0,
+          changed: i < 7
+        }));
+      } else if (rescheduleOption === 'swap') {
+        // Swap today with tomorrow
+        newSchedule = dates.map((date, i) => ({
+          day: dayNames[i % 7],
+          date,
+          type: i === 0 ? workouts[1] : i === 1 ? workouts[0] : workouts[i],
+          isToday: i === 0,
+          changed: i < 2
+        }));
+      } else if (rescheduleOption === 'compress') {
+        // Move to tomorrow but remove the next rest day to keep schedule tight
+        const workoutsOnly = workouts.filter(w => w !== 'Rest');
+        let restCount = 0;
+        let workoutIdx = 0;
+        newSchedule = dates.map((date, i) => {
+          let type;
+          if (i === 0) {
+            type = 'Rest'; // Today becomes rest
+          } else {
+            // Insert workouts, skipping one rest day
+            const originalType = workouts[i];
+            if (originalType === 'Rest' && restCount === 0 && i > 0 && i < 6) {
+              // Skip first rest day after today to compress
+              restCount++;
+              type = workouts[i + 1] || 'Rest';
+            } else {
+              type = i === 0 ? 'Rest' : workouts[i - 1 + restCount];
+            }
+          }
+          return {
+            day: dayNames[i % 7],
+            date,
+            type: type || 'Rest',
+            isToday: i === 0,
+            changed: i < 5
+          };
+        });
+        // Simplified compress: shift by 1 but show compressed schedule note
+        newSchedule = dates.map((date, i) => ({
+          day: dayNames[i % 7],
+          date,
+          type: i === 0 ? 'Rest' : i === 1 ? 'Push Day' : i === 2 ? 'Pull Day' : i === 3 ? 'Leg Day' : i === 4 ? 'Push Day' : i === 5 ? 'Rest' : workouts[i],
+          isToday: i === 0,
+          changed: i < 5
+        }));
+      } else if (rescheduleOption === 'skip') {
+        // Skip today's workout entirely, continue with rest of schedule
+        newSchedule = dates.map((date, i) => ({
+          day: dayNames[i % 7],
+          date,
+          type: i === 0 ? 'Skipped' : workouts[i],
+          isToday: i === 0,
+          changed: i === 0,
+          skipped: i === 0
+        }));
+      }
+
+      return newSchedule.slice(0, 10);
+    };
+
+    const schedule = getUpdatedSchedule();
+
+    const options = [
+      { id: 'shift1', label: 'Move to Tomorrow', desc: 'Shift entire schedule by 1 day', icon: '📅' },
+      { id: 'shift2', label: 'Move 2 Days', desc: 'Shift entire schedule by 2 days', icon: '📆' },
+      { id: 'shift3', label: 'Move 3 Days', desc: 'Shift entire schedule by 3 days', icon: '🗓️' },
+      { id: 'swap', label: 'Swap with Tomorrow', desc: 'Do Pull Day today, Push Day tomorrow', icon: '🔄' },
+      { id: 'compress', label: 'Move & Compress', desc: 'Shift by 1 day, remove a rest day', icon: '⚡' },
+      { id: 'skip', label: 'Skip This Workout', desc: 'Remove from schedule, continue as planned', icon: '⏭️' },
+    ];
+
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
+        <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
+          <button onClick={() => { setRescheduleOption(null); setShowReschedule(false); }}>
+            <ChevronLeft size={24} color={COLORS.text} />
+          </button>
+          <h2 className="text-lg font-bold" style={{ color: COLORS.text }}>Reschedule Workout</h2>
+        </div>
+        <div className="flex-1 overflow-auto p-4">
+          <div className="p-3 rounded-xl mb-4 flex items-center gap-3" style={{ backgroundColor: COLORS.primary + '20' }}>
+            <Dumbbell size={20} color={COLORS.primary} />
+            <div>
+              <p className="font-semibold" style={{ color: COLORS.text }}>Today: Push Day</p>
+              <p className="text-sm" style={{ color: COLORS.textSecondary }}>Bench Press, OHP, Incline Press + 2 more</p>
+            </div>
+          </div>
+
+          <p className="mb-3 font-semibold" style={{ color: COLORS.text }}>How would you like to reschedule?</p>
+          <div className="space-y-2 mb-6">
+            {options.map(option => (
+              <button key={option.id} onClick={() => setRescheduleOption(option.id)}
+                className="w-full p-4 rounded-xl flex items-center gap-3 text-left"
+                style={{ backgroundColor: rescheduleOption === option.id ? COLORS.primary + '20' : COLORS.surface,
+                  border: `2px solid ${rescheduleOption === option.id ? COLORS.primary : COLORS.surfaceLight}` }}>
+                <span className="text-2xl">{option.icon}</span>
+                <div className="flex-1">
+                  <p className="font-semibold" style={{ color: rescheduleOption === option.id ? COLORS.primary : COLORS.text }}>{option.label}</p>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>{option.desc}</p>
+                </div>
+                {rescheduleOption === option.id && <Check size={20} color={COLORS.primary} />}
+              </button>
+            ))}
+          </div>
+
+          {rescheduleOption && (
+            <>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold" style={{ color: COLORS.text }}>Updated Schedule</h3>
+                <span className="text-xs px-2 py-1 rounded" style={{ backgroundColor: COLORS.accent + '20', color: COLORS.accent }}>
+                  {schedule.filter(d => d.changed).length} days affected
+                </span>
+              </div>
+              <div className="space-y-1">
+                {schedule.map((day, i) => (
+                  <div key={i} className="p-3 rounded-xl flex items-center justify-between"
+                    style={{ 
+                      backgroundColor: day.skipped ? COLORS.error + '15' : day.changed ? COLORS.accent + '15' : COLORS.surface,
+                      border: day.isToday ? `2px solid ${COLORS.primary}` : '1px solid transparent'
+                    }}>
+                    <div className="flex items-center gap-3">
+                      <div className="w-12">
+                        <p className="font-bold text-sm" style={{ color: day.isToday ? COLORS.primary : COLORS.text }}>{day.day}</p>
+                        <p className="text-xs" style={{ color: COLORS.textMuted }}>{day.date.split(' ')[1]}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {day.type === 'Push Day' && <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS.primary }} />}
+                        {day.type === 'Pull Day' && <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS.accent }} />}
+                        {day.type === 'Leg Day' && <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS.warning }} />}
+                        {day.type === 'Rest' && <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS.textMuted }} />}
+                        {day.type === 'Skipped' && <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS.error }} />}
+                        <p style={{ color: day.skipped ? COLORS.error : day.type === 'Rest' ? COLORS.textMuted : COLORS.text }}>{day.type}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {day.changed && !day.skipped && !day.isToday && (
+                        <span className="text-xs px-2 py-0.5 rounded" style={{ backgroundColor: COLORS.accent + '30', color: COLORS.accent }}>
+                          shifted
+                        </span>
+                      )}
+                      {day.isToday && (
+                        <span className="text-xs px-2 py-0.5 rounded" style={{ backgroundColor: COLORS.primary, color: COLORS.text }}>
+                          Today
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              {rescheduleOption === 'compress' && (
+                <div className="mt-4 p-3 rounded-xl flex items-start gap-2" style={{ backgroundColor: COLORS.warning + '15' }}>
+                  <AlertCircle size={16} color={COLORS.warning} className="mt-0.5" />
+                  <p className="text-xs" style={{ color: COLORS.textSecondary }}>
+                    <strong style={{ color: COLORS.warning }}>Compressed schedule:</strong> A rest day has been removed to keep your program on track. Make sure you're recovering well!
+                  </p>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+        <div className="p-4 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+          <button onClick={() => { 
+            // Save original workout if not already saved
+            if (!originalWorkout) {
+              setOriginalWorkout({...todayWorkout});
+            }
+            if (rescheduleOption === 'skip') {
+              setTodayWorkout({ type: 'Skipped', name: 'Workout Skipped', exercises: 0, duration: 0 });
+            } else if (rescheduleOption === 'swap') {
+              setTodayWorkout({ type: 'Pull Day', name: 'Pull Day A', exercises: 5, duration: 55 });
+            } else {
+              setTodayWorkout({ type: 'Rest', name: 'Rest Day', exercises: 0, duration: 0 });
+            }
+            setIsRescheduled(true);
+            setRescheduleOption(null); 
+            setShowReschedule(false); 
+          }}
+            disabled={!rescheduleOption} className="w-full py-4 rounded-xl font-semibold"
+            style={{ backgroundColor: rescheduleOption === 'skip' ? COLORS.error : COLORS.primary, color: COLORS.text, opacity: rescheduleOption ? 1 : 0.5 }}>
+            {rescheduleOption === 'skip' ? 'Skip Workout' : 'Confirm Reschedule'}
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // Pause Plan Modal  
+  // Pause Plan Modal with Calendar
+  const PausePlanModal = () => {
+    const today = new Date(2026, 0, 8); // Wed Jan 8, 2026
+    
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    
+    const getDaysInMonth = (month, year) => new Date(year, month + 1, 0).getDate();
+    const getFirstDayOfMonth = (month, year) => new Date(year, month, 1).getDay();
+    
+    const daysInMonth = getDaysInMonth(pauseCalendarMonth, pauseCalendarYear);
+    const firstDay = getFirstDayOfMonth(pauseCalendarMonth, pauseCalendarYear);
+    
+    const isToday = (day) => {
+      return day === today.getDate() && pauseCalendarMonth === today.getMonth() && pauseCalendarYear === today.getFullYear();
+    };
+    
+    const isSelected = (day) => {
+      if (!pauseDuration) return false;
+      const selected = new Date(pauseDuration);
+      return day === selected.getDate() && pauseCalendarMonth === selected.getMonth() && pauseCalendarYear === selected.getFullYear();
+    };
+    
+    const isPast = (day) => {
+      const date = new Date(pauseCalendarYear, pauseCalendarMonth, day);
+      return date <= today;
+    };
+    
+    const handleDateSelect = (day) => {
+      if (isPast(day)) return;
+      const selectedDate = new Date(pauseCalendarYear, pauseCalendarMonth, day);
+      setPauseDuration(selectedDate.toISOString());
+    };
+    
+    const formatSelectedDate = () => {
+      if (!pauseDuration) return '';
+      const date = new Date(pauseDuration);
+      const days = Math.ceil((date - today) / (1000 * 60 * 60 * 24));
+      return `${monthNames[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()} (${days} days)`;
+    };
+    
+    const changeMonth = (delta) => {
+      let newMonth = pauseCalendarMonth + delta;
+      let newYear = pauseCalendarYear;
+      if (newMonth > 11) { newMonth = 0; newYear++; }
+      if (newMonth < 0) { newMonth = 11; newYear--; }
+      setPauseCalendarMonth(newMonth);
+      setPauseCalendarYear(newYear);
+    };
+    
+    const calendarDays = [];
+    for (let i = 0; i < firstDay; i++) {
+      calendarDays.push(null);
+    }
+    for (let i = 1; i <= daysInMonth; i++) {
+      calendarDays.push(i);
+    }
+
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
+        <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
+          <button onClick={() => { setPauseDuration(null); setShowPausePlan(false); }}>
+            <ChevronLeft size={24} color={COLORS.text} />
+          </button>
+          <h2 className="text-lg font-bold" style={{ color: COLORS.text }}>Take a Break</h2>
+        </div>
+        <div className="flex-1 overflow-auto p-4">
+          {/* Supportive Message */}
+          <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
+            <div className="flex items-start gap-3">
+              <span className="text-3xl">🌴</span>
+              <div>
+                <h3 className="font-bold mb-1" style={{ color: COLORS.text }}>Rest is Part of Progress</h3>
+                <p className="text-sm" style={{ color: COLORS.textSecondary }}>
+                  Taking breaks is completely okay and often necessary! Whether it's a holiday, busy period, or you just need time off — your body and mind will thank you.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <p className="font-semibold mb-3" style={{ color: COLORS.text }}>When will you be back?</p>
+          
+          {/* Calendar */}
+          <div className="rounded-xl p-4 mb-4" style={{ backgroundColor: COLORS.surface }}>
+            {/* Month Navigation */}
+            <div className="flex items-center justify-between mb-4">
+              <button onClick={() => changeMonth(-1)} className="p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
+                <ChevronLeft size={20} color={COLORS.text} />
+              </button>
+              <h4 className="font-bold" style={{ color: COLORS.text }}>{monthNames[pauseCalendarMonth]} {pauseCalendarYear}</h4>
+              <button onClick={() => changeMonth(1)} className="p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
+                <ChevronRight size={20} color={COLORS.text} />
+              </button>
+            </div>
+            
+            {/* Day Headers */}
+            <div className="grid grid-cols-7 gap-1 mb-2">
+              {dayNames.map(day => (
+                <div key={day} className="text-center text-xs font-semibold py-1" style={{ color: COLORS.textMuted }}>
+                  {day}
+                </div>
+              ))}
+            </div>
+            
+            {/* Calendar Grid */}
+            <div className="grid grid-cols-7 gap-1">
+              {calendarDays.map((day, i) => (
+                <button
+                  key={i}
+                  onClick={() => day && handleDateSelect(day)}
+                  disabled={!day || isPast(day)}
+                  className="aspect-square rounded-lg flex items-center justify-center text-sm font-medium transition-all"
+                  style={{ 
+                    backgroundColor: isSelected(day) ? COLORS.success : isToday(day) ? COLORS.primary : 'transparent',
+                    color: !day ? 'transparent' : isPast(day) ? COLORS.textMuted : isSelected(day) || isToday(day) ? COLORS.text : COLORS.text,
+                    opacity: !day ? 0 : isPast(day) ? 0.4 : 1,
+                    cursor: !day || isPast(day) ? 'default' : 'pointer'
+                  }}
+                >
+                  {day || ''}
+                </button>
+              ))}
+            </div>
+            
+            {/* Legend */}
+            <div className="flex items-center justify-center gap-4 mt-4 pt-3 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded" style={{ backgroundColor: COLORS.primary }} />
+                <span className="text-xs" style={{ color: COLORS.textMuted }}>Today</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded" style={{ backgroundColor: COLORS.success }} />
+                <span className="text-xs" style={{ color: COLORS.textMuted }}>Return Date</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Selected Date Display */}
+          {pauseDuration && (
+            <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.success + '15', border: `1px solid ${COLORS.success}40` }}>
+              <div className="flex items-center gap-3">
+                <Calendar size={20} color={COLORS.success} />
+                <div>
+                  <p className="text-sm" style={{ color: COLORS.textSecondary }}>Returning on</p>
+                  <p className="font-bold" style={{ color: COLORS.success }}>{formatSelectedDate()}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* What happens during break */}
+          <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surfaceLight }}>
+            <p className="text-sm font-semibold mb-2" style={{ color: COLORS.text }}>What happens when you're back:</p>
+            <div className="space-y-2">
+              {[
+                { icon: '🔄', text: 'Your schedule will be automatically recalculated' },
+                { icon: '💪', text: 'Weights and reps adjusted based on your break length' },
+                { icon: '🔥', text: 'Streaks preserved — we know life happens!' },
+                { icon: '📈', text: 'Gradual ramp-up to get you back on track safely' },
+              ].map((item, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <span>{item.icon}</span>
+                  <p className="text-xs" style={{ color: COLORS.textSecondary }}>{item.text}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="p-4 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+          <button onClick={() => { 
+            setIsPaused(true);
+            setPauseReturnDate(pauseDuration);
+            setPauseDuration(null); 
+            setShowPausePlan(false); 
+          }}
+            disabled={!pauseDuration} className="w-full py-4 rounded-xl font-semibold"
+            style={{ backgroundColor: COLORS.success, color: COLORS.background, opacity: pauseDuration ? 1 : 0.5 }}>
+            {pauseDuration ? `Pause Until ${new Date(pauseDuration).getDate()} ${monthNames[new Date(pauseDuration).getMonth()]}` : 'Select a Return Date'}
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // Home Tab scroll ref
+  const homeScrollRef = React.useRef(null);
+  const homeScrollPos = React.useRef(0);
+
+  // Home Tab
+  const HomeTab = () => {
+    React.useEffect(() => {
+      if (homeScrollRef.current) {
+        homeScrollRef.current.scrollTop = homeScrollPos.current;
+      }
+    }, []);
+    
+    const handleScroll = (e) => {
+      homeScrollPos.current = e.target.scrollTop;
+    };
+    
+    return (
+    <div ref={homeScrollRef} onScroll={handleScroll} className="p-4 overflow-auto h-full">
+      <div className="flex justify-between items-center mb-4">
+        <div>
+          <p style={{ color: COLORS.textSecondary }}>Good evening,</p>
+          <h2 className="text-2xl font-bold" style={{ color: COLORS.text }}>{userData.firstName || 'Matt'}</h2>
+        </div>
+        <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.primary }}>
+          <span className="font-bold" style={{ color: COLORS.text }}>M</span>
+        </div>
+      </div>
+
+      {/* Paused Banner */}
+      {isPaused && pauseReturnDate && (
+        <div className="p-4 rounded-xl mb-4 flex items-center justify-between" style={{ backgroundColor: COLORS.warning + '20', border: `1px solid ${COLORS.warning}40` }}>
+          <div className="flex items-center gap-3">
+            <Moon size={20} color={COLORS.warning} />
+            <div>
+              <p className="font-semibold" style={{ color: COLORS.warning }}>Plan Paused</p>
+              <p className="text-xs" style={{ color: COLORS.textSecondary }}>
+                Returning {new Date(pauseReturnDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              </p>
+            </div>
+          </div>
+          <button onClick={() => { setIsPaused(false); setPauseReturnDate(null); setTodayWorkout({ type: 'Push Day', name: 'Push Day A', exercises: 5, duration: 60 }); }}
+            className="px-4 py-2 rounded-lg font-semibold text-sm"
+            style={{ backgroundColor: COLORS.warning, color: COLORS.background }}>
+            Resume Now
+          </button>
+        </div>
+      )}
+
+      {/* Rescheduled Banner */}
+      {isRescheduled && originalWorkout && (
+        <div className="p-4 rounded-xl mb-4 flex items-center justify-between" style={{ backgroundColor: COLORS.accent + '20', border: `1px solid ${COLORS.accent}40` }}>
+          <div className="flex items-center gap-3">
+            <Calendar size={20} color={COLORS.accent} />
+            <div>
+              <p className="font-semibold" style={{ color: COLORS.accent }}>Schedule Modified</p>
+              <p className="text-xs" style={{ color: COLORS.textSecondary }}>Originally: {originalWorkout.type}</p>
+            </div>
+          </div>
+          <button onClick={() => { setIsRescheduled(false); setTodayWorkout(originalWorkout); setOriginalWorkout(null); }}
+            className="px-4 py-2 rounded-lg font-semibold text-sm"
+            style={{ backgroundColor: COLORS.accent, color: COLORS.background }}>
+            Undo
+          </button>
+        </div>
+      )}
+
+      {/* Goal Overview Section */}
+      <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '20' }}>
+              <Target size={24} color={COLORS.primary} />
+            </div>
+            <div>
+              <p className="text-xs" style={{ color: COLORS.textMuted }}>Your Goal</p>
+              <p className="font-bold text-lg" style={{ color: COLORS.text }}>
+                {userData.goal === 'lose_fat' ? 'Lose Weight' : userData.goal === 'build_muscle' ? 'Build Muscle' : userData.goal === 'strength' ? 'Get Stronger' : userData.goal === 'fitness' ? 'General Fitness' : 'Set a Goal'}
+              </p>
+            </div>
+          </div>
+          <div className="text-right">
+            <p className="text-xs" style={{ color: COLORS.textMuted }}>Week {overviewStats.programWeek}/{overviewStats.programLength}</p>
+            <div className="w-20 h-2 rounded-full overflow-hidden mt-1" style={{ backgroundColor: COLORS.surfaceLight }}>
+              <div className="h-full rounded-full" style={{ backgroundColor: COLORS.primary, width: `${(overviewStats.programWeek / overviewStats.programLength) * 100}%` }} />
+            </div>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-3 gap-3 mb-3">
+          <div className="p-3 rounded-lg text-center" style={{ backgroundColor: COLORS.surfaceLight }}>
+            <p className="text-xs" style={{ color: COLORS.textMuted }}>Starting</p>
+            <p className="text-lg font-bold" style={{ color: COLORS.text }}>{overviewStats.startingWeight}kg</p>
+          </div>
+          <div className="p-3 rounded-lg text-center" style={{ backgroundColor: COLORS.primary + '20' }}>
+            <p className="text-xs" style={{ color: COLORS.textMuted }}>Current</p>
+            <p className="text-lg font-bold" style={{ color: COLORS.primary }}>{overviewStats.currentWeight}kg</p>
+          </div>
+          <div className="p-3 rounded-lg text-center" style={{ backgroundColor: COLORS.surfaceLight }}>
+            <p className="text-xs" style={{ color: COLORS.textMuted }}>Target</p>
+            <p className="text-lg font-bold" style={{ color: COLORS.success }}>{overviewStats.targetWeight}kg</p>
+          </div>
+        </div>
+
+        {(() => {
+          const weightChange = overviewStats.currentWeight - overviewStats.startingWeight;
+          const isLoss = weightChange < 0;
+          const isGain = weightChange > 0;
+          const isGoodProgress = 
+            (userData.goal === 'lose_fat' && isLoss) || 
+            ((userData.goal === 'build_muscle' || userData.goal === 'strength') && isGain) ||
+            (userData.goal === 'fitness');
+          const progressColor = isGoodProgress ? COLORS.success : COLORS.warning;
+          return (
+            <div className="flex items-center justify-between p-3 rounded-lg mb-3" style={{ backgroundColor: progressColor + '15' }}>
+              <div className="flex items-center gap-2">
+                <TrendingUp size={18} color={progressColor} />
+                <span className="text-sm" style={{ color: COLORS.textSecondary }}>Total Progress</span>
+              </div>
+              <span className="font-bold" style={{ color: progressColor }}>
+                {isLoss ? '↓' : isGain ? '↑' : '→'} {Math.abs(weightChange).toFixed(1)}kg
+              </span>
+            </div>
+          );
+        })()}
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="p-3 rounded-lg flex items-center gap-3" style={{ backgroundColor: COLORS.surfaceLight }}>
+            <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.warning + '20' }}>
+              <Dumbbell size={18} color={COLORS.warning} />
+            </div>
+            <div>
+              <p className="text-xs" style={{ color: COLORS.textMuted }}>Workouts</p>
+              <p className="font-bold" style={{ color: COLORS.text }}>{overviewStats.totalWorkouts}</p>
+            </div>
+          </div>
+          <div className="p-3 rounded-lg flex items-center gap-3" style={{ backgroundColor: COLORS.surfaceLight }}>
+            <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: '#448AFF20' }}>
+              <Calendar size={18} color="#448AFF" />
+            </div>
+            <div>
+              <p className="text-xs" style={{ color: COLORS.textMuted }}>This Week</p>
+              <p className="font-bold" style={{ color: COLORS.text }}>{overviewStats.weeklyTarget > 0 ? '+' : ''}{overviewStats.weeklyTarget}kg</p>
+            </div>
+          </div>
+        </div>
+        
+        <button 
+          onClick={() => { setWeighInValue(overviewStats.currentWeight.toString()); setWeighInDate(new Date().toISOString().split('T')[0]); setShowWeighIn(true); }}
+          className="w-full mt-3 py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
+          style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+        >
+          <Plus size={18} /> Log Weigh-In
+        </button>
+      </div>
+
+      {/* Weigh-In Modal */}
+      {showWeighIn && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.8)' }}>
+          <div className="w-full max-w-sm rounded-2xl p-6" style={{ backgroundColor: COLORS.surface }}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold" style={{ color: COLORS.text }}>Log Weigh-In</h3>
+              <button onClick={() => setShowWeighIn(false)} className="p-2 rounded-full" style={{ backgroundColor: COLORS.surfaceLight }}>
+                <X size={20} color={COLORS.textMuted} />
+              </button>
+            </div>
+            
+            <div className="text-center mb-6">
+              <div className="w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '20' }}>
+                <TrendingUp size={36} color={COLORS.primary} />
+              </div>
+              <p className="text-sm mb-1" style={{ color: COLORS.textMuted }}>Date</p>
+              <input
+                type="date"
+                value={weighInDate}
+                onChange={e => setWeighInDate(e.target.value)}
+                className="font-semibold text-center bg-transparent border-none cursor-pointer"
+                style={{ color: COLORS.text, colorScheme: 'dark' }}
+              />
+            </div>
+
+            <div className="mb-6">
+              <label className="text-sm mb-2 block" style={{ color: COLORS.textMuted }}>Your Weight</label>
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={() => setWeighInValue(prev => (Math.max(35, parseFloat(prev) - 0.1)).toFixed(1))}
+                  className="w-12 h-12 rounded-xl flex items-center justify-center"
+                  style={{ backgroundColor: COLORS.surfaceLight }}
+                >
+                  <Minus size={20} color={COLORS.text} />
+                </button>
+                <div className="flex-1 relative">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={weighInValue}
+                    onChange={e => setWeighInValue(e.target.value.replace(/[^0-9.]/g, ''))}
+                    className="w-full text-center text-3xl font-bold py-3 rounded-xl"
+                    style={{ 
+                      backgroundColor: COLORS.surfaceLight, 
+                      color: COLORS.text, 
+                      border: (parseFloat(weighInValue) < 35 || parseFloat(weighInValue) > 250) ? `2px solid ${COLORS.error}` : 'none' 
+                    }}
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-lg" style={{ color: COLORS.textMuted }}>kg</span>
+                </div>
+                <button 
+                  onClick={() => setWeighInValue(prev => (Math.min(250, parseFloat(prev) + 0.1)).toFixed(1))}
+                  className="w-12 h-12 rounded-xl flex items-center justify-center"
+                  style={{ backgroundColor: COLORS.surfaceLight }}
+                >
+                  <Plus size={20} color={COLORS.text} />
+                </button>
+              </div>
+              {(parseFloat(weighInValue) < 35 || parseFloat(weighInValue) > 250) && (
+                <p className="text-xs mt-2 text-center" style={{ color: COLORS.error }}>
+                  Please enter a realistic weight (35-250kg)
+                </p>
+              )}
+            </div>
+
+            <div className="p-4 rounded-xl mb-6" style={{ backgroundColor: COLORS.surfaceLight }}>
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm" style={{ color: COLORS.textMuted }}>Last weigh-in</span>
+                <span className="font-semibold" style={{ color: COLORS.text }}>{overviewStats.currentWeight}kg</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm" style={{ color: COLORS.textMuted }}>Change</span>
+                {(() => {
+                  const diff = parseFloat(weighInValue) - overviewStats.currentWeight;
+                  const isLoss = diff < 0;
+                  const isGain = diff > 0;
+                  // Green if: losing weight on lose_fat program, OR gaining weight on build_muscle/strength program
+                  // Red if: gaining weight on lose_fat program, OR losing weight on build_muscle/strength program
+                  const isGoodChange = 
+                    (userData.goal === 'lose_fat' && isLoss) || 
+                    ((userData.goal === 'build_muscle' || userData.goal === 'strength') && isGain) ||
+                    (userData.goal === 'fitness' && diff === 0);
+                  const color = diff === 0 ? COLORS.textMuted : isGoodChange ? COLORS.success : COLORS.error;
+                  return (
+                    <span className="font-semibold" style={{ color }}>
+                      {diff > 0 ? '+' : ''}{diff.toFixed(1)}kg
+                    </span>
+                  );
+                })()}
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setShowWeighIn(false)}
+                className="flex-1 py-3 rounded-xl font-semibold"
+                style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.textMuted }}
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => {
+                  const val = parseFloat(weighInValue);
+                  if (val >= 35 && val <= 250) {
+                    setOverviewStats(prev => ({ ...prev, currentWeight: val }));
+                    setShowWeighIn(false);
+                  }
+                }}
+                disabled={parseFloat(weighInValue) < 35 || parseFloat(weighInValue) > 250}
+                className="flex-1 py-3 rounded-xl font-semibold"
+                style={{ 
+                  backgroundColor: COLORS.primary, 
+                  color: COLORS.text,
+                  opacity: (parseFloat(weighInValue) < 35 || parseFloat(weighInValue) > 250) ? 0.5 : 1
+                }}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Progress Chart */}
+      <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
+        <div className="flex gap-2 mb-3 overflow-x-auto">
+          {[
+            { id: 'weight', label: 'Weight' },
+            { id: 'workouts', label: 'Workouts' },
+            { id: 'bench', label: 'Bench 1RM' },
+            { id: 'squat', label: 'Squat 1RM' },
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setSelectedChart(tab.id)}
+              className="px-3 py-1 rounded-full text-xs whitespace-nowrap"
+              style={{
+                backgroundColor: selectedChart === tab.id ? COLORS.primary : COLORS.surfaceLight,
+                color: selectedChart === tab.id ? COLORS.text : COLORS.textMuted
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        <div style={{ height: 100 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={chartData[selectedChart]}>
+              <XAxis 
+                dataKey="week" 
+                tick={{ fill: COLORS.textMuted, fontSize: 9 }} 
+                axisLine={false} 
+                tickLine={false}
+                interval={2}
+                tickFormatter={(val) => `W${val}`}
+              />
+              <YAxis hide domain={['dataMin - 5', 'dataMax + 5']} />
+              <Tooltip
+                content={({ active, payload, label }) => {
+                  if (active && payload && payload.length) {
+                    return (
+                      <div style={{
+                        backgroundColor: COLORS.surface,
+                        border: `1px solid ${COLORS.surfaceLight}`,
+                        borderRadius: 8,
+                        padding: '8px 12px',
+                      }}>
+                        <p style={{ color: COLORS.textMuted, fontSize: 11, marginBottom: 4 }}>Week {label}</p>
+                        <p style={{ color: COLORS.text, fontSize: 14, fontWeight: 'bold' }}>{payload[0].value} {chartLabels[selectedChart]}</p>
+                        <p style={{ color: COLORS.textMuted, fontSize: 11 }}>Expected: {payload[1]?.value} {chartLabels[selectedChart]}</p>
+                      </div>
+                    );
+                  }
+                  return null;
+                }}
+              />
+              <Line 
+                type="monotone" 
+                dataKey="value" 
+                stroke={COLORS.primary} 
+                strokeWidth={2} 
+                dot={{ fill: COLORS.primary, r: 3, strokeWidth: 0 }}
+                activeDot={{ fill: COLORS.primary, r: 5, stroke: COLORS.text, strokeWidth: 2 }}
+              />
+              <Line 
+                type="monotone" 
+                dataKey="expected" 
+                stroke={COLORS.textMuted} 
+                strokeWidth={1} 
+                strokeDasharray="4 4"
+                dot={false}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="flex justify-between items-center mt-2">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-0.5" style={{ backgroundColor: COLORS.primary }}></div>
+              <span className="text-xs" style={{ color: COLORS.textMuted }}>Actual</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-0.5" style={{ backgroundColor: COLORS.textMuted, borderStyle: 'dashed' }}></div>
+              <span className="text-xs" style={{ color: COLORS.textMuted }}>Expected</span>
+            </div>
+          </div>
+          <span className="text-xs font-semibold" style={{ color: COLORS.primary }}>
+            {chartData[selectedChart][chartData[selectedChart].length - 1].value} {chartLabels[selectedChart]}
+          </span>
+        </div>
+      </div>
+
+      <div className="mb-4">
+        <h3 className="font-semibold mb-3" style={{ color: COLORS.text }}>Streaks</h3>
+        <div className="grid grid-cols-3 gap-2 mb-2">
+          {[
+            { id: 'workouts', icon: Dumbbell, value: streaks.weeklyWorkouts.weeksCompleted, label: 'weeks', color: COLORS.warning, title: 'Workout Streak', unit: 'workouts', target: 4 },
+            { id: 'calories', icon: Flame, value: streaks.calories.daysInRow, label: 'cal', color: COLORS.accent, title: 'Calorie Goal', unit: 'kcal', target: 2200 },
+            { id: 'protein', icon: Target, value: streaks.protein.daysInRow, label: 'protein', color: COLORS.primary, title: 'Protein Goal', unit: 'g', target: 150 },
+          ].map((s, i) => (
+            <button key={i} onClick={() => setShowStreakCalendar(s)} className="p-3 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
+              <s.icon size={20} color={s.color} className="mx-auto mb-1" />
+              <p className="text-lg font-bold" style={{ color: COLORS.text }}>{s.value}</p>
+              <p className="text-xs" style={{ color: COLORS.textMuted }}>{s.label}</p>
+            </button>
+          ))}
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { id: 'water', icon: Droplets, value: streaks.water.daysInRow, label: 'water', color: '#448AFF', title: 'Water Goal', unit: 'ml', target: 2500 },
+            { id: 'sleep', icon: Moon, value: streaks.sleep.daysInRow, label: 'sleep', color: '#9C27B0', title: 'Sleep Goal', unit: 'hrs', target: 8 },
+            { id: 'supplements', icon: Zap, value: streaks.supplements.daysInRow, label: 'supps', color: COLORS.success, title: 'Supplements', unit: 'taken', target: 4 },
+          ].map((s, i) => (
+            <button key={i} onClick={() => setShowStreakCalendar(s)} className="p-3 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
+              <s.icon size={20} color={s.color} className="mx-auto mb-1" />
+              <p className="text-lg font-bold" style={{ color: COLORS.text }}>{s.value}</p>
+              <p className="text-xs" style={{ color: COLORS.textMuted }}>{s.label}</p>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Streak Calendar Modal with detailed data */}
+      {showStreakCalendar && (() => {
+        const streak = showStreakCalendar;
+        const today = new Date(2026, 0, 8);
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const getDaysInMonth = (month, year) => new Date(year, month + 1, 0).getDate();
+        const getFirstDayOfMonth = (month, year) => new Date(year, month, 1).getDay();
+        const daysInMonth = getDaysInMonth(streakCalendarMonth, streakCalendarYear);
+        const firstDay = getFirstDayOfMonth(streakCalendarMonth, streakCalendarYear);
+        
+        // Generate detailed streak data with actual/target values
+        const getStreakData = () => {
+          const data = {};
+          const targets = { workouts: 1, calories: 2200, protein: 150, water: 2500, sleep: 8, supplements: 4 };
+          const target = targets[streak.id];
+          
+          if (streak.id === 'workouts') {
+            data[1] = { actual: 1, target, achieved: true };
+            data[3] = { actual: 1, target, achieved: true };
+            data[5] = { actual: 1, target, achieved: true };
+            data[6] = { actual: 1, target, achieved: true };
+            data[8] = { actual: 1, target, achieved: true };
+            [2, 4, 7].forEach(d => data[d] = { actual: 0, target, achieved: false });
+          } else if (streak.id === 'calories') {
+            data[1] = { actual: 1800, target, achieved: false };
+            data[2] = { actual: 1950, target, achieved: false };
+            [3, 4, 5, 6, 7, 8].forEach(d => data[d] = { actual: 2100 + Math.floor(Math.random() * 200), target, achieved: true });
+          } else if (streak.id === 'protein') {
+            [1, 2, 3, 4, 5, 6, 7, 8].forEach(d => data[d] = { actual: 140 + Math.floor(Math.random() * 30), target, achieved: true });
+          } else if (streak.id === 'water') {
+            [1, 2, 3, 4].forEach(d => data[d] = { actual: 1500 + Math.floor(Math.random() * 500), target, achieved: false });
+            [5, 6, 7, 8].forEach(d => data[d] = { actual: 2500 + Math.floor(Math.random() * 300), target, achieved: true });
+          } else if (streak.id === 'sleep') {
+            data[1] = { actual: 6.5, target, achieved: false };
+            data[2] = { actual: 5.5, target, achieved: false };
+            data[3] = { actual: 7, target, achieved: false };
+            data[4] = { actual: 6, target, achieved: false };
+            [5, 6, 7, 8].forEach(d => data[d] = { actual: 7.5 + Math.random(), target, achieved: true });
+          } else if (streak.id === 'supplements') {
+            [1, 2].forEach(d => data[d] = { actual: 2, target, achieved: false });
+            [3, 4, 5, 6, 7, 8].forEach(d => data[d] = { actual: 4, target, achieved: true });
+          }
+          return data;
+        };
+        
+        const streakData = getStreakData();
+        const [selectedDay, setSelectedDay] = [selectedStreakDay, setSelectedStreakDay];
+        const isToday = (day) => day === today.getDate() && streakCalendarMonth === today.getMonth() && streakCalendarYear === today.getFullYear();
+        const isFuture = (day) => new Date(streakCalendarYear, streakCalendarMonth, day) > today;
+        const changeMonth = (delta) => {
+          let newMonth = streakCalendarMonth + delta;
+          let newYear = streakCalendarYear;
+          if (newMonth > 11) { newMonth = 0; newYear++; }
+          if (newMonth < 0) { newMonth = 11; newYear--; }
+          setStreakCalendarMonth(newMonth);
+          setStreakCalendarYear(newYear);
+        };
+        
+        const calendarDays = [];
+        for (let i = 0; i < firstDay; i++) calendarDays.push(null);
+        for (let i = 1; i <= daysInMonth; i++) calendarDays.push(i);
+        
+        const achievedCount = Object.values(streakData).filter(v => v.achieved).length;
+        const missedCount = Object.values(streakData).filter(v => v.achieved === false).length;
+        const avgPercent = Object.values(streakData).length > 0 
+          ? Math.round(Object.values(streakData).reduce((acc, v) => acc + (v.actual / v.target) * 100, 0) / Object.values(streakData).length)
+          : 0;
+
+        return (
+          <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
+            <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
+              <button onClick={() => { setShowStreakCalendar(null); setStreakCalendarMonth(0); setStreakCalendarYear(2026); setSelectedStreakDay(null); }}><ChevronLeft size={24} color={COLORS.text} /></button>
+              <streak.icon size={24} color={streak.color} />
+              <h2 className="text-lg font-bold" style={{ color: COLORS.text }}>{streak.title}</h2>
+            </div>
+            <div className="flex-1 overflow-auto p-4">
+              <div className="p-4 rounded-xl mb-4 text-center" style={{ backgroundColor: streak.color + '20' }}>
+                <p className="text-4xl font-bold mb-1" style={{ color: streak.color }}>{streak.value}</p>
+                <p style={{ color: COLORS.textSecondary }}>{streak.id === 'workouts' ? 'weeks in a row' : 'days in a row'}</p>
+              </div>
+              
+              {/* Calendar */}
+              <div className="rounded-xl p-4 mb-4" style={{ backgroundColor: COLORS.surface }}>
+                <div className="flex items-center justify-between mb-4">
+                  <button onClick={() => changeMonth(-1)} className="p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}><ChevronLeft size={20} color={COLORS.text} /></button>
+                  <h4 className="font-bold" style={{ color: COLORS.text }}>{monthNames[streakCalendarMonth]} {streakCalendarYear}</h4>
+                  <button onClick={() => changeMonth(1)} className="p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}><ChevronRight size={20} color={COLORS.text} /></button>
+                </div>
+                <div className="grid grid-cols-7 gap-1 mb-2">
+                  {dayNames.map(day => (<div key={day} className="text-center text-xs font-semibold py-1" style={{ color: COLORS.textMuted }}>{day}</div>))}
+                </div>
+                <div className="grid grid-cols-7 gap-1">
+                  {calendarDays.map((day, i) => {
+                    const dayData = streakData[day];
+                    const future = day && isFuture(day);
+                    const todayDate = isToday(day);
+                    const percent = dayData ? Math.round((dayData.actual / dayData.target) * 100) : 0;
+                    
+                    // Format display values with units
+                    const formatValue = (val, unit) => {
+                      if (unit === 'ml') return (val / 1000).toFixed(1) + 'L';
+                      if (unit === 'kcal') return (val / 1000).toFixed(1) + 'k';
+                      if (unit === 'g') return val + 'g';
+                      if (unit === 'hrs') return (typeof val === 'number' && val % 1 !== 0 ? val.toFixed(1) : val) + 'h';
+                      if (unit === 'taken' || unit === 'workouts') return val;
+                      return val;
+                    };
+                    
+                    const actualDisplay = dayData ? formatValue(dayData.actual, streak.unit) : '';
+                    const targetDisplay = dayData ? formatValue(dayData.target, streak.unit) : '';
+                    
+                    return (
+                      <button key={i} onClick={() => day && dayData && setSelectedDay(selectedDay === day ? null : day)} disabled={!day || future || !dayData}
+                        className="rounded-lg flex flex-col items-center justify-center font-medium relative p-1"
+                        style={{ 
+                          backgroundColor: !day ? 'transparent' : future ? 'transparent' : dayData?.achieved ? COLORS.success + '30' : dayData ? COLORS.error + '20' : 'transparent',
+                          border: todayDate ? `2px solid ${streak.color}` : selectedDay === day ? `2px solid ${COLORS.accent}` : '2px solid transparent',
+                          color: !day ? 'transparent' : future ? COLORS.textMuted : COLORS.text,
+                          opacity: !day ? 0 : future ? 0.4 : 1,
+                          minHeight: '70px'
+                        }}>
+                        <span className="text-xs" style={{ color: COLORS.textMuted }}>{day || ''}</span>
+                        {day && !future && dayData && (
+                          <>
+                            <span className="text-xs font-bold leading-tight" style={{ color: COLORS.text }}>{actualDisplay}/{targetDisplay}</span>
+                            <span className="text-xs" style={{ color: dayData.achieved ? COLORS.success : COLORS.error, fontSize: '9px' }}>{percent}% of goal</span>
+                          </>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="flex items-center justify-center gap-4 mt-4 pt-3 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+                  <div className="flex items-center gap-2"><div className="w-4 h-4 rounded" style={{ backgroundColor: COLORS.success + '30' }} /><span className="text-xs" style={{ color: COLORS.textMuted }}>≥100%</span></div>
+                  <div className="flex items-center gap-2"><div className="w-4 h-4 rounded" style={{ backgroundColor: COLORS.error + '20' }} /><span className="text-xs" style={{ color: COLORS.textMuted }}>&lt;100%</span></div>
+                </div>
+              </div>
+
+              {/* Selected Day Detail */}
+              {selectedDay && streakData[selectedDay] && (
+                <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.accent + '15', border: `1px solid ${COLORS.accent}40` }}>
+                  <p className="text-sm font-semibold mb-2" style={{ color: COLORS.text }}>January {selectedDay}, 2026</p>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>Actual</p>
+                      <p className="text-xl font-bold" style={{ color: COLORS.text }}>{typeof streakData[selectedDay].actual === 'number' && streakData[selectedDay].actual % 1 !== 0 ? streakData[selectedDay].actual.toFixed(1) : streakData[selectedDay].actual} {streak.unit}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>Target</p>
+                      <p className="text-xl font-bold" style={{ color: COLORS.textMuted }}>{streakData[selectedDay].target} {streak.unit}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>Achieved</p>
+                      <p className="text-xl font-bold" style={{ color: streakData[selectedDay].achieved ? COLORS.success : COLORS.error }}>
+                        {Math.round((streakData[selectedDay].actual / streakData[selectedDay].target) * 100)}%
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Stats Summary */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="p-4 rounded-xl text-center" style={{ backgroundColor: COLORS.success + '15' }}>
+                  <p className="text-2xl font-bold" style={{ color: COLORS.success }}>{achievedCount}</p>
+                  <p className="text-xs" style={{ color: COLORS.textSecondary }}>Days Hit</p>
+                </div>
+                <div className="p-4 rounded-xl text-center" style={{ backgroundColor: COLORS.error + '15' }}>
+                  <p className="text-2xl font-bold" style={{ color: COLORS.error }}>{missedCount}</p>
+                  <p className="text-xs" style={{ color: COLORS.textSecondary }}>Days Missed</p>
+                </div>
+                <div className="p-4 rounded-xl text-center" style={{ backgroundColor: streak.color + '15' }}>
+                  <p className="text-2xl font-bold" style={{ color: streak.color }}>{avgPercent}%</p>
+                  <p className="text-xs" style={{ color: COLORS.textSecondary }}>Avg</p>
+                </div>
+              </div>
+            </div>
+            <div className="p-4 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+              <button onClick={() => { setShowStreakCalendar(null); setStreakCalendarMonth(0); setStreakCalendarYear(2026); setSelectedStreakDay(null); }} className="w-full py-4 rounded-xl font-semibold" style={{ backgroundColor: streak.color, color: COLORS.text }}>Close</button>
+            </div>
+          </div>
+        );
+      })()}
+
+      <h3 className="font-semibold mb-3" style={{ color: COLORS.text }}>Today's Progress</h3>
+      <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
+        {[
+          { label: 'Calories', current: caloriesIntake, target: 2200, color: COLORS.accent, type: 'meal' },
+          { label: 'Protein', current: proteinIntake, target: 150, unit: 'g', color: COLORS.primary, type: 'meal' },
+          { label: 'Water', current: waterIntake, target: 2500, unit: 'ml', color: '#448AFF', type: 'water' },
+        ].map(item => {
+          const remaining = item.target - item.current;
+          const isComplete = item.current >= item.target;
+          return (
+            <div key={item.label} className="mb-4 last:mb-0">
+              <div 
+                className="flex justify-between mb-1 cursor-pointer"
+                onClick={() => item.type === 'water' ? setShowWaterEntry(true) : setShowMealEntry(true)}
+              >
+                <span className="flex items-center gap-1" style={{ color: COLORS.textSecondary }}>
+                  {item.label} <Plus size={12} />
+                </span>
+                <span style={{ color: isComplete ? COLORS.success : COLORS.text }}>
+                  {item.current}{item.unit || ''} / {item.target}{item.unit || ''}
+                </span>
+              </div>
+              <div 
+                className="h-3 rounded-full overflow-hidden mb-1 cursor-pointer" 
+                style={{ backgroundColor: COLORS.surfaceLight }}
+                onClick={() => item.type === 'water' ? setShowWaterEntry(true) : setShowMealEntry(true)}
+              >
+                <div className="h-full rounded-full" style={{ backgroundColor: item.color, width: `${Math.min((item.current / item.target) * 100, 100)}%` }} />
+              </div>
+              <p className="text-xs" style={{ color: isComplete ? COLORS.success : item.color }}>
+                {isComplete ? '✓ Goal reached!' : `${remaining}${item.unit || ''} to go`}
+              </p>
+              {item.type === 'water' && (
+                <div className="flex gap-2 mt-2">
+                  {[
+                    { label: '1 Cup', amount: 250 },
+                    { label: '500ml', amount: 500 },
+                    { label: '1L', amount: 1000 },
+                  ].map(btn => (
+                    <button
+                      key={btn.label}
+                      onClick={() => setWaterIntake(prev => Math.min(prev + btn.amount, 5000))}
+                      className="flex-1 py-2 rounded-lg text-xs font-semibold"
+                      style={{ backgroundColor: COLORS.surfaceLight, color: '#448AFF' }}
+                    >
+                      + {btn.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Meal Entry Modal */}
+      {showMealEntry && (
+        <MealEntryModal 
+          COLORS={COLORS}
+          onClose={() => setShowMealEntry(false)}
+          onSave={(calories, protein) => {
+            setCaloriesIntake(prev => prev + calories);
+            setProteinIntake(prev => prev + protein);
+            setShowMealEntry(false);
+          }}
+        />
+      )}
+
+      {/* Water Entry Modal */}
+      {showWaterEntry && (
+        <WaterEntryModal 
+          COLORS={COLORS}
+          onClose={() => setShowWaterEntry(false)}
+          onSave={(amount) => {
+            setWaterIntake(prev => Math.min(prev + amount, 10000));
+            setShowWaterEntry(false);
+          }}
+        />
+      )}
+
+      <div className="mb-4">
+        <div className="flex justify-between items-center mb-3">
+          <h3 className="font-semibold" style={{ color: COLORS.text }}>Today's Workout</h3>
+          <div className="flex gap-2">
+            {!isPaused ? (
+              <button onClick={() => setShowPausePlan(true)} className="text-sm px-2 py-1 rounded flex items-center gap-1"
+                style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.textSecondary }}>
+                <Moon size={14} /> Pause
+              </button>
+            ) : (
+              <button onClick={() => { setIsPaused(false); setPauseReturnDate(null); setTodayWorkout({ type: 'Push Day', name: 'Push Day A', exercises: 5, duration: 60 }); }}
+                className="text-sm px-2 py-1 rounded flex items-center gap-1"
+                style={{ backgroundColor: COLORS.warning, color: COLORS.background }}>
+                <Play size={14} /> Resume
+              </button>
+            )}
+            {todayWorkout.type !== 'Rest' && todayWorkout.type !== 'Skipped' && !isPaused && (
+              <button onClick={() => setShowReschedule(true)} className="text-sm px-2 py-1 rounded flex items-center gap-1"
+                style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.textSecondary }}>
+                <Calendar size={14} /> Reschedule
+              </button>
+            )}
+          </div>
+        </div>
+        
+        {/* Paused Card */}
+        {isPaused && (
+          <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface, borderLeft: `4px solid ${COLORS.warning}` }}>
+            <div className="flex justify-between items-center mb-2">
+              <span className="px-2 py-1 rounded text-xs font-semibold" style={{ backgroundColor: COLORS.warning + '20', color: COLORS.warning }}>PAUSED</span>
+            </div>
+            <div className="flex items-center gap-3 mb-3">
+              <span className="text-4xl">🏖️</span>
+              <div>
+                <h4 className="text-lg font-bold" style={{ color: COLORS.text }}>Enjoying Your Break</h4>
+                <p className="text-sm" style={{ color: COLORS.textSecondary }}>
+                  Plan resumes {pauseReturnDate ? new Date(pauseReturnDate).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }) : 'soon'}
+                </p>
+              </div>
+            </div>
+            <button onClick={() => { setIsPaused(false); setPauseReturnDate(null); setTodayWorkout({ type: 'Push Day', name: 'Push Day A', exercises: 5, duration: 60 }); }}
+              className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
+              style={{ backgroundColor: COLORS.warning, color: COLORS.background }}>
+              Resume Plan Early <Play size={16} />
+            </button>
+          </div>
+        )}
+        
+        {/* Rest Day Card */}
+        {!isPaused && todayWorkout.type === 'Rest' && (
+          <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface, borderLeft: `4px solid ${COLORS.textMuted}` }}>
+            <div className="flex justify-between items-center mb-2">
+              <span className="px-2 py-1 rounded text-xs font-semibold" style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.textMuted }}>REST DAY</span>
+            </div>
+            <div className="flex items-center gap-3 mb-3">
+              <span className="text-4xl">😴</span>
+              <div>
+                <h4 className="text-lg font-bold" style={{ color: COLORS.text }}>Rest Day</h4>
+                <p className="text-sm" style={{ color: COLORS.textSecondary }}>Recovery is part of progress</p>
+              </div>
+            </div>
+            <div className="p-3 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
+              <p className="text-sm" style={{ color: COLORS.textSecondary }}>
+                💡 <strong style={{ color: COLORS.text }}>Tip:</strong> Focus on stretching, mobility work, or light walking today. Your muscles grow during rest!
+              </p>
+            </div>
+          </div>
+        )}
+        
+        {/* Skipped Workout Card */}
+        {!isPaused && todayWorkout.type === 'Skipped' && (
+          <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface, borderLeft: `4px solid ${COLORS.error}` }}>
+            <div className="flex justify-between items-center mb-2">
+              <span className="px-2 py-1 rounded text-xs font-semibold" style={{ backgroundColor: COLORS.error + '20', color: COLORS.error }}>SKIPPED</span>
+            </div>
+            <div className="flex items-center gap-3 mb-3">
+              <span className="text-4xl">⏭️</span>
+              <div>
+                <h4 className="text-lg font-bold" style={{ color: COLORS.text }}>Workout Skipped</h4>
+                <p className="text-sm" style={{ color: COLORS.textSecondary }}>No workout scheduled for today</p>
+              </div>
+            </div>
+            <button onClick={() => { setTodayWorkout({ type: 'Push Day', name: 'Push Day A', exercises: 5, duration: 60 }); setIsRescheduled(false); setOriginalWorkout(null); }} 
+              className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
+              style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text }}>
+              Undo Skip
+            </button>
+          </div>
+        )}
+        
+        {/* Workout Day Card */}
+        {!isPaused && todayWorkout.type !== 'Rest' && todayWorkout.type !== 'Skipped' && (
+          <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface, borderLeft: `4px solid ${todayWorkout.type === 'Push Day' ? COLORS.primary : todayWorkout.type === 'Pull Day' ? COLORS.accent : COLORS.warning}` }}>
+            <div className="flex justify-between items-center mb-2">
+              <span className="px-2 py-1 rounded text-xs font-semibold" style={{ backgroundColor: (todayWorkout.type === 'Push Day' ? COLORS.primary : todayWorkout.type === 'Pull Day' ? COLORS.accent : COLORS.warning) + '20', color: todayWorkout.type === 'Push Day' ? COLORS.primary : todayWorkout.type === 'Pull Day' ? COLORS.accent : COLORS.warning }}>{todayWorkout.type.toUpperCase()}</span>
+              <button onClick={() => setShowTimeEditor(!showTimeEditor)} className="flex items-center gap-1 px-2 py-1 rounded"
+                style={{ backgroundColor: COLORS.surfaceLight }}>
+                <Clock size={14} color={COLORS.textSecondary} />
+                <span style={{ color: COLORS.textSecondary }}>{workoutTime} min</span>
+                <ChevronDown size={14} color={COLORS.textMuted} />
+              </button>
+            </div>
+            
+            {/* Time Editor */}
+            {showTimeEditor && (
+              <div className="mb-3 p-3 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
+                <p className="text-xs mb-2" style={{ color: COLORS.textMuted }}>How much time do you have?</p>
+                <div className="flex items-center gap-2">
+                  {[20, 30, 45, 60, 75, 90].map(time => (
+                    <button key={time} onClick={() => { setWorkoutTime(time); setShowTimeEditor(false); }}
+                      className="flex-1 py-2 rounded-lg text-sm font-semibold"
+                      style={{ 
+                        backgroundColor: workoutTime === time ? COLORS.primary : COLORS.surface,
+                        color: workoutTime === time ? COLORS.text : COLORS.textMuted
+                      }}>
+                      {time}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs mt-2" style={{ color: COLORS.accent }}>
+                  {workoutTime <= 30 ? '2 exercises' : workoutTime <= 45 ? '3 exercises' : workoutTime <= 60 ? '5 exercises' : '5 exercises + extras'}
+                </p>
+              </div>
+            )}
+            
+            <h4 className="text-lg font-bold mb-1" style={{ color: COLORS.text }}>{todayWorkout.name}</h4>
+            <p className="text-sm mb-3" style={{ color: COLORS.textSecondary }}>
+              {workoutTime <= 30 ? '2' : workoutTime <= 45 ? '3' : '5'} exercises • {workoutTime} min
+            </p>
+            <button onClick={() => setShowActiveWorkout(true)} className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
+              style={{ backgroundColor: todayWorkout.type === 'Push Day' ? COLORS.primary : todayWorkout.type === 'Pull Day' ? COLORS.accent : COLORS.warning, color: COLORS.text }}>
+              Start Workout <Play size={16} />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Sleep Section */}
+      <h3 className="font-semibold mb-3" style={{ color: COLORS.text }}>Sleep</h3>
+      <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
+        {/* Last Night */}
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs font-semibold" style={{ color: COLORS.textMuted }}>LAST NIGHT</p>
+          {lastNightConfirmed && (
+            <span className="text-xs px-2 py-1 rounded-full flex items-center gap-1" style={{ backgroundColor: COLORS.success + '20', color: COLORS.success }}>
+              <Check size={12} /> Confirmed
+            </span>
+          )}
+        </div>
+        
+        {!lastNightConfirmed ? (
+          <>
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <div className="p-3 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: '#9C27B0' }}>
+                    <Clock size={12} color="#fff" />
+                  </div>
+                  <p className="text-xs font-medium" style={{ color: COLORS.textMuted }}>Went to bed</p>
+                </div>
+                <div className="flex items-center gap-1">
+                  <input 
+                    ref={sleepEditRefs.lastBedH}
+                    type="text" 
+                    inputMode="numeric"
+                    defaultValue={lastNightBedTime.split(':')[0]}
+                    onBlur={e => {
+                      const val = e.target.value.replace(/\D/g, '').slice(0, 2);
+                      const h = Math.min(23, parseInt(val) || 0);
+                      e.target.value = h.toString().padStart(2, '0');
+                      setLastNightBedTime(prev => `${h.toString().padStart(2, '0')}:${prev.split(':')[1]}`);
+                    }}
+                    className="w-14 text-2xl font-bold text-center rounded-lg"
+                    style={{ color: COLORS.text, backgroundColor: COLORS.surface, border: 'none', padding: '8px 4px' }}
+                  />
+                  <span className="text-2xl font-bold" style={{ color: COLORS.text }}>:</span>
+                  <input 
+                    ref={sleepEditRefs.lastBedM}
+                    type="text"
+                    inputMode="numeric"
+                    defaultValue={lastNightBedTime.split(':')[1]}
+                    onBlur={e => {
+                      const val = e.target.value.replace(/\D/g, '').slice(0, 2);
+                      const m = Math.min(59, parseInt(val) || 0);
+                      e.target.value = m.toString().padStart(2, '0');
+                      setLastNightBedTime(prev => `${prev.split(':')[0]}:${m.toString().padStart(2, '0')}`);
+                    }}
+                    className="w-14 text-2xl font-bold text-center rounded-lg"
+                    style={{ color: COLORS.text, backgroundColor: COLORS.surface, border: 'none', padding: '8px 4px' }}
+                  />
+                </div>
+              </div>
+              <div className="p-3 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: '#9C27B0' }}>
+                    <Clock size={12} color="#fff" />
+                  </div>
+                  <p className="text-xs font-medium" style={{ color: COLORS.textMuted }}>Woke up</p>
+                </div>
+                <div className="flex items-center gap-1">
+                  <input 
+                    ref={sleepEditRefs.lastWakeH}
+                    type="text" 
+                    inputMode="numeric"
+                    defaultValue={lastNightWakeTime.split(':')[0]}
+                    onBlur={e => {
+                      const val = e.target.value.replace(/\D/g, '').slice(0, 2);
+                      const h = Math.min(23, parseInt(val) || 0);
+                      e.target.value = h.toString().padStart(2, '0');
+                      setLastNightWakeTime(prev => `${h.toString().padStart(2, '0')}:${prev.split(':')[1]}`);
+                    }}
+                    className="w-14 text-2xl font-bold text-center rounded-lg"
+                    style={{ color: COLORS.text, backgroundColor: COLORS.surface, border: 'none', padding: '8px 4px' }}
+                  />
+                  <span className="text-2xl font-bold" style={{ color: COLORS.text }}>:</span>
+                  <input 
+                    ref={sleepEditRefs.lastWakeM}
+                    type="text"
+                    inputMode="numeric"
+                    defaultValue={lastNightWakeTime.split(':')[1]}
+                    onBlur={e => {
+                      const val = e.target.value.replace(/\D/g, '').slice(0, 2);
+                      const m = Math.min(59, parseInt(val) || 0);
+                      e.target.value = m.toString().padStart(2, '0');
+                      setLastNightWakeTime(prev => `${prev.split(':')[0]}:${m.toString().padStart(2, '0')}`);
+                    }}
+                    className="w-14 text-2xl font-bold text-center rounded-lg"
+                    style={{ color: COLORS.text, backgroundColor: COLORS.surface, border: 'none', padding: '8px 4px' }}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="p-3 rounded-lg mb-3 flex items-center justify-between" style={{ backgroundColor: '#9C27B0' + '15' }}>
+              <span className="text-sm" style={{ color: COLORS.textMuted }}>Total sleep</span>
+              {(() => {
+                const [bedH, bedM] = lastNightBedTime.split(':').map(Number);
+                const [wakeH, wakeM] = lastNightWakeTime.split(':').map(Number);
+                let hours = wakeH - bedH;
+                let mins = wakeM - bedM;
+                if (hours < 0) hours += 24;
+                if (mins < 0) { mins += 60; hours--; }
+                const total = hours + mins / 60;
+                return (
+                  <span className="font-bold text-lg" style={{ color: total >= 8 ? COLORS.success : total >= 6 ? COLORS.warning : COLORS.error }}>
+                    {hours}h {mins}m {total >= 8 ? '✓' : total < 6 ? '⚠️' : ''}
+                  </span>
+                );
+              })()}
+            </div>
+            <button 
+              onClick={() => setLastNightConfirmed(true)}
+              className="w-full py-3 rounded-xl font-semibold mb-3"
+              style={{ backgroundColor: '#9C27B0', color: '#fff' }}
+            >
+              Confirm Last Night's Sleep
+            </button>
+          </>
+        ) : (
+          <div className="p-3 rounded-lg mb-3 flex items-center justify-between" style={{ backgroundColor: '#9C27B0' + '15' }}>
+            <div>
+              <p className="text-sm" style={{ color: COLORS.textMuted }}>Slept {lastNightBedTime} → {lastNightWakeTime}</p>
+              {(() => {
+                const [bedH, bedM] = lastNightBedTime.split(':').map(Number);
+                const [wakeH, wakeM] = lastNightWakeTime.split(':').map(Number);
+                let hours = wakeH - bedH;
+                let mins = wakeM - bedM;
+                if (hours < 0) hours += 24;
+                if (mins < 0) { mins += 60; hours--; }
+                const total = hours + mins / 60;
+                return (
+                  <p className="font-bold text-lg" style={{ color: total >= 8 ? COLORS.success : total >= 6 ? COLORS.warning : COLORS.error }}>
+                    {hours}h {mins}m {total >= 8 ? '✓ Goal!' : ''}
+                  </p>
+                );
+              })()}
+            </div>
+            <button 
+              onClick={() => setLastNightConfirmed(false)}
+              className="px-3 py-1 rounded-lg text-sm"
+              style={{ backgroundColor: COLORS.surface, color: COLORS.textMuted }}
+            >
+              Edit
+            </button>
+          </div>
+        )}
+
+        {/* Tonight */}
+        <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>TONIGHT'S PLAN</p>
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: '#9C27B0' + '20' }}>
+            <Moon size={20} color="#9C27B0" />
+          </div>
+          <div className="flex-1">
+            <p className="text-xs" style={{ color: COLORS.textMuted }}>Recommended</p>
+            <p className="text-xl font-bold" style={{ color: COLORS.text }}>8 hours</p>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-2 gap-3">
+          <div className="p-3 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: '#9C27B0' }}>
+                <Clock size={12} color="#fff" />
+              </div>
+              <p className="text-xs font-medium" style={{ color: COLORS.textMuted }}>Bed Time</p>
+            </div>
+            <div className="flex items-center gap-1">
+              <input 
+                ref={sleepEditRefs.bedH}
+                type="text" 
+                inputMode="numeric"
+                defaultValue={bedTime.split(':')[0]}
+                onBlur={e => {
+                  const val = e.target.value.replace(/\D/g, '').slice(0, 2);
+                  const h = Math.min(23, parseInt(val) || 0);
+                  e.target.value = h.toString().padStart(2, '0');
+                  setBedTime(prev => `${h.toString().padStart(2, '0')}:${prev.split(':')[1]}`);
+                }}
+                className="w-14 text-2xl font-bold text-center rounded-lg"
+                style={{ color: COLORS.text, backgroundColor: COLORS.surface, border: 'none', padding: '8px 4px' }}
+              />
+              <span className="text-2xl font-bold" style={{ color: COLORS.text }}>:</span>
+              <input 
+                ref={sleepEditRefs.bedM}
+                type="text"
+                inputMode="numeric"
+                defaultValue={bedTime.split(':')[1]}
+                onBlur={e => {
+                  const val = e.target.value.replace(/\D/g, '').slice(0, 2);
+                  const m = Math.min(59, parseInt(val) || 0);
+                  e.target.value = m.toString().padStart(2, '0');
+                  setBedTime(prev => `${prev.split(':')[0]}:${m.toString().padStart(2, '0')}`);
+                }}
+                className="w-14 text-2xl font-bold text-center rounded-lg"
+                style={{ color: COLORS.text, backgroundColor: COLORS.surface, border: 'none', padding: '8px 4px' }}
+              />
+            </div>
+          </div>
+          <div className="p-3 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: '#9C27B0' }}>
+                <Clock size={12} color="#fff" />
+              </div>
+              <p className="text-xs font-medium" style={{ color: COLORS.textMuted }}>Wake Time</p>
+            </div>
+            <div className="flex items-center gap-1">
+              <input 
+                ref={sleepEditRefs.wakeH}
+                type="text" 
+                inputMode="numeric"
+                defaultValue={wakeTime.split(':')[0]}
+                onBlur={e => {
+                  const val = e.target.value.replace(/\D/g, '').slice(0, 2);
+                  const h = Math.min(23, parseInt(val) || 0);
+                  e.target.value = h.toString().padStart(2, '0');
+                  setWakeTime(prev => `${h.toString().padStart(2, '0')}:${prev.split(':')[1]}`);
+                }}
+                className="w-14 text-2xl font-bold text-center rounded-lg"
+                style={{ color: COLORS.text, backgroundColor: COLORS.surface, border: 'none', padding: '8px 4px' }}
+              />
+              <span className="text-2xl font-bold" style={{ color: COLORS.text }}>:</span>
+              <input 
+                ref={sleepEditRefs.wakeM}
+                type="text"
+                inputMode="numeric"
+                defaultValue={wakeTime.split(':')[1]}
+                onBlur={e => {
+                  const val = e.target.value.replace(/\D/g, '').slice(0, 2);
+                  const m = Math.min(59, parseInt(val) || 0);
+                  e.target.value = m.toString().padStart(2, '0');
+                  setWakeTime(prev => `${prev.split(':')[0]}:${m.toString().padStart(2, '0')}`);
+                }}
+                className="w-14 text-2xl font-bold text-center rounded-lg"
+                style={{ color: COLORS.text, backgroundColor: COLORS.surface, border: 'none', padding: '8px 4px' }}
+              />
+            </div>
+          </div>
+        </div>
+        
+        <div className="mt-3 pt-3 border-t flex items-center justify-between" style={{ borderColor: COLORS.surfaceLight }}>
+          <span className="text-sm" style={{ color: COLORS.textMuted }}>Planned sleep</span>
+          {(() => {
+            const [bedH, bedM] = bedTime.split(':').map(Number);
+            const [wakeH, wakeM] = wakeTime.split(':').map(Number);
+            let hours = wakeH - bedH;
+            let mins = wakeM - bedM;
+            if (hours < 0) hours += 24;
+            if (mins < 0) { mins += 60; hours--; }
+            const total = hours + mins / 60;
+            return (
+              <span className="font-semibold" style={{ color: total >= 7 ? COLORS.success : total >= 6 ? COLORS.warning : COLORS.error }}>
+                {hours}h {mins}m {total >= 8 ? '✓' : total < 6 ? '⚠️' : ''}
+              </span>
+            );
+          })()}
+        </div>
+        
+        {/* Sleep Weekly Chart */}
+        <div className="mt-4 pt-4 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+          <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>WEEKLY AVERAGE</p>
+          <div style={{ height: 80 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={sleepChartData}>
+                <XAxis 
+                  dataKey="week" 
+                  tick={{ fill: COLORS.textMuted, fontSize: 9 }} 
+                  axisLine={false} 
+                  tickLine={false}
+                  interval={2}
+                  tickFormatter={(val) => `W${val}`}
+                />
+                <YAxis hide domain={[5, 10]} />
+                <Tooltip
+                  content={({ active, payload, label }) => {
+                    if (active && payload && payload.length) {
+                      return (
+                        <div style={{
+                          backgroundColor: COLORS.surface,
+                          border: `1px solid ${COLORS.surfaceLight}`,
+                          borderRadius: 8,
+                          padding: '8px 12px',
+                        }}>
+                          <p style={{ color: COLORS.textMuted, fontSize: 11, marginBottom: 4 }}>Week {label}</p>
+                          <p style={{ color: COLORS.text, fontSize: 14, fontWeight: 'bold' }}>{payload[0].value} hrs avg</p>
+                          <p style={{ color: COLORS.textMuted, fontSize: 11 }}>Goal: {payload[1]?.value} hrs</p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="value" 
+                  stroke="#9C27B0" 
+                  strokeWidth={2} 
+                  dot={{ fill: '#9C27B0', r: 2, strokeWidth: 0 }}
+                  activeDot={{ fill: '#9C27B0', r: 4, stroke: COLORS.text, strokeWidth: 2 }}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="goal" 
+                  stroke={COLORS.success} 
+                  strokeWidth={1} 
+                  strokeDasharray="4 4"
+                  dot={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="flex items-center justify-center gap-4 mt-2">
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-0.5" style={{ backgroundColor: '#9C27B0' }}></div>
+              <span className="text-xs" style={{ color: COLORS.textMuted }}>Avg Sleep</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-0.5" style={{ backgroundColor: COLORS.success, borderStyle: 'dashed' }}></div>
+              <span className="text-xs" style={{ color: COLORS.textMuted }}>Goal (8h)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Supplements Tracker */}
+      <h3 className="font-semibold mb-3" style={{ color: COLORS.text }}>Supplements</h3>
+      <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
+        <div className="space-y-2 mb-3">
+          {supplements.map(supp => (
+            <div 
+              key={supp.id} 
+              className="w-full p-3 rounded-lg flex items-center justify-between"
+              style={{ backgroundColor: supp.taken ? COLORS.success + '15' : COLORS.surfaceLight }}>
+              <div 
+                className="flex items-center gap-3 flex-1 cursor-pointer"
+                onClick={(e) => { e.preventDefault(); setSupplements(prev => prev.map(s => s.id === supp.id ? {...s, taken: !s.taken} : s)); }}
+              >
+                <div className="w-6 h-6 rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: supp.taken ? COLORS.success : COLORS.surfaceLight, border: supp.taken ? 'none' : `2px solid ${COLORS.textMuted}` }}>
+                  {supp.taken && <Check size={14} color={COLORS.text} />}
+                </div>
+                <div className="text-left">
+                  <p className="font-medium" style={{ color: COLORS.text }}>{supp.name}</p>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>{supp.dosage}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {supp.taken && <span className="text-xs" style={{ color: COLORS.success }}>Taken</span>}
+                <button 
+                  onClick={(e) => { e.stopPropagation(); setSupplements(prev => prev.filter(s => s.id !== supp.id)); }}
+                  className="p-1 rounded-full"
+                  style={{ backgroundColor: COLORS.surface }}
+                >
+                  <X size={14} color={COLORS.textMuted} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+        {showAddSupplement ? (
+          <div className="p-3 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
+            <div className="flex gap-2 mb-2">
+              <input type="text" placeholder="Supplement name" value={newSupplementName} onChange={e => setNewSupplementName(e.target.value)}
+                className="flex-1 p-2 rounded text-sm" style={{ backgroundColor: COLORS.surface, color: COLORS.text, border: 'none' }} />
+              <input type="text" placeholder="Dosage" value={newSupplementDosage} onChange={e => setNewSupplementDosage(e.target.value)}
+                className="w-24 p-2 rounded text-sm" style={{ backgroundColor: COLORS.surface, color: COLORS.text, border: 'none' }} />
+            </div>
+            <div className="flex gap-2">
+              <button type="button" onClick={(e) => { e.preventDefault(); setShowAddSupplement(false); setNewSupplementName(''); setNewSupplementDosage(''); }}
+                className="flex-1 py-2 rounded text-sm" style={{ backgroundColor: COLORS.surface, color: COLORS.textMuted }}>Cancel</button>
+              <button type="button" onClick={(e) => {
+                e.preventDefault();
+                if (newSupplementName) {
+                  setSupplements(prev => [...prev, { id: Date.now().toString(), name: newSupplementName, dosage: newSupplementDosage || 'As needed', taken: false }]);
+                  setShowAddSupplement(false); setNewSupplementName(''); setNewSupplementDosage('');
+                }
+              }} className="flex-1 py-2 rounded text-sm font-semibold" style={{ backgroundColor: COLORS.primary, color: COLORS.text }}>Add</button>
+            </div>
+          </div>
+        ) : (
+          <div onClick={(e) => { e.preventDefault(); setShowAddSupplement(true); }} className="w-full p-3 rounded-lg flex items-center justify-center gap-2 cursor-pointer"
+            style={{ backgroundColor: COLORS.surfaceLight, border: `1px dashed ${COLORS.textMuted}` }}>
+            <Plus size={16} color={COLORS.textMuted} /><span style={{ color: COLORS.textMuted }}>Add Supplement</span>
+          </div>
+        )}
+        <div className="mt-3 pt-3 border-t flex justify-between items-center" style={{ borderColor: COLORS.surfaceLight }}>
+          <span className="text-sm" style={{ color: COLORS.textMuted }}>{supplements.filter(s => s.taken).length}/{supplements.length} taken</span>
+          <div className="h-2 w-24 rounded-full overflow-hidden" style={{ backgroundColor: COLORS.surfaceLight }}>
+            <div className="h-full rounded-full" style={{ backgroundColor: COLORS.success, width: `${(supplements.filter(s => s.taken).length / supplements.length) * 100}%` }} />
+          </div>
+        </div>
+      </div>
+
+      {showReschedule && <RescheduleModal />}
+      {showPausePlan && <PausePlanModal />}
+      {showActiveWorkout && <ActiveWorkoutScreen onClose={() => setShowActiveWorkout(false)} COLORS={COLORS} availableTime={workoutTime} />}
+    </div>
+  );
+  };
+
+  // Main Screen with tabs
+  const MainScreen = () => (
+    <div className="flex flex-col h-full">
+      <div className="flex-1 overflow-hidden">
+        {activeTab === 'home' && <HomeTab />}
+        {activeTab === 'workouts' && (
+          <div className="p-4 h-full flex items-center justify-center">
+            <p style={{ color: COLORS.textMuted }}>Workouts tab</p>
+          </div>
+        )}
+        {activeTab === 'nutrition' && (
+          <div className="p-4 h-full flex items-center justify-center">
+            <p style={{ color: COLORS.textMuted }}>Nutrition tab</p>
+          </div>
+        )}
+        {activeTab === 'progress' && (
+          <div className="p-4 h-full flex items-center justify-center">
+            <p style={{ color: COLORS.textMuted }}>Progress tab</p>
+          </div>
+        )}
+        {activeTab === 'profile' && (
+          <div className="p-4 h-full flex items-center justify-center">
+            <p style={{ color: COLORS.textMuted }}>Profile tab</p>
+          </div>
+        )}
+      </div>
+      <div className="flex justify-around py-3 border-t" style={{ backgroundColor: COLORS.surface, borderColor: COLORS.surfaceLight }}>
+        {[
+          { id: 'home', icon: Home, label: 'Home' },
+          { id: 'workouts', icon: Dumbbell, label: 'Workouts' },
+          { id: 'nutrition', icon: Apple, label: 'Nutrition' },
+          { id: 'progress', icon: TrendingUp, label: 'Progress' },
+          { id: 'profile', icon: User, label: 'Profile' },
+        ].map(tab => (
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)} className="flex flex-col items-center gap-1">
+            <tab.icon size={22} color={activeTab === tab.id ? COLORS.primary : COLORS.textMuted} />
+            <span className="text-xs" style={{ color: activeTab === tab.id ? COLORS.primary : COLORS.textMuted }}>{tab.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="w-full max-w-md mx-auto h-screen flex flex-col" style={{ backgroundColor: COLORS.background }}>
+      <div className="flex-1 overflow-hidden relative">
+        {currentScreen === 'welcome' && <WelcomeScreen />}
+        {currentScreen === 'login' && <LoginScreen onBack={() => setCurrentScreen('welcome')} onLogin={() => setCurrentScreen('dashboard')} COLORS={COLORS} />}
+        {currentScreen === 'register' && <RegisterScreen onBack={() => setCurrentScreen('welcome')} 
+          onRegister={(data) => { setUserData(p => ({...p, ...data})); setCurrentScreen('onboarding'); }} COLORS={COLORS} />}
+        {currentScreen === 'dashboard' && <DashboardScreen />}
+        {currentScreen === 'onboarding' && <OnboardingScreen />}
+        {currentScreen === 'main' && <MainScreen />}
+      </div>
+    </div>
+  );
+}
