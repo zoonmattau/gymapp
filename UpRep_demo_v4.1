@@ -2198,6 +2198,9 @@ export default function UpRepDemo() {
   ]);
   
   const [showFriendProfile, setShowFriendProfile] = useState(null);
+  const [showFriendStreakCalendar, setShowFriendStreakCalendar] = useState(null);
+  const [friendStreakMonth, setFriendStreakMonth] = useState(0);
+  const [friendStreakYear, setFriendStreakYear] = useState(2026);
   const [likedPosts, setLikedPosts] = useState([]);
   
   const [userData, setUserData] = useState({
@@ -5350,11 +5353,13 @@ export default function UpRepDemo() {
                                     {friend.name}
                                   </button>
                                   {friend.streak >= 7 && (
-                                    <span className="text-xs px-2 py-0.5 rounded-full flex items-center gap-1" 
+                                    <button 
+                                      onClick={(e) => { e.stopPropagation(); setShowFriendStreakCalendar(friend); }}
+                                      className="text-xs px-2 py-0.5 rounded-full flex items-center gap-1" 
                                       style={{ backgroundColor: COLORS.warning + '20' }}>
                                       <Flame size={10} color={COLORS.warning} />
                                       <span style={{ color: COLORS.warning }}>{friend.streak}</span>
-                                    </span>
+                                    </button>
                                   )}
                                 </div>
                                 <p className="text-xs" style={{ color: COLORS.textMuted }}>{activity.time}</p>
@@ -5658,10 +5663,14 @@ export default function UpRepDemo() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="flex items-center gap-1 justify-end">
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setShowFriendStreakCalendar(friend); }}
+                          className="flex items-center gap-1 justify-end px-2 py-1 rounded-lg mb-1"
+                          style={{ backgroundColor: COLORS.warning + '15' }}
+                        >
                           <Flame size={14} color={COLORS.warning} />
                           <span className="font-bold" style={{ color: COLORS.warning }}>{friend.streak}</span>
-                        </div>
+                        </button>
                         <p className="text-xs" style={{ color: COLORS.textMuted }}>{friend.lastActive}</p>
                       </div>
                     </button>
@@ -5941,7 +5950,7 @@ export default function UpRepDemo() {
         )}
 
         {/* Friend Profile Modal */}
-        {showFriendProfile && (
+        {showFriendProfile && !showFriendStreakCalendar && (
           <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
             <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
               <button onClick={() => setShowFriendProfile(null)}>
@@ -5974,7 +5983,7 @@ export default function UpRepDemo() {
                 </div>
               </div>
 
-              {/* Stats */}
+              {/* Stats - Clickable */}
               <div className="grid grid-cols-3 gap-3 mb-6">
                 <div className="p-4 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
                   <Dumbbell size={20} color={COLORS.primary} className="mx-auto mb-1" />
@@ -5986,11 +5995,16 @@ export default function UpRepDemo() {
                   <p className="text-xl font-bold" style={{ color: COLORS.text }}>{showFriendProfile.stats.prs}</p>
                   <p className="text-xs" style={{ color: COLORS.textMuted }}>PRs</p>
                 </div>
-                <div className="p-4 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
+                <button 
+                  onClick={() => setShowFriendStreakCalendar(showFriendProfile)}
+                  className="p-4 rounded-xl text-center relative"
+                  style={{ backgroundColor: COLORS.surface }}
+                >
                   <Flame size={20} color={COLORS.error} className="mx-auto mb-1" />
                   <p className="text-xl font-bold" style={{ color: COLORS.text }}>{showFriendProfile.stats.streak}</p>
                   <p className="text-xs" style={{ color: COLORS.textMuted }}>Day Streak</p>
-                </div>
+                  <ChevronRight size={14} color={COLORS.textMuted} className="absolute right-2 top-1/2 -translate-y-1/2" />
+                </button>
               </div>
 
               {/* Current Goal */}
@@ -6041,6 +6055,217 @@ export default function UpRepDemo() {
             </div>
           </div>
         )}
+
+        {/* Friend Streak Calendar Modal */}
+        {showFriendStreakCalendar && (() => {
+          const friend = showFriendStreakCalendar;
+          const today = new Date(2026, 0, 8);
+          const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+          const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+          const getDaysInMonth = (month, year) => new Date(year, month + 1, 0).getDate();
+          const getFirstDayOfMonth = (month, year) => new Date(year, month, 1).getDay();
+          const daysInMonth = getDaysInMonth(friendStreakMonth, friendStreakYear);
+          const firstDay = getFirstDayOfMonth(friendStreakMonth, friendStreakYear);
+          
+          // Generate friend's workout data based on their streak
+          const generateFriendWorkoutData = () => {
+            const data = {};
+            const streakDays = friend.stats.streak;
+            
+            // Work backwards from today to create workout history
+            for (let i = 1; i <= 31; i++) {
+              if (i <= 8) { // Days in current month up to today
+                // More likely to have worked out if they have a high streak
+                const daysSinceToday = 8 - i;
+                if (daysSinceToday < streakDays) {
+                  // Within their streak - they worked out
+                  data[i] = { 
+                    workedOut: true, 
+                    workout: ['Push Day', 'Pull Day', 'Leg Day', 'Upper Body', 'Lower Body', 'Full Body'][Math.floor(Math.random() * 6)],
+                    duration: 45 + Math.floor(Math.random() * 30)
+                  };
+                } else {
+                  // Before their streak started - random
+                  data[i] = { 
+                    workedOut: Math.random() > 0.4,
+                    workout: Math.random() > 0.4 ? ['Push Day', 'Pull Day', 'Leg Day'][Math.floor(Math.random() * 3)] : null,
+                    duration: Math.random() > 0.4 ? 45 + Math.floor(Math.random() * 30) : 0
+                  };
+                }
+              }
+            }
+            return data;
+          };
+          
+          const workoutData = generateFriendWorkoutData();
+          
+          const calendarDays = [];
+          for (let i = 0; i < firstDay; i++) calendarDays.push(null);
+          for (let i = 1; i <= daysInMonth; i++) calendarDays.push(i);
+          
+          const isToday = (day) => day === today.getDate() && friendStreakMonth === today.getMonth() && friendStreakYear === today.getFullYear();
+          const isFuture = (day) => new Date(friendStreakYear, friendStreakMonth, day) > today;
+          
+          const changeMonth = (delta) => {
+            let newMonth = friendStreakMonth + delta;
+            let newYear = friendStreakYear;
+            if (newMonth > 11) { newMonth = 0; newYear++; }
+            if (newMonth < 0) { newMonth = 11; newYear--; }
+            setFriendStreakMonth(newMonth);
+            setFriendStreakYear(newYear);
+          };
+          
+          const workoutDays = Object.values(workoutData).filter(d => d.workedOut).length;
+          const restDays = Object.values(workoutData).filter(d => !d.workedOut).length;
+          const avgDuration = Math.round(Object.values(workoutData).filter(d => d.workedOut).reduce((acc, d) => acc + d.duration, 0) / workoutDays) || 0;
+          
+          return (
+            <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
+              <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
+                <button onClick={() => { setShowFriendStreakCalendar(null); setFriendStreakMonth(0); setFriendStreakYear(2026); }}>
+                  <ChevronLeft size={24} color={COLORS.text} />
+                </button>
+                <div 
+                  className="w-10 h-10 rounded-full flex items-center justify-center text-xl"
+                  style={{ backgroundColor: COLORS.surfaceLight }}
+                >
+                  {friend.avatar}
+                </div>
+                <div>
+                  <h2 className="font-bold" style={{ color: COLORS.text }}>{friend.name.split(' ')[0]}'s Streak</h2>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>{friend.program}</p>
+                </div>
+              </div>
+              
+              <div className="flex-1 overflow-auto p-4">
+                {/* Streak Banner */}
+                <div className="p-4 rounded-xl mb-4 text-center" style={{ backgroundColor: COLORS.warning + '20' }}>
+                  <div className="flex items-center justify-center gap-2 mb-1">
+                    <Flame size={28} color={COLORS.warning} />
+                    <p className="text-4xl font-bold" style={{ color: COLORS.warning }}>{friend.stats.streak}</p>
+                  </div>
+                  <p style={{ color: COLORS.textSecondary }}>day workout streak</p>
+                  {friend.stats.streak >= 30 && (
+                    <div className="mt-2 inline-flex items-center gap-1 px-3 py-1 rounded-full" style={{ backgroundColor: COLORS.warning + '30' }}>
+                      <Trophy size={14} color={COLORS.warning} />
+                      <span className="text-xs font-semibold" style={{ color: COLORS.warning }}>On fire! 🔥</span>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Calendar */}
+                <div className="rounded-xl p-4 mb-4" style={{ backgroundColor: COLORS.surface }}>
+                  <div className="flex items-center justify-between mb-4">
+                    <button onClick={() => changeMonth(-1)} className="p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
+                      <ChevronLeft size={20} color={COLORS.text} />
+                    </button>
+                    <h4 className="font-bold" style={{ color: COLORS.text }}>{monthNames[friendStreakMonth]} {friendStreakYear}</h4>
+                    <button onClick={() => changeMonth(1)} className="p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
+                      <ChevronRight size={20} color={COLORS.text} />
+                    </button>
+                  </div>
+                  
+                  <div className="grid grid-cols-7 gap-1 mb-2">
+                    {dayNames.map(day => (
+                      <div key={day} className="text-center text-xs font-semibold py-1" style={{ color: COLORS.textMuted }}>{day}</div>
+                    ))}
+                  </div>
+                  
+                  <div className="grid grid-cols-7 gap-1">
+                    {calendarDays.map((day, i) => {
+                      const dayData = workoutData[day];
+                      const future = day && isFuture(day);
+                      const todayDate = isToday(day);
+                      
+                      return (
+                        <div 
+                          key={i}
+                          className="rounded-lg flex flex-col items-center justify-center p-2 relative"
+                          style={{ 
+                            backgroundColor: !day ? 'transparent' : future ? 'transparent' : dayData?.workedOut ? COLORS.success + '30' : COLORS.surfaceLight,
+                            border: todayDate ? `2px solid ${COLORS.warning}` : '2px solid transparent',
+                            opacity: !day ? 0 : future ? 0.4 : 1,
+                            minHeight: '50px'
+                          }}
+                        >
+                          <span className="text-xs font-medium" style={{ color: COLORS.text }}>{day || ''}</span>
+                          {day && !future && dayData && (
+                            <div className="mt-1">
+                              {dayData.workedOut ? (
+                                <Dumbbell size={12} color={COLORS.success} />
+                              ) : (
+                                <span className="text-xs" style={{ color: COLORS.textMuted }}>Rest</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  
+                  <div className="flex items-center justify-center gap-4 mt-4 pt-3 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 rounded flex items-center justify-center" style={{ backgroundColor: COLORS.success + '30' }}>
+                        <Dumbbell size={10} color={COLORS.success} />
+                      </div>
+                      <span className="text-xs" style={{ color: COLORS.textMuted }}>Workout</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 rounded" style={{ backgroundColor: COLORS.surfaceLight }} />
+                      <span className="text-xs" style={{ color: COLORS.textMuted }}>Rest Day</span>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Stats Summary */}
+                <h5 className="font-semibold mb-3" style={{ color: COLORS.text }}>This Month</h5>
+                <div className="grid grid-cols-3 gap-3 mb-4">
+                  <div className="p-4 rounded-xl text-center" style={{ backgroundColor: COLORS.success + '15' }}>
+                    <p className="text-2xl font-bold" style={{ color: COLORS.success }}>{workoutDays}</p>
+                    <p className="text-xs" style={{ color: COLORS.textSecondary }}>Workouts</p>
+                  </div>
+                  <div className="p-4 rounded-xl text-center" style={{ backgroundColor: COLORS.surfaceLight }}>
+                    <p className="text-2xl font-bold" style={{ color: COLORS.text }}>{restDays}</p>
+                    <p className="text-xs" style={{ color: COLORS.textSecondary }}>Rest Days</p>
+                  </div>
+                  <div className="p-4 rounded-xl text-center" style={{ backgroundColor: COLORS.primary + '15' }}>
+                    <p className="text-2xl font-bold" style={{ color: COLORS.primary }}>{avgDuration}m</p>
+                    <p className="text-xs" style={{ color: COLORS.textSecondary }}>Avg Duration</p>
+                  </div>
+                </div>
+                
+                {/* Weekly Breakdown */}
+                <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+                  <h5 className="font-semibold mb-3" style={{ color: COLORS.text }}>Weekly Average</h5>
+                  <div className="flex items-center gap-3">
+                    <div 
+                      className="w-12 h-12 rounded-full flex items-center justify-center"
+                      style={{ backgroundColor: COLORS.primary + '20' }}
+                    >
+                      <span className="text-lg font-bold" style={{ color: COLORS.primary }}>{friend.weeklyWorkouts}</span>
+                    </div>
+                    <div>
+                      <p className="font-medium" style={{ color: COLORS.text }}>workouts per week</p>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                        {friend.weeklyWorkouts >= 5 ? 'Very consistent! 💪' : friend.weeklyWorkouts >= 3 ? 'Solid routine!' : 'Building the habit'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="p-4 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+                <button 
+                  onClick={() => { setShowFriendStreakCalendar(null); setFriendStreakMonth(0); setFriendStreakYear(2026); }}
+                  className="w-full py-4 rounded-xl font-semibold"
+                  style={{ backgroundColor: COLORS.warning, color: COLORS.background }}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          );
+        })()}
 
         {activeTab === 'progress' && (
           <div className="p-4 h-full flex items-center justify-center">
