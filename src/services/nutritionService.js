@@ -269,6 +269,24 @@ export const nutritionService = {
 
     return { data, error };
   },
+
+  // Alias for getDailyNutritionRange
+  async getDailyNutritionRange(userId, startDate, endDate) {
+    return this.getNutritionHistory(userId, startDate, endDate);
+  },
+
+  // Get supplement logs for date range
+  async getSupplementLogsRange(userId, startDate, endDate) {
+    const { data, error } = await supabase
+      .from('supplement_logs')
+      .select('*')
+      .eq('user_id', userId)
+      .gte('log_date', startDate)
+      .lte('log_date', endDate)
+      .order('log_date');
+
+    return { data, error };
+  },
 };
 
 export default nutritionService;

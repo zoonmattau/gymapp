@@ -3635,6 +3635,14 @@ export default function UpRepDemo() {
         restDays: profile.user_goals?.rest_days || prev.restDays,
       }));
 
+      // Sync allow_subscribers from profile to settings
+      if (profile.allow_subscribers !== undefined) {
+        setSettings(prev => ({
+          ...prev,
+          social: { ...prev.social, allowSubscribers: profile.allow_subscribers }
+        }));
+      }
+
       // Update overview stats if goals exist
       if (profile.user_goals) {
         const goals = profile.user_goals;
@@ -3949,6 +3957,8 @@ export default function UpRepDemo() {
   const [streakCalendarMonth, setStreakCalendarMonth] = useState(currentMonth);
   const [streakCalendarYear, setStreakCalendarYear] = useState(currentYear);
   const [selectedStreakDay, setSelectedStreakDay] = useState(null);
+  const [draggedDay, setDraggedDay] = useState(null);
+  const [dragOverDay, setDragOverDay] = useState(null);
   const [pauseDuration, setPauseDuration] = useState(null);
   const [pauseCalendarMonth, setPauseCalendarMonth] = useState(currentMonth);
   const [pauseCalendarYear, setPauseCalendarYear] = useState(currentYear);
@@ -4275,12 +4285,14 @@ export default function UpRepDemo() {
 
     const days = [];
     const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
     for (let i = 0; i < 7; i++) {
       const date = new Date(startOfWeek);
       date.setDate(startOfWeek.getDate() + i);
       const dateKey = date.toISOString().split('T')[0];
       const scheduleEntry = masterSchedule[dateKey] || { workout: null, completed: false };
+      const isPast = date < todayStart;
 
       days.push({
         day: dayNames[i],
@@ -4290,7 +4302,8 @@ export default function UpRepDemo() {
         dateKey,
         workout: scheduleEntry.workout,
         completed: scheduleEntry.completed,
-        isToday: date.toDateString() === today.toDateString()
+        isToday: date.toDateString() === today.toDateString(),
+        isPast
       });
     }
     return days;
@@ -5814,42 +5827,8 @@ export default function UpRepDemo() {
         const daysInMonth = getDaysInMonth(streakCalendarMonth, streakCalendarYear);
         const firstDay = getFirstDayOfMonth(streakCalendarMonth, streakCalendarYear);
         
-        // Generate detailed streak data with actual/target values
-        const getStreakData = () => {
-          const data = {};
-          const targets = { workouts: 1, calories: 2200, protein: 150, water: 2500, sleep: 8, supplements: 4 };
-          const target = targets[streak.id];
-          
-          if (streak.id === 'workouts') {
-            data[1] = { actual: 1, target, achieved: true };
-            data[3] = { actual: 1, target, achieved: true };
-            data[5] = { actual: 1, target, achieved: true };
-            data[6] = { actual: 1, target, achieved: true };
-            data[8] = { actual: 1, target, achieved: true };
-            [2, 4, 7].forEach(d => data[d] = { actual: 0, target, achieved: false });
-          } else if (streak.id === 'calories') {
-            data[1] = { actual: 1800, target, achieved: false };
-            data[2] = { actual: 1950, target, achieved: false };
-            [3, 4, 5, 6, 7, 8].forEach(d => data[d] = { actual: 2100 + Math.floor(Math.random() * 200), target, achieved: true });
-          } else if (streak.id === 'protein') {
-            [1, 2, 3, 4, 5, 6, 7, 8].forEach(d => data[d] = { actual: 140 + Math.floor(Math.random() * 30), target, achieved: true });
-          } else if (streak.id === 'water') {
-            [1, 2, 3, 4].forEach(d => data[d] = { actual: 1500 + Math.floor(Math.random() * 500), target, achieved: false });
-            [5, 6, 7, 8].forEach(d => data[d] = { actual: 2500 + Math.floor(Math.random() * 300), target, achieved: true });
-          } else if (streak.id === 'sleep') {
-            data[1] = { actual: 6.5, target, achieved: false };
-            data[2] = { actual: 5.5, target, achieved: false };
-            data[3] = { actual: 7, target, achieved: false };
-            data[4] = { actual: 6, target, achieved: false };
-            [5, 6, 7, 8].forEach(d => data[d] = { actual: 7.5 + Math.random(), target, achieved: true });
-          } else if (streak.id === 'supplements') {
-            [1, 2].forEach(d => data[d] = { actual: 2, target, achieved: false });
-            [3, 4, 5, 6, 7, 8].forEach(d => data[d] = { actual: 4, target, achieved: true });
-          }
-          return data;
-        };
-        
-        const streakData = getStreakData();
+        // Streak data - empty until user logs data
+        const streakData = {};
         const [selectedDay, setSelectedDay] = [selectedStreakDay, setSelectedStreakDay];
         const isToday = (day) => day === today.getDate() && streakCalendarMonth === today.getMonth() && streakCalendarYear === today.getFullYear();
         const isFuture = (day) => new Date(streakCalendarYear, streakCalendarMonth, day) > today;
@@ -5940,6 +5919,18 @@ export default function UpRepDemo() {
                   <div className="flex items-center gap-2"><div className="w-4 h-4 rounded" style={{ backgroundColor: COLORS.success + '30' }} /><span className="text-xs" style={{ color: COLORS.textMuted }}>≥100%</span></div>
                   <div className="flex items-center gap-2"><div className="w-4 h-4 rounded" style={{ backgroundColor: COLORS.error + '20' }} /><span className="text-xs" style={{ color: COLORS.textMuted }}>&lt;100%</span></div>
                 </div>
+
+                {/* Empty state message */}
+                {Object.keys(streakData).length === 0 && (
+                  <div className="mt-4 p-3 rounded-lg text-center" style={{ backgroundColor: COLORS.surfaceLight }}>
+                    <p className="text-sm" style={{ color: COLORS.textMuted }}>
+                      No tracking data for this month yet.
+                    </p>
+                    <p className="text-xs mt-1" style={{ color: COLORS.textMuted }}>
+                      Data will appear here as you log your progress.
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Selected Day Detail */}
@@ -6763,30 +6754,73 @@ export default function UpRepDemo() {
                 </button>
               </div>
               <div className="flex gap-2">
-                {currentWeekDates.map((day, i) => (
-                  <button
-                    key={day.dateKey}
-                    onClick={() => setEditingScheduleDay(day)}
-                    className="flex-1 p-2 rounded-xl text-center"
-                    style={{ 
-                      backgroundColor: day.isToday ? COLORS.primary + '20' : COLORS.surface,
-                      border: day.isToday ? `2px solid ${COLORS.primary}` : '2px solid transparent'
-                    }}
-                  >
-                    <p className="text-xs" style={{ color: COLORS.textMuted }}>{day.day}</p>
-                    <p className="font-bold" style={{ color: day.isToday ? COLORS.primary : COLORS.text }}>{day.date}</p>
-                    {day.workout ? (
-                      <p className="text-xs mt-1 truncate" style={{ color: getWorkoutColor(day.workout.name, COLORS) }}>
-                        {day.workout.name.split(' ')[0]}
-                      </p>
-                    ) : (
-                      <p className="text-xs mt-1" style={{ color: COLORS.textMuted }}>Rest</p>
-                    )}
-                    {day.completed && (
-                      <Check size={10} color={COLORS.success} className="mx-auto" />
-                    )}
-                  </button>
-                ))}
+                {(() => {
+                  // Drag handlers for week schedule
+                  const handleDragStart = (day, isBeforeProgram) => {
+                    if (day.isPast || !day.workout || isBeforeProgram) return;
+                    setDraggedDay(day);
+                  };
+                  const handleDragOver = (day) => {
+                    if (!draggedDay || day.dateKey === draggedDay.dateKey || day.isPast) return;
+                    setDragOverDay(day);
+                  };
+                  const handleDragEnd = () => {
+                    if (draggedDay && dragOverDay && draggedDay.dateKey !== dragOverDay.dateKey) {
+                      swapWorkoutDays(draggedDay.dateKey, dragOverDay.dateKey);
+                    }
+                    setDraggedDay(null);
+                    setDragOverDay(null);
+                  };
+
+                  return currentWeekDates.map((day, i) => {
+                    const isBeforeProgram = overviewStats.programStartDate && day.dateKey < overviewStats.programStartDate;
+                    const isMissed = day.isPast && day.workout && !day.completed && !isBeforeProgram;
+                    const isDragging = draggedDay?.dateKey === day.dateKey;
+                    const isDragOver = dragOverDay?.dateKey === day.dateKey;
+                    const canDrag = !day.isPast && day.workout && !isBeforeProgram;
+
+                    return (
+                      <button
+                        key={day.dateKey}
+                        onClick={() => !day.isPast && !draggedDay && setEditingScheduleDay(day)}
+                        onPointerDown={() => handleDragStart(day, isBeforeProgram)}
+                        onPointerEnter={() => draggedDay && handleDragOver(day)}
+                        onPointerUp={handleDragEnd}
+                        onPointerLeave={() => setDragOverDay(null)}
+                        onPointerCancel={handleDragEnd}
+                        className="flex-1 p-2 rounded-xl text-center"
+                        style={{
+                          backgroundColor: day.isToday ? COLORS.primary + '20' : COLORS.surface,
+                          border: day.isToday ? `2px solid ${COLORS.primary}` : isDragOver ? `2px solid ${COLORS.accent}` : '2px solid transparent',
+                          opacity: (day.isPast && !day.completed && !isBeforeProgram) ? 0.6 : 1,
+                          transform: isDragging ? 'scale(1.08)' : 'scale(1)',
+                          boxShadow: isDragging ? '0 4px 12px rgba(0,0,0,0.3)' : 'none',
+                          cursor: canDrag ? 'grab' : 'default',
+                          transition: 'transform 0.15s, box-shadow 0.15s, border 0.15s',
+                          touchAction: 'none',
+                          zIndex: isDragging ? 10 : 1,
+                        }}
+                      >
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>{day.day}</p>
+                      <p className="font-bold" style={{ color: day.isToday ? COLORS.primary : COLORS.text }}>{day.date}</p>
+                      {isBeforeProgram ? (
+                        <p className="text-xs mt-1" style={{ color: COLORS.textMuted }}>-</p>
+                      ) : isMissed ? (
+                        <p className="text-xs mt-1" style={{ color: COLORS.textMuted }}>Missed</p>
+                      ) : day.workout ? (
+                        <p className="text-xs mt-1 truncate" style={{ color: getWorkoutColor(day.workout.name, COLORS) }}>
+                          {day.workout.name.split(' ')[0]}
+                        </p>
+                      ) : (
+                        <p className="text-xs mt-1" style={{ color: COLORS.textMuted }}>Rest</p>
+                      )}
+                      {day.completed && (
+                        <Check size={10} color={COLORS.success} className="mx-auto" />
+                      )}
+                    </button>
+                    );
+                  });
+                })()}
               </div>
               {scheduleWeekOffset !== 0 && (
                 <button 
@@ -7271,6 +7305,35 @@ export default function UpRepDemo() {
                 {/* Today's Macros */}
                 <div className="mb-6">
                   <h3 className="font-semibold mb-3" style={{ color: COLORS.text }}>Today's Nutrition</h3>
+
+                  {/* Quick Add Buttons */}
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <button
+                      onClick={() => setShowMealEntry(true)}
+                      className="p-3 rounded-xl flex items-center gap-3"
+                      style={{ backgroundColor: COLORS.surface }}
+                    >
+                      <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.accent + '20' }}>
+                        <Utensils size={18} color={COLORS.accent} />
+                      </div>
+                      <div className="text-left">
+                        <p className="font-semibold text-sm" style={{ color: COLORS.text }}>Add Meal</p>
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => setShowWaterEntry(true)}
+                      className="p-3 rounded-xl flex items-center gap-3"
+                      style={{ backgroundColor: COLORS.surface }}
+                    >
+                      <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.water + '20' }}>
+                        <Droplets size={18} color={COLORS.water} />
+                      </div>
+                      <div className="text-left">
+                        <p className="font-semibold text-sm" style={{ color: COLORS.text }}>Add Water</p>
+                      </div>
+                    </button>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-3">
                     {/* Calories Circle */}
                     <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
@@ -7414,35 +7477,6 @@ export default function UpRepDemo() {
                   </div>
                 </div>
 
-                {/* Quick Add Buttons */}
-                <div className="grid grid-cols-2 gap-3 mb-6">
-                  <button 
-                    onClick={() => setShowMealEntry(true)}
-                    className="p-4 rounded-xl flex items-center gap-3"
-                    style={{ backgroundColor: COLORS.surface }}
-                  >
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.accent + '20' }}>
-                      <Utensils size={20} color={COLORS.accent} />
-                    </div>
-                    <div className="text-left">
-                      <p className="font-semibold" style={{ color: COLORS.text }}>Add Meal</p>
-                      <p className="text-xs" style={{ color: COLORS.textMuted }}>Quick entry</p>
-                    </div>
-                  </button>
-                  <button 
-                    onClick={() => setShowWaterEntry(true)}
-                    className="p-4 rounded-xl flex items-center gap-3"
-                    style={{ backgroundColor: COLORS.surface }}
-                  >
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.water + '20' }}>
-                      <Droplets size={20} color={COLORS.water} />
-                    </div>
-                    <div className="text-left">
-                      <p className="font-semibold" style={{ color: COLORS.text }}>Add Water</p>
-                      <p className="text-xs" style={{ color: COLORS.textMuted }}>Track hydration</p>
-                    </div>
-                  </button>
-                </div>
               </>
             )}
 
@@ -8729,69 +8763,86 @@ export default function UpRepDemo() {
               </div>
 
               {/* Followers / Subscribers Section */}
-              <h4 className="font-semibold mt-6 mb-3" style={{ color: COLORS.text }}>Followers</h4>
+              <h4 className="font-semibold mt-6 mb-3" style={{ color: COLORS.text }}>Profile Visibility</h4>
               <div
-                className="p-4 rounded-xl flex items-center justify-between"
+                className="p-4 rounded-xl"
                 style={{ backgroundColor: COLORS.surface }}
               >
-                <div className="flex-1">
-                  <p className="font-semibold" style={{ color: COLORS.text }}>Allow Subscribers</p>
-                  <p className="text-xs" style={{ color: COLORS.textMuted }}>
-                    {settings.social.allowSubscribers
-                      ? 'Anyone can subscribe to see your public activity'
-                      : 'Only approved friends can see your activity'
-                    }
-                  </p>
-                </div>
-                <button
-                  onClick={async () => {
-                    const newValue = !settings.social.allowSubscribers;
-                    setSettings(prev => ({
-                      ...prev,
-                      social: { ...prev.social, allowSubscribers: newValue }
-                    }));
-                    // Save to database
-                    if (user?.id) {
-                      try {
-                        const { error } = await profileService.updateProfile(user.id, { allow_subscribers: newValue });
-                        if (error) {
-                          // Revert on error
-                          console.warn('Settings update error:', error?.message);
-                          setSettings(prev => ({
-                            ...prev,
-                            social: { ...prev.social, allowSubscribers: !newValue }
-                          }));
-                        }
-                      } catch (err) {
-                        console.warn('Settings update failed:', err?.message || err);
-                        // Revert on error
+                <div className="flex items-center justify-between">
+                  <p className="font-semibold" style={{ color: COLORS.text }}>Public Profile</p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium" style={{ color: settings.social.allowSubscribers ? COLORS.textMuted : COLORS.text }}>
+                      Private
+                    </span>
+                    <button
+                      onClick={async () => {
+                        const newValue = !settings.social.allowSubscribers;
                         setSettings(prev => ({
                           ...prev,
-                          social: { ...prev.social, allowSubscribers: !newValue }
+                          social: { ...prev.social, allowSubscribers: newValue }
                         }));
-                      }
-                    }
-                  }}
-                  className="w-12 h-7 rounded-full p-0.5 transition-colors"
-                  style={{ backgroundColor: settings.social.allowSubscribers ? COLORS.success : COLORS.surfaceLight }}
-                >
-                  <div
-                    className="w-6 h-6 rounded-full transition-transform"
-                    style={{
-                      backgroundColor: COLORS.text,
-                      transform: settings.social.allowSubscribers ? 'translateX(20px)' : 'translateX(0)'
-                    }}
-                  />
-                </button>
-              </div>
-
-              {settings.social.allowSubscribers && (
-                <div className="mt-3 p-4 rounded-xl" style={{ backgroundColor: COLORS.accent + '10' }}>
-                  <p className="text-xs" style={{ color: COLORS.accent }}>
-                    With a public account, anyone can subscribe to you without approval. They'll see your workouts and achievements in their feed.
-                  </p>
+                        // Save to database
+                        if (user?.id) {
+                          try {
+                            const { error } = await profileService.updateProfile(user.id, { allow_subscribers: newValue });
+                            if (error) {
+                              // Revert on error
+                              console.warn('Settings update error:', error?.message);
+                              setSettings(prev => ({
+                                ...prev,
+                                social: { ...prev.social, allowSubscribers: !newValue }
+                              }));
+                            }
+                          } catch (err) {
+                            console.warn('Settings update failed:', err?.message || err);
+                            // Revert on error
+                            setSettings(prev => ({
+                              ...prev,
+                              social: { ...prev.social, allowSubscribers: !newValue }
+                            }));
+                          }
+                        }
+                      }}
+                      className="w-12 h-7 rounded-full p-0.5 transition-colors"
+                      style={{ backgroundColor: settings.social.allowSubscribers ? COLORS.success : COLORS.surfaceLight }}
+                    >
+                      <div
+                        className="w-6 h-6 rounded-full transition-transform"
+                        style={{
+                          backgroundColor: COLORS.text,
+                          transform: settings.social.allowSubscribers ? 'translateX(20px)' : 'translateX(0)'
+                        }}
+                      />
+                    </button>
+                    <span className="text-xs font-medium" style={{ color: settings.social.allowSubscribers ? COLORS.text : COLORS.textMuted }}>
+                      Public
+                    </span>
+                  </div>
                 </div>
-              )}
+
+                {/* Clear explanation of current state */}
+                <div className="mt-3 p-3 rounded-lg" style={{ backgroundColor: settings.social.allowSubscribers ? COLORS.success + '20' : COLORS.surfaceLight }}>
+                  {settings.social.allowSubscribers ? (
+                    <div>
+                      <p className="text-sm font-semibold" style={{ color: COLORS.success }}>
+                        ✓ PUBLIC - Anyone can see your progress
+                      </p>
+                      <p className="text-xs mt-1" style={{ color: COLORS.textMuted }}>
+                        Anyone can subscribe to you without approval. They'll see your workouts and achievements.
+                      </p>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="text-sm font-semibold" style={{ color: COLORS.text }}>
+                        🔒 PRIVATE - Only friends can see your progress
+                      </p>
+                      <p className="text-xs mt-1" style={{ color: COLORS.textMuted }}>
+                        People must send a friend request and be approved to see your activity.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
 
               <div className="mt-4 p-4 rounded-xl" style={{ backgroundColor: COLORS.primary + '10' }}>
                 <p className="text-sm" style={{ color: COLORS.primary }}>
@@ -9263,14 +9314,14 @@ export default function UpRepDemo() {
                   <p className="text-xl font-bold" style={{ color: COLORS.text }}>{showFriendProfile.stats.prs}</p>
                   <p className="text-xs" style={{ color: COLORS.textMuted }}>PRs</p>
                 </div>
-                <button 
+                <button
                   onClick={() => setShowFriendStreakCalendar(showFriendProfile)}
                   className="p-4 rounded-xl text-center relative"
                   style={{ backgroundColor: COLORS.surface }}
                 >
                   <Flame size={20} color={COLORS.error} className="mx-auto mb-1" />
                   <p className="text-xl font-bold" style={{ color: COLORS.text }}>{showFriendProfile.stats.streak}</p>
-                  <p className="text-xs" style={{ color: COLORS.textMuted }}>Day Streak</p>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>Workout Streak</p>
                   <ChevronRight size={14} color={COLORS.textMuted} className="absolute right-2 top-1/2 -translate-y-1/2" />
                 </button>
               </div>
@@ -9619,39 +9670,10 @@ export default function UpRepDemo() {
             <div className="p-4 rounded-xl mb-6" style={{ backgroundColor: COLORS.surface }}>
               <div className="flex items-center justify-between mb-3">
                 <h4 className="font-semibold" style={{ color: COLORS.text }}>Body Composition</h4>
-                <span className="text-xs px-2 py-1 rounded" style={{ backgroundColor: COLORS.accent + '20', color: COLORS.accent }}>Optional</span>
               </div>
-              <div style={{ height: 140 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={[
-                    { date: 'W1', bodyFat: 22, muscle: 38 },
-                    { date: 'W2', bodyFat: 21.5, muscle: 38.2 },
-                    { date: 'W3', bodyFat: 21.2, muscle: 38.5 },
-                    { date: 'W4', bodyFat: 20.8, muscle: 38.8 },
-                    { date: 'W5', bodyFat: 20.3, muscle: 39 },
-                    { date: 'W6', bodyFat: 20, muscle: 39.2 },
-                  ]}>
-                    <XAxis dataKey="date" tick={{ fill: COLORS.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fill: COLORS.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} width={30} domain={[15, 45]} />
-                    <Tooltip 
-                      contentStyle={{ backgroundColor: COLORS.surface, border: 'none', borderRadius: 8 }}
-                      labelStyle={{ color: COLORS.text }}
-                      formatter={(value) => [value + '%']}
-                    />
-                    <Line type="monotone" dataKey="bodyFat" stroke={COLORS.error} strokeWidth={2} dot={{ fill: COLORS.error, r: 3 }} name="Body Fat" />
-                    <Line type="monotone" dataKey="muscle" stroke={COLORS.success} strokeWidth={2} dot={{ fill: COLORS.success, r: 3 }} name="Muscle" />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="flex justify-center gap-4 mt-2">
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-0.5 rounded" style={{ backgroundColor: COLORS.error }} />
-                  <span className="text-xs" style={{ color: COLORS.textMuted }}>Body Fat %</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-0.5 rounded" style={{ backgroundColor: COLORS.success }} />
-                  <span className="text-xs" style={{ color: COLORS.textMuted }}>Muscle %</span>
-                </div>
+              <div className="text-center py-8">
+                <p className="text-sm" style={{ color: COLORS.textMuted }}>Track body fat and muscle mass</p>
+                <p className="text-xs mt-1" style={{ color: COLORS.textMuted }}>Coming soon</p>
               </div>
             </div>
 
@@ -9664,35 +9686,36 @@ export default function UpRepDemo() {
                     <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '20' }}>
                       <TrendingUp size={16} color={COLORS.primary} />
                     </div>
-                    <span style={{ color: COLORS.textSecondary }}>Weight</span>
+                    <span style={{ color: COLORS.textSecondary }}>Current Weight</span>
                   </div>
                   <div className="text-right">
-                    <span className="font-bold" style={{ color: COLORS.text }}>80.0 kg</span>
-                    <span className="text-xs ml-2" style={{ color: COLORS.success }}>-2kg</span>
+                    <span className="font-bold" style={{ color: COLORS.text }}>{userData.currentWeight || '--'} kg</span>
                   </div>
                 </div>
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: COLORS.error + '20' }}>
-                      <Flame size={16} color={COLORS.error} />
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: COLORS.accent + '20' }}>
+                      <Target size={16} color={COLORS.accent} />
                     </div>
-                    <span style={{ color: COLORS.textSecondary }}>Body Fat</span>
+                    <span style={{ color: COLORS.textSecondary }}>Goal Weight</span>
                   </div>
                   <div className="text-right">
-                    <span className="font-bold" style={{ color: COLORS.text }}>20.0%</span>
-                    <span className="text-xs ml-2" style={{ color: COLORS.success }}>-2%</span>
+                    <span className="font-bold" style={{ color: COLORS.text }}>{userData.goalWeight || '--'} kg</span>
                   </div>
                 </div>
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: COLORS.success + '20' }}>
-                      <Dumbbell size={16} color={COLORS.success} />
+                      <TrendingDown size={16} color={COLORS.success} />
                     </div>
-                    <span style={{ color: COLORS.textSecondary }}>Muscle Mass</span>
+                    <span style={{ color: COLORS.textSecondary }}>To Go</span>
                   </div>
                   <div className="text-right">
-                    <span className="font-bold" style={{ color: COLORS.text }}>39.2%</span>
-                    <span className="text-xs ml-2" style={{ color: COLORS.success }}>+1.2%</span>
+                    <span className="font-bold" style={{ color: COLORS.text }}>
+                      {userData.currentWeight && userData.goalWeight
+                        ? `${Math.abs(parseFloat(userData.currentWeight) - parseFloat(userData.goalWeight)).toFixed(1)} kg`
+                        : '--'}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -9710,28 +9733,10 @@ export default function UpRepDemo() {
 
             {/* Weigh-In History */}
             <h4 className="font-semibold mb-3" style={{ color: COLORS.text }}>Recent Weigh-Ins</h4>
-            <div className="space-y-2">
-              {[
-                { date: 'Jan 6', weight: 80.0, bodyFat: 20.0, muscle: 39.2, change: -0.3 },
-                { date: 'Jan 3', weight: 80.3, bodyFat: 20.3, muscle: 39.0, change: -0.5 },
-                { date: 'Dec 30', weight: 80.8, bodyFat: 20.8, muscle: 38.8, change: -0.4 },
-                { date: 'Dec 27', weight: 81.2, bodyFat: 21.2, muscle: 38.5, change: -0.3 },
-              ].map((entry, i) => (
-                <div key={i} className="p-3 rounded-xl flex items-center justify-between" style={{ backgroundColor: COLORS.surface }}>
-                  <div>
-                    <p className="font-semibold text-sm" style={{ color: COLORS.text }}>{entry.date}</p>
-                    <p className="text-xs" style={{ color: COLORS.textMuted }}>
-                      {entry.bodyFat ? `${entry.bodyFat}% BF • ${entry.muscle}% Muscle` : 'Weight only'}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-bold" style={{ color: COLORS.text }}>{entry.weight}kg</p>
-                    <p className="text-xs" style={{ color: entry.change < 0 ? COLORS.success : COLORS.error }}>
-                      {entry.change > 0 ? '+' : ''}{entry.change}kg
-                    </p>
-                  </div>
-                </div>
-              ))}
+            <div className="p-4 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
+              <p className="text-sm" style={{ color: COLORS.textMuted }}>
+                Log your weigh-ins to track progress
+              </p>
             </div>
           </div>
         )}
@@ -10473,12 +10478,13 @@ export default function UpRepDemo() {
                   };
 
                   const shortName = isBeforeProgram ? null : getShortName(entry?.workout);
+                  const isMissed = isPast && entry?.workout && !entry?.completed && !isBeforeProgram;
 
                   return (
                     <button
                       key={day}
                       onClick={() => {
-                        if (!isBeforeProgram) {
+                        if (!isBeforeProgram && !isPast) {
                           setEditingScheduleDay({
                             day: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][(date.getDay() + 6) % 7],
                             date: day,
@@ -10487,21 +10493,24 @@ export default function UpRepDemo() {
                             dateKey,
                             workout: entry?.workout || null,
                             completed: entry?.completed || false,
-                            isToday
+                            isToday,
+                            isPast
                           });
                         }
                       }}
-                      disabled={isBeforeProgram}
+                      disabled={isBeforeProgram || isPast}
                       className="aspect-square rounded-lg flex flex-col items-center justify-center p-1"
                       style={{
                         backgroundColor: isToday ? COLORS.primary + '30' : isBeforeProgram ? COLORS.surfaceLight : COLORS.surface,
                         border: isToday ? `2px solid ${COLORS.primary}` : 'none',
-                        opacity: isBeforeProgram ? 0.4 : 1
+                        opacity: isBeforeProgram || (isPast && !entry?.completed) ? 0.5 : 1
                       }}
                     >
                       <span className="text-xs" style={{ color: isToday ? COLORS.primary : isBeforeProgram ? COLORS.textMuted : COLORS.text }}>{day}</span>
                       {isBeforeProgram ? (
                         <span className="text-xs mt-0.5" style={{ color: COLORS.textMuted, fontSize: '7px' }}>-</span>
+                      ) : isMissed ? (
+                        <span className="text-xs mt-0.5" style={{ color: COLORS.textMuted, fontSize: '7px' }}>Missed</span>
                       ) : shortName ? (
                         <span
                           className="text-xs font-semibold mt-0.5 truncate w-full text-center"

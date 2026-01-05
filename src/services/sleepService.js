@@ -113,6 +113,11 @@ export const sleepService = {
     const { data } = await this.getSleepLog(userId, yesterdayStr);
     return !!data;
   },
+
+  // Alias for getSleepRange
+  async getSleepRange(userId, startDate, endDate) {
+    return this.getSleepHistory(userId, startDate, endDate);
+  },
 };
 
 export default sleepService;
