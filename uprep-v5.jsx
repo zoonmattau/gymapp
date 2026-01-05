@@ -1,69 +1,173 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
-import { ChevronRight, ChevronLeft, Check, Plus, Minus, Play, X, Droplets, Moon, TrendingUp, User, Home, Dumbbell, Apple, BarChart3, Trophy, Flame, Clock, Target, Info, Calendar, AlertCircle, Zap, Coffee, Utensils, ChevronDown, ChevronUp, Eye, Undo2, Search, Book, History, Award, Edit3, Filter, ArrowLeftRight, GripVertical, Users, Heart, MessageCircle, Share2, Crown, Medal } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Check, Plus, Minus, Play, X, Droplets, Moon, TrendingUp, User, Home, Dumbbell, Apple, BarChart3, Trophy, Flame, Clock, Target, Info, Calendar, AlertCircle, Zap, Coffee, Utensils, ChevronDown, ChevronUp, Eye, Undo2, Search, Book, History, Award, Edit3, Filter, ArrowLeftRight, GripVertical, Users, Heart, MessageCircle, Share2, Crown, Medal, Loader2 } from 'lucide-react';
+import { useAuth } from './src/contexts/AuthContext';
+import { workoutService } from './src/services/workoutService';
+import { sleepService } from './src/services/sleepService';
+import { streakService } from './src/services/streakService';
+import { nutritionService } from './src/services/nutritionService';
+import { profileService } from './src/services/profileService';
+import { generateNutritionTargets, projectWeightProgress, generateWorkoutSchedule } from './src/utils/fitnessCalculations';
 
-const COLORS = {
-  primary: '#FF4D4D',
-  primaryDark: '#CC3D3D',
-  accent: '#00D9FF',
-  background: '#0F0F1A',
-  surface: '#1A1A2E',
-  surfaceLight: '#252540',
-  text: '#FFFFFF',
-  textSecondary: '#B0B0C0',
-  textMuted: '#6B6B80',
-  success: '#00E676',
-  warning: '#FFB300',
-  error: '#FF5252',
+// Dark mode color palette
+const COLORS_DARK = {
+  primary: '#06B6D4',        // Cyan - fresh, energetic, modern
+  primaryDark: '#0891B2',    // Darker cyan for hover/pressed
+  accent: '#22D3EE',         // Lighter cyan accent
+  background: '#0D0F12',     // Dark background
+  surface: '#121417',        // Card surface
+  surfaceLight: '#1E2024',   // Slightly lighter surface
+  text: '#F3F4F6',           // Primary text (slightly brighter)
+  textSecondary: '#D1D5DB',  // Secondary text
+  textMuted: '#9CA3AF',      // Muted text
+  success: '#22C55E',        // Green - ONLY for success, wins, completed
+  warning: '#FBBF24',        // Yellow warning
+  error: '#EF4444',          // Red error
+  border: '#2A2D32',         // Subtle borders
+  // Category colors (all visually distinct)
+  water: '#60A5FA',          // Blue - water
+  sleep: '#C4B5FD',          // Soft lavender - sleep
+  fats: '#F59E0B',           // Amber - fats
+  protein: '#F472B6',        // Pink - protein
+  carbs: '#FB923C',          // Orange - carbs
+  supplements: '#FBBF24',    // Yellow - supplements (electric/zap)
 };
 
+// Light mode color palette
+const COLORS_LIGHT = {
+  primary: '#0891B2',        // Cyan 600 - slightly darker for light bg
+  primaryDark: '#0E7490',    // Cyan 700
+  accent: '#06B6D4',         // Cyan 500
+  background: '#F8FAFC',     // Slate 50 - clean white
+  surface: '#FFFFFF',        // White card surface
+  surfaceLight: '#E2E8F0',   // Slate 200 - dividers
+  text: '#0F172A',           // Slate 900 - dark text
+  textSecondary: '#475569',  // Slate 600
+  textMuted: '#94A3B8',      // Slate 400
+  success: '#16A34A',        // Green 600 - success only
+  warning: '#EAB308',        // Yellow 500
+  error: '#DC2626',          // Red 600
+  border: '#E2E8F0',         // Slate 200
+  // Category colors
+  water: '#3B82F6',          // Blue
+  sleep: '#A78BFA',          // Violet
+  fats: '#F59E0B',           // Amber
+  protein: '#EC4899',        // Pink
+  carbs: '#F97316',          // Orange
+  supplements: '#EAB308',    // Yellow - supplements
+};
+
+// Default to dark mode
+const COLORS = COLORS_DARK;
+
+// Programs ordered from weight gain to weight loss
 const GOAL_INFO = {
-  build_muscle: {
-    title: 'Building Muscle & Size',
-    icon: '💪',
-    overview: "Building muscle is a journey of consistency, not a sprint.",
+  bulk: {
+    title: 'Mass Building (Bulk)',
+    icon: '🦍',
+    overview: "Maximize muscle and size gains with a calorie surplus.",
     requirements: [
-      { icon: '🏋️', title: 'Progressive Overload', desc: 'Gradually increase weight, reps, or sets over time.' },
+      { icon: '🍽️', title: 'Calorie Surplus', desc: 'Eat 300-500 calories above maintenance.' },
+      { icon: '🏋️', title: 'Heavy Training', desc: 'Focus on compound lifts with progressive overload.' },
+      { icon: '🍗', title: 'High Protein', desc: 'Aim for 1.8-2.2g protein per kg bodyweight.' },
+      { icon: '😴', title: 'Recovery', desc: 'Sleep 7-9 hours for optimal muscle growth.' },
+    ],
+    minDays: 4,
+    idealDays: '4-6',
+    weightDirection: 'gain',
+  },
+  build_muscle: {
+    title: 'Lean Muscle Building',
+    icon: '💪',
+    overview: "Build muscle while minimizing fat gain with a slight surplus.",
+    requirements: [
+      { icon: '🏋️', title: 'Progressive Overload', desc: 'Gradually increase weight, reps, or sets.' },
       { icon: '📅', title: 'Consistency', desc: 'Results come from stacking sessions week after week.' },
-      { icon: '🍗', title: 'Protein-Rich Diet', desc: 'Aim for 1.6-2.2g protein per kg bodyweight daily.' },
+      { icon: '🍗', title: 'Protein-Rich Diet', desc: 'Aim for 1.6-2.2g protein per kg bodyweight.' },
       { icon: '😴', title: 'Quality Sleep', desc: '7-9 hours per night for muscle repair.' },
     ],
     minDays: 3,
     idealDays: '4-5',
-  },
-  lose_fat: {
-    title: 'Losing Fat & Getting Lean',
-    icon: '🔥',
-    overview: "Fat loss is about creating a sustainable calorie deficit.",
-    requirements: [
-      { icon: '🍽️', title: 'Calorie Deficit', desc: 'Eat slightly less than you burn (300-500 cal deficit).' },
-      { icon: '🏃', title: 'Cardio + Weights', desc: 'Combine resistance training with cardio.' },
-      { icon: '🍗', title: 'High Protein', desc: 'Keep protein high to preserve muscle.' },
-    ],
-    minDays: 3,
-    idealDays: '4-6',
+    weightDirection: 'gain',
   },
   strength: {
-    title: 'Getting Stronger',
+    title: 'Strength & Power',
     icon: '🏋️',
-    overview: "Strength is built through heavy compound lifts.",
+    overview: "Maximize strength through heavy compound lifts.",
     requirements: [
       { icon: '🎯', title: 'Heavy Compounds', desc: 'Focus on squat, bench, deadlift, overhead press.' },
       { icon: '📈', title: 'Low Reps, High Weight', desc: '1-6 rep range with heavy loads.' },
+      { icon: '⏰', title: 'Rest Periods', desc: 'Take 3-5 minutes rest between heavy sets.' },
     ],
     minDays: 3,
     idealDays: '3-4',
+    weightDirection: 'maintain',
+  },
+  recomp: {
+    title: 'Body Recomposition',
+    icon: '🔄',
+    overview: "Build muscle and lose fat simultaneously at maintenance calories.",
+    requirements: [
+      { icon: '⚖️', title: 'Maintenance Calories', desc: 'Eat at or slightly below TDEE.' },
+      { icon: '🍗', title: 'Very High Protein', desc: 'Aim for 2.0-2.4g protein per kg bodyweight.' },
+      { icon: '🏋️', title: 'Heavy Training', desc: 'Prioritize strength training to preserve muscle.' },
+      { icon: '⏱️', title: 'Patience', desc: 'This approach is slower but sustainable.' },
+    ],
+    minDays: 3,
+    idealDays: '4-5',
+    weightDirection: 'maintain',
   },
   fitness: {
-    title: 'General Fitness & Health',
+    title: 'General Fitness',
     icon: '❤️',
-    overview: "Overall fitness combines strength, cardio, and mobility.",
+    overview: "Overall fitness combining strength, cardio, and mobility.",
     requirements: [
-      { icon: '🔄', title: 'Variety', desc: 'Mix resistance training, cardio, and flexibility work.' },
+      { icon: '🔄', title: 'Variety', desc: 'Mix resistance training, cardio, and flexibility.' },
       { icon: '❤️', title: 'Heart Health', desc: '150 mins moderate cardio per week minimum.' },
+      { icon: '🧘', title: 'Mobility', desc: 'Include stretching and mobility work.' },
     ],
     minDays: 2,
     idealDays: '3-5',
+    weightDirection: 'maintain',
+  },
+  athletic: {
+    title: 'Athletic Performance',
+    icon: '⚡',
+    overview: "Optimize for sports performance, speed, and agility.",
+    requirements: [
+      { icon: '🏃', title: 'Conditioning', desc: 'Mix strength with sport-specific cardio.' },
+      { icon: '💨', title: 'Speed & Power', desc: 'Include plyometrics and explosive movements.' },
+      { icon: '🔄', title: 'Mobility', desc: 'Prioritize flexibility and injury prevention.' },
+    ],
+    minDays: 3,
+    idealDays: '4-5',
+    weightDirection: 'maintain',
+  },
+  lean: {
+    title: 'Getting Lean (Cut)',
+    icon: '✂️',
+    overview: "Shed fat while preserving muscle with a moderate deficit.",
+    requirements: [
+      { icon: '🍽️', title: 'Moderate Deficit', desc: 'Eat 300-400 calories below maintenance.' },
+      { icon: '🍗', title: 'High Protein', desc: 'Keep protein at 2.0g+ per kg to preserve muscle.' },
+      { icon: '🏋️', title: 'Maintain Intensity', desc: 'Keep lifting heavy to signal muscle retention.' },
+    ],
+    minDays: 3,
+    idealDays: '4-5',
+    weightDirection: 'lose',
+  },
+  lose_fat: {
+    title: 'Fat Loss',
+    icon: '🔥',
+    overview: "Aggressive fat loss with a larger calorie deficit.",
+    requirements: [
+      { icon: '🍽️', title: 'Calorie Deficit', desc: 'Eat 500-750 calories below maintenance.' },
+      { icon: '🏃', title: 'Cardio + Weights', desc: 'Combine resistance training with cardio.' },
+      { icon: '🍗', title: 'Very High Protein', desc: 'Maximize protein to preserve muscle mass.' },
+    ],
+    minDays: 3,
+    idealDays: '4-6',
+    weightDirection: 'lose',
   },
 };
 
@@ -642,8 +746,8 @@ const WaterEntryModal = ({ COLORS, onClose, onSave }) => {
               onClick={() => setAmount(amt.toString())}
               className="py-3 rounded-xl text-sm font-semibold"
               style={{ 
-                backgroundColor: amount === amt.toString() ? '#448AFF' : COLORS.surfaceLight, 
-                color: amount === amt.toString() ? COLORS.text : '#448AFF' 
+                backgroundColor: amount === amt.toString() ? COLORS.water : COLORS.surfaceLight, 
+                color: amount === amt.toString() ? COLORS.text : COLORS.water 
               }}
             >
               {amt >= 1000 ? `${amt/1000}L` : `${amt}ml`}
@@ -675,7 +779,7 @@ const WaterEntryModal = ({ COLORS, onClose, onSave }) => {
           <button 
             onClick={() => onSave(parseInt(amount) || 0)}
             className="flex-1 py-3 rounded-xl font-semibold"
-            style={{ backgroundColor: '#448AFF', color: COLORS.text }}
+            style={{ backgroundColor: COLORS.water, color: COLORS.text }}
           >
             Add Water
           </button>
@@ -1338,7 +1442,7 @@ const FullMealEntryModal = ({ COLORS, onClose, onSave }) => {
             
             {/* Fat Source */}
             <div className="mb-3">
-              <p className="text-xs font-semibold mb-2" style={{ color: '#9C27B0' }}>🥑 FAT SOURCE</p>
+              <p className="text-xs font-semibold mb-2" style={{ color: COLORS.sleep }}>🥑 FAT SOURCE</p>
               <div className="flex flex-wrap gap-2">
                 {fatSources.map((source, i) => (
                   <button
@@ -1346,7 +1450,7 @@ const FullMealEntryModal = ({ COLORS, onClose, onSave }) => {
                     onClick={() => setSelectedFat(selectedFat === source.name ? null : source.name)}
                     className="px-2 py-1 rounded-full text-xs"
                     style={{ 
-                      backgroundColor: selectedFat === source.name ? '#9C27B0' : COLORS.surfaceLight,
+                      backgroundColor: selectedFat === source.name ? COLORS.sleep : COLORS.surfaceLight,
                       color: selectedFat === source.name ? COLORS.text : COLORS.textSecondary
                     }}
                   >
@@ -1358,15 +1462,15 @@ const FullMealEntryModal = ({ COLORS, onClose, onSave }) => {
 
             {/* Vegetables */}
             <div className="mb-3">
-              <p className="text-xs font-semibold mb-2" style={{ color: COLORS.success }}>🥦 VEGETABLES</p>
+              <p className="text-xs font-semibold mb-2" style={{ color: COLORS.protein }}>🥦 VEGETABLES</p>
               <div className="flex flex-wrap gap-2">
                 {vegetableSources.map((source, i) => (
                   <button
                     key={i}
                     onClick={() => setSelectedVegetable(selectedVegetable === source.name ? null : source.name)}
                     className="px-2 py-1 rounded-full text-xs"
-                    style={{ 
-                      backgroundColor: selectedVegetable === source.name ? COLORS.success : COLORS.surfaceLight,
+                    style={{
+                      backgroundColor: selectedVegetable === source.name ? COLORS.protein : COLORS.surfaceLight,
                       color: selectedVegetable === source.name ? COLORS.background : COLORS.textSecondary
                     }}
                   >
@@ -1414,7 +1518,7 @@ const FullMealEntryModal = ({ COLORS, onClose, onSave }) => {
                     <p className="text-xs" style={{ color: COLORS.textMuted }}>carbs</p>
                   </div>
                   <div>
-                    <p className="text-lg font-bold" style={{ color: '#9C27B0' }}>{estimate.f}g</p>
+                    <p className="text-lg font-bold" style={{ color: COLORS.sleep }}>{estimate.f}g</p>
                     <p className="text-xs" style={{ color: COLORS.textMuted }}>fats</p>
                   </div>
                 </div>
@@ -2001,9 +2105,9 @@ const getWorkoutColor = (type, COLORS) => {
   if (t.includes('push')) return COLORS.primary;
   if (t.includes('pull')) return COLORS.accent;
   if (t.includes('leg') || t.includes('lower')) return COLORS.warning;
-  if (t.includes('upper')) return '#9C27B0';
-  if (t.includes('arm')) return '#00BCD4';
-  if (t.includes('full')) return COLORS.success;
+  if (t.includes('upper')) return COLORS.sleep;
+  if (t.includes('arm')) return COLORS.water;
+  if (t.includes('full')) return COLORS.protein;
   if (t.includes('rest')) return COLORS.textMuted;
   return COLORS.primary;
 };
@@ -2025,36 +2129,73 @@ const RPE_SCALE = [
 function LoginScreen({ onBack, onLogin, COLORS }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const { signIn } = useAuth();
+
+  const handleLogin = async () => {
+    if (!email || !password) return;
+
+    setLoading(true);
+    setError(null);
+
+    const { error: authError } = await signIn({ email, password });
+
+    if (authError) {
+      setError(authError.message);
+      setLoading(false);
+    } else {
+      onLogin();
+    }
+  };
+
   return (
     <div className="flex flex-col h-full p-6">
-      <button onClick={onBack} className="mb-6">
+      <button onClick={onBack} className="mb-6" disabled={loading}>
         <ChevronLeft size={24} color={COLORS.text} />
       </button>
       <div className="flex-1">
         <h1 className="text-3xl font-bold mb-2" style={{ color: COLORS.text }}>Welcome Back</h1>
         <p className="mb-8" style={{ color: COLORS.textSecondary }}>Log in to continue your fitness journey</p>
+
+        {error && (
+          <div className="mb-4 p-3 rounded-xl flex items-center gap-2" style={{ backgroundColor: COLORS.error + '20' }}>
+            <AlertCircle size={18} color={COLORS.error} />
+            <p className="text-sm" style={{ color: COLORS.error }}>{error}</p>
+          </div>
+        )}
+
         <div className="space-y-4">
           <div>
             <label className="text-sm mb-2 block" style={{ color: COLORS.textSecondary }}>Email</label>
             <input type="email" placeholder="your@email.com" value={email}
               onChange={e => setEmail(e.target.value)}
-              className="w-full p-4 rounded-xl outline-none" 
+              disabled={loading}
+              className="w-full p-4 rounded-xl outline-none"
               style={{ backgroundColor: COLORS.surface, color: COLORS.text, border: `1px solid ${COLORS.surfaceLight}` }} />
           </div>
           <div>
             <label className="text-sm mb-2 block" style={{ color: COLORS.textSecondary }}>Password</label>
             <input type="password" placeholder="••••••••" value={password}
               onChange={e => setPassword(e.target.value)}
-              className="w-full p-4 rounded-xl outline-none" 
+              disabled={loading}
+              onKeyDown={e => e.key === 'Enter' && handleLogin()}
+              className="w-full p-4 rounded-xl outline-none"
               style={{ backgroundColor: COLORS.surface, color: COLORS.text, border: `1px solid ${COLORS.surfaceLight}` }} />
           </div>
         </div>
       </div>
-      <button onClick={onLogin} disabled={!email || !password}
-        className="w-full py-4 rounded-xl font-semibold text-lg"
-        style={{ backgroundColor: COLORS.primary, color: COLORS.text, opacity: email && password ? 1 : 0.5 }}>
-        Log In
+      <button onClick={handleLogin} disabled={!email || !password || loading}
+        className="w-full py-4 rounded-xl font-semibold text-lg flex items-center justify-center gap-2"
+        style={{ backgroundColor: COLORS.primary, color: COLORS.text, opacity: email && password && !loading ? 1 : 0.5 }}>
+        {loading ? (
+          <>
+            <Loader2 size={20} className="animate-spin" />
+            Logging in...
+          </>
+        ) : (
+          'Log In'
+        )}
       </button>
     </div>
   );
@@ -2065,31 +2206,66 @@ function RegisterScreen({ onBack, onRegister, COLORS }) {
   const [regData, setRegData] = useState({
     firstName: '', lastName: '', email: '', password: '', confirmPassword: '', dob: '', weight: ''
   });
-  
-  const isValid = regData.firstName && regData.lastName && regData.email && 
-    regData.password && regData.password === regData.confirmPassword;
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const { signUp } = useAuth();
+
+  const isValid = regData.firstName && regData.lastName && regData.email &&
+    regData.password && regData.password.length >= 6 && regData.password === regData.confirmPassword;
+
+  const handleRegister = async () => {
+    if (!isValid) return;
+
+    setLoading(true);
+    setError(null);
+
+    const { error: authError } = await signUp({
+      email: regData.email,
+      password: regData.password,
+      firstName: regData.firstName,
+      lastName: regData.lastName,
+      dob: regData.dob || null,
+    });
+
+    if (authError) {
+      setError(authError.message);
+      setLoading(false);
+    } else {
+      // Pass user data to continue to onboarding
+      onRegister(regData);
+    }
+  };
 
   return (
     <div className="flex flex-col h-full">
       <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
-        <button onClick={onBack}><ChevronLeft size={24} color={COLORS.text} /></button>
+        <button onClick={onBack} disabled={loading}><ChevronLeft size={24} color={COLORS.text} /></button>
         <h2 className="text-lg font-bold" style={{ color: COLORS.text }}>Create Account</h2>
       </div>
       <div className="flex-1 overflow-auto p-6">
+        {error && (
+          <div className="mb-4 p-3 rounded-xl flex items-center gap-2" style={{ backgroundColor: COLORS.error + '20' }}>
+            <AlertCircle size={18} color={COLORS.error} />
+            <p className="text-sm" style={{ color: COLORS.error }}>{error}</p>
+          </div>
+        )}
+
         <div className="space-y-4">
           <div className="flex gap-3">
             <div className="flex-1">
               <label className="text-sm mb-2 block" style={{ color: COLORS.textSecondary }}>First Name</label>
               <input type="text" placeholder="First name" value={regData.firstName}
                 onChange={e => setRegData(p => ({...p, firstName: e.target.value}))}
-                className="w-full p-4 rounded-xl outline-none" 
+                disabled={loading}
+                className="w-full p-4 rounded-xl outline-none"
                 style={{ backgroundColor: COLORS.surface, color: COLORS.text, border: `1px solid ${COLORS.surfaceLight}` }} />
             </div>
             <div className="flex-1">
               <label className="text-sm mb-2 block" style={{ color: COLORS.textSecondary }}>Last Name</label>
               <input type="text" placeholder="Last name" value={regData.lastName}
                 onChange={e => setRegData(p => ({...p, lastName: e.target.value}))}
-                className="w-full p-4 rounded-xl outline-none" 
+                disabled={loading}
+                className="w-full p-4 rounded-xl outline-none"
                 style={{ backgroundColor: COLORS.surface, color: COLORS.text, border: `1px solid ${COLORS.surfaceLight}` }} />
             </div>
           </div>
@@ -2097,31 +2273,56 @@ function RegisterScreen({ onBack, onRegister, COLORS }) {
             <label className="text-sm mb-2 block" style={{ color: COLORS.textSecondary }}>Email</label>
             <input type="email" placeholder="your@email.com" value={regData.email}
               onChange={e => setRegData(p => ({...p, email: e.target.value}))}
-              className="w-full p-4 rounded-xl outline-none" 
+              disabled={loading}
+              className="w-full p-4 rounded-xl outline-none"
               style={{ backgroundColor: COLORS.surface, color: COLORS.text, border: `1px solid ${COLORS.surfaceLight}` }} />
           </div>
           <div>
             <label className="text-sm mb-2 block" style={{ color: COLORS.textSecondary }}>Password</label>
             <input type="password" placeholder="••••••••" value={regData.password}
               onChange={e => setRegData(p => ({...p, password: e.target.value}))}
-              className="w-full p-4 rounded-xl outline-none" 
+              disabled={loading}
+              className="w-full p-4 rounded-xl outline-none"
               style={{ backgroundColor: COLORS.surface, color: COLORS.text, border: `1px solid ${COLORS.surfaceLight}` }} />
+            {regData.password && regData.password.length < 6 && (
+              <p className="text-xs mt-1" style={{ color: COLORS.warning }}>Password must be at least 6 characters</p>
+            )}
           </div>
           <div>
             <label className="text-sm mb-2 block" style={{ color: COLORS.textSecondary }}>Confirm Password</label>
             <input type="password" placeholder="••••••••" value={regData.confirmPassword}
               onChange={e => setRegData(p => ({...p, confirmPassword: e.target.value}))}
-              className="w-full p-4 rounded-xl outline-none" 
-              style={{ backgroundColor: COLORS.surface, color: COLORS.text, 
+              disabled={loading}
+              className="w-full p-4 rounded-xl outline-none"
+              style={{ backgroundColor: COLORS.surface, color: COLORS.text,
                 border: `1px solid ${regData.confirmPassword && regData.password !== regData.confirmPassword ? COLORS.error : COLORS.surfaceLight}` }} />
+            {regData.confirmPassword && regData.password !== regData.confirmPassword && (
+              <p className="text-xs mt-1" style={{ color: COLORS.error }}>Passwords don't match</p>
+            )}
+          </div>
+          <div>
+            <label className="text-sm mb-2 block" style={{ color: COLORS.textSecondary }}>Date of Birth</label>
+            <input type="date" value={regData.dob}
+              onChange={e => setRegData(p => ({...p, dob: e.target.value}))}
+              disabled={loading}
+              className="w-full p-4 rounded-xl outline-none"
+              style={{ backgroundColor: COLORS.surface, color: COLORS.text, border: `1px solid ${COLORS.surfaceLight}` }} />
+            <p className="text-xs mt-1" style={{ color: COLORS.textMuted }}>Used to calculate your fitness metrics</p>
           </div>
         </div>
       </div>
       <div className="p-6 border-t" style={{ borderColor: COLORS.surfaceLight }}>
-        <button onClick={() => onRegister(regData)} disabled={!isValid}
-          className="w-full py-4 rounded-xl font-semibold text-lg"
-          style={{ backgroundColor: COLORS.primary, color: COLORS.text, opacity: isValid ? 1 : 0.5 }}>
-          Create Account
+        <button onClick={handleRegister} disabled={!isValid || loading}
+          className="w-full py-4 rounded-xl font-semibold text-lg flex items-center justify-center gap-2"
+          style={{ backgroundColor: COLORS.primary, color: COLORS.text, opacity: isValid && !loading ? 1 : 0.5 }}>
+          {loading ? (
+            <>
+              <Loader2 size={20} className="animate-spin" />
+              Creating Account...
+            </>
+          ) : (
+            'Create Account'
+          )}
         </button>
       </div>
     </div>
@@ -2129,7 +2330,9 @@ function RegisterScreen({ onBack, onRegister, COLORS }) {
 }
 
 // ActiveWorkoutScreen as separate component
-function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, userGoal = 'build_muscle' }) {
+function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, userGoal = 'build_muscle', userId = null, workoutName = 'Workout' }) {
+  const [sessionId, setSessionId] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [phase, setPhase] = useState('overview'); // 'overview', 'workout', 'workoutOverview', 'complete'
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
   const [currentSetIndex, setCurrentSetIndex] = useState(0);
@@ -2147,6 +2350,10 @@ function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, 
   const [editingSet, setEditingSet] = useState(null); // { exerciseId, setIndex }
   const [editSetData, setEditSetData] = useState({ weight: 0, reps: 0, rpe: 5 });
   const [showEndWorkoutConfirm, setShowEndWorkoutConfirm] = useState(false);
+
+  // Workout media (photos/videos)
+  const [workoutMedia, setWorkoutMedia] = useState([]);
+  const fileInputRef = React.useRef(null);
   
   // Time tracking
   const [workoutStartTime, setWorkoutStartTime] = useState(null);
@@ -2654,10 +2861,23 @@ function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, 
           </div>
         </div>
         <div className="p-4 border-t" style={{ borderColor: COLORS.surfaceLight }}>
-          <button onClick={() => {
+          <button onClick={async () => {
             const now = Date.now();
             setWorkoutStartTime(now);
             setSetStartTime(now);
+
+            // Start workout session in Supabase
+            if (userId) {
+              try {
+                const { data: session } = await workoutService.startWorkout(userId, null, null, workoutName);
+                if (session) {
+                  setSessionId(session.id);
+                }
+              } catch (err) {
+                console.error('Error starting workout session:', err);
+              }
+            }
+
             setPhase('workout');
           }} className="w-full py-4 rounded-xl font-semibold flex items-center justify-center gap-2" style={{ backgroundColor: COLORS.primary, color: COLORS.text }}>Start Workout <Play size={20} /></button>
         </div>
@@ -2862,6 +3082,75 @@ function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, 
             </div>
           </div>
           
+          {/* Workout Media Section */}
+          <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
+            <h3 className="font-semibold mb-3 flex items-center gap-2" style={{ color: COLORS.text }}>
+              <Eye size={16} /> Add Photos/Videos
+            </h3>
+            <p className="text-xs mb-3" style={{ color: COLORS.textMuted }}>
+              Document your workout with progress photos or form check videos
+            </p>
+
+            {/* Hidden file input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,video/*"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                const files = Array.from(e.target.files || []);
+                const newMedia = files.map(file => ({
+                  id: Date.now() + Math.random(),
+                  file,
+                  url: URL.createObjectURL(file),
+                  type: file.type.startsWith('video') ? 'video' : 'image',
+                  name: file.name,
+                }));
+                setWorkoutMedia(prev => [...prev, ...newMedia]);
+                e.target.value = ''; // Reset input
+              }}
+            />
+
+            {/* Media Preview Grid */}
+            {workoutMedia.length > 0 && (
+              <div className="grid grid-cols-3 gap-2 mb-3">
+                {workoutMedia.map((media) => (
+                  <div key={media.id} className="relative aspect-square rounded-lg overflow-hidden" style={{ backgroundColor: COLORS.surfaceLight }}>
+                    {media.type === 'image' ? (
+                      <img src={media.url} alt="Workout" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Play size={24} color={COLORS.text} />
+                        <video src={media.url} className="absolute inset-0 w-full h-full object-cover" />
+                      </div>
+                    )}
+                    <button
+                      onClick={() => {
+                        URL.revokeObjectURL(media.url);
+                        setWorkoutMedia(prev => prev.filter(m => m.id !== media.id));
+                      }}
+                      className="absolute top-1 right-1 w-6 h-6 rounded-full flex items-center justify-center"
+                      style={{ backgroundColor: COLORS.error }}
+                    >
+                      <X size={12} color={COLORS.text} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Upload Button */}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full py-3 rounded-xl flex items-center justify-center gap-2"
+              style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text }}
+            >
+              <Plus size={18} />
+              <span className="font-medium">Add Photo or Video</span>
+            </button>
+          </div>
+
           {/* Success Message */}
           <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.success + '15' }}>
             <p className="text-sm text-center" style={{ color: COLORS.success }}>
@@ -2871,8 +3160,56 @@ function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, 
         </div>
         
         <div className="p-4 border-t" style={{ borderColor: COLORS.surfaceLight }}>
-          <button onClick={() => { if (onComplete) onComplete(); onClose(); }} className="w-full py-4 rounded-xl font-semibold" style={{ backgroundColor: COLORS.success, color: COLORS.text }}>
-            Done
+          <button
+            disabled={isSaving}
+            onClick={async () => {
+              // Save workout to Supabase
+              if (userId && sessionId) {
+                setIsSaving(true);
+                try {
+                  // Save each set
+                  for (const set of completedSets) {
+                    const exercise = exercisesForTime.find(e => e.id === set.exerciseId);
+                    await workoutService.logSet(sessionId, null, exercise?.name || 'Unknown', {
+                      setNumber: set.setIndex + 1,
+                      weight: set.weight,
+                      reps: set.reps,
+                      rpe: set.rpe,
+                    });
+
+                    // Check for PRs
+                    if (exercise) {
+                      await workoutService.checkAndCreatePR(
+                        userId,
+                        null,
+                        exercise.name,
+                        set.weight,
+                        set.reps,
+                        sessionId
+                      );
+                    }
+                  }
+
+                  // Complete the session
+                  await workoutService.completeWorkout(sessionId, {
+                    durationMinutes: totalDurationMins,
+                    totalVolume,
+                    workingTime: totalWorkingTime,
+                    restTime: totalRestTime,
+                  });
+                } catch (err) {
+                  console.error('Error saving workout:', err);
+                } finally {
+                  setIsSaving(false);
+                }
+              }
+
+              if (onComplete) onComplete();
+              onClose();
+            }}
+            className="w-full py-4 rounded-xl font-semibold flex items-center justify-center gap-2"
+            style={{ backgroundColor: COLORS.success, color: COLORS.text, opacity: isSaving ? 0.7 : 1 }}>
+            {isSaving ? <><Loader2 size={20} className="animate-spin" /> Saving...</> : 'Done'}
           </button>
         </div>
       </div>
@@ -3241,16 +3578,361 @@ function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, 
 
 // Main App Component
 export default function UpRepDemo() {
+  // Auth state
+  const { user, profile, loading: authLoading, isAuthenticated, signOut, updateProfile, updateGoals } = useAuth();
+
+  // Determine initial screen based on auth state
+  const getInitialScreen = () => {
+    if (isAuthenticated) {
+      // Check if user has completed onboarding (has goals set)
+      if (profile?.user_goals?.goal) {
+        return 'main';
+      }
+      return 'onboarding';
+    }
+    return 'welcome';
+  };
+
   const [currentScreen, setCurrentScreen] = useState('welcome');
   const [activeTab, setActiveTab] = useState('home');
+
+  // Update screen when auth state changes
+  useEffect(() => {
+    if (!authLoading) {
+      if (isAuthenticated) {
+        if (profile?.user_goals?.goal) {
+          setCurrentScreen('main');
+        } else if (currentScreen === 'welcome' || currentScreen === 'login') {
+          // User just logged in but hasn't completed onboarding
+          setCurrentScreen('onboarding');
+        }
+      } else {
+        setCurrentScreen('welcome');
+      }
+    }
+  }, [authLoading, isAuthenticated, profile]);
+
+  // Sync profile data from Supabase to local state
+  useEffect(() => {
+    if (profile) {
+      // Update userData from profile
+      setUserData(prev => ({
+        ...prev,
+        username: profile.username || prev.username,
+        bio: profile.bio || prev.bio,
+        gender: profile.gender || prev.gender,
+        firstName: profile.first_name || prev.firstName,
+        lastName: profile.last_name || prev.lastName,
+        email: user?.email || prev.email,
+        // From user_goals
+        goal: profile.user_goals?.goal || prev.goal,
+        experience: profile.user_goals?.experience || prev.experience,
+        currentWeight: profile.user_goals?.current_weight?.toString() || prev.currentWeight,
+        goalWeight: profile.user_goals?.goal_weight?.toString() || prev.goalWeight,
+        programWeeks: profile.user_goals?.program_weeks || prev.programWeeks,
+        daysPerWeek: profile.user_goals?.days_per_week || prev.daysPerWeek,
+        sessionDuration: profile.user_goals?.session_duration || prev.sessionDuration,
+        restDays: profile.user_goals?.rest_days || prev.restDays,
+      }));
+
+      // Update overview stats if goals exist
+      if (profile.user_goals) {
+        const goals = profile.user_goals;
+        const currentW = goals.current_weight || 80;
+        const goalW = goals.goal_weight || 75;
+        const startW = goals.starting_weight || currentW;
+        const weeks = goals.program_weeks || 16;
+        const weeklyTarget = (goalW - currentW) / weeks;
+
+        // Calculate program start date from goals created_at or use a reasonable default
+        const startDate = goals.created_at ? new Date(goals.created_at) : new Date();
+
+        setOverviewStats(prev => ({
+          ...prev,
+          startingWeight: startW,
+          currentWeight: currentW,
+          targetWeight: goalW,
+          weeklyTarget: parseFloat(weeklyTarget.toFixed(2)),
+          programLength: weeks,
+          programStartDate: startDate.toISOString().split('T')[0],
+        }));
+
+        // Calculate personalized nutrition targets
+        const nutritionTargets = generateNutritionTargets({
+          weight: currentW,
+          height: profile.height || 175,
+          age: profile.age || 25,
+          gender: profile.gender || 'other',
+          goal: goals.goal || 'fitness',
+          workoutsPerWeek: goals.days_per_week || 4,
+          goalWeight: goalW,
+        });
+
+        setNutritionGoals({
+          calories: nutritionTargets.calories,
+          protein: nutritionTargets.protein,
+          carbs: nutritionTargets.carbs,
+          fats: nutritionTargets.fat,
+          water: nutritionTargets.water,
+          tdee: nutritionTargets.tdee,
+          weeklyWeightChange: nutritionTargets.weeklyWeightChange,
+        });
+      }
+    }
+  }, [profile, user]);
+
+  // Load streaks from Supabase
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadStreaks = async () => {
+      if (user?.id && isAuthenticated) {
+        try {
+          const result = await streakService.refreshAllStreaks(user.id);
+          if (isMounted && result) {
+            setStreaks({
+              weeklyWorkouts: { weeksCompleted: result.workout?.streak || 0 },
+              calories: { daysInRow: result.nutrition?.streak || 0 },
+              protein: { daysInRow: result.nutrition?.streak || 0 },
+              water: { daysInRow: result.water?.streak || 0 },
+              sleep: { daysInRow: result.sleep?.streak || 0 },
+              supplements: { daysInRow: 0 }, // Not tracked yet
+            });
+          }
+        } catch (err) {
+          console.warn('Error loading streaks:', err?.message || err);
+        }
+      }
+    };
+
+    loadStreaks();
+
+    return () => { isMounted = false; };
+  }, [user?.id, isAuthenticated]);
+
+  // Dynamic today's date - defined early for use in useEffects
+  const today = new Date();
+  const TODAY_DATE_KEY = today.toISOString().split('T')[0];
+  const currentYear = today.getFullYear();
+  const currentMonth = today.getMonth();
+
+  // Load today's nutrition data from database
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadTodayNutrition = async () => {
+      if (!user?.id || !isAuthenticated) return;
+
+      try {
+        // Load today's daily nutrition totals
+        const { data: dailyData, error: dailyError } = await nutritionService.getDailyNutrition(user.id, TODAY_DATE_KEY);
+        if (dailyError) console.warn('Daily nutrition error:', dailyError?.message);
+        if (isMounted && dailyData) {
+          setCaloriesIntake(dailyData.total_calories || 0);
+          setProteinIntake(dailyData.total_protein || 0);
+          setCarbsIntake(dailyData.total_carbs || 0);
+          setFatsIntake(dailyData.total_fats || 0);
+          setWaterIntake(dailyData.water_intake || 0);
+        }
+
+        // Load today's meals
+        const { data: meals, error: mealsError } = await nutritionService.getMeals(user.id, TODAY_DATE_KEY);
+        if (mealsError) console.warn('Meals error:', mealsError?.message);
+        if (isMounted && meals) {
+          setMealLog(meals.map(meal => ({
+            id: meal.id,
+            name: meal.meal_name,
+            time: meal.meal_time,
+            calories: meal.calories,
+            protein: meal.protein,
+            carbs: meal.carbs,
+            fats: meal.fats,
+          })));
+        }
+
+        // Load user supplements
+        const { data: userSupplements, error: suppError } = await nutritionService.getSupplements(user.id);
+        if (suppError) console.warn('Supplements error:', suppError?.message);
+        if (isMounted && userSupplements) {
+          // Load today's supplement logs to check which are taken
+          const { data: supplementLogs } = await nutritionService.getSupplementLogs(user.id, TODAY_DATE_KEY);
+          const takenIds = new Set(supplementLogs?.map(log => log.supplement_id) || []);
+
+          setSupplements(userSupplements.map(supp => ({
+            id: supp.id,
+            name: supp.name,
+            dosage: supp.dosage,
+            time: supp.scheduled_time,
+            taken: takenIds.has(supp.id),
+          })));
+        }
+      } catch (err) {
+        console.warn('Error loading nutrition data:', err?.message || err);
+      }
+    };
+
+    loadTodayNutrition();
+
+    return () => { isMounted = false; };
+  }, [user?.id, isAuthenticated, TODAY_DATE_KEY]);
+
+  // Load chart data from database
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadChartData = async () => {
+      if (!user?.id || !isAuthenticated || !profile?.user_goals) return;
+
+      const goals = profile.user_goals;
+      const startWeight = goals.starting_weight || goals.current_weight || 80;
+      const goalWeight = goals.goal_weight || startWeight;
+      const programWeeks = goals.program_weeks || 16;
+      const workoutsPerWeek = goals.days_per_week || 4;
+
+      try {
+        // Load weight history
+        const { data: weightData, error: weightError } = await profileService.getWeightHistory(user.id, programWeeks * 7);
+        if (weightError) console.warn('Weight history error:', weightError?.message);
+
+        // Group weight data by week
+        const weightByWeek = {};
+        if (weightData && weightData.length > 0) {
+          weightData.forEach(entry => {
+            if (!entry?.log_date || entry?.weight == null) return;
+            const weekNum = Math.ceil(
+              (new Date(entry.log_date) - new Date(weightData[weightData.length - 1].log_date)) / (7 * 24 * 60 * 60 * 1000)
+            ) + 1;
+            if (!weightByWeek[weekNum] || entry.log_date > weightByWeek[weekNum].date) {
+              weightByWeek[weekNum] = { weight: entry.weight, date: entry.log_date };
+            }
+          });
+        }
+
+        // Generate weight chart data with projections
+        const weightChartData = [];
+        const weeklyChange = programWeeks > 0 ? (goalWeight - startWeight) / programWeeks : 0;
+        for (let week = 1; week <= Math.min(programWeeks, 16); week++) {
+          const expectedWeight = startWeight + (weeklyChange * week);
+          const actualWeight = weightByWeek[week]?.weight;
+          weightChartData.push({
+            week: week.toString(),
+            value: actualWeight || null,
+            expected: parseFloat(expectedWeight.toFixed(1)),
+          });
+        }
+
+        // Load workout history
+        const { data: workoutData, error: workoutError } = await workoutService.getWorkoutHistory(user.id, 100);
+        if (workoutError) console.warn('Workout history error:', workoutError?.message);
+
+        // Group workouts by week
+        const workoutsByWeek = {};
+        if (workoutData && workoutData.length > 0) {
+          workoutData.forEach(session => {
+            if (!session?.started_at) return;
+            const sessionDate = new Date(session.started_at);
+            const weekNum = Math.ceil(
+              (new Date() - sessionDate) / (7 * 24 * 60 * 60 * 1000)
+            );
+            const displayWeek = Math.min(16, Math.max(1, 16 - weekNum + 1));
+            workoutsByWeek[displayWeek] = (workoutsByWeek[displayWeek] || 0) + 1;
+          });
+        }
+
+        // Generate workout chart data
+        const workoutChartData = [];
+        for (let week = 1; week <= 16; week++) {
+          workoutChartData.push({
+            week: week.toString(),
+            value: workoutsByWeek[week] || 0,
+            expected: workoutsPerWeek,
+          });
+        }
+
+        // Load sleep history
+        const { data: sleepData, error: sleepError } = await sleepService.getRecentSleep(user.id, 84); // 12 weeks
+        if (sleepError) console.warn('Sleep history error:', sleepError?.message);
+
+        // Group sleep by week
+        const sleepByWeek = {};
+        if (sleepData && sleepData.length > 0) {
+          sleepData.forEach(entry => {
+            if (!entry?.log_date || entry?.hours_slept == null) return;
+            const weekNum = Math.ceil(
+              (new Date() - new Date(entry.log_date)) / (7 * 24 * 60 * 60 * 1000)
+            );
+            const displayWeek = Math.min(12, Math.max(1, 12 - weekNum + 1));
+            if (!sleepByWeek[displayWeek]) {
+              sleepByWeek[displayWeek] = { total: 0, count: 0 };
+            }
+            sleepByWeek[displayWeek].total += entry.hours_slept;
+            sleepByWeek[displayWeek].count++;
+          });
+        }
+
+        // Generate sleep chart data
+        const sleepChartDataNew = [];
+        for (let week = 1; week <= 12; week++) {
+          const weekData = sleepByWeek[week];
+          sleepChartDataNew.push({
+            week: week.toString(),
+            value: weekData ? parseFloat((weekData.total / weekData.count).toFixed(1)) : null,
+            goal: 8,
+          });
+        }
+
+        if (isMounted) {
+          setChartData(prev => ({
+            ...prev,
+            weight: weightChartData,
+            workouts: workoutChartData,
+          }));
+          setSleepChartData(sleepChartDataNew);
+        }
+
+      } catch (err) {
+        console.warn('Error loading chart data:', err?.message || err);
+      }
+    };
+
+    loadChartData();
+
+    return () => { isMounted = false; };
+  }, [user?.id, isAuthenticated, profile?.user_goals]);
+
+  // Load weekly weight averages for dynamic goals
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadWeeklyWeightData = async () => {
+      if (!user?.id || !isAuthenticated) return;
+
+      try {
+        const result = await profileService.getWeeklyWeightAverages(user.id, 8);
+        if (isMounted && result?.data) {
+          setWeeklyWeightData({
+            actualWeeklyRate: result.data.actualWeeklyRate ?? 0,
+            weeklyAverages: result.data.weeklyAverages ?? [],
+            latestAverage: result.data.latestAverage ?? null,
+          });
+        }
+      } catch (err) {
+        // Fail silently - this feature is optional
+        console.warn('Weekly weight data unavailable:', err?.message || err);
+      }
+    };
+
+    loadWeeklyWeightData();
+
+    return () => { isMounted = false; };
+  }, [user?.id, isAuthenticated]);
+
   const [showActiveWorkout, setShowActiveWorkout] = useState(false);
   const [workoutTime, setWorkoutTime] = useState(60);
   const [showTimeEditor, setShowTimeEditor] = useState(false);
   const [showReschedule, setShowReschedule] = useState(false);
   const [showPausePlan, setShowPausePlan] = useState(false);
   const [rescheduleOption, setRescheduleOption] = useState(null);
-  // Today's date key for looking up in masterSchedule
-  const TODAY_DATE_KEY = '2026-01-08';
 
   // Track if today's workout is completed
   const [todayWorkoutCompleted, setTodayWorkoutCompleted] = useState(false);
@@ -3264,18 +3946,18 @@ export default function UpRepDemo() {
     focus: ''
   });
   const [showStreakCalendar, setShowStreakCalendar] = useState(null);
-  const [streakCalendarMonth, setStreakCalendarMonth] = useState(0); // January 2026
-  const [streakCalendarYear, setStreakCalendarYear] = useState(2026);
+  const [streakCalendarMonth, setStreakCalendarMonth] = useState(currentMonth);
+  const [streakCalendarYear, setStreakCalendarYear] = useState(currentYear);
   const [selectedStreakDay, setSelectedStreakDay] = useState(null);
   const [pauseDuration, setPauseDuration] = useState(null);
-  const [pauseCalendarMonth, setPauseCalendarMonth] = useState(0); // January 2026
-  const [pauseCalendarYear, setPauseCalendarYear] = useState(2026);
+  const [pauseCalendarMonth, setPauseCalendarMonth] = useState(currentMonth);
+  const [pauseCalendarYear, setPauseCalendarYear] = useState(currentYear);
   const [onboardingStep, setOnboardingStep] = useState(0);
   const [showGoalInfo, setShowGoalInfo] = useState(null);
   const [hoveredGoal, setHoveredGoal] = useState(null);
-  const [waterIntake, setWaterIntake] = useState(1250);
-  const [caloriesIntake, setCaloriesIntake] = useState(1450);
-  const [proteinIntake, setProteinIntake] = useState(95);
+  const [waterIntake, setWaterIntake] = useState(0);
+  const [caloriesIntake, setCaloriesIntake] = useState(0);
+  const [proteinIntake, setProteinIntake] = useState(0);
   const [sleepHours, setSleepHours] = useState(7.5);
   const [bedTime, setBedTime] = useState('22:30');
   const [wakeTime, setWakeTime] = useState('06:30');
@@ -3301,60 +3983,37 @@ export default function UpRepDemo() {
   const [isRescheduled, setIsRescheduled] = useState(false);
   const [originalWorkout, setOriginalWorkout] = useState(null);
   
-  // Supplements
-  const [supplements, setSupplements] = useState([
-    { id: 'creatine', name: 'Creatine', dosage: '5g', taken: true, time: '08:00' },
-    { id: 'vitamin_d', name: 'Vitamin D', dosage: '2000 IU', taken: true, time: '08:00' },
-    { id: 'omega3', name: 'Omega 3', dosage: '1000mg', taken: false, time: '12:00' },
-    { id: 'protein', name: 'Protein Shake', dosage: '30g', taken: false, time: '16:00' },
-  ]);
+  // Supplements - start empty, load from database
+  const [supplements, setSupplements] = useState([]);
   const [showAddSupplement, setShowAddSupplement] = useState(false);
   const [newSupplementName, setNewSupplementName] = useState('');
   const [newSupplementDosage, setNewSupplementDosage] = useState('');
-  
-  // Extended Nutrition State
-  const [carbsIntake, setCarbsIntake] = useState(180);
-  const [fatsIntake, setFatsIntake] = useState(55);
+
+  // Extended Nutrition State - start at 0, load from database
+  const [carbsIntake, setCarbsIntake] = useState(0);
+  const [fatsIntake, setFatsIntake] = useState(0);
   const [showAddMealFull, setShowAddMealFull] = useState(false);
   const [nutritionTab, setNutritionTab] = useState('overview'); // overview, meals, supplements
+
+  // Meal Log - start empty, load from database
+  const [mealLog, setMealLog] = useState([]);
   
-  // Meal Log
-  const [mealLog, setMealLog] = useState([
-    { id: 1, name: 'Oatmeal with Banana', time: '07:30', calories: 350, protein: 12, carbs: 58, fats: 8 },
-    { id: 2, name: 'Chicken Salad', time: '12:30', calories: 450, protein: 42, carbs: 25, fats: 18 },
-    { id: 3, name: 'Protein Shake', time: '15:00', calories: 250, protein: 30, carbs: 15, fats: 5 },
-    { id: 4, name: 'Salmon & Rice', time: '19:00', calories: 550, protein: 38, carbs: 55, fats: 18 },
-  ]);
-  
-  // Nutrition Goals
-  const nutritionGoals = {
+  // Nutrition Goals (calculated from user stats)
+  const [nutritionGoals, setNutritionGoals] = useState({
     calories: 2200,
     protein: 150,
     carbs: 250,
     fats: 70,
     water: 2500,
-  };
+    tdee: 2200,
+    weeklyWeightChange: 0,
+  });
   
-  // Weekly Nutrition History (for charts)
-  const [weeklyNutrition] = useState([
-    { week: 'W1', calories: 2050, protein: 142, water: 2200, goal: nutritionGoals.calories, waterGoal: nutritionGoals.water },
-    { week: 'W2', calories: 2180, protein: 148, water: 2350, goal: nutritionGoals.calories, waterGoal: nutritionGoals.water },
-    { week: 'W3', calories: 2100, protein: 155, water: 2100, goal: nutritionGoals.calories, waterGoal: nutritionGoals.water },
-    { week: 'W4', calories: 2250, protein: 160, water: 2450, goal: nutritionGoals.calories, waterGoal: nutritionGoals.water },
-    { week: 'W5', calories: 2150, protein: 145, water: 2300, goal: nutritionGoals.calories, waterGoal: nutritionGoals.water },
-    { week: 'W6', calories: 2200, protein: 152, water: 2500, goal: nutritionGoals.calories, waterGoal: nutritionGoals.water },
-  ]);
+  // Weekly Nutrition History (for charts) - loaded from database
+  const [weeklyNutrition, setWeeklyNutrition] = useState([]);
   
-  // Supplement History
-  const [supplementHistory] = useState([
-    { date: 'Jan 7', completed: 4, total: 4 },
-    { date: 'Jan 6', completed: 4, total: 4 },
-    { date: 'Jan 5', completed: 3, total: 4 },
-    { date: 'Jan 4', completed: 4, total: 4 },
-    { date: 'Jan 3', completed: 4, total: 4 },
-    { date: 'Jan 2', completed: 2, total: 4 },
-    { date: 'Jan 1', completed: 4, total: 4 },
-  ]);
+  // Supplement History - loaded from database
+  const [supplementHistory, setSupplementHistory] = useState([]);
   
   // Friends & Social
   const [socialEnabled, setSocialEnabled] = useState(true);
@@ -3364,233 +4023,17 @@ export default function UpRepDemo() {
   const [friendSearchQuery, setFriendSearchQuery] = useState('');
   const [expandedActivity, setExpandedActivity] = useState(null);
   
-  const [friends, setFriends] = useState([
-    { 
-      id: 1, 
-      name: 'Sarah Chen', 
-      avatar: '👩', 
-      streak: 23, 
-      program: 'Strength Builder',
-      goal: 'build_muscle',
-      weeklyWorkouts: 5,
-      lastActive: '2 hours ago',
-      isOnline: true,
-      stats: { workouts: 89, prs: 12, streak: 23 }
-    },
-    { 
-      id: 2, 
-      name: 'Mike Johnson', 
-      avatar: '👨', 
-      streak: 15, 
-      program: 'Fat Loss Pro',
-      goal: 'lose_fat',
-      weeklyWorkouts: 4,
-      lastActive: '5 hours ago',
-      isOnline: true,
-      stats: { workouts: 56, prs: 8, streak: 15 }
-    },
-    { 
-      id: 3, 
-      name: 'Emma Wilson', 
-      avatar: '👱‍♀️', 
-      streak: 31, 
-      program: 'PPL Advanced',
-      goal: 'strength',
-      weeklyWorkouts: 6,
-      lastActive: 'Yesterday',
-      isOnline: false,
-      stats: { workouts: 124, prs: 18, streak: 31 }
-    },
-    { 
-      id: 4, 
-      name: 'James Park', 
-      avatar: '👨‍🦱', 
-      streak: 8, 
-      program: 'Full Body Fit',
-      goal: 'fitness',
-      weeklyWorkouts: 3,
-      lastActive: '1 day ago',
-      isOnline: false,
-      stats: { workouts: 34, prs: 5, streak: 8 }
-    },
-    { 
-      id: 5, 
-      name: 'Lisa Anderson', 
-      avatar: '👩‍🦰', 
-      streak: 45, 
-      program: 'Strength Builder',
-      goal: 'build_muscle',
-      weeklyWorkouts: 5,
-      lastActive: '30 min ago',
-      isOnline: true,
-      stats: { workouts: 156, prs: 24, streak: 45 }
-    },
-  ]);
+  // Friends list - loaded from database
+  const [friends, setFriends] = useState([]);
   
-  // Suggested friends to add
-  const [suggestedFriends] = useState([
-    { id: 101, name: 'Alex Rivera', avatar: '🧔', program: 'PPL Intermediate', mutualFriends: 3 },
-    { id: 102, name: 'Jordan Lee', avatar: '👨‍🦲', program: 'Strength Builder', mutualFriends: 2 },
-    { id: 103, name: 'Casey Morgan', avatar: '👩‍🦱', program: 'Fat Loss Pro', mutualFriends: 1 },
-  ]);
+  // Suggested friends - loaded from database
+  const [suggestedFriends, setSuggestedFriends] = useState([]);
   
-  const [activityFeed] = useState([
-    { 
-      id: 1, 
-      friendId: 5, 
-      type: 'workout', 
-      workoutName: 'Pull Day B',
-      time: '30 min ago', 
-      duration: 58,
-      exercises: [
-        { name: 'Deadlift', sets: 4, reps: '5', weight: 120 },
-        { name: 'Barbell Row', sets: 4, reps: '8', weight: 70 },
-        { name: 'Lat Pulldown', sets: 3, reps: '10', weight: 55 },
-        { name: 'Face Pulls', sets: 3, reps: '15', weight: 20 },
-        { name: 'Barbell Curl', sets: 3, reps: '12', weight: 25 },
-      ],
-      likes: 3 
-    },
-    { 
-      id: 2, 
-      friendId: 2, 
-      type: 'pr', 
-      exercise: 'Bench Press',
-      newWeight: 100,
-      previousWeight: 95,
-      time: '5 hours ago', 
-      prHistory: [
-        { date: 'Oct', weight: 70 },
-        { date: 'Nov', weight: 80 },
-        { date: 'Dec', weight: 90 },
-        { date: 'Jan 1', weight: 95 },
-        { date: 'Today', weight: 100 },
-      ],
-      likes: 12 
-    },
-    { 
-      id: 3, 
-      friendId: 3, 
-      type: 'workout', 
-      workoutName: 'Leg Day A',
-      time: 'Yesterday', 
-      duration: 72,
-      exercises: [
-        { name: 'Squat', sets: 5, reps: '5', weight: 100 },
-        { name: 'Romanian Deadlift', sets: 4, reps: '8', weight: 80 },
-        { name: 'Leg Press', sets: 4, reps: '10', weight: 180 },
-        { name: 'Walking Lunges', sets: 3, reps: '12', weight: 20 },
-        { name: 'Leg Curl', sets: 3, reps: '12', weight: 40 },
-        { name: 'Calf Raises', sets: 4, reps: '15', weight: 60 },
-      ],
-      likes: 5 
-    },
-    { 
-      id: 4, 
-      friendId: 1, 
-      type: 'milestone', 
-      milestone: '50 workouts',
-      time: 'Yesterday', 
-      likes: 15 
-    },
-    { 
-      id: 5, 
-      friendId: 4, 
-      type: 'workout', 
-      workoutName: 'Full Body',
-      time: '1 day ago', 
-      duration: 45,
-      exercises: [
-        { name: 'Squat', sets: 3, reps: '8', weight: 60 },
-        { name: 'Bench Press', sets: 3, reps: '8', weight: 50 },
-        { name: 'Barbell Row', sets: 3, reps: '8', weight: 45 },
-        { name: 'Shoulder Press', sets: 3, reps: '10', weight: 25 },
-      ],
-      likes: 2 
-    },
-    { 
-      id: 6, 
-      friendId: 5, 
-      type: 'pr', 
-      exercise: 'Squat',
-      newWeight: 140,
-      previousWeight: 135,
-      time: '2 days ago', 
-      prHistory: [
-        { date: 'Sep', weight: 100 },
-        { date: 'Oct', weight: 115 },
-        { date: 'Nov', weight: 125 },
-        { date: 'Dec', weight: 135 },
-        { date: 'Today', weight: 140 },
-      ],
-      likes: 18 
-    },
-    { 
-      id: 7, 
-      friendId: 1, 
-      type: 'workout', 
-      workoutName: 'Push Day A',
-      time: '2 days ago', 
-      duration: 55,
-      exercises: [
-        { name: 'Bench Press', sets: 4, reps: '6', weight: 70 },
-        { name: 'Incline Dumbbell Press', sets: 4, reps: '8', weight: 28 },
-        { name: 'Cable Fly', sets: 3, reps: '12', weight: 15 },
-        { name: 'Shoulder Press', sets: 4, reps: '8', weight: 22 },
-        { name: 'Tricep Pushdown', sets: 3, reps: '12', weight: 25 },
-      ],
-      likes: 7 
-    },
-  ]);
+  // Activity feed - loaded from database
+  const [activityFeed, setActivityFeed] = useState([]);
   
-  const [challenges, setChallenges] = useState([
-    { 
-      id: 1, 
-      name: 'Weekly Warrior', 
-      description: 'Most workouts this week',
-      type: 'workouts',
-      endDate: 'Sun, Jan 12',
-      participants: [
-        { id: 5, name: 'Lisa A.', avatar: '👩‍🦰', score: 5 },
-        { id: 1, name: 'Sarah C.', avatar: '👩', score: 4 },
-        { id: 'you', name: 'You', avatar: '💪', score: 3 },
-        { id: 2, name: 'Mike J.', avatar: '👨', score: 3 },
-      ],
-      yourRank: 3,
-      joined: true,
-      createdBy: 'Lisa A.'
-    },
-    { 
-      id: 2, 
-      name: 'Streak Masters', 
-      description: 'Longest active streak',
-      type: 'streak',
-      endDate: 'Jan 31',
-      participants: [
-        { id: 5, name: 'Lisa A.', avatar: '👩‍🦰', score: 45 },
-        { id: 3, name: 'Emma W.', avatar: '👱‍♀️', score: 31 },
-        { id: 1, name: 'Sarah C.', avatar: '👩', score: 23 },
-        { id: 'you', name: 'You', avatar: '💪', score: 12 },
-      ],
-      yourRank: 4,
-      joined: true,
-      createdBy: 'Sarah C.'
-    },
-    { 
-      id: 3, 
-      name: 'Volume Kings', 
-      description: 'Most total weight lifted',
-      type: 'volume',
-      endDate: 'Sun, Jan 12',
-      participants: [
-        { id: 3, name: 'Emma W.', avatar: '👱‍♀️', score: 15420 },
-        { id: 2, name: 'Mike J.', avatar: '👨', score: 12350 },
-      ],
-      yourRank: null,
-      joined: false,
-      createdBy: 'Emma W.'
-    },
-  ]);
+  // Challenges - loaded from database
+  const [challenges, setChallenges] = useState([]);
   
   // Challenge creation state
   const [showCreateChallenge, setShowCreateChallenge] = useState(false);
@@ -3618,34 +4061,45 @@ export default function UpRepDemo() {
       showActivity: true,
       showProgress: false,
     },
+    tracking: {
+      calories: true,
+      macros: true,
+      water: true,
+      sleep: true,
+      supplements: true,
+    },
+    social: {
+      allowSubscribers: false, // false = friend requests only, true = anyone can subscribe
+    },
   });
   const [showUnitsModal, setShowUnitsModal] = useState(false);
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showTrackingModal, setShowTrackingModal] = useState(false);
   const [showGoalEditor, setShowGoalEditor] = useState(false);
   const [showAccountModal, setShowAccountModal] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
-  // Achievements
+  // Achievements - will be calculated/loaded from database
   const [achievements] = useState([
-    { id: 'first_workout', name: 'First Steps', desc: 'Complete your first workout', icon: '🎯', unlocked: true, date: 'Dec 15, 2025' },
-    { id: 'week_streak', name: 'Week Warrior', desc: '7-day workout streak', icon: '🔥', unlocked: true, date: 'Dec 22, 2025' },
+    { id: 'first_workout', name: 'First Steps', desc: 'Complete your first workout', icon: '🎯', unlocked: false },
+    { id: 'week_streak', name: 'Week Warrior', desc: '7-day workout streak', icon: '🔥', unlocked: false },
     { id: 'month_streak', name: 'Monthly Master', desc: '30-day workout streak', icon: '⚡', unlocked: false },
-    { id: 'first_pr', name: 'Personal Best', desc: 'Set your first PR', icon: '🏆', unlocked: true, date: 'Dec 18, 2025' },
-    { id: 'five_prs', name: 'PR Collector', desc: 'Set 5 personal records', icon: '🥇', unlocked: true, date: 'Jan 4, 2026' },
-    { id: 'ten_workouts', name: 'Getting Serious', desc: 'Complete 10 workouts', icon: '💪', unlocked: true, date: 'Dec 28, 2025' },
+    { id: 'first_pr', name: 'Personal Best', desc: 'Set your first PR', icon: '🏆', unlocked: false },
+    { id: 'five_prs', name: 'PR Collector', desc: 'Set 5 personal records', icon: '🥇', unlocked: false },
+    { id: 'ten_workouts', name: 'Getting Serious', desc: 'Complete 10 workouts', icon: '💪', unlocked: false },
     { id: 'fifty_workouts', name: 'Dedicated', desc: 'Complete 50 workouts', icon: '🏅', unlocked: false },
-    { id: 'early_bird', name: 'Early Bird', desc: 'Workout before 7am', icon: '🌅', unlocked: true, date: 'Jan 2, 2026' },
+    { id: 'early_bird', name: 'Early Bird', desc: 'Workout before 7am', icon: '🌅', unlocked: false },
     { id: 'night_owl', name: 'Night Owl', desc: 'Workout after 9pm', icon: '🌙', unlocked: false },
-    { id: 'volume_king', name: 'Volume King', desc: 'Lift 100,000kg total', icon: '👑', unlocked: true, date: 'Jan 5, 2026' },
+    { id: 'volume_king', name: 'Volume King', desc: 'Lift 100,000kg total', icon: '👑', unlocked: false },
     { id: 'consistency', name: 'Consistency', desc: 'Hit calorie goal 7 days straight', icon: '📊', unlocked: false },
     { id: 'hydrated', name: 'Hydration Hero', desc: 'Hit water goal 7 days straight', icon: '💧', unlocked: false },
   ]);
 
   const [showFriendProfile, setShowFriendProfile] = useState(null);
   const [showFriendStreakCalendar, setShowFriendStreakCalendar] = useState(null);
-  const [friendStreakMonth, setFriendStreakMonth] = useState(0);
-  const [friendStreakYear, setFriendStreakYear] = useState(2026);
+  const [friendStreakMonth, setFriendStreakMonth] = useState(currentMonth);
+  const [friendStreakYear, setFriendStreakYear] = useState(currentYear);
   const [likedPosts, setLikedPosts] = useState([]);
   
   const [userData, setUserData] = useState({
@@ -3658,62 +4112,55 @@ export default function UpRepDemo() {
     gender: null // 'male', 'female', or 'other'
   });
 
-  // Overview stats
+  // Overview stats - will be populated from database
   const [overviewStats, setOverviewStats] = useState({
-    startingWeight: 85.0,
-    currentWeight: 81.2,
-    targetWeight: 75.0,
-    weeklyTarget: -0.5, // kg per week (negative = loss, positive = gain)
-    totalWorkouts: 47,
-    programWeek: 12,
+    startingWeight: 0,
+    currentWeight: 0,
+    targetWeight: 0,
+    weeklyTarget: 0, // kg per week (negative = loss, positive = gain)
+    totalWorkouts: 0,
+    programWeek: 1,
     programLength: 16,
+    programStartDate: null, // Date when user started tracking
   });
 
   const [showWeighIn, setShowWeighIn] = useState(false);
+  const [showWeightDetails, setShowWeightDetails] = useState(false);
+
+  // Dynamic weight tracking based on weekly averages
+  const [weeklyWeightData, setWeeklyWeightData] = useState({
+    actualWeeklyRate: 0,      // Actual kg change per week based on averages
+    weeklyAverages: [],       // Array of weekly average weights
+    latestAverage: null,      // Most recent weekly average
+  });
+
+  // Friend search state
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
 
   // Meal and water tracking modals
   const [showMealEntry, setShowMealEntry] = useState(false);
   const [showWaterEntry, setShowWaterEntry] = useState(false);
 
   const [selectedChart, setSelectedChart] = useState('weight');
-  const chartData = {
-    weight: [
-      { week: '1', value: 85.0, expected: 85.0 }, { week: '2', value: 84.7, expected: 84.5 }, { week: '3', value: 84.4, expected: 84.0 }, { week: '4', value: 84.1, expected: 83.5 },
-      { week: '5', value: 83.8, expected: 83.0 }, { week: '6', value: 83.4, expected: 82.5 }, { week: '7', value: 83.1, expected: 82.0 }, { week: '8', value: 82.8, expected: 81.5 },
-      { week: '9', value: 82.4, expected: 81.0 }, { week: '10', value: 82.0, expected: 80.5 }, { week: '11', value: 81.6, expected: 80.0 }, { week: '12', value: 81.2, expected: 79.5 }
-    ],
-    workouts: [
-      { week: '1', value: 3, expected: 4 }, { week: '2', value: 3, expected: 4 }, { week: '3', value: 4, expected: 4 }, { week: '4', value: 4, expected: 4 },
-      { week: '5', value: 3, expected: 4 }, { week: '6', value: 4, expected: 4 }, { week: '7', value: 4, expected: 4 }, { week: '8', value: 4, expected: 4 },
-      { week: '9', value: 5, expected: 4 }, { week: '10', value: 4, expected: 4 }, { week: '11', value: 5, expected: 4 }, { week: '12', value: 5, expected: 4 }
-    ],
-    bench: [
-      { week: '1', value: 60, expected: 60 }, { week: '2', value: 60, expected: 62 }, { week: '3', value: 62.5, expected: 64 }, { week: '4', value: 67.5, expected: 66 },
-      { week: '5', value: 67.5, expected: 68 }, { week: '6', value: 70, expected: 70 }, { week: '7', value: 70, expected: 72 }, { week: '8', value: 72.5, expected: 74 },
-      { week: '9', value: 75, expected: 76 }, { week: '10', value: 75, expected: 78 }, { week: '11', value: 77.5, expected: 80 }, { week: '12', value: 80, expected: 82 }
-    ],
-    squat: [
-      { week: '1', value: 80, expected: 80 }, { week: '2', value: 82.5, expected: 82.5 }, { week: '3', value: 85, expected: 85 }, { week: '4', value: 90, expected: 87.5 },
-      { week: '5', value: 92.5, expected: 90 }, { week: '6', value: 95, expected: 92.5 }, { week: '7', value: 97.5, expected: 95 }, { week: '8', value: 100, expected: 97.5 },
-      { week: '9', value: 102.5, expected: 100 }, { week: '10', value: 105, expected: 102.5 }, { week: '11', value: 107.5, expected: 105 }, { week: '12', value: 110, expected: 107.5 }
-    ],
-  };
+  const [chartData, setChartData] = useState({
+    weight: [],
+    workouts: [],
+    bench: [],
+    squat: [],
+  });
   const chartLabels = { weight: 'kg', workouts: 'sessions', bench: 'kg', squat: 'kg' };
 
   // Sleep chart data
-  const sleepChartData = [
-    { week: '1', value: 6.5, goal: 8 }, { week: '2', value: 7.0, goal: 8 }, { week: '3', value: 6.8, goal: 8 }, { week: '4', value: 7.2, goal: 8 },
-    { week: '5', value: 7.5, goal: 8 }, { week: '6', value: 7.3, goal: 8 }, { week: '7', value: 7.8, goal: 8 }, { week: '8', value: 7.5, goal: 8 },
-    { week: '9', value: 7.2, goal: 8 }, { week: '10', value: 7.6, goal: 8 }, { week: '11', value: 7.4, goal: 8 }, { week: '12', value: 7.5, goal: 8 }
-  ];
+  const [sleepChartData, setSleepChartData] = useState([]);
 
-  const [streaks] = useState({
-    weeklyWorkouts: { weeksCompleted: 12 },
-    calories: { daysInRow: 5 },
-    protein: { daysInRow: 8 },
-    water: { daysInRow: 3 },
-    sleep: { daysInRow: 4 },
-    supplements: { daysInRow: 6 },
+  const [streaks, setStreaks] = useState({
+    weeklyWorkouts: { weeksCompleted: 0 },
+    calories: { daysInRow: 0 },
+    protein: { daysInRow: 0 },
+    water: { daysInRow: 0 },
+    sleep: { daysInRow: 0 },
+    supplements: { daysInRow: 0 },
   });
 
   // Workout Tab State
@@ -3724,8 +4171,8 @@ export default function UpRepDemo() {
   const [showCustomWorkout, setShowCustomWorkout] = useState(false);
   const [showProgramSelector, setShowProgramSelector] = useState(false);
   const [showFullSchedule, setShowFullSchedule] = useState(false);
-  const [fullScheduleMonth, setFullScheduleMonth] = useState(0); // January
-  const [fullScheduleYear, setFullScheduleYear] = useState(2026);
+  const [fullScheduleMonth, setFullScheduleMonth] = useState(currentMonth);
+  const [fullScheduleYear, setFullScheduleYear] = useState(currentYear);
   const [showWorkoutSummary, setShowWorkoutSummary] = useState(null);
   const [showExerciseDetail, setShowExerciseDetail] = useState(null);
   const [exerciseSearchQuery, setExerciseSearchQuery] = useState('');
@@ -3762,24 +4209,25 @@ export default function UpRepDemo() {
       WORKOUT_TEMPLATES.legs_b,
     ];
     
-    const startDate = new Date(2026, 0, 1); // Jan 1, 2026
-    for (let i = -30; i < 365; i++) {
-      const date = new Date(startDate);
-      date.setDate(startDate.getDate() + i);
+    // Generate schedule starting 30 days ago to 365 days in future
+    const scheduleStart = new Date(today);
+    scheduleStart.setDate(today.getDate() - 30);
+    for (let i = 0; i < 395; i++) {
+      const date = new Date(scheduleStart);
+      date.setDate(scheduleStart.getDate() + i);
       const dateKey = date.toISOString().split('T')[0];
       const dayOfWeek = date.getDay();
-      
+      const isPast = date < today;
+
       // Rest on Sunday (getDay()=0) and Saturday (getDay()=6)
-      if (dayOfWeek === 0) {
-        schedule[dateKey] = { workout: null, completed: i < 7 && i >= 0 };
-      } else if (dayOfWeek === 6) {
+      if (dayOfWeek === 0 || dayOfWeek === 6) {
         schedule[dateKey] = { workout: null, completed: false };
       } else {
-        const rotationIndex = (i + 30) % 7;
+        const rotationIndex = i % 7;
         const workout = workoutRotation[rotationIndex % workoutRotation.length];
-        schedule[dateKey] = { 
-          workout, 
-          completed: i < 7 && i >= 0 && workout !== null
+        schedule[dateKey] = {
+          workout,
+          completed: false // Will be loaded from database
         };
       }
     }
@@ -3822,19 +4270,18 @@ export default function UpRepDemo() {
 
   // Get week dates for display
   const getWeekDates = (weekOffset) => {
-    const today = new Date(2026, 0, 8); // Wed Jan 8, 2026
     const startOfWeek = new Date(today);
     startOfWeek.setDate(today.getDate() - today.getDay() + 1 + (weekOffset * 7)); // Monday
-    
+
     const days = [];
     const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    
+
     for (let i = 0; i < 7; i++) {
       const date = new Date(startOfWeek);
       date.setDate(startOfWeek.getDate() + i);
       const dateKey = date.toISOString().split('T')[0];
       const scheduleEntry = masterSchedule[dateKey] || { workout: null, completed: false };
-      
+
       days.push({
         day: dayNames[i],
         date: date.getDate(),
@@ -3843,7 +4290,7 @@ export default function UpRepDemo() {
         dateKey,
         workout: scheduleEntry.workout,
         completed: scheduleEntry.completed,
-        isToday: date.toDateString() === new Date(2026, 0, 8).toDateString()
+        isToday: date.toDateString() === today.toDateString()
       });
     }
     return days;
@@ -3893,7 +4340,6 @@ export default function UpRepDemo() {
   // Upcoming workouts (next 3)
   const upcomingWorkouts = (() => {
     const upcoming = [];
-    const today = new Date(2026, 0, 8);
     for (let i = 1; i <= 14 && upcoming.length < 3; i++) {
       const date = new Date(today);
       date.setDate(today.getDate() + i);
@@ -3912,24 +4358,11 @@ export default function UpRepDemo() {
     return upcoming;
   })();
   
-  // Completed workouts history
-  const [workoutHistory] = useState([
-    { id: 1, date: 'Jan 7, 2026', workout: WORKOUT_TEMPLATES.pull_a, duration: 58, totalVolume: 14250, exercises: 6, completed: true },
-    { id: 2, date: 'Jan 6, 2026', workout: WORKOUT_TEMPLATES.push_a, duration: 62, totalVolume: 12800, exercises: 5, completed: true },
-    { id: 3, date: 'Jan 4, 2026', workout: WORKOUT_TEMPLATES.legs_b, duration: 55, totalVolume: 18500, exercises: 6, completed: true },
-    { id: 4, date: 'Jan 3, 2026', workout: WORKOUT_TEMPLATES.pull_b, duration: 65, totalVolume: 15200, exercises: 6, completed: true },
-    { id: 5, date: 'Jan 2, 2026', workout: WORKOUT_TEMPLATES.push_b, duration: 60, totalVolume: 13100, exercises: 6, completed: true },
-  ]);
-  
-  // Personal records
-  const [personalRecords] = useState([
-    { exercise: 'Barbell Bench Press', weight: 85, reps: 6, e1rm: 99, date: 'Jan 6, 2026' },
-    { exercise: 'Barbell Back Squat', weight: 120, reps: 5, e1rm: 135, date: 'Jan 4, 2026' },
-    { exercise: 'Deadlift', weight: 140, reps: 5, e1rm: 158, date: 'Jan 3, 2026' },
-    { exercise: 'Overhead Press', weight: 55, reps: 6, e1rm: 64, date: 'Jan 2, 2026' },
-    { exercise: 'Barbell Row', weight: 80, reps: 8, e1rm: 99, date: 'Jan 7, 2026' },
-    { exercise: 'Pull Ups', weight: 10, reps: 8, e1rm: 0, date: 'Jan 7, 2026', note: '+10kg' },
-  ]);
+  // Completed workouts history - will be loaded from database
+  const [workoutHistory, setWorkoutHistory] = useState([]);
+
+  // Personal records - will be loaded from database
+  const [personalRecords, setPersonalRecords] = useState([]);
 
   // Welcome Screen
   const WelcomeScreen = () => (
@@ -3987,7 +4420,7 @@ export default function UpRepDemo() {
                 {[
                   { icon: Target, label: 'Personalized Plans', desc: 'Workouts tailored to your goals', color: COLORS.primary },
                   { icon: TrendingUp, label: 'Progress Tracking', desc: 'Watch your PRs climb', color: COLORS.accent },
-                  { icon: Apple, label: 'Nutrition Tracking', desc: 'Hit your macros', color: COLORS.success },
+                  { icon: Apple, label: 'Nutrition Tracking', desc: 'Hit your macros', color: COLORS.protein },
                   { icon: Flame, label: 'Stay Motivated', desc: 'Streaks & achievements', color: COLORS.warning },
                 ].map((item, i) => (
                   <div key={i} className="p-4 rounded-xl flex items-center gap-4" style={{ backgroundColor: COLORS.surface }}>
@@ -4212,7 +4645,7 @@ export default function UpRepDemo() {
           ) : step.content}
         </div>
         <div className="p-6">
-          <button onClick={() => {
+          <button onClick={async () => {
             if (onboardingStep < steps.length - 1) {
               setOnboardingStep(onboardingStep + 1);
             } else {
@@ -4221,7 +4654,73 @@ export default function UpRepDemo() {
               const goalW = parseFloat(userData.goalWeight) || 75;
               const weeks = userData.programWeeks || 16;
               const weeklyTarget = (goalW - currentW) / weeks;
-              
+
+              // Save profile and goals to Supabase
+              if (user) {
+                try {
+                  // Update profile (username, bio, gender)
+                  await updateProfile({
+                    username: userData.username,
+                    bio: userData.bio || '',
+                    gender: userData.gender,
+                    first_name: userData.firstName || '',
+                    last_name: userData.lastName || '',
+                  });
+
+                  // Update goals
+                  await updateGoals({
+                    goal: userData.goal,
+                    experience: userData.experience,
+                    current_weight: currentW,
+                    goal_weight: goalW,
+                    starting_weight: currentW,
+                    program_weeks: weeks,
+                    days_per_week: userData.daysPerWeek || 4,
+                    session_duration: userData.sessionDuration || 60,
+                    rest_days: userData.restDays || [5, 6],
+                  });
+
+                  // Calculate and save nutrition goals
+                  const nutritionTargets = generateNutritionTargets({
+                    weight: currentW,
+                    height: 175, // Could add to onboarding
+                    age: 25, // Could add to onboarding
+                    gender: userData.gender || 'other',
+                    goal: userData.goal || 'fitness',
+                    workoutsPerWeek: userData.daysPerWeek || 4,
+                    goalWeight: goalW,
+                  });
+
+                  await nutritionService.updateNutritionGoals(user.id, {
+                    calories: nutritionTargets.calories,
+                    protein: nutritionTargets.protein,
+                    carbs: nutritionTargets.carbs,
+                    fats: nutritionTargets.fat,
+                    water: nutritionTargets.water,
+                  });
+
+                  // Update local state
+                  setNutritionGoals({
+                    calories: nutritionTargets.calories,
+                    protein: nutritionTargets.protein,
+                    carbs: nutritionTargets.carbs,
+                    fats: nutritionTargets.fat,
+                    water: nutritionTargets.water,
+                    tdee: nutritionTargets.tdee,
+                    weeklyWeightChange: nutritionTargets.weeklyWeightChange,
+                  });
+
+                  // Log initial weight
+                  await profileService.logWeight(user.id, currentW);
+
+                } catch (err) {
+                  console.error('Error saving onboarding data:', err);
+                }
+              }
+
+              // Set program start date to today
+              const programStartDate = new Date().toISOString().split('T')[0];
+
               setOverviewStats(prev => ({
                 ...prev,
                 startingWeight: currentW,
@@ -4230,6 +4729,7 @@ export default function UpRepDemo() {
                 weeklyTarget: parseFloat(weeklyTarget.toFixed(2)),
                 programWeek: 1,
                 programLength: weeks,
+                programStartDate,
               }));
               setCurrentScreen('main');
             }
@@ -4268,9 +4768,9 @@ export default function UpRepDemo() {
       if (type.includes('Push')) return COLORS.primary;
       if (type.includes('Pull')) return COLORS.accent;
       if (type.includes('Leg') || type.includes('Lower')) return COLORS.warning;
-      if (type.includes('Upper')) return '#9C27B0';
-      if (type.includes('Arms')) return '#00BCD4';
-      if (type.includes('Full')) return COLORS.success;
+      if (type.includes('Upper')) return COLORS.sleep;
+      if (type.includes('Arms')) return COLORS.water;
+      if (type.includes('Full')) return COLORS.protein;
       return COLORS.textMuted;
     };
 
@@ -4499,11 +4999,8 @@ export default function UpRepDemo() {
     );
   };
 
-  // Pause Plan Modal  
   // Pause Plan Modal with Calendar
   const PausePlanModal = () => {
-    const today = new Date(2026, 0, 8); // Wed Jan 8, 2026
-    
     const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
     const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     
@@ -4828,15 +5325,34 @@ export default function UpRepDemo() {
               <p className="font-bold" style={{ color: COLORS.text }}>{overviewStats.totalWorkouts}</p>
             </div>
           </div>
-          <div className="p-3 rounded-lg flex items-center gap-3" style={{ backgroundColor: COLORS.surfaceLight }}>
-            <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: '#448AFF20' }}>
-              <Calendar size={18} color="#448AFF" />
+          <button
+            onClick={() => setShowWeightDetails(true)}
+            className="p-3 rounded-lg flex items-center gap-3 text-left"
+            style={{ backgroundColor: COLORS.surfaceLight }}
+          >
+            <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.water + '20' }}>
+              <TrendingUp size={18} color={COLORS.water} />
             </div>
-            <div>
-              <p className="text-xs" style={{ color: COLORS.textMuted }}>This Week</p>
-              <p className="font-bold" style={{ color: COLORS.text }}>{overviewStats.weeklyTarget > 0 ? '+' : ''}{overviewStats.weeklyTarget}kg</p>
+            <div className="flex-1">
+              <p className="text-xs" style={{ color: COLORS.textMuted }}>Weekly Rate</p>
+              <div className="flex items-center gap-2">
+                <span className="font-bold" style={{ color: COLORS.text }}>
+                  {weeklyWeightData?.actualWeeklyRate !== 0
+                    ? `${weeklyWeightData?.actualWeeklyRate > 0 ? '+' : ''}${weeklyWeightData?.actualWeeklyRate || 0}kg`
+                    : `${overviewStats.weeklyTarget > 0 ? '+' : ''}${overviewStats.weeklyTarget}kg`}
+                </span>
+                {weeklyWeightData?.actualWeeklyRate !== 0 && (
+                  <span className="text-xs px-1.5 py-0.5 rounded" style={{
+                    backgroundColor: COLORS.surfaceLight,
+                    color: COLORS.textMuted
+                  }}>
+                    target: {overviewStats.weeklyTarget > 0 ? '+' : ''}{overviewStats.weeklyTarget}
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
+            <ChevronRight size={16} color={COLORS.textMuted} />
+          </button>
         </div>
         
         <button 
@@ -4850,10 +5366,40 @@ export default function UpRepDemo() {
 
       {/* Weigh-In Modal */}
       {showWeighIn && (
-        <WeighInModal 
+        <WeighInModal
           COLORS={COLORS}
           onClose={() => setShowWeighIn(false)}
-          onSave={(val) => {
+          onSave={async (data) => {
+            const { weight: val, date } = data;
+            // Save to Supabase
+            if (user?.id) {
+              try {
+                await profileService.logWeight(user.id, val, date);
+
+                // Recalculate nutrition targets with new weight
+                const nutritionTargets = generateNutritionTargets({
+                  weight: val,
+                  height: profile?.height || 175,
+                  age: profile?.age || 25,
+                  gender: userData.gender || 'other',
+                  goal: userData.goal || 'fitness',
+                  workoutsPerWeek: userData.daysPerWeek || 4,
+                  goalWeight: parseFloat(userData.goalWeight) || val,
+                });
+
+                setNutritionGoals({
+                  calories: nutritionTargets.calories,
+                  protein: nutritionTargets.protein,
+                  carbs: nutritionTargets.carbs,
+                  fats: nutritionTargets.fat,
+                  water: nutritionTargets.water,
+                  tdee: nutritionTargets.tdee,
+                  weeklyWeightChange: nutritionTargets.weeklyWeightChange,
+                });
+              } catch (err) {
+                console.error('Error saving weight:', err);
+              }
+            }
             setOverviewStats(prev => ({ ...prev, currentWeight: val }));
             setShowWeighIn(false);
           }}
@@ -4861,6 +5407,198 @@ export default function UpRepDemo() {
           currentWeight={overviewStats.currentWeight}
           userGoal={userData.goal}
         />
+      )}
+
+      {/* Weight Details Modal */}
+      {showWeightDetails && (
+        <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
+          <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
+            <button onClick={() => setShowWeightDetails(false)}><X size={24} color={COLORS.text} /></button>
+            <h3 className="text-lg font-bold" style={{ color: COLORS.text }}>Weight Progress</h3>
+          </div>
+          <div className="flex-1 overflow-auto p-4">
+            {/* Summary Cards */}
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+                <p className="text-xs mb-1" style={{ color: COLORS.textMuted }}>Starting Weight</p>
+                <p className="text-2xl font-bold" style={{ color: COLORS.text }}>{overviewStats.startingWeight}kg</p>
+              </div>
+              <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+                <p className="text-xs mb-1" style={{ color: COLORS.textMuted }}>Current Weight</p>
+                <p className="text-2xl font-bold" style={{ color: COLORS.primary }}>{overviewStats.currentWeight}kg</p>
+              </div>
+              <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+                <p className="text-xs mb-1" style={{ color: COLORS.textMuted }}>Target Weight</p>
+                <p className="text-2xl font-bold" style={{ color: COLORS.success }}>{overviewStats.targetWeight}kg</p>
+              </div>
+              <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+                <p className="text-xs mb-1" style={{ color: COLORS.textMuted }}>Remaining</p>
+                <p className="text-2xl font-bold" style={{ color: COLORS.warning }}>
+                  {Math.abs(overviewStats.targetWeight - overviewStats.currentWeight).toFixed(1)}kg
+                </p>
+              </div>
+            </div>
+
+            {/* Weekly Change Comparison - Dynamic Based on Weekly Averages */}
+            <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
+              <p className="text-sm font-semibold mb-3" style={{ color: COLORS.text }}>Weekly Rate (Based on Averages)</p>
+              <div className="flex gap-3 mb-3">
+                <div className="flex-1 p-3 rounded-lg text-center" style={{ backgroundColor: COLORS.surfaceLight }}>
+                  <p className="text-xs mb-1" style={{ color: COLORS.textMuted }}>Target Rate</p>
+                  <p className="text-lg font-bold" style={{ color: COLORS.textSecondary }}>
+                    {overviewStats.weeklyTarget > 0 ? '+' : ''}{overviewStats.weeklyTarget}kg/wk
+                  </p>
+                </div>
+                <div className="flex-1 p-3 rounded-lg text-center" style={{ backgroundColor: COLORS.primary + '20' }}>
+                  <p className="text-xs mb-1" style={{ color: COLORS.textMuted }}>Actual Rate</p>
+                  <p className="text-lg font-bold" style={{ color: COLORS.primary }}>
+                    {(weeklyWeightData?.actualWeeklyRate || 0) > 0 ? '+' : ''}{weeklyWeightData?.actualWeeklyRate || 0}kg/wk
+                  </p>
+                </div>
+              </div>
+
+              {/* Progress Status */}
+              {(() => {
+                const targetRate = overviewStats.weeklyTarget;
+                const actualRate = weeklyWeightData?.actualWeeklyRate || 0;
+                const isOnTrack =
+                  (targetRate >= 0 && actualRate >= targetRate * 0.8) ||
+                  (targetRate < 0 && actualRate <= targetRate * 0.8);
+                const isClose =
+                  (targetRate >= 0 && actualRate >= targetRate * 0.5 && actualRate < targetRate * 0.8) ||
+                  (targetRate < 0 && actualRate <= targetRate * 0.5 && actualRate > targetRate * 0.8);
+
+                const statusColor = isOnTrack ? COLORS.success : isClose ? COLORS.warning : COLORS.error;
+                const statusText = isOnTrack ? 'On Track' : isClose ? 'Slightly Behind' : 'Needs Adjustment';
+                const statusIcon = isOnTrack ? '✓' : isClose ? '↗' : '!';
+
+                return (weeklyWeightData?.weeklyAverages?.length || 0) >= 2 ? (
+                  <div className="p-3 rounded-lg flex items-center justify-between" style={{ backgroundColor: statusColor + '15' }}>
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{statusIcon}</span>
+                      <span className="text-sm font-medium" style={{ color: statusColor }}>{statusText}</span>
+                    </div>
+                    <span className="text-xs" style={{ color: COLORS.textMuted }}>
+                      Based on {weeklyWeightData?.weeklyAverages?.length || 0} weeks
+                    </span>
+                  </div>
+                ) : (
+                  <div className="p-3 rounded-lg text-center" style={{ backgroundColor: COLORS.surfaceLight }}>
+                    <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                      Log weights for 2+ weeks to see your actual rate
+                    </p>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Weekly Averages Chart */}
+            {(weeklyWeightData?.weeklyAverages?.length || 0) > 0 && (
+              <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
+                <p className="text-sm font-semibold mb-3" style={{ color: COLORS.text }}>Weekly Averages</p>
+                <div className="space-y-2">
+                  {(weeklyWeightData?.weeklyAverages || []).slice(-4).map((week, index, arr) => (
+                    <div key={week.week} className="flex items-center justify-between p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
+                      <span className="text-xs" style={{ color: COLORS.textMuted }}>
+                        Week of {new Date(week.week).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </span>
+                      <span className="font-bold" style={{ color: index === arr.length - 1 ? COLORS.primary : COLORS.text }}>
+                        {week.average}kg
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Weight Chart */}
+            <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+              <p className="text-sm font-semibold mb-3" style={{ color: COLORS.text }}>Weight Trend</p>
+              <div style={{ height: 200 }}>
+                {chartData.weight?.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={chartData.weight}>
+                      <XAxis
+                        dataKey="week"
+                        tick={{ fill: COLORS.textMuted, fontSize: 10 }}
+                        axisLine={false}
+                        tickLine={false}
+                        tickFormatter={(val) => `W${val}`}
+                      />
+                      <YAxis
+                        tick={{ fill: COLORS.textMuted, fontSize: 10 }}
+                        axisLine={false}
+                        tickLine={false}
+                        width={35}
+                        domain={['dataMin - 2', 'dataMax + 2']}
+                        tickFormatter={(val) => `${val}kg`}
+                      />
+                      <Tooltip
+                        content={({ active, payload, label }) => {
+                          if (active && payload && payload.length) {
+                            return (
+                              <div style={{
+                                backgroundColor: COLORS.surface,
+                                border: `1px solid ${COLORS.surfaceLight}`,
+                                borderRadius: 8,
+                                padding: '8px 12px',
+                              }}>
+                                <p style={{ color: COLORS.textMuted, fontSize: 11 }}>Week {label}</p>
+                                <p style={{ color: COLORS.primary, fontSize: 14, fontWeight: 'bold' }}>Actual: {payload[0]?.value}kg</p>
+                                <p style={{ color: COLORS.textMuted, fontSize: 12 }}>Expected: {payload[1]?.value}kg</p>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="value"
+                        stroke={COLORS.primary}
+                        strokeWidth={2}
+                        dot={{ fill: COLORS.primary, r: 3 }}
+                        name="Actual"
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="expected"
+                        stroke={COLORS.textMuted}
+                        strokeWidth={1}
+                        strokeDasharray="5 5"
+                        dot={false}
+                        name="Expected"
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex items-center justify-center">
+                    <p className="text-sm" style={{ color: COLORS.textMuted }}>Log weigh-ins to see your trend</p>
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-4 justify-center mt-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-0.5" style={{ backgroundColor: COLORS.primary }}></div>
+                  <span className="text-xs" style={{ color: COLORS.textMuted }}>Actual</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-0.5" style={{ backgroundColor: COLORS.textMuted, borderStyle: 'dashed' }}></div>
+                  <span className="text-xs" style={{ color: COLORS.textMuted }}>Projected</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="p-4 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+            <button
+              onClick={() => { setShowWeightDetails(false); setShowWeighIn(true); }}
+              className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
+              style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+            >
+              <Plus size={18} /> Log Weigh-In
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Progress Chart */}
@@ -4886,54 +5624,60 @@ export default function UpRepDemo() {
           ))}
         </div>
         <div style={{ height: 100 }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData[selectedChart]}>
-              <XAxis 
-                dataKey="week" 
-                tick={{ fill: COLORS.textMuted, fontSize: 9 }} 
-                axisLine={false} 
-                tickLine={false}
-                interval={2}
-                tickFormatter={(val) => `W${val}`}
-              />
-              <YAxis hide domain={['dataMin - 5', 'dataMax + 5']} />
-              <Tooltip
-                content={({ active, payload, label }) => {
-                  if (active && payload && payload.length) {
-                    return (
-                      <div style={{
-                        backgroundColor: COLORS.surface,
-                        border: `1px solid ${COLORS.surfaceLight}`,
-                        borderRadius: 8,
-                        padding: '8px 12px',
-                      }}>
-                        <p style={{ color: COLORS.textMuted, fontSize: 11, marginBottom: 4 }}>Week {label}</p>
-                        <p style={{ color: COLORS.text, fontSize: 14, fontWeight: 'bold' }}>{payload[0].value} {chartLabels[selectedChart]}</p>
-                        <p style={{ color: COLORS.textMuted, fontSize: 11 }}>Expected: {payload[1]?.value} {chartLabels[selectedChart]}</p>
-                      </div>
-                    );
-                  }
-                  return null;
-                }}
-              />
-              <Line 
-                type="monotone" 
-                dataKey="value" 
-                stroke={COLORS.primary} 
-                strokeWidth={2} 
-                dot={{ fill: COLORS.primary, r: 3, strokeWidth: 0 }}
-                activeDot={{ fill: COLORS.primary, r: 5, stroke: COLORS.text, strokeWidth: 2 }}
-              />
-              <Line 
-                type="monotone" 
-                dataKey="expected" 
-                stroke={COLORS.textMuted} 
-                strokeWidth={1} 
-                strokeDasharray="4 4"
-                dot={false}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          {chartData[selectedChart]?.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData[selectedChart]}>
+                <XAxis
+                  dataKey="week"
+                  tick={{ fill: COLORS.textMuted, fontSize: 9 }}
+                  axisLine={false}
+                  tickLine={false}
+                  interval={2}
+                  tickFormatter={(val) => `W${val}`}
+                />
+                <YAxis tick={{ fill: COLORS.textMuted, fontSize: 9 }} axisLine={false} tickLine={false} width={30} domain={['dataMin - 5', 'dataMax + 5']} />
+                <Tooltip
+                  content={({ active, payload, label }) => {
+                    if (active && payload && payload.length) {
+                      return (
+                        <div style={{
+                          backgroundColor: COLORS.surface,
+                          border: `1px solid ${COLORS.surfaceLight}`,
+                          borderRadius: 8,
+                          padding: '8px 12px',
+                        }}>
+                          <p style={{ color: COLORS.textMuted, fontSize: 11, marginBottom: 4 }}>Week {label}</p>
+                          <p style={{ color: COLORS.text, fontSize: 14, fontWeight: 'bold' }}>{payload[0].value} {chartLabels[selectedChart]}</p>
+                          <p style={{ color: COLORS.textMuted, fontSize: 11 }}>Expected: {payload[1]?.value} {chartLabels[selectedChart]}</p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="value"
+                  stroke={COLORS.primary}
+                  strokeWidth={2}
+                  dot={{ fill: COLORS.primary, r: 3, strokeWidth: 0 }}
+                  activeDot={{ fill: COLORS.primary, r: 5, stroke: COLORS.text, strokeWidth: 2 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="expected"
+                  stroke={COLORS.textMuted}
+                  strokeWidth={1}
+                  strokeDasharray="4 4"
+                  dot={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-full flex items-center justify-center">
+              <p className="text-sm" style={{ color: COLORS.textMuted }}>No data yet - start tracking to see progress!</p>
+            </div>
+          )}
         </div>
         <div className="flex justify-between items-center mt-2">
           <div className="flex items-center gap-3">
@@ -4947,39 +5691,55 @@ export default function UpRepDemo() {
             </div>
           </div>
           <span className="text-xs font-semibold" style={{ color: COLORS.primary }}>
-            {chartData[selectedChart][chartData[selectedChart].length - 1].value} {chartLabels[selectedChart]}
+            {chartData[selectedChart]?.length > 0
+              ? `${chartData[selectedChart][chartData[selectedChart].length - 1]?.value || '-'} ${chartLabels[selectedChart]}`
+              : `- ${chartLabels[selectedChart]}`}
           </span>
         </div>
       </div>
 
       <div className="mb-4">
         <h3 className="font-semibold mb-3" style={{ color: COLORS.text }}>Streaks</h3>
-        <div className="grid grid-cols-3 gap-2 mb-2">
-          {[
-            { id: 'workouts', icon: Dumbbell, value: streaks.weeklyWorkouts.weeksCompleted, label: 'weeks', color: COLORS.warning, title: 'Workout Streak', unit: 'workouts', target: 4 },
-            { id: 'calories', icon: Flame, value: streaks.calories.daysInRow, label: 'calories', color: COLORS.accent, title: 'Calorie Goal', unit: 'kcal', target: 2200 },
-            { id: 'protein', icon: Target, value: streaks.protein.daysInRow, label: 'protein', color: COLORS.primary, title: 'Protein Goal', unit: 'g', target: 150 },
-          ].map((s, i) => (
-            <button key={i} onClick={() => setShowStreakCalendar(s)} className="p-3 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
-              <s.icon size={20} color={s.color} className="mx-auto mb-1" />
-              <p className="text-lg font-bold" style={{ color: COLORS.text }}>{s.value}</p>
-              <p className="text-xs" style={{ color: COLORS.textMuted }}>{s.label}</p>
-            </button>
-          ))}
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          {[
-            { id: 'water', icon: Droplets, value: streaks.water.daysInRow, label: 'water', color: '#448AFF', title: 'Water Goal', unit: 'ml', target: 2500 },
-            { id: 'sleep', icon: Moon, value: streaks.sleep.daysInRow, label: 'sleep', color: '#9C27B0', title: 'Sleep Goal', unit: 'hrs', target: 8 },
-            { id: 'supplements', icon: Zap, value: streaks.supplements.daysInRow, label: 'supps', color: COLORS.success, title: 'Supplements', unit: 'taken', target: 4 },
-          ].map((s, i) => (
-            <button key={i} onClick={() => setShowStreakCalendar(s)} className="p-3 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
-              <s.icon size={20} color={s.color} className="mx-auto mb-1" />
-              <p className="text-lg font-bold" style={{ color: COLORS.text }}>{s.value}</p>
-              <p className="text-xs" style={{ color: COLORS.textMuted }}>{s.label}</p>
-            </button>
-          ))}
-        </div>
+        {(() => {
+          // Build streak items based on tracking settings
+          const allStreakItems = [
+            { id: 'workouts', icon: Dumbbell, value: streaks.weeklyWorkouts.weeksCompleted, label: 'weeks', color: COLORS.warning, title: 'Workout Streak', unit: 'workouts', target: 4, enabled: true },
+            settings.tracking.calories && { id: 'calories', icon: Flame, value: streaks.calories.daysInRow, label: 'calories', color: COLORS.accent, title: 'Calorie Goal', unit: 'kcal', target: nutritionGoals.calories || 2200, enabled: true },
+            settings.tracking.macros && { id: 'protein', icon: Target, value: streaks.protein.daysInRow, label: 'protein', color: COLORS.protein, title: 'Protein Goal', unit: 'g', target: nutritionGoals.protein || 150, enabled: true },
+            settings.tracking.water && { id: 'water', icon: Droplets, value: streaks.water.daysInRow, label: 'water', color: COLORS.water, title: 'Water Goal', unit: 'ml', target: nutritionGoals.water || 2500, enabled: true },
+            settings.tracking.sleep && { id: 'sleep', icon: Moon, value: streaks.sleep.daysInRow, label: 'sleep', color: COLORS.sleep, title: 'Sleep Goal', unit: 'hrs', target: 8, enabled: true },
+            settings.tracking.supplements && { id: 'supplements', icon: Zap, value: streaks.supplements.daysInRow, label: 'supps', color: COLORS.supplements, title: 'Supplements', unit: 'taken', target: 4, enabled: true },
+          ].filter(Boolean);
+
+          // Split into rows of 3
+          const firstRow = allStreakItems.slice(0, 3);
+          const secondRow = allStreakItems.slice(3, 6);
+
+          return (
+            <>
+              <div className="grid grid-cols-3 gap-2 mb-2">
+                {firstRow.map((s, i) => (
+                  <button key={s.id} onClick={() => setShowStreakCalendar(s)} className="p-3 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
+                    <s.icon size={20} color={s.color} className="mx-auto mb-1" />
+                    <p className="text-lg font-bold" style={{ color: COLORS.text }}>{s.value}</p>
+                    <p className="text-xs" style={{ color: COLORS.textMuted }}>{s.label}</p>
+                  </button>
+                ))}
+              </div>
+              {secondRow.length > 0 && (
+                <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(secondRow.length, 3)}, 1fr)` }}>
+                  {secondRow.map((s, i) => (
+                    <button key={s.id} onClick={() => setShowStreakCalendar(s)} className="p-3 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
+                      <s.icon size={20} color={s.color} className="mx-auto mb-1" />
+                      <p className="text-lg font-bold" style={{ color: COLORS.text }}>{s.value}</p>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>{s.label}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
+          );
+        })()}
       </div>
 
       {/* Friend Activity Preview - only if social enabled */}
@@ -5044,7 +5804,6 @@ export default function UpRepDemo() {
       {/* Streak Calendar Modal with detailed data */}
       {showStreakCalendar && (() => {
         const streak = showStreakCalendar;
-        const today = new Date(2026, 0, 8);
         const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
         const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
         const getDaysInMonth = (month, year) => new Date(year, month + 1, 0).getDate();
@@ -5116,7 +5875,7 @@ export default function UpRepDemo() {
         return (
           <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
             <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
-              <button onClick={() => { setShowStreakCalendar(null); setStreakCalendarMonth(0); setStreakCalendarYear(2026); setSelectedStreakDay(null); }}><ChevronLeft size={24} color={COLORS.text} /></button>
+              <button onClick={() => { setShowStreakCalendar(null); setStreakCalendarMonth(currentMonth); setStreakCalendarYear(currentYear); setSelectedStreakDay(null); }}><ChevronLeft size={24} color={COLORS.text} /></button>
               <streak.icon size={24} color={streak.color} />
               <h2 className="text-lg font-bold" style={{ color: COLORS.text }}>{streak.title}</h2>
             </div>
@@ -5186,7 +5945,7 @@ export default function UpRepDemo() {
               {/* Selected Day Detail */}
               {selectedDay && streakData[selectedDay] && (
                 <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.accent + '15', border: `1px solid ${COLORS.accent}40` }}>
-                  <p className="text-sm font-semibold mb-2" style={{ color: COLORS.text }}>January {selectedDay}, 2026</p>
+                  <p className="text-sm font-semibold mb-2" style={{ color: COLORS.text }}>{monthNames[streakCalendarMonth]} {selectedDay}, {streakCalendarYear}</p>
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-xs" style={{ color: COLORS.textMuted }}>Actual</p>
@@ -5223,19 +5982,22 @@ export default function UpRepDemo() {
               </div>
             </div>
             <div className="p-4 border-t" style={{ borderColor: COLORS.surfaceLight }}>
-              <button onClick={() => { setShowStreakCalendar(null); setStreakCalendarMonth(0); setStreakCalendarYear(2026); setSelectedStreakDay(null); }} className="w-full py-4 rounded-xl font-semibold" style={{ backgroundColor: streak.color, color: COLORS.text }}>Close</button>
+              <button onClick={() => { setShowStreakCalendar(null); setStreakCalendarMonth(currentMonth); setStreakCalendarYear(currentYear); setSelectedStreakDay(null); }} className="w-full py-4 rounded-xl font-semibold" style={{ backgroundColor: streak.color, color: COLORS.text }}>Close</button>
             </div>
           </div>
         );
       })()}
 
+      {/* Today's Progress - only show if any nutrition tracking is enabled */}
+      {(settings.tracking.calories || settings.tracking.macros || settings.tracking.water) && (
+      <>
       <h3 className="font-semibold mb-3" style={{ color: COLORS.text }}>Today's Progress</h3>
       <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
         {[
-          { label: 'Calories', current: caloriesIntake, target: 2200, color: COLORS.accent, type: 'meal' },
-          { label: 'Protein', current: proteinIntake, target: 150, unit: 'g', color: COLORS.primary, type: 'meal' },
-          { label: 'Water', current: waterIntake, target: 2500, unit: 'ml', color: '#448AFF', type: 'water' },
-        ].map(item => {
+          settings.tracking.calories && { label: 'Calories', current: caloriesIntake, target: nutritionGoals.calories || 2200, color: COLORS.accent, type: 'meal', trackingKey: 'calories' },
+          settings.tracking.macros && { label: 'Protein', current: proteinIntake, target: nutritionGoals.protein || 150, unit: 'g', color: COLORS.protein, type: 'meal', trackingKey: 'macros' },
+          settings.tracking.water && { label: 'Water', current: waterIntake, target: nutritionGoals.water || 2500, unit: 'ml', color: COLORS.water, type: 'water', trackingKey: 'water' },
+        ].filter(Boolean).map(item => {
           const remaining = item.target - item.current;
           const isComplete = item.current >= item.target;
           return (
@@ -5272,7 +6034,7 @@ export default function UpRepDemo() {
                       key={btn.label}
                       onClick={() => setWaterIntake(prev => Math.min(prev + btn.amount, 5000))}
                       className="flex-1 py-2 rounded-lg text-xs font-semibold"
-                      style={{ backgroundColor: COLORS.surfaceLight, color: '#448AFF' }}
+                      style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.water }}
                     >
                       + {btn.label}
                     </button>
@@ -5283,6 +6045,8 @@ export default function UpRepDemo() {
           );
         })}
       </div>
+      </>
+      )}
 
       {/* Meal Entry Modal */}
       {showMealEntry && (
@@ -5532,6 +6296,8 @@ export default function UpRepDemo() {
       </div>
 
       {/* Sleep Section */}
+      {settings.tracking.sleep && (
+      <>
       <h3 className="font-semibold mb-3" style={{ color: COLORS.text }}>Sleep</h3>
       <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
         {/* Last Night */}
@@ -5549,7 +6315,7 @@ export default function UpRepDemo() {
             <div className="grid grid-cols-2 gap-3 mb-3">
               <div className="p-3 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: '#9C27B0' }}>
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.sleep }}>
                     <Clock size={12} color="#fff" />
                   </div>
                   <p className="text-xs font-medium" style={{ color: COLORS.textMuted }}>Went to bed</p>
@@ -5588,7 +6354,7 @@ export default function UpRepDemo() {
               </div>
               <div className="p-3 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: '#9C27B0' }}>
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.sleep }}>
                     <Clock size={12} color="#fff" />
                   </div>
                   <p className="text-xs font-medium" style={{ color: COLORS.textMuted }}>Woke up</p>
@@ -5626,7 +6392,7 @@ export default function UpRepDemo() {
                 </div>
               </div>
             </div>
-            <div className="p-3 rounded-lg mb-3 flex items-center justify-between" style={{ backgroundColor: '#9C27B0' + '15' }}>
+            <div className="p-3 rounded-lg mb-3 flex items-center justify-between" style={{ backgroundColor: COLORS.sleep + '15' }}>
               <span className="text-sm" style={{ color: COLORS.textMuted }}>Total sleep</span>
               {(() => {
                 const [bedH, bedM] = lastNightBedTime.split(':').map(Number);
@@ -5643,16 +6409,43 @@ export default function UpRepDemo() {
                 );
               })()}
             </div>
-            <button 
-              onClick={() => setLastNightConfirmed(true)}
+            <button
+              onClick={async () => {
+                // Calculate sleep hours
+                const [bedH, bedM] = lastNightBedTime.split(':').map(Number);
+                const [wakeH, wakeM] = lastNightWakeTime.split(':').map(Number);
+                let hours = wakeH - bedH;
+                let mins = wakeM - bedM;
+                if (hours < 0) hours += 24;
+                if (mins < 0) { mins += 60; hours--; }
+                const totalHours = hours + mins / 60;
+
+                // Save to Supabase
+                if (user?.id) {
+                  try {
+                    const yesterday = new Date();
+                    yesterday.setDate(yesterday.getDate() - 1);
+                    await sleepService.logSleep(user.id, {
+                      date: yesterday.toISOString().split('T')[0],
+                      bedTime: lastNightBedTime,
+                      wakeTime: lastNightWakeTime,
+                      hoursSlept: parseFloat(totalHours.toFixed(2)),
+                    });
+                  } catch (err) {
+                    console.error('Error logging sleep:', err);
+                  }
+                }
+
+                setLastNightConfirmed(true);
+              }}
               className="w-full py-3 rounded-xl font-semibold mb-3"
-              style={{ backgroundColor: '#9C27B0', color: '#fff' }}
+              style={{ backgroundColor: COLORS.sleep, color: '#fff' }}
             >
               Confirm Last Night's Sleep
             </button>
           </>
         ) : (
-          <div className="p-3 rounded-lg mb-3 flex items-center justify-between" style={{ backgroundColor: '#9C27B0' + '15' }}>
+          <div className="p-3 rounded-lg mb-3 flex items-center justify-between" style={{ backgroundColor: COLORS.sleep + '15' }}>
             <div>
               <p className="text-sm" style={{ color: COLORS.textMuted }}>Slept {lastNightBedTime} → {lastNightWakeTime}</p>
               {(() => {
@@ -5683,8 +6476,8 @@ export default function UpRepDemo() {
         {/* Tonight */}
         <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>TONIGHT'S PLAN</p>
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: '#9C27B0' + '20' }}>
-            <Moon size={20} color="#9C27B0" />
+          <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.sleep + '20' }}>
+            <Moon size={20} color={COLORS.sleep} />
           </div>
           <div className="flex-1">
             <p className="text-xs" style={{ color: COLORS.textMuted }}>Recommended</p>
@@ -5695,7 +6488,7 @@ export default function UpRepDemo() {
         <div className="grid grid-cols-2 gap-3">
           <div className="p-3 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
             <div className="flex items-center gap-2 mb-2">
-              <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: '#9C27B0' }}>
+              <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.sleep }}>
                 <Clock size={12} color="#fff" />
               </div>
               <p className="text-xs font-medium" style={{ color: COLORS.textMuted }}>Bed Time</p>
@@ -5734,7 +6527,7 @@ export default function UpRepDemo() {
           </div>
           <div className="p-3 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
             <div className="flex items-center gap-2 mb-2">
-              <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: '#9C27B0' }}>
+              <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.sleep }}>
                 <Clock size={12} color="#fff" />
               </div>
               <p className="text-xs font-medium" style={{ color: COLORS.textMuted }}>Wake Time</p>
@@ -5795,58 +6588,64 @@ export default function UpRepDemo() {
         <div className="mt-4 pt-4 border-t" style={{ borderColor: COLORS.surfaceLight }}>
           <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>WEEKLY AVERAGE</p>
           <div style={{ height: 80 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={sleepChartData}>
-                <XAxis 
-                  dataKey="week" 
-                  tick={{ fill: COLORS.textMuted, fontSize: 9 }} 
-                  axisLine={false} 
-                  tickLine={false}
-                  interval={2}
-                  tickFormatter={(val) => `W${val}`}
-                />
-                <YAxis hide domain={[5, 10]} />
-                <Tooltip
-                  content={({ active, payload, label }) => {
-                    if (active && payload && payload.length) {
-                      return (
-                        <div style={{
-                          backgroundColor: COLORS.surface,
-                          border: `1px solid ${COLORS.surfaceLight}`,
-                          borderRadius: 8,
-                          padding: '8px 12px',
-                        }}>
-                          <p style={{ color: COLORS.textMuted, fontSize: 11, marginBottom: 4 }}>Week {label}</p>
-                          <p style={{ color: COLORS.text, fontSize: 14, fontWeight: 'bold' }}>{payload[0].value} hrs avg</p>
-                          <p style={{ color: COLORS.textMuted, fontSize: 11 }}>Goal: {payload[1]?.value} hrs</p>
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="value" 
-                  stroke="#9C27B0" 
-                  strokeWidth={2} 
-                  dot={{ fill: '#9C27B0', r: 2, strokeWidth: 0 }}
-                  activeDot={{ fill: '#9C27B0', r: 4, stroke: COLORS.text, strokeWidth: 2 }}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="goal" 
-                  stroke={COLORS.success} 
-                  strokeWidth={1} 
-                  strokeDasharray="4 4"
-                  dot={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            {sleepChartData?.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={sleepChartData}>
+                  <XAxis
+                    dataKey="week"
+                    tick={{ fill: COLORS.textMuted, fontSize: 9 }}
+                    axisLine={false}
+                    tickLine={false}
+                    interval={2}
+                    tickFormatter={(val) => `W${val}`}
+                  />
+                  <YAxis tick={{ fill: COLORS.textMuted, fontSize: 9 }} axisLine={false} tickLine={false} width={25} domain={[5, 10]} tickFormatter={(val) => `${val}h`} />
+                  <Tooltip
+                    content={({ active, payload, label }) => {
+                      if (active && payload && payload.length) {
+                        return (
+                          <div style={{
+                            backgroundColor: COLORS.surface,
+                            border: `1px solid ${COLORS.surfaceLight}`,
+                            borderRadius: 8,
+                            padding: '8px 12px',
+                          }}>
+                            <p style={{ color: COLORS.textMuted, fontSize: 11, marginBottom: 4 }}>Week {label}</p>
+                            <p style={{ color: COLORS.text, fontSize: 14, fontWeight: 'bold' }}>{payload[0].value} hrs avg</p>
+                            <p style={{ color: COLORS.textMuted, fontSize: 11 }}>Goal: {payload[1]?.value} hrs</p>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="value"
+                    stroke={COLORS.sleep}
+                    strokeWidth={2}
+                    dot={{ fill: COLORS.sleep, r: 2, strokeWidth: 0 }}
+                    activeDot={{ fill: COLORS.sleep, r: 4, stroke: COLORS.text, strokeWidth: 2 }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="goal"
+                    stroke={COLORS.textMuted}
+                    strokeWidth={1}
+                    strokeDasharray="4 4"
+                    dot={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center">
+                <p className="text-xs" style={{ color: COLORS.textMuted }}>Log sleep to see trends</p>
+              </div>
+            )}
           </div>
           <div className="flex items-center justify-center gap-4 mt-2">
             <div className="flex items-center gap-1">
-              <div className="w-3 h-0.5" style={{ backgroundColor: '#9C27B0' }}></div>
+              <div className="w-3 h-0.5" style={{ backgroundColor: COLORS.sleep }}></div>
               <span className="text-xs" style={{ color: COLORS.textMuted }}>Avg Sleep</span>
             </div>
             <div className="flex items-center gap-1">
@@ -5856,8 +6655,12 @@ export default function UpRepDemo() {
           </div>
         </div>
       </div>
+      </>
+      )}
 
       {/* Supplements Tracker */}
+      {settings.tracking.supplements && (
+      <>
       <h3 className="font-semibold mb-3" style={{ color: COLORS.text }}>Supplements</h3>
       <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
         <div className="space-y-2 mb-3">
@@ -5865,14 +6668,14 @@ export default function UpRepDemo() {
             <div 
               key={supp.id} 
               className="w-full p-3 rounded-lg flex items-center justify-between"
-              style={{ backgroundColor: supp.taken ? COLORS.success + '15' : COLORS.surfaceLight }}>
+              style={{ backgroundColor: supp.taken ? COLORS.supplements + '15' : COLORS.surfaceLight }}>
               <div 
                 className="flex items-center gap-3 flex-1 cursor-pointer"
                 onClick={(e) => { e.preventDefault(); setSupplements(prev => prev.map(s => s.id === supp.id ? {...s, taken: !s.taken} : s)); }}
               >
                 <div className="w-6 h-6 rounded-full flex items-center justify-center"
-                  style={{ backgroundColor: supp.taken ? COLORS.success : COLORS.surfaceLight, border: supp.taken ? 'none' : `2px solid ${COLORS.textMuted}` }}>
-                  {supp.taken && <Check size={14} color={COLORS.text} />}
+                  style={{ backgroundColor: supp.taken ? COLORS.supplements : COLORS.surfaceLight, border: supp.taken ? 'none' : `2px solid ${COLORS.textMuted}` }}>
+                  {supp.taken && <Check size={14} color={COLORS.background} />}
                 </div>
                 <div className="text-left">
                   <p className="font-medium" style={{ color: COLORS.text }}>{supp.name}</p>
@@ -5880,7 +6683,7 @@ export default function UpRepDemo() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {supp.taken && <span className="text-xs" style={{ color: COLORS.success }}>Taken</span>}
+                {supp.taken && <span className="text-xs" style={{ color: COLORS.supplements }}>Taken</span>}
                 <button 
                   onClick={(e) => { e.stopPropagation(); setSupplements(prev => prev.filter(s => s.id !== supp.id)); }}
                   className="p-1 rounded-full"
@@ -5921,12 +6724,14 @@ export default function UpRepDemo() {
         <div className="mt-3 pt-3 border-t flex justify-between items-center" style={{ borderColor: COLORS.surfaceLight }}>
           <span className="text-sm" style={{ color: COLORS.textMuted }}>{supplements.filter(s => s.taken).length}/{supplements.length} taken</span>
           <div className="h-2 w-24 rounded-full overflow-hidden" style={{ backgroundColor: COLORS.surfaceLight }}>
-            <div className="h-full rounded-full" style={{ backgroundColor: COLORS.success, width: `${(supplements.filter(s => s.taken).length / supplements.length) * 100}%` }} />
+            <div className="h-full rounded-full" style={{ backgroundColor: COLORS.supplements, width: `${(supplements.filter(s => s.taken).length / supplements.length) * 100}%` }} />
           </div>
         </div>
       </div>
+      </>
+      )}
 
-      {showActiveWorkout && <ActiveWorkoutScreen onClose={() => setShowActiveWorkout(false)} onComplete={completeTodayWorkout} COLORS={COLORS} availableTime={workoutTime} userGoal={userData.goal || 'build_muscle'} />}
+      {showActiveWorkout && <ActiveWorkoutScreen onClose={() => setShowActiveWorkout(false)} onComplete={completeTodayWorkout} COLORS={COLORS} availableTime={workoutTime} userGoal={userData.goal || 'build_muscle'} userId={user?.id} workoutName={todayWorkout?.name || 'Workout'} />}
     </div>
   );
   };
@@ -6498,17 +7303,17 @@ export default function UpRepDemo() {
                         <div className="relative w-24 h-24">
                           <svg className="w-full h-full transform -rotate-90">
                             <circle cx="48" cy="48" r="40" stroke={COLORS.surfaceLight} strokeWidth="8" fill="none" />
-                            <circle 
-                              cx="48" cy="48" r="40" 
-                              stroke="#448AFF" 
-                              strokeWidth="8" 
+                            <circle
+                              cx="48" cy="48" r="40"
+                              stroke={COLORS.water}
+                              strokeWidth="8"
                               fill="none"
                               strokeDasharray={`${(waterIntake / nutritionGoals.water) * 251} 251`}
                               strokeLinecap="round"
                             />
                           </svg>
                           <div className="absolute inset-0 flex flex-col items-center justify-center">
-                            <Droplets size={16} color="#448AFF" />
+                            <Droplets size={16} color={COLORS.water} />
                             <span className="text-lg font-bold" style={{ color: COLORS.text }}>{(waterIntake / 1000).toFixed(1)}L</span>
                           </div>
                         </div>
@@ -6526,7 +7331,7 @@ export default function UpRepDemo() {
                     {[
                       { name: 'Protein', current: proteinIntake, target: nutritionGoals.protein, unit: 'g', color: COLORS.primary },
                       { name: 'Carbs', current: carbsIntake, target: nutritionGoals.carbs, unit: 'g', color: COLORS.warning },
-                      { name: 'Fats', current: fatsIntake, target: nutritionGoals.fats, unit: 'g', color: '#9C27B0' },
+                      { name: 'Fats', current: fatsIntake, target: nutritionGoals.fats, unit: 'g', color: COLORS.sleep },
                     ].map(macro => (
                       <div key={macro.name}>
                         <div className="flex justify-between mb-1">
@@ -6593,13 +7398,13 @@ export default function UpRepDemo() {
                           formatter={(value, name) => [(value / 1000).toFixed(1) + 'L', name === 'water' ? 'Actual' : 'Goal']}
                         />
                         <Line type="monotone" dataKey="waterGoal" stroke={COLORS.textMuted} strokeWidth={2} strokeDasharray="5 5" dot={false} />
-                        <Line type="monotone" dataKey="water" stroke="#448AFF" strokeWidth={2} dot={{ fill: '#448AFF', r: 4 }} />
+                        <Line type="monotone" dataKey="water" stroke={COLORS.water} strokeWidth={2} dot={{ fill: COLORS.water, r: 4 }} />
                       </LineChart>
                     </ResponsiveContainer>
                   </div>
                   <div className="flex justify-center gap-4 mt-2">
                     <div className="flex items-center gap-1">
-                      <div className="w-3 h-0.5 rounded" style={{ backgroundColor: '#448AFF' }} />
+                      <div className="w-3 h-0.5 rounded" style={{ backgroundColor: COLORS.water }} />
                       <span className="text-xs" style={{ color: COLORS.textMuted }}>Actual</span>
                     </div>
                     <div className="flex items-center gap-1">
@@ -6629,8 +7434,8 @@ export default function UpRepDemo() {
                     className="p-4 rounded-xl flex items-center gap-3"
                     style={{ backgroundColor: COLORS.surface }}
                   >
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: '#448AFF20' }}>
-                      <Droplets size={20} color="#448AFF" />
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.water + '20' }}>
+                      <Droplets size={20} color={COLORS.water} />
                     </div>
                     <div className="text-left">
                       <p className="font-semibold" style={{ color: COLORS.text }}>Add Water</p>
@@ -6718,7 +7523,7 @@ export default function UpRepDemo() {
                           <span className="text-xs" style={{ color: COLORS.textSecondary }}>{meal.carbs}g C</span>
                         </div>
                         <div className="flex items-center gap-1">
-                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#9C27B0' }} />
+                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS.sleep }} />
                           <span className="text-xs" style={{ color: COLORS.textSecondary }}>{meal.fats}g F</span>
                         </div>
                       </div>
@@ -6735,16 +7540,16 @@ export default function UpRepDemo() {
                 <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
                   <div className="flex justify-between items-center mb-3">
                     <h4 className="font-semibold" style={{ color: COLORS.text }}>Today's Supplements</h4>
-                    <span className="text-sm font-semibold" style={{ color: COLORS.success }}>
+                    <span className="text-sm font-semibold" style={{ color: COLORS.supplements }}>
                       {supplements.filter(s => s.taken).length}/{supplements.length}
                     </span>
                   </div>
                   <div className="h-3 rounded-full overflow-hidden mb-2" style={{ backgroundColor: COLORS.surfaceLight }}>
-                    <div 
+                    <div
                       className="h-full rounded-full transition-all"
-                      style={{ 
-                        backgroundColor: COLORS.success, 
-                        width: `${(supplements.filter(s => s.taken).length / supplements.length) * 100}%` 
+                      style={{
+                        backgroundColor: COLORS.supplements,
+                        width: `${(supplements.filter(s => s.taken).length / supplements.length) * 100}%`
                       }}
                     />
                   </div>
@@ -6762,20 +7567,20 @@ export default function UpRepDemo() {
                     <div 
                       key={supp.id}
                       className="p-4 rounded-xl flex items-center justify-between"
-                      style={{ backgroundColor: supp.taken ? COLORS.success + '15' : COLORS.surface }}
+                      style={{ backgroundColor: supp.taken ? COLORS.supplements + '15' : COLORS.surface }}
                     >
-                      <div 
+                      <div
                         className="flex items-center gap-3 flex-1 cursor-pointer"
                         onClick={() => setSupplements(prev => prev.map(s => s.id === supp.id ? {...s, taken: !s.taken} : s))}
                       >
-                        <div 
+                        <div
                           className="w-8 h-8 rounded-full flex items-center justify-center"
-                          style={{ 
-                            backgroundColor: supp.taken ? COLORS.success : COLORS.surfaceLight, 
-                            border: supp.taken ? 'none' : `2px solid ${COLORS.textMuted}` 
+                          style={{
+                            backgroundColor: supp.taken ? COLORS.supplements : COLORS.surfaceLight,
+                            border: supp.taken ? 'none' : `2px solid ${COLORS.textMuted}`
                           }}
                         >
-                          {supp.taken && <Check size={16} color={COLORS.text} />}
+                          {supp.taken && <Check size={16} color={COLORS.background} />}
                         </div>
                         <div>
                           <p className="font-semibold" style={{ color: COLORS.text }}>{supp.name}</p>
@@ -7884,7 +8689,7 @@ export default function UpRepDemo() {
           <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
             <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
               <button onClick={() => setShowPrivacyModal(false)}><X size={24} color={COLORS.text} /></button>
-              <h3 className="text-lg font-bold" style={{ color: COLORS.text }}>Privacy</h3>
+              <h3 className="text-lg font-bold" style={{ color: COLORS.text }}>Privacy & Social</h3>
             </div>
             <div className="flex-1 overflow-auto p-4">
               <p className="text-sm mb-4" style={{ color: COLORS.textMuted }}>Control who can see your profile and activity</p>
@@ -7922,15 +8727,149 @@ export default function UpRepDemo() {
                   </div>
                 ))}
               </div>
+
+              {/* Followers / Subscribers Section */}
+              <h4 className="font-semibold mt-6 mb-3" style={{ color: COLORS.text }}>Followers</h4>
+              <div
+                className="p-4 rounded-xl flex items-center justify-between"
+                style={{ backgroundColor: COLORS.surface }}
+              >
+                <div className="flex-1">
+                  <p className="font-semibold" style={{ color: COLORS.text }}>Allow Subscribers</p>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                    {settings.social.allowSubscribers
+                      ? 'Anyone can subscribe to see your public activity'
+                      : 'Only approved friends can see your activity'
+                    }
+                  </p>
+                </div>
+                <button
+                  onClick={async () => {
+                    const newValue = !settings.social.allowSubscribers;
+                    setSettings(prev => ({
+                      ...prev,
+                      social: { ...prev.social, allowSubscribers: newValue }
+                    }));
+                    // Save to database
+                    if (user?.id) {
+                      try {
+                        const { error } = await profileService.updateProfile(user.id, { allow_subscribers: newValue });
+                        if (error) {
+                          // Revert on error
+                          console.warn('Settings update error:', error?.message);
+                          setSettings(prev => ({
+                            ...prev,
+                            social: { ...prev.social, allowSubscribers: !newValue }
+                          }));
+                        }
+                      } catch (err) {
+                        console.warn('Settings update failed:', err?.message || err);
+                        // Revert on error
+                        setSettings(prev => ({
+                          ...prev,
+                          social: { ...prev.social, allowSubscribers: !newValue }
+                        }));
+                      }
+                    }
+                  }}
+                  className="w-12 h-7 rounded-full p-0.5 transition-colors"
+                  style={{ backgroundColor: settings.social.allowSubscribers ? COLORS.success : COLORS.surfaceLight }}
+                >
+                  <div
+                    className="w-6 h-6 rounded-full transition-transform"
+                    style={{
+                      backgroundColor: COLORS.text,
+                      transform: settings.social.allowSubscribers ? 'translateX(20px)' : 'translateX(0)'
+                    }}
+                  />
+                </button>
+              </div>
+
+              {settings.social.allowSubscribers && (
+                <div className="mt-3 p-4 rounded-xl" style={{ backgroundColor: COLORS.accent + '10' }}>
+                  <p className="text-xs" style={{ color: COLORS.accent }}>
+                    With a public account, anyone can subscribe to you without approval. They'll see your workouts and achievements in their feed.
+                  </p>
+                </div>
+              )}
+
               <div className="mt-4 p-4 rounded-xl" style={{ backgroundColor: COLORS.primary + '10' }}>
                 <p className="text-sm" style={{ color: COLORS.primary }}>
-                  Your workout data is always private and encrypted. These settings only control what friends can see.
+                  Your workout data is always private and encrypted. These settings only control what others can see.
                 </p>
               </div>
             </div>
             <div className="p-4 border-t" style={{ borderColor: COLORS.surfaceLight }}>
               <button
                 onClick={() => setShowPrivacyModal(false)}
+                className="w-full py-3 rounded-xl font-semibold"
+                style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Tracking Preferences Modal */}
+        {showTrackingModal && (
+          <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
+            <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
+              <button onClick={() => setShowTrackingModal(false)}><X size={24} color={COLORS.text} /></button>
+              <h3 className="text-lg font-bold" style={{ color: COLORS.text }}>Tracking Preferences</h3>
+            </div>
+            <div className="flex-1 overflow-auto p-4">
+              <p className="text-sm mb-4" style={{ color: COLORS.textMuted }}>Choose what you want to track. Disabled items won't appear in your dashboard or count towards streaks.</p>
+              <div className="space-y-3">
+                {[
+                  { id: 'calories', label: 'Calories', desc: 'Track daily calorie intake', icon: Flame, color: COLORS.warning },
+                  { id: 'macros', label: 'Macros', desc: 'Track protein, carbs, and fats', icon: Apple, color: COLORS.protein },
+                  { id: 'water', label: 'Water', desc: 'Track daily water intake', icon: Droplets, color: COLORS.water },
+                  { id: 'sleep', label: 'Sleep', desc: 'Track sleep duration and quality', icon: Moon, color: COLORS.sleep },
+                  { id: 'supplements', label: 'Supplements', desc: 'Track daily supplement intake', icon: Zap, color: COLORS.supplements },
+                ].map(tracking => (
+                  <div
+                    key={tracking.id}
+                    className="p-4 rounded-xl flex items-center justify-between"
+                    style={{ backgroundColor: COLORS.surface }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: tracking.color + '20' }}>
+                        <tracking.icon size={20} color={tracking.color} />
+                      </div>
+                      <div>
+                        <p className="font-semibold" style={{ color: COLORS.text }}>{tracking.label}</p>
+                        <p className="text-xs" style={{ color: COLORS.textMuted }}>{tracking.desc}</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setSettings(prev => ({
+                        ...prev,
+                        tracking: { ...prev.tracking, [tracking.id]: !prev.tracking[tracking.id] }
+                      }))}
+                      className="w-12 h-7 rounded-full p-0.5 transition-colors"
+                      style={{ backgroundColor: settings.tracking[tracking.id] ? COLORS.success : COLORS.surfaceLight }}
+                    >
+                      <div
+                        className="w-6 h-6 rounded-full transition-transform"
+                        style={{
+                          backgroundColor: COLORS.text,
+                          transform: settings.tracking[tracking.id] ? 'translateX(20px)' : 'translateX(0)'
+                        }}
+                      />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 p-4 rounded-xl" style={{ backgroundColor: COLORS.warning + '10' }}>
+                <p className="text-sm" style={{ color: COLORS.warning }}>
+                  Workouts are always tracked. Disabling a category will hide it from your home screen and exclude it from streak calculations.
+                </p>
+              </div>
+            </div>
+            <div className="p-4 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+              <button
+                onClick={() => setShowTrackingModal(false)}
                 className="w-full py-3 rounded-xl font-semibold"
                 style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
               >
@@ -8043,8 +8982,9 @@ export default function UpRepDemo() {
                   Cancel
                 </button>
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     setShowLogoutConfirm(false);
+                    await signOut();
                     setCurrentScreen('welcome');
                     setActiveTab('home');
                   }}
@@ -8062,88 +9002,217 @@ export default function UpRepDemo() {
         {showAddFriendModal && (
           <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
             <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
-              <button onClick={() => setShowAddFriendModal(false)}>
+              <button onClick={() => { setShowAddFriendModal(false); setFriendSearchQuery(''); setSearchResults([]); }}>
                 <X size={24} color={COLORS.text} />
               </button>
-              <h3 className="text-lg font-bold" style={{ color: COLORS.text }}>Add Friends</h3>
+              <h3 className="text-lg font-bold" style={{ color: COLORS.text }}>Find People</h3>
             </div>
-            
+
             <div className="flex-1 overflow-auto p-4">
               {/* Search */}
               <div className="relative mb-4">
                 <Search size={18} color={COLORS.textMuted} className="absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  placeholder="Search by name or username"
+                  placeholder="Search by username or name..."
                   value={friendSearchQuery}
-                  onChange={e => setFriendSearchQuery(e.target.value)}
+                  onChange={(e) => {
+                    const query = e.target.value;
+                    setFriendSearchQuery(query);
+
+                    if (query.length >= 2) {
+                      setSearchLoading(true);
+                      // Wrap in async IIFE to handle errors gracefully
+                      (async () => {
+                        try {
+                          const { data } = await profileService.searchUsers(query, user?.id);
+                          setSearchResults(data || []);
+                        } catch (err) {
+                          console.error('Search error:', err);
+                          setSearchResults([]);
+                        } finally {
+                          setSearchLoading(false);
+                        }
+                      })();
+                    } else {
+                      setSearchResults([]);
+                    }
+                  }}
                   className="w-full pl-10 pr-4 py-3 rounded-xl text-sm"
                   style={{ backgroundColor: COLORS.surface, color: COLORS.text, border: 'none' }}
                 />
+                {searchLoading && (
+                  <Loader2 size={18} color={COLORS.textMuted} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin" />
+                )}
               </div>
-              
-              {/* Invite Friends */}
-              <button 
-                className="w-full p-4 rounded-xl mb-6 flex items-center gap-3"
-                style={{ backgroundColor: COLORS.primary }}
-              >
-                <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.text + '20' }}>
-                  <Share2 size={20} color={COLORS.text} />
+
+              {/* Search Results */}
+              {friendSearchQuery.length >= 2 && (
+                <div className="mb-6">
+                  <h4 className="font-semibold mb-3" style={{ color: COLORS.text }}>
+                    {searchResults.length > 0 ? `Found ${searchResults.length} users` : 'No results'}
+                  </h4>
+                  <div className="space-y-2">
+                    {searchResults.map(person => (
+                      <div
+                        key={person.id}
+                        className="p-4 rounded-xl flex items-center justify-between"
+                        style={{ backgroundColor: COLORS.surface }}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="w-12 h-12 rounded-full flex items-center justify-center text-xl"
+                            style={{ backgroundColor: COLORS.surfaceLight }}
+                          >
+                            {person.avatar_url || (person.first_name ? person.first_name[0].toUpperCase() : '?')}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="font-semibold" style={{ color: COLORS.text }}>
+                                {person.first_name} {person.last_name}
+                              </p>
+                              {person.allow_subscribers && (
+                                <span className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: COLORS.primary + '20', color: COLORS.primary }}>
+                                  Public
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <p className="text-xs" style={{ color: COLORS.textMuted }}>@{person.username || 'user'}</p>
+                              {person.subscriber_count > 0 && (
+                                <span className="text-xs" style={{ color: COLORS.textSecondary }}>
+                                  · {person.subscriber_count} {person.subscriber_count === 1 ? 'subscriber' : 'subscribers'}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        {person.allow_subscribers ? (
+                          <button
+                            onClick={async () => {
+                              if (user?.id) {
+                                try {
+                                  const { error } = await profileService.subscribeToUser(user.id, person.id);
+                                  if (!error) {
+                                    setSearchResults(prev => prev.filter(p => p.id !== person.id));
+                                  } else {
+                                    console.warn('Subscribe error:', error?.message);
+                                  }
+                                } catch (err) {
+                                  console.warn('Subscribe failed:', err?.message || err);
+                                }
+                              }
+                            }}
+                            className="px-4 py-2 rounded-xl text-sm font-semibold"
+                            style={{ backgroundColor: COLORS.accent, color: COLORS.background }}
+                          >
+                            Subscribe
+                          </button>
+                        ) : (
+                          <button
+                            onClick={async () => {
+                              if (user?.id) {
+                                try {
+                                  const { error } = await profileService.sendFriendRequest(user.id, person.id);
+                                  if (!error) {
+                                    setSearchResults(prev => prev.map(p =>
+                                      p.id === person.id ? { ...p, requestSent: true } : p
+                                    ));
+                                  } else {
+                                    console.warn('Friend request error:', error?.message);
+                                  }
+                                } catch (err) {
+                                  console.warn('Friend request failed:', err?.message || err);
+                                }
+                              }
+                            }}
+                            className="px-4 py-2 rounded-xl text-sm font-semibold"
+                            style={{
+                              backgroundColor: person.requestSent ? COLORS.surfaceLight : COLORS.primary,
+                              color: person.requestSent ? COLORS.textMuted : COLORS.text
+                            }}
+                            disabled={person.requestSent}
+                          >
+                            {person.requestSent ? 'Requested' : 'Add Friend'}
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div className="text-left">
-                  <p className="font-semibold" style={{ color: COLORS.text }}>Invite Friends</p>
-                  <p className="text-xs" style={{ color: COLORS.text + 'CC' }}>Share your invite link</p>
-                </div>
-              </button>
-              
-              {/* Suggested Friends */}
-              <h4 className="font-semibold mb-3" style={{ color: COLORS.text }}>Suggested for You</h4>
-              <div className="space-y-2 mb-6">
-                {suggestedFriends.map(friend => (
-                  <div 
-                    key={friend.id}
-                    className="p-4 rounded-xl flex items-center justify-between"
+              )}
+
+              {/* Only show these sections if not actively searching */}
+              {friendSearchQuery.length < 2 && (
+                <>
+                  {/* Invite Friends */}
+                  <button
+                    className="w-full p-4 rounded-xl mb-6 flex items-center gap-3"
+                    style={{ backgroundColor: COLORS.primary }}
+                  >
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.text + '20' }}>
+                      <Share2 size={20} color={COLORS.text} />
+                    </div>
+                    <div className="text-left">
+                      <p className="font-semibold" style={{ color: COLORS.text }}>Invite Friends</p>
+                      <p className="text-xs" style={{ color: COLORS.text + 'CC' }}>Share your invite link</p>
+                    </div>
+                  </button>
+
+                  {/* Suggested Friends */}
+                  {suggestedFriends.length > 0 && (
+                    <>
+                      <h4 className="font-semibold mb-3" style={{ color: COLORS.text }}>Suggested for You</h4>
+                      <div className="space-y-2 mb-6">
+                        {suggestedFriends.map(friend => (
+                          <div
+                            key={friend.id}
+                            className="p-4 rounded-xl flex items-center justify-between"
+                            style={{ backgroundColor: COLORS.surface }}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div
+                                className="w-12 h-12 rounded-full flex items-center justify-center text-xl"
+                                style={{ backgroundColor: COLORS.surfaceLight }}
+                              >
+                                {friend.avatar}
+                              </div>
+                              <div>
+                                <p className="font-semibold" style={{ color: COLORS.text }}>{friend.name}</p>
+                                <p className="text-xs" style={{ color: COLORS.textMuted }}>{friend.mutualFriends} mutual friends</p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => {
+                                setFriends(prev => [...prev, { ...friend, streak: 0, isOnline: false, lastActive: 'Just added', weeklyWorkouts: 0, goal: 'fitness', stats: { workouts: 0, prs: 0, streak: 0 } }]);
+                              }}
+                              className="px-4 py-2 rounded-xl text-sm font-semibold"
+                              style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+                            >
+                              Add
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+
+                  {/* From Contacts */}
+                  <h4 className="font-semibold mb-3" style={{ color: COLORS.text }}>Find from Contacts</h4>
+                  <button
+                    className="w-full p-4 rounded-xl flex items-center gap-3"
                     style={{ backgroundColor: COLORS.surface }}
                   >
-                    <div className="flex items-center gap-3">
-                      <div 
-                        className="w-12 h-12 rounded-full flex items-center justify-center text-xl"
-                        style={{ backgroundColor: COLORS.surfaceLight }}
-                      >
-                        {friend.avatar}
-                      </div>
-                      <div>
-                        <p className="font-semibold" style={{ color: COLORS.text }}>{friend.name}</p>
-                        <p className="text-xs" style={{ color: COLORS.textMuted }}>{friend.mutualFriends} mutual friends</p>
-                      </div>
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.surfaceLight }}>
+                      <Users size={20} color={COLORS.textMuted} />
                     </div>
-                    <button 
-                      onClick={() => {
-                        setFriends(prev => [...prev, { ...friend, streak: 0, isOnline: false, lastActive: 'Just added', weeklyWorkouts: 0, goal: 'fitness', stats: { workouts: 0, prs: 0, streak: 0 } }]);
-                      }}
-                      className="px-4 py-2 rounded-xl text-sm font-semibold"
-                      style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
-                    >
-                      Add
-                    </button>
-                  </div>
-                ))}
-              </div>
-              
-              {/* From Contacts */}
-              <h4 className="font-semibold mb-3" style={{ color: COLORS.text }}>Find from Contacts</h4>
-              <button 
-                className="w-full p-4 rounded-xl flex items-center gap-3"
-                style={{ backgroundColor: COLORS.surface }}
-              >
-                <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.surfaceLight }}>
-                  <Users size={20} color={COLORS.textMuted} />
-                </div>
-                <div className="text-left">
-                  <p className="font-medium" style={{ color: COLORS.text }}>Sync Contacts</p>
-                  <p className="text-xs" style={{ color: COLORS.textMuted }}>Find friends already on the app</p>
-                </div>
-              </button>
+                    <div className="text-left">
+                      <p className="font-medium" style={{ color: COLORS.text }}>Sync Contacts</p>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>Find friends already on the app</p>
+                    </div>
+                  </button>
+                </>
+              )}
             </div>
           </div>
         )}
@@ -8258,7 +9327,6 @@ export default function UpRepDemo() {
         {/* Friend Streak Calendar Modal */}
         {showFriendStreakCalendar && (() => {
           const friend = showFriendStreakCalendar;
-          const today = new Date(2026, 0, 8);
           const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
           const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
           const getDaysInMonth = (month, year) => new Date(year, month + 1, 0).getDate();
@@ -8324,7 +9392,7 @@ export default function UpRepDemo() {
           return (
             <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
               <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
-                <button onClick={() => { setShowFriendStreakCalendar(null); setFriendStreakMonth(0); setFriendStreakYear(2026); }}>
+                <button onClick={() => { setShowFriendStreakCalendar(null); setFriendStreakMonth(currentMonth); setFriendStreakYear(currentYear); }}>
                   <ChevronLeft size={24} color={COLORS.text} />
                 </button>
                 <div 
@@ -8458,7 +9526,7 @@ export default function UpRepDemo() {
               
               <div className="p-4 border-t" style={{ borderColor: COLORS.surfaceLight }}>
                 <button 
-                  onClick={() => { setShowFriendStreakCalendar(null); setFriendStreakMonth(0); setFriendStreakYear(2026); }}
+                  onClick={() => { setShowFriendStreakCalendar(null); setFriendStreakMonth(currentMonth); setFriendStreakYear(currentYear); }}
                   className="w-full py-4 rounded-xl font-semibold"
                   style={{ backgroundColor: COLORS.warning, color: COLORS.background }}
                 >
@@ -8898,6 +9966,20 @@ export default function UpRepDemo() {
                   </button>
 
                   <button
+                    onClick={() => setShowTrackingModal(true)}
+                    className="w-full p-4 flex items-center justify-between border-b"
+                    style={{ borderColor: COLORS.surfaceLight }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: COLORS.success + '20' }}>
+                        <BarChart3 size={16} color={COLORS.success} />
+                      </div>
+                      <span style={{ color: COLORS.text }}>Tracking Preferences</span>
+                    </div>
+                    <ChevronRight size={18} color={COLORS.textMuted} />
+                  </button>
+
+                  <button
                     onClick={() => setShowAccountModal(true)}
                     className="w-full p-4 flex items-center justify-between"
                   >
@@ -9212,21 +10294,66 @@ export default function UpRepDemo() {
       )}
 
       {/* Program Selector Modal */}
-      {showProgramSelector && (
+      {showProgramSelector && (() => {
+        // Calculate program end date
+        const programStartDate = new Date(); // Would come from database in production
+        const programEndDate = new Date(programStartDate);
+        programEndDate.setDate(programEndDate.getDate() + (overviewStats.programLength * 7));
+        const endDateStr = programEndDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        const weeksRemaining = Math.max(0, overviewStats.programLength - overviewStats.programWeek);
+
+        return (
         <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
           <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
             <button onClick={() => setShowProgramSelector(false)}><X size={24} color={COLORS.text} /></button>
             <h2 className="text-lg font-bold" style={{ color: COLORS.text }}>Training Programs</h2>
           </div>
           <div className="flex-1 overflow-auto p-4">
+            {/* Current Program Info */}
+            <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.primary + '15', border: `1px solid ${COLORS.primary}40` }}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold" style={{ color: COLORS.primary }}>CURRENT PROGRAM</span>
+                <span className="text-xs px-2 py-1 rounded" style={{ backgroundColor: COLORS.primary + '20', color: COLORS.primary }}>
+                  Week {overviewStats.programWeek} of {overviewStats.programLength}
+                </span>
+              </div>
+              <h3 className="font-bold mb-1" style={{ color: COLORS.text }}>{currentProgram.name || 'No Program'}</h3>
+              <div className="flex items-center gap-4 text-xs" style={{ color: COLORS.textMuted }}>
+                <span>Ends: {endDateStr}</span>
+                <span>{weeksRemaining} weeks remaining</span>
+              </div>
+            </div>
+
+            {/* Next Program (for program cycling) */}
+            <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
+              <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>QUEUE NEXT PROGRAM</p>
+              <p className="text-sm mb-3" style={{ color: COLORS.textSecondary }}>
+                Set up your next program to automatically start when your current one ends.
+              </p>
+              <button
+                className="w-full py-2 rounded-lg text-sm font-semibold"
+                style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text }}
+              >
+                + Add Next Program
+              </button>
+            </div>
+
+            <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>AVAILABLE PROGRAMS</p>
             <div className="space-y-3">
               {[
-                { id: 'ppl', name: 'Push/Pull/Legs', days: 6, desc: 'High volume split for maximum muscle growth', level: 'Intermediate' },
-                { id: 'upper_lower', name: 'Upper/Lower', days: 4, desc: 'Balanced approach with optimal recovery', level: 'All Levels' },
-                { id: 'full_body', name: 'Full Body', days: 3, desc: 'Efficient training for busy schedules', level: 'Beginner' },
-                { id: 'bro_split', name: 'Body Part Split', days: 5, desc: 'One muscle group per day focus', level: 'Advanced' },
-                { id: 'strength', name: 'Strength Focus', days: 4, desc: 'Powerlifting-style training for max strength', level: 'Intermediate' },
-              ].map(program => (
+                { id: 'ppl', name: 'Push/Pull/Legs', days: 6, weeks: 12, desc: 'High volume split for maximum muscle growth', level: 'Intermediate', goal: 'build_muscle' },
+                { id: 'upper_lower', name: 'Upper/Lower', days: 4, weeks: 16, desc: 'Balanced approach with optimal recovery', level: 'All Levels', goal: 'build_muscle' },
+                { id: 'full_body', name: 'Full Body', days: 3, weeks: 12, desc: 'Efficient training for busy schedules', level: 'Beginner', goal: 'fitness' },
+                { id: 'bro_split', name: 'Body Part Split', days: 5, weeks: 16, desc: 'One muscle group per day focus', level: 'Advanced', goal: 'build_muscle' },
+                { id: 'strength', name: 'Strength Focus', days: 4, weeks: 12, desc: 'Powerlifting-style for max strength', level: 'Intermediate', goal: 'strength' },
+                { id: 'fat_loss', name: 'Fat Loss Circuit', days: 4, weeks: 8, desc: 'High intensity with cardio elements', level: 'All Levels', goal: 'lose_fat' },
+                { id: 'athlete', name: 'Athletic Performance', days: 5, weeks: 12, desc: 'Speed, agility, and power focus', level: 'Intermediate', goal: 'athletic' },
+              ].map(program => {
+                const endDate = new Date();
+                endDate.setDate(endDate.getDate() + (program.weeks * 7));
+                const progEndStr = endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+                return (
                 <button
                   key={program.id}
                   onClick={() => {
@@ -9234,7 +10361,7 @@ export default function UpRepDemo() {
                     setShowProgramSelector(false);
                   }}
                   className="w-full p-4 rounded-xl text-left"
-                  style={{ 
+                  style={{
                     backgroundColor: COLORS.surface,
                     border: currentProgram.id === program.id ? `2px solid ${COLORS.primary}` : '2px solid transparent'
                   }}
@@ -9242,22 +10369,30 @@ export default function UpRepDemo() {
                   <div className="flex justify-between items-start mb-2">
                     <h4 className="font-semibold" style={{ color: COLORS.text }}>{program.name}</h4>
                     <span className="text-xs px-2 py-1 rounded" style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.textMuted }}>
-                      {program.days} days/week
+                      {program.weeks} weeks
                     </span>
                   </div>
                   <p className="text-sm mb-2" style={{ color: COLORS.textSecondary }}>{program.desc}</p>
-                  <span className="text-xs" style={{ color: COLORS.primary }}>{program.level}</span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs" style={{ color: COLORS.primary }}>{program.level}</span>
+                      <span className="text-xs" style={{ color: COLORS.textMuted }}>• {program.days} days/week</span>
+                    </div>
+                    <span className="text-xs" style={{ color: COLORS.textMuted }}>Ends {progEndStr}</span>
+                  </div>
                   {currentProgram.id === program.id && (
                     <div className="mt-2 flex items-center gap-1" style={{ color: COLORS.success }}>
                       <Check size={14} /> <span className="text-xs">Current Program</span>
                     </div>
                   )}
                 </button>
-              ))}
+              );
+              })}
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* Full Schedule Modal */}
       {showFullSchedule && (() => {
@@ -9318,9 +10453,12 @@ export default function UpRepDemo() {
                   const date = new Date(fullScheduleYear, fullScheduleMonth, day);
                   const dateKey = date.toISOString().split('T')[0];
                   const entry = masterSchedule[dateKey];
-                  const isToday = fullScheduleYear === 2026 && fullScheduleMonth === 0 && day === 8;
-                  const isPast = date < new Date(2026, 0, 8);
-                  
+                  const isToday = fullScheduleYear === currentYear && fullScheduleMonth === currentMonth && day === today.getDate();
+                  const isPast = date < today;
+
+                  // Check if this date is before user's program start date
+                  const isBeforeProgram = overviewStats.programStartDate && dateKey < overviewStats.programStartDate;
+
                   const getShortName = (workout) => {
                     if (!workout) return null;
                     const name = workout.name;
@@ -9333,33 +10471,39 @@ export default function UpRepDemo() {
                     if (name.includes('Arm')) return 'Arms';
                     return name.split(' ')[0];
                   };
-                  
-                  const shortName = getShortName(entry?.workout);
-                  
+
+                  const shortName = isBeforeProgram ? null : getShortName(entry?.workout);
+
                   return (
                     <button
                       key={day}
                       onClick={() => {
-                        setEditingScheduleDay({
-                          day: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][(date.getDay() + 6) % 7],
-                          date: day,
-                          month: fullScheduleMonth,
-                          year: fullScheduleYear,
-                          dateKey,
-                          workout: entry?.workout || null,
-                          completed: entry?.completed || false,
-                          isToday
-                        });
+                        if (!isBeforeProgram) {
+                          setEditingScheduleDay({
+                            day: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][(date.getDay() + 6) % 7],
+                            date: day,
+                            month: fullScheduleMonth,
+                            year: fullScheduleYear,
+                            dateKey,
+                            workout: entry?.workout || null,
+                            completed: entry?.completed || false,
+                            isToday
+                          });
+                        }
                       }}
+                      disabled={isBeforeProgram}
                       className="aspect-square rounded-lg flex flex-col items-center justify-center p-1"
-                      style={{ 
-                        backgroundColor: isToday ? COLORS.primary + '30' : COLORS.surface,
-                        border: isToday ? `2px solid ${COLORS.primary}` : 'none'
+                      style={{
+                        backgroundColor: isToday ? COLORS.primary + '30' : isBeforeProgram ? COLORS.surfaceLight : COLORS.surface,
+                        border: isToday ? `2px solid ${COLORS.primary}` : 'none',
+                        opacity: isBeforeProgram ? 0.4 : 1
                       }}
                     >
-                      <span className="text-xs" style={{ color: isToday ? COLORS.primary : COLORS.text }}>{day}</span>
-                      {shortName ? (
-                        <span 
+                      <span className="text-xs" style={{ color: isToday ? COLORS.primary : isBeforeProgram ? COLORS.textMuted : COLORS.text }}>{day}</span>
+                      {isBeforeProgram ? (
+                        <span className="text-xs mt-0.5" style={{ color: COLORS.textMuted, fontSize: '7px' }}>-</span>
+                      ) : shortName ? (
+                        <span
                           className="text-xs font-semibold mt-0.5 truncate w-full text-center"
                           style={{ color: getWorkoutColor(shortName, COLORS), fontSize: '8px' }}
                         >
@@ -9368,7 +10512,7 @@ export default function UpRepDemo() {
                       ) : (
                         <span className="text-xs mt-0.5" style={{ color: COLORS.textMuted, fontSize: '8px' }}>Rest</span>
                       )}
-                      {entry?.completed && isPast && (
+                      {entry?.completed && isPast && !isBeforeProgram && (
                         <Check size={8} color={COLORS.success} />
                       )}
                     </button>
@@ -9385,18 +10529,30 @@ export default function UpRepDemo() {
       })()}
 
       {/* Schedule Day Editor Modal */}
-      {editingScheduleDay && (
+      {editingScheduleDay && (() => {
+        const editDate = new Date(editingScheduleDay.year, editingScheduleDay.month, editingScheduleDay.date);
+        const todayStart = new Date(today);
+        todayStart.setHours(0, 0, 0, 0);
+        editDate.setHours(0, 0, 0, 0);
+        const isPastDate = editDate < todayStart;
+
+        return (
         <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
           <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
             <button onClick={() => setEditingScheduleDay(null)}><X size={24} color={COLORS.text} /></button>
             <h2 className="text-lg font-bold" style={{ color: COLORS.text }}>
               {editingScheduleDay.day}, {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][editingScheduleDay.month]} {editingScheduleDay.date}
             </h2>
+            {isPastDate && (
+              <span className="text-xs px-2 py-1 rounded-full ml-auto" style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.textMuted }}>
+                Past
+              </span>
+            )}
           </div>
           <div className="flex-1 overflow-auto p-4">
             {/* Current Workout */}
             <div className="mb-6">
-              <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>CURRENT WORKOUT</p>
+              <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>{isPastDate ? 'WORKOUT' : 'CURRENT WORKOUT'}</p>
               <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
                 {editingScheduleDay.workout ? (
                   <div className="flex items-center gap-3">
@@ -9425,95 +10581,108 @@ export default function UpRepDemo() {
               </div>
             </div>
 
-            {/* Change Workout */}
-            <div className="mb-6">
-              <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>CHANGE TO</p>
-              <div className="space-y-2">
-                <button 
-                  onClick={() => {
-                    setWorkoutForDay(editingScheduleDay.dateKey, null);
-                    setEditingScheduleDay({ ...editingScheduleDay, workout: null });
-                  }}
-                  className="w-full p-3 rounded-xl flex items-center gap-3"
-                  style={{ 
-                    backgroundColor: !editingScheduleDay.workout ? COLORS.primary + '20' : COLORS.surface,
-                    border: !editingScheduleDay.workout ? `2px solid ${COLORS.primary}` : '2px solid transparent'
-                  }}
-                >
-                  <Moon size={18} color={COLORS.textMuted} />
-                  <span style={{ color: COLORS.text }}>Rest Day</span>
-                </button>
-                {Object.values(WORKOUT_TEMPLATES).map(workout => (
-                  <button 
-                    key={workout.id}
+            {/* Change Workout - only for future/today */}
+            {!isPastDate && (
+              <div className="mb-6">
+                <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>CHANGE TO</p>
+                <div className="space-y-2">
+                  <button
                     onClick={() => {
-                      setWorkoutForDay(editingScheduleDay.dateKey, workout);
-                      setEditingScheduleDay({ ...editingScheduleDay, workout });
+                      setWorkoutForDay(editingScheduleDay.dateKey, null);
+                      setEditingScheduleDay({ ...editingScheduleDay, workout: null });
                     }}
                     className="w-full p-3 rounded-xl flex items-center gap-3"
-                    style={{ 
-                      backgroundColor: editingScheduleDay.workout?.id === workout.id ? COLORS.primary + '20' : COLORS.surface,
-                      border: editingScheduleDay.workout?.id === workout.id ? `2px solid ${COLORS.primary}` : '2px solid transparent'
+                    style={{
+                      backgroundColor: !editingScheduleDay.workout ? COLORS.primary + '20' : COLORS.surface,
+                      border: !editingScheduleDay.workout ? `2px solid ${COLORS.primary}` : '2px solid transparent'
                     }}
                   >
-                    <div 
-                      className="w-8 h-8 rounded-lg flex items-center justify-center"
-                      style={{ backgroundColor: getWorkoutColor(workout.name, COLORS) + '20' }}
-                    >
-                      <Dumbbell size={14} color={getWorkoutColor(workout.name, COLORS)} />
-                    </div>
-                    <div className="flex-1 text-left">
-                      <p className="font-semibold text-sm" style={{ color: COLORS.text }}>{workout.name}</p>
-                      <p className="text-xs" style={{ color: COLORS.textMuted }}>{workout.focus}</p>
-                    </div>
-                    {editingScheduleDay.workout?.id === workout.id && (
-                      <Check size={18} color={COLORS.primary} />
-                    )}
+                    <Moon size={18} color={COLORS.textMuted} />
+                    <span style={{ color: COLORS.text }}>Rest Day</span>
                   </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Swap with Another Day */}
-            <div className="mb-6">
-              <div className="flex items-center gap-2 mb-2">
-                <ArrowLeftRight size={14} color={COLORS.textMuted} />
-                <p className="text-xs font-semibold" style={{ color: COLORS.textMuted }}>SWAP WITH NEARBY DAY</p>
-              </div>
-              <div className="flex gap-2 overflow-x-auto pb-2">
-                {[-3, -2, -1, 1, 2, 3].map(offset => {
-                  const date = new Date(editingScheduleDay.year, editingScheduleDay.month, editingScheduleDay.date + offset);
-                  const dateKey = date.toISOString().split('T')[0];
-                  const entry = masterSchedule[dateKey];
-                  const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-                  
-                  return (
+                  {Object.values(WORKOUT_TEMPLATES).map(workout => (
                     <button
-                      key={offset}
+                      key={workout.id}
                       onClick={() => {
-                        swapWorkoutDays(editingScheduleDay.dateKey, dateKey);
-                        setEditingScheduleDay(null);
+                        setWorkoutForDay(editingScheduleDay.dateKey, workout);
+                        setEditingScheduleDay({ ...editingScheduleDay, workout });
                       }}
-                      className="flex-shrink-0 p-3 rounded-xl text-center"
-                      style={{ backgroundColor: COLORS.surface, minWidth: '80px' }}
+                      className="w-full p-3 rounded-xl flex items-center gap-3"
+                      style={{
+                        backgroundColor: editingScheduleDay.workout?.id === workout.id ? COLORS.primary + '20' : COLORS.surface,
+                        border: editingScheduleDay.workout?.id === workout.id ? `2px solid ${COLORS.primary}` : '2px solid transparent'
+                      }}
                     >
-                      <p className="text-xs" style={{ color: COLORS.textMuted }}>{dayNames[(date.getDay() + 6) % 7]}</p>
-                      <p className="font-bold" style={{ color: COLORS.text }}>{date.getDate()}</p>
-                      {entry?.workout ? (
-                        <p className="text-xs mt-1" style={{ color: getWorkoutColor(entry.workout.name, COLORS) }}>
-                          {entry.workout.name.split(' ')[0]}
-                        </p>
-                      ) : (
-                        <p className="text-xs mt-1" style={{ color: COLORS.textMuted }}>Rest</p>
+                      <div
+                        className="w-8 h-8 rounded-lg flex items-center justify-center"
+                        style={{ backgroundColor: getWorkoutColor(workout.name, COLORS) + '20' }}
+                      >
+                        <Dumbbell size={14} color={getWorkoutColor(workout.name, COLORS)} />
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className="font-semibold text-sm" style={{ color: COLORS.text }}>{workout.name}</p>
+                        <p className="text-xs" style={{ color: COLORS.textMuted }}>{workout.focus}</p>
+                      </div>
+                      {editingScheduleDay.workout?.id === workout.id && (
+                        <Check size={18} color={COLORS.primary} />
                       )}
                     </button>
-                  );
-                })}
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* Swap with Another Day - only for future/today */}
+            {!isPastDate && (
+              <div className="mb-6">
+                <div className="flex items-center gap-2 mb-2">
+                  <ArrowLeftRight size={14} color={COLORS.textMuted} />
+                  <p className="text-xs font-semibold" style={{ color: COLORS.textMuted }}>SWAP WITH NEARBY DAY</p>
+                </div>
+                <div className="flex gap-2 overflow-x-auto pb-2">
+                  {[-3, -2, -1, 1, 2, 3].map(offset => {
+                    const date = new Date(editingScheduleDay.year, editingScheduleDay.month, editingScheduleDay.date + offset);
+                    const dateKey = date.toISOString().split('T')[0];
+                    const entry = masterSchedule[dateKey];
+                    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+                    return (
+                      <button
+                        key={offset}
+                        onClick={() => {
+                          swapWorkoutDays(editingScheduleDay.dateKey, dateKey);
+                          setEditingScheduleDay(null);
+                        }}
+                        className="flex-shrink-0 p-3 rounded-xl text-center"
+                        style={{ backgroundColor: COLORS.surface, minWidth: '80px' }}
+                      >
+                        <p className="text-xs" style={{ color: COLORS.textMuted }}>{dayNames[(date.getDay() + 6) % 7]}</p>
+                        <p className="font-bold" style={{ color: COLORS.text }}>{date.getDate()}</p>
+                        {entry?.workout ? (
+                          <p className="text-xs mt-1" style={{ color: getWorkoutColor(entry.workout.name, COLORS) }}>
+                            {entry.workout.name.split(' ')[0]}
+                          </p>
+                        ) : (
+                          <p className="text-xs mt-1" style={{ color: COLORS.textMuted }}>Rest</p>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Past workout notice */}
+            {isPastDate && (
+              <div className="p-4 rounded-xl mb-6" style={{ backgroundColor: COLORS.surfaceLight }}>
+                <p className="text-sm text-center" style={{ color: COLORS.textMuted }}>
+                  Past workouts cannot be rescheduled or changed.
+                </p>
+              </div>
+            )}
           </div>
           <div className="p-4 border-t" style={{ borderColor: COLORS.surfaceLight }}>
-            <button 
+            <button
               onClick={() => setEditingScheduleDay(null)}
               className="w-full py-4 rounded-xl font-semibold"
               style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
@@ -9522,7 +10691,8 @@ export default function UpRepDemo() {
             </button>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* Workout Summary Modal */}
       {showWorkoutSummary && (
@@ -9674,7 +10844,7 @@ export default function UpRepDemo() {
       })()}
 
       {/* Active Workout Screen - rendered at MainScreen level for access from all tabs */}
-      {showActiveWorkout && <ActiveWorkoutScreen onClose={() => setShowActiveWorkout(false)} onComplete={completeTodayWorkout} COLORS={COLORS} availableTime={workoutTime} userGoal={userData.goal || 'build_muscle'} />}
+      {showActiveWorkout && <ActiveWorkoutScreen onClose={() => setShowActiveWorkout(false)} onComplete={completeTodayWorkout} COLORS={COLORS} availableTime={workoutTime} userGoal={userData.goal || 'build_muscle'} userId={user?.id} workoutName={todayWorkout?.name || 'Workout'} />}
 
       {/* Reschedule Modal - rendered at MainScreen level for access from all tabs */}
       {showReschedule && <RescheduleModal />}
@@ -9716,12 +10886,22 @@ export default function UpRepDemo() {
     </div>
   );
 
+  // Show loading screen while checking auth
+  if (authLoading) {
+    return (
+      <div className="w-full max-w-md mx-auto h-screen flex flex-col items-center justify-center" style={{ backgroundColor: COLORS.background }}>
+        <Loader2 size={48} color={COLORS.primary} className="animate-spin mb-4" />
+        <p style={{ color: COLORS.textSecondary }}>Loading...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full max-w-md mx-auto h-screen flex flex-col" style={{ backgroundColor: COLORS.background }}>
       <div className="flex-1 overflow-hidden relative">
         {currentScreen === 'welcome' && <WelcomeScreen />}
-        {currentScreen === 'login' && <LoginScreen onBack={() => setCurrentScreen('welcome')} onLogin={() => setCurrentScreen('dashboard')} COLORS={COLORS} />}
-        {currentScreen === 'register' && <RegisterScreen onBack={() => setCurrentScreen('welcome')} 
+        {currentScreen === 'login' && <LoginScreen onBack={() => setCurrentScreen('welcome')} onLogin={() => setCurrentScreen('main')} COLORS={COLORS} />}
+        {currentScreen === 'register' && <RegisterScreen onBack={() => setCurrentScreen('welcome')}
           onRegister={(data) => { setUserData(p => ({...p, ...data})); setCurrentScreen('onboarding'); }} COLORS={COLORS} />}
         {currentScreen === 'dashboard' && <DashboardScreen />}
         {currentScreen === 'onboarding' && <OnboardingScreen />}
