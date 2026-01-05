@@ -2067,7 +2067,7 @@ function RegisterScreen({ onBack, onRegister, COLORS }) {
 }
 
 // ActiveWorkoutScreen as separate component
-function ActiveWorkoutScreen({ onClose, COLORS, availableTime = 60, userGoal = 'build_muscle' }) {
+function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, userGoal = 'build_muscle' }) {
   const [phase, setPhase] = useState('overview'); // 'overview', 'workout', 'workoutOverview', 'complete'
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
   const [currentSetIndex, setCurrentSetIndex] = useState(0);
@@ -2809,7 +2809,7 @@ function ActiveWorkoutScreen({ onClose, COLORS, availableTime = 60, userGoal = '
         </div>
         
         <div className="p-4 border-t" style={{ borderColor: COLORS.surfaceLight }}>
-          <button onClick={onClose} className="w-full py-4 rounded-xl font-semibold" style={{ backgroundColor: COLORS.success, color: COLORS.text }}>
+          <button onClick={() => { if (onComplete) onComplete(); onClose(); }} className="w-full py-4 rounded-xl font-semibold" style={{ backgroundColor: COLORS.success, color: COLORS.text }}>
             Done
           </button>
         </div>
@@ -3187,12 +3187,19 @@ export default function UpRepDemo() {
   const [showReschedule, setShowReschedule] = useState(false);
   const [showPausePlan, setShowPausePlan] = useState(false);
   const [rescheduleOption, setRescheduleOption] = useState(null);
-  const [todayWorkout, setTodayWorkout] = useState({ 
-    type: 'Push A', 
-    name: CURRENT_WORKOUT.name, 
-    exercises: CURRENT_WORKOUT.exercises.length, 
-    duration: 60,
-    focus: CURRENT_WORKOUT.focus
+  // Today's date key for looking up in masterSchedule
+  const TODAY_DATE_KEY = '2026-01-08';
+
+  // Track if today's workout is completed
+  const [todayWorkoutCompleted, setTodayWorkoutCompleted] = useState(false);
+
+  // Get today's workout from masterSchedule - will be set after masterSchedule is initialized
+  const [todayWorkout, setTodayWorkout] = useState({
+    type: 'Rest',
+    name: 'Rest Day',
+    exercises: 0,
+    duration: 0,
+    focus: ''
   });
   const [showStreakCalendar, setShowStreakCalendar] = useState(null);
   const [streakCalendarMonth, setStreakCalendarMonth] = useState(0); // January 2026
@@ -3534,7 +3541,45 @@ export default function UpRepDemo() {
   
   // Profile editing state
   const [showEditProfile, setShowEditProfile] = useState(false);
-  
+
+  // Profile settings state
+  const [settings, setSettings] = useState({
+    units: 'metric', // 'metric' or 'imperial'
+    notifications: {
+      workoutReminders: true,
+      progressUpdates: true,
+      socialActivity: true,
+      weeklyReport: true,
+    },
+    privacy: {
+      profileVisible: true,
+      showActivity: true,
+      showProgress: false,
+    },
+  });
+  const [showUnitsModal, setShowUnitsModal] = useState(false);
+  const [showNotificationsModal, setShowNotificationsModal] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showGoalEditor, setShowGoalEditor] = useState(false);
+  const [showAccountModal, setShowAccountModal] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+  // Achievements
+  const [achievements] = useState([
+    { id: 'first_workout', name: 'First Steps', desc: 'Complete your first workout', icon: '🎯', unlocked: true, date: 'Dec 15, 2025' },
+    { id: 'week_streak', name: 'Week Warrior', desc: '7-day workout streak', icon: '🔥', unlocked: true, date: 'Dec 22, 2025' },
+    { id: 'month_streak', name: 'Monthly Master', desc: '30-day workout streak', icon: '⚡', unlocked: false },
+    { id: 'first_pr', name: 'Personal Best', desc: 'Set your first PR', icon: '🏆', unlocked: true, date: 'Dec 18, 2025' },
+    { id: 'five_prs', name: 'PR Collector', desc: 'Set 5 personal records', icon: '🥇', unlocked: true, date: 'Jan 4, 2026' },
+    { id: 'ten_workouts', name: 'Getting Serious', desc: 'Complete 10 workouts', icon: '💪', unlocked: true, date: 'Dec 28, 2025' },
+    { id: 'fifty_workouts', name: 'Dedicated', desc: 'Complete 50 workouts', icon: '🏅', unlocked: false },
+    { id: 'early_bird', name: 'Early Bird', desc: 'Workout before 7am', icon: '🌅', unlocked: true, date: 'Jan 2, 2026' },
+    { id: 'night_owl', name: 'Night Owl', desc: 'Workout after 9pm', icon: '🌙', unlocked: false },
+    { id: 'volume_king', name: 'Volume King', desc: 'Lift 100,000kg total', icon: '👑', unlocked: true, date: 'Jan 5, 2026' },
+    { id: 'consistency', name: 'Consistency', desc: 'Hit calorie goal 7 days straight', icon: '📊', unlocked: false },
+    { id: 'hydrated', name: 'Hydration Hero', desc: 'Hit water goal 7 days straight', icon: '💧', unlocked: false },
+  ]);
+
   const [showFriendProfile, setShowFriendProfile] = useState(null);
   const [showFriendStreakCalendar, setShowFriendStreakCalendar] = useState(null);
   const [friendStreakMonth, setFriendStreakMonth] = useState(0);
@@ -3677,7 +3722,41 @@ export default function UpRepDemo() {
     }
     return schedule;
   });
-  
+
+  // Sync todayWorkout with masterSchedule on mount
+  useEffect(() => {
+    const todayEntry = masterSchedule[TODAY_DATE_KEY];
+    if (todayEntry) {
+      setTodayWorkoutCompleted(todayEntry.completed);
+      if (todayEntry.workout) {
+        setTodayWorkout({
+          type: todayEntry.workout.name.replace(' Day ', ' ').replace('Day ', ''),
+          name: todayEntry.workout.name,
+          exercises: todayEntry.workout.exercises?.length || 0,
+          duration: 60,
+          focus: todayEntry.workout.focus || ''
+        });
+      } else {
+        setTodayWorkout({
+          type: 'Rest',
+          name: 'Rest Day',
+          exercises: 0,
+          duration: 0,
+          focus: ''
+        });
+      }
+    }
+  }, []);
+
+  // Mark today's workout as complete
+  const completeTodayWorkout = () => {
+    setTodayWorkoutCompleted(true);
+    setMasterSchedule(prev => ({
+      ...prev,
+      [TODAY_DATE_KEY]: { ...prev[TODAY_DATE_KEY], completed: true }
+    }));
+  };
+
   // Get week dates for display
   const getWeekDates = (weekOffset) => {
     const today = new Date(2026, 0, 8); // Wed Jan 8, 2026
@@ -4809,7 +4888,7 @@ export default function UpRepDemo() {
         <div className="grid grid-cols-3 gap-2 mb-2">
           {[
             { id: 'workouts', icon: Dumbbell, value: streaks.weeklyWorkouts.weeksCompleted, label: 'weeks', color: COLORS.warning, title: 'Workout Streak', unit: 'workouts', target: 4 },
-            { id: 'calories', icon: Flame, value: streaks.calories.daysInRow, label: 'cal', color: COLORS.accent, title: 'Calorie Goal', unit: 'kcal', target: 2200 },
+            { id: 'calories', icon: Flame, value: streaks.calories.daysInRow, label: 'calories', color: COLORS.accent, title: 'Calorie Goal', unit: 'kcal', target: 2200 },
             { id: 'protein', icon: Target, value: streaks.protein.daysInRow, label: 'protein', color: COLORS.primary, title: 'Protein Goal', unit: 'g', target: 150 },
           ].map((s, i) => (
             <button key={i} onClick={() => setShowStreakCalendar(s)} className="p-3 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
@@ -5251,19 +5330,43 @@ export default function UpRepDemo() {
           </div>
         )}
         
-        {/* Workout Day Card */}
-        {!isPaused && todayWorkout.type !== 'Rest' && todayWorkout.type !== 'Skipped' && (
+        {/* Workout Day Card - Completed State */}
+        {!isPaused && todayWorkout.type !== 'Rest' && todayWorkout.type !== 'Skipped' && todayWorkoutCompleted && (
+          <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface, borderLeft: `4px solid ${COLORS.success}` }}>
+            <div className="flex justify-between items-start mb-3">
+              <div>
+                <span className="text-xs px-2 py-1 rounded font-semibold flex items-center gap-1"
+                  style={{ backgroundColor: COLORS.success + '20', color: COLORS.success }}>
+                  <Check size={12} /> COMPLETED
+                </span>
+                <h4 className="text-xl font-bold mt-2" style={{ color: COLORS.text }}>{todayWorkout.name}</h4>
+                <p className="text-sm" style={{ color: COLORS.success }}>Great work today!</p>
+              </div>
+              <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.success + '20' }}>
+                <Check size={24} color={COLORS.success} />
+              </div>
+            </div>
+            <div className="p-3 rounded-lg" style={{ backgroundColor: COLORS.success + '10' }}>
+              <p className="text-sm text-center" style={{ color: COLORS.success }}>
+                You've crushed your workout for today. Rest up and come back stronger tomorrow!
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Workout Day Card - Not Completed */}
+        {!isPaused && todayWorkout.type !== 'Rest' && todayWorkout.type !== 'Skipped' && !todayWorkoutCompleted && (
           <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface, borderLeft: `4px solid ${getWorkoutColor(todayWorkout.type, COLORS)}` }}>
             <div className="flex justify-between items-start mb-3">
               <div>
-                <span className="text-xs px-2 py-1 rounded font-semibold" 
+                <span className="text-xs px-2 py-1 rounded font-semibold"
                   style={{ backgroundColor: getWorkoutColor(todayWorkout.type, COLORS) + '20', color: getWorkoutColor(todayWorkout.type, COLORS) }}>
                   TODAY
                 </span>
                 <h4 className="text-xl font-bold mt-2" style={{ color: COLORS.text }}>{todayWorkout.name}</h4>
                 <p className="text-sm" style={{ color: getWorkoutColor(todayWorkout.type, COLORS) }}>{todayWorkout.focus}</p>
               </div>
-              <button 
+              <button
                 onClick={() => setShowWorkoutPreview(CURRENT_WORKOUT.id)}
                 className="p-2 rounded-lg"
                 style={{ backgroundColor: COLORS.surfaceLight }}
@@ -5271,9 +5374,9 @@ export default function UpRepDemo() {
                 <Eye size={18} color={COLORS.textMuted} />
               </button>
             </div>
-            
+
             {/* Time Editor */}
-            <button 
+            <button
               onClick={() => setShowTimeEditor(!showTimeEditor)}
               className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg w-full justify-between"
               style={{ backgroundColor: COLORS.surfaceLight }}
@@ -5286,21 +5389,21 @@ export default function UpRepDemo() {
               </div>
               <ChevronDown size={16} color={COLORS.textMuted} style={{ transform: showTimeEditor ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
             </button>
-            
+
             {showTimeEditor && (() => {
               const exerciseCount = Math.max(2, Math.floor(workoutTime / 12));
               const exercisesForTime = CURRENT_WORKOUT.exercises.slice(0, exerciseCount);
-              
+
               return (
                 <div className="mb-4 p-3 rounded-lg" style={{ backgroundColor: COLORS.background }}>
                   <p className="text-xs mb-2" style={{ color: COLORS.textMuted }}>How much time do you have?</p>
                   <div className="grid grid-cols-6 gap-2 mb-3">
                     {[20, 30, 45, 60, 75, 90].map(time => (
-                      <button 
+                      <button
                         key={time}
                         onClick={() => setWorkoutTime(time)}
                         className="py-2 rounded-lg text-sm font-semibold"
-                        style={{ 
+                        style={{
                           backgroundColor: workoutTime === time ? COLORS.primary : COLORS.surface,
                           color: workoutTime === time ? COLORS.text : COLORS.textMuted
                         }}
@@ -5309,7 +5412,7 @@ export default function UpRepDemo() {
                       </button>
                     ))}
                   </div>
-                  
+
                   {/* Exercise Overview */}
                   <div className="border-t pt-3" style={{ borderColor: COLORS.surfaceLight }}>
                     <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>
@@ -5317,13 +5420,13 @@ export default function UpRepDemo() {
                     </p>
                     <div className="space-y-2">
                       {exercisesForTime.map((exercise, i) => (
-                        <div 
+                        <div
                           key={exercise.id}
                           className="flex items-center justify-between p-2 rounded-lg"
                           style={{ backgroundColor: COLORS.surface }}
                         >
                           <div className="flex items-center gap-2">
-                            <div 
+                            <div
                               className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
                               style={{ backgroundColor: getWorkoutColor(todayWorkout.type, COLORS) + '20', color: getWorkoutColor(todayWorkout.type, COLORS) }}
                             >
@@ -5350,7 +5453,7 @@ export default function UpRepDemo() {
                 </div>
               );
             })()}
-            
+
             <button onClick={() => setShowActiveWorkout(true)} className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
               style={{ backgroundColor: getWorkoutColor(todayWorkout.type, COLORS), color: COLORS.text }}>
               Start Workout <Play size={16} />
@@ -5754,7 +5857,7 @@ export default function UpRepDemo() {
         </div>
       </div>
 
-      {showActiveWorkout && <ActiveWorkoutScreen onClose={() => setShowActiveWorkout(false)} COLORS={COLORS} availableTime={workoutTime} userGoal={userData.goal || 'build_muscle'} />}
+      {showActiveWorkout && <ActiveWorkoutScreen onClose={() => setShowActiveWorkout(false)} onComplete={completeTodayWorkout} COLORS={COLORS} availableTime={workoutTime} userGoal={userData.goal || 'build_muscle'} />}
     </div>
   );
   };
@@ -5870,12 +5973,36 @@ export default function UpRepDemo() {
                   </div>
                 )}
 
-                {/* Active Workout Card */}
-                {todayWorkout.type !== 'Rest' && !isPaused && (
+                {/* Active Workout Card - Completed */}
+                {todayWorkout.type !== 'Rest' && !isPaused && todayWorkoutCompleted && (
+                  <div className="p-4 rounded-xl mb-6" style={{ backgroundColor: COLORS.surface, borderLeft: `4px solid ${COLORS.success}` }}>
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <span className="text-xs px-2 py-1 rounded font-semibold flex items-center gap-1"
+                          style={{ backgroundColor: COLORS.success + '20', color: COLORS.success }}>
+                          <Check size={12} /> COMPLETED
+                        </span>
+                        <h4 className="text-xl font-bold mt-2" style={{ color: COLORS.text }}>{todayWorkout.name}</h4>
+                        <p className="text-sm" style={{ color: COLORS.success }}>Great work today!</p>
+                      </div>
+                      <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.success + '20' }}>
+                        <Check size={24} color={COLORS.success} />
+                      </div>
+                    </div>
+                    <div className="p-3 rounded-lg" style={{ backgroundColor: COLORS.success + '10' }}>
+                      <p className="text-sm text-center" style={{ color: COLORS.success }}>
+                        You've crushed your workout for today. Rest up and come back stronger tomorrow!
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Active Workout Card - Not Completed */}
+                {todayWorkout.type !== 'Rest' && !isPaused && !todayWorkoutCompleted && (
                   <div className="p-4 rounded-xl mb-6" style={{ backgroundColor: COLORS.surface, borderLeft: `4px solid ${getWorkoutColor(todayWorkout.type, COLORS)}` }}>
                     <div className="flex justify-between items-start mb-3">
                       <div>
-                        <span className="text-xs px-2 py-1 rounded font-semibold" 
+                        <span className="text-xs px-2 py-1 rounded font-semibold"
                           style={{ backgroundColor: getWorkoutColor(todayWorkout.type, COLORS) + '20', color: getWorkoutColor(todayWorkout.type, COLORS) }}>
                           TODAY
                         </span>
@@ -5889,7 +6016,7 @@ export default function UpRepDemo() {
                         <button onClick={() => setShowReschedule(true)} className="p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }} title="Reschedule">
                           <Calendar size={16} color={COLORS.textMuted} />
                         </button>
-                        <button 
+                        <button
                           onClick={() => setShowWorkoutPreview(CURRENT_WORKOUT.id)}
                           className="p-2 rounded-lg"
                           style={{ backgroundColor: COLORS.surfaceLight }}
@@ -5899,9 +6026,9 @@ export default function UpRepDemo() {
                         </button>
                       </div>
                     </div>
-                
+
                 {/* Time Editor */}
-                <button 
+                <button
                   onClick={() => setShowWorkoutTimeEditor(!showWorkoutTimeEditor)}
                   className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg w-full justify-between"
                   style={{ backgroundColor: COLORS.surfaceLight }}
@@ -5914,21 +6041,21 @@ export default function UpRepDemo() {
                   </div>
                   <ChevronDown size={16} color={COLORS.textMuted} style={{ transform: showWorkoutTimeEditor ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
                 </button>
-                
+
                 {showWorkoutTimeEditor && (() => {
                   const exerciseCount = Math.max(2, Math.floor(workoutTime / 12));
                   const exercisesForTime = CURRENT_WORKOUT.exercises.slice(0, exerciseCount);
-                  
+
                   return (
                     <div className="mb-4 p-3 rounded-lg" style={{ backgroundColor: COLORS.background }}>
                       <p className="text-xs mb-2" style={{ color: COLORS.textMuted }}>How much time do you have?</p>
                       <div className="grid grid-cols-6 gap-2 mb-3">
                         {[20, 30, 45, 60, 75, 90].map(time => (
-                          <button 
+                          <button
                             key={time}
                             onClick={() => setWorkoutTime(time)}
                             className="py-2 rounded-lg text-sm font-semibold"
-                            style={{ 
+                            style={{
                               backgroundColor: workoutTime === time ? COLORS.primary : COLORS.surface,
                               color: workoutTime === time ? COLORS.text : COLORS.textMuted
                             }}
@@ -5937,7 +6064,7 @@ export default function UpRepDemo() {
                           </button>
                         ))}
                       </div>
-                      
+
                       {/* Exercise Overview */}
                       <div className="border-t pt-3" style={{ borderColor: COLORS.surfaceLight }}>
                         <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>
@@ -5945,13 +6072,13 @@ export default function UpRepDemo() {
                         </p>
                         <div className="space-y-2">
                           {exercisesForTime.map((exercise, i) => (
-                            <div 
+                            <div
                               key={exercise.id}
                               className="flex items-center justify-between p-2 rounded-lg"
                               style={{ backgroundColor: COLORS.surface }}
                             >
                               <div className="flex items-center gap-2">
-                                <div 
+                                <div
                                   className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
                                   style={{ backgroundColor: getWorkoutColor(todayWorkout.type, COLORS) + '20', color: getWorkoutColor(todayWorkout.type, COLORS) }}
                                 >
@@ -5978,8 +6105,8 @@ export default function UpRepDemo() {
                     </div>
                   );
                 })()}
-                
-                <button 
+
+                <button
                   onClick={() => setShowActiveWorkout(true)}
                   className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
                   style={{ backgroundColor: getWorkoutColor(todayWorkout.type, COLORS), color: COLORS.text }}
@@ -7572,12 +7699,294 @@ export default function UpRepDemo() {
 
         {/* Edit Profile Modal */}
         {showEditProfile && (
-          <EditProfileModal 
+          <EditProfileModal
             userData={userData}
             setUserData={setUserData}
             COLORS={COLORS}
             onClose={() => setShowEditProfile(false)}
           />
+        )}
+
+        {/* Units Modal */}
+        {showUnitsModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.8)' }}>
+            <div className="w-full max-w-sm rounded-2xl" style={{ backgroundColor: COLORS.surface }}>
+              <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
+                <button onClick={() => setShowUnitsModal(false)}><X size={24} color={COLORS.text} /></button>
+                <h3 className="text-lg font-bold" style={{ color: COLORS.text }}>Units</h3>
+              </div>
+              <div className="p-4">
+                <p className="text-sm mb-4" style={{ color: COLORS.textMuted }}>Choose your preferred measurement units</p>
+                <div className="space-y-2">
+                  {[
+                    { id: 'metric', label: 'Metric', desc: 'Kilograms, centimeters' },
+                    { id: 'imperial', label: 'Imperial', desc: 'Pounds, inches' },
+                  ].map(unit => (
+                    <button
+                      key={unit.id}
+                      onClick={() => setSettings(prev => ({ ...prev, units: unit.id }))}
+                      className="w-full p-4 rounded-xl flex items-center justify-between"
+                      style={{
+                        backgroundColor: settings.units === unit.id ? COLORS.primary + '20' : COLORS.surfaceLight,
+                        border: `2px solid ${settings.units === unit.id ? COLORS.primary : 'transparent'}`
+                      }}
+                    >
+                      <div className="text-left">
+                        <p className="font-semibold" style={{ color: COLORS.text }}>{unit.label}</p>
+                        <p className="text-xs" style={{ color: COLORS.textMuted }}>{unit.desc}</p>
+                      </div>
+                      {settings.units === unit.id && <Check size={20} color={COLORS.primary} />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="p-4 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+                <button
+                  onClick={() => setShowUnitsModal(false)}
+                  className="w-full py-3 rounded-xl font-semibold"
+                  style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Notifications Modal */}
+        {showNotificationsModal && (
+          <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
+            <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
+              <button onClick={() => setShowNotificationsModal(false)}><X size={24} color={COLORS.text} /></button>
+              <h3 className="text-lg font-bold" style={{ color: COLORS.text }}>Notifications</h3>
+            </div>
+            <div className="flex-1 overflow-auto p-4">
+              <p className="text-sm mb-4" style={{ color: COLORS.textMuted }}>Choose which notifications you want to receive</p>
+              <div className="space-y-3">
+                {[
+                  { id: 'workoutReminders', label: 'Workout Reminders', desc: 'Get reminded when it\'s time to train' },
+                  { id: 'progressUpdates', label: 'Progress Updates', desc: 'Weekly summaries and milestone alerts' },
+                  { id: 'socialActivity', label: 'Social Activity', desc: 'Friend requests, likes, and comments' },
+                  { id: 'weeklyReport', label: 'Weekly Report', desc: 'Detailed weekly performance report' },
+                ].map(notif => (
+                  <div
+                    key={notif.id}
+                    className="p-4 rounded-xl flex items-center justify-between"
+                    style={{ backgroundColor: COLORS.surface }}
+                  >
+                    <div>
+                      <p className="font-semibold" style={{ color: COLORS.text }}>{notif.label}</p>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>{notif.desc}</p>
+                    </div>
+                    <button
+                      onClick={() => setSettings(prev => ({
+                        ...prev,
+                        notifications: { ...prev.notifications, [notif.id]: !prev.notifications[notif.id] }
+                      }))}
+                      className="w-12 h-7 rounded-full p-0.5 transition-colors"
+                      style={{ backgroundColor: settings.notifications[notif.id] ? COLORS.success : COLORS.surfaceLight }}
+                    >
+                      <div
+                        className="w-6 h-6 rounded-full transition-transform"
+                        style={{
+                          backgroundColor: COLORS.text,
+                          transform: settings.notifications[notif.id] ? 'translateX(20px)' : 'translateX(0)'
+                        }}
+                      />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="p-4 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+              <button
+                onClick={() => setShowNotificationsModal(false)}
+                className="w-full py-3 rounded-xl font-semibold"
+                style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Privacy Modal */}
+        {showPrivacyModal && (
+          <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
+            <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
+              <button onClick={() => setShowPrivacyModal(false)}><X size={24} color={COLORS.text} /></button>
+              <h3 className="text-lg font-bold" style={{ color: COLORS.text }}>Privacy</h3>
+            </div>
+            <div className="flex-1 overflow-auto p-4">
+              <p className="text-sm mb-4" style={{ color: COLORS.textMuted }}>Control who can see your profile and activity</p>
+              <div className="space-y-3">
+                {[
+                  { id: 'profileVisible', label: 'Public Profile', desc: 'Allow others to find and view your profile' },
+                  { id: 'showActivity', label: 'Show Activity', desc: 'Share your workouts in the activity feed' },
+                  { id: 'showProgress', label: 'Show Progress', desc: 'Display weight and body stats to friends' },
+                ].map(privacy => (
+                  <div
+                    key={privacy.id}
+                    className="p-4 rounded-xl flex items-center justify-between"
+                    style={{ backgroundColor: COLORS.surface }}
+                  >
+                    <div>
+                      <p className="font-semibold" style={{ color: COLORS.text }}>{privacy.label}</p>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>{privacy.desc}</p>
+                    </div>
+                    <button
+                      onClick={() => setSettings(prev => ({
+                        ...prev,
+                        privacy: { ...prev.privacy, [privacy.id]: !prev.privacy[privacy.id] }
+                      }))}
+                      className="w-12 h-7 rounded-full p-0.5 transition-colors"
+                      style={{ backgroundColor: settings.privacy[privacy.id] ? COLORS.success : COLORS.surfaceLight }}
+                    >
+                      <div
+                        className="w-6 h-6 rounded-full transition-transform"
+                        style={{
+                          backgroundColor: COLORS.text,
+                          transform: settings.privacy[privacy.id] ? 'translateX(20px)' : 'translateX(0)'
+                        }}
+                      />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 p-4 rounded-xl" style={{ backgroundColor: COLORS.primary + '10' }}>
+                <p className="text-sm" style={{ color: COLORS.primary }}>
+                  Your workout data is always private and encrypted. These settings only control what friends can see.
+                </p>
+              </div>
+            </div>
+            <div className="p-4 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+              <button
+                onClick={() => setShowPrivacyModal(false)}
+                className="w-full py-3 rounded-xl font-semibold"
+                style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Account Modal */}
+        {showAccountModal && (
+          <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
+            <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
+              <button onClick={() => setShowAccountModal(false)}><X size={24} color={COLORS.text} /></button>
+              <h3 className="text-lg font-bold" style={{ color: COLORS.text }}>Account</h3>
+            </div>
+            <div className="flex-1 overflow-auto p-4">
+              <div className="space-y-3">
+                <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+                  <p className="text-xs mb-1" style={{ color: COLORS.textMuted }}>Email</p>
+                  <p className="font-semibold" style={{ color: COLORS.text }}>{userData.email || 'user@example.com'}</p>
+                </div>
+                <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+                  <p className="text-xs mb-1" style={{ color: COLORS.textMuted }}>Username</p>
+                  <p className="font-semibold" style={{ color: COLORS.text }}>@{userData.username || 'username'}</p>
+                </div>
+                <button className="w-full p-4 rounded-xl flex items-center justify-between" style={{ backgroundColor: COLORS.surface }}>
+                  <span style={{ color: COLORS.text }}>Change Password</span>
+                  <ChevronRight size={18} color={COLORS.textMuted} />
+                </button>
+                <button className="w-full p-4 rounded-xl flex items-center justify-between" style={{ backgroundColor: COLORS.surface }}>
+                  <span style={{ color: COLORS.text }}>Export My Data</span>
+                  <ChevronRight size={18} color={COLORS.textMuted} />
+                </button>
+              </div>
+              <div className="mt-6 pt-6 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+                <h4 className="font-semibold mb-3" style={{ color: COLORS.error }}>Danger Zone</h4>
+                <button className="w-full p-4 rounded-xl mb-2" style={{ backgroundColor: COLORS.error + '15' }}>
+                  <span style={{ color: COLORS.error }}>Deactivate Account</span>
+                </button>
+                <button className="w-full p-4 rounded-xl" style={{ backgroundColor: COLORS.error + '15' }}>
+                  <span style={{ color: COLORS.error }}>Delete Account</span>
+                </button>
+              </div>
+            </div>
+            <div className="p-4 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+              <button
+                onClick={() => setShowAccountModal(false)}
+                className="w-full py-3 rounded-xl font-semibold"
+                style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Goal Editor Modal */}
+        {showGoalEditor && (
+          <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
+            <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
+              <button onClick={() => setShowGoalEditor(false)}><X size={24} color={COLORS.text} /></button>
+              <h3 className="text-lg font-bold" style={{ color: COLORS.text }}>Change Goal</h3>
+            </div>
+            <div className="flex-1 overflow-auto p-4">
+              <p className="text-sm mb-4" style={{ color: COLORS.textMuted }}>Select your new fitness goal</p>
+              <div className="space-y-3">
+                {Object.entries(GOAL_INFO).map(([id, goal]) => (
+                  <button
+                    key={id}
+                    onClick={() => {
+                      setUserData(prev => ({ ...prev, goal: id }));
+                      setShowGoalEditor(false);
+                    }}
+                    className="w-full p-4 rounded-xl flex items-center gap-4 text-left"
+                    style={{
+                      backgroundColor: userData.goal === id ? COLORS.primary + '20' : COLORS.surface,
+                      border: `2px solid ${userData.goal === id ? COLORS.primary : COLORS.surfaceLight}`
+                    }}
+                  >
+                    <span className="text-3xl">{goal.icon}</span>
+                    <div className="flex-1">
+                      <p className="font-semibold" style={{ color: userData.goal === id ? COLORS.primary : COLORS.text }}>
+                        {goal.title}
+                      </p>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>{goal.overview}</p>
+                    </div>
+                    {userData.goal === id && <Check size={20} color={COLORS.primary} />}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Logout Confirm Modal */}
+        {showLogoutConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.8)' }}>
+            <div className="w-full max-w-sm rounded-2xl p-6" style={{ backgroundColor: COLORS.surface }}>
+              <h3 className="text-xl font-bold mb-2 text-center" style={{ color: COLORS.text }}>Log Out?</h3>
+              <p className="text-sm text-center mb-6" style={{ color: COLORS.textMuted }}>
+                Are you sure you want to log out? Your data will be saved.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowLogoutConfirm(false)}
+                  className="flex-1 py-3 rounded-xl font-semibold"
+                  style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setShowLogoutConfirm(false);
+                    setCurrentScreen('welcome');
+                    setActiveTab('home');
+                  }}
+                  className="flex-1 py-3 rounded-xl font-semibold"
+                  style={{ backgroundColor: COLORS.error, color: COLORS.text }}
+                >
+                  Log Out
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Add Friend Modal */}
@@ -8190,8 +8599,298 @@ export default function UpRepDemo() {
           </div>
         )}
         {activeTab === 'profile' && (
-          <div className="p-4 h-full flex items-center justify-center">
-            <p style={{ color: COLORS.textMuted }}>Profile tab</p>
+          <div className="h-full overflow-auto">
+            {/* Profile Header */}
+            <div className="p-6 text-center" style={{ backgroundColor: COLORS.surface }}>
+              <div className="w-24 h-24 rounded-full mx-auto mb-4 flex items-center justify-center text-5xl" style={{ backgroundColor: COLORS.primary + '20' }}>
+                💪
+              </div>
+              <h2 className="text-xl font-bold" style={{ color: COLORS.text }}>
+                @{userData.username || 'username'}
+              </h2>
+              <p className="text-sm mb-2" style={{ color: COLORS.textSecondary }}>
+                {userData.firstName || 'First'} {userData.lastName || 'Last'}
+              </p>
+              {userData.bio && (
+                <p className="text-sm mb-3 px-4" style={{ color: COLORS.textMuted }}>{userData.bio}</p>
+              )}
+              <button
+                onClick={() => setShowEditProfile(true)}
+                className="px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 mx-auto"
+                style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text }}
+              >
+                <Edit3 size={14} />
+                Edit Profile
+              </button>
+            </div>
+
+            {/* Quick Stats */}
+            <div className="p-4">
+              <div className="grid grid-cols-4 gap-2 mb-6">
+                <div className="p-3 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
+                  <p className="text-xl font-bold" style={{ color: COLORS.primary }}>{overviewStats.totalWorkouts}</p>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>workouts</p>
+                </div>
+                <div className="p-3 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
+                  <p className="text-xl font-bold" style={{ color: COLORS.warning }}>{streaks.weeklyWorkouts.weeksCompleted}</p>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>week streak</p>
+                </div>
+                <div className="p-3 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
+                  <p className="text-xl font-bold" style={{ color: COLORS.success }}>{personalRecords.length}</p>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>PRs</p>
+                </div>
+                <div className="p-3 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
+                  <p className="text-xl font-bold" style={{ color: COLORS.accent }}>{achievements.filter(a => a.unlocked).length}</p>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>badges</p>
+                </div>
+              </div>
+
+              {/* Current Goal */}
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-semibold" style={{ color: COLORS.text }}>Current Goal</h3>
+                  <button
+                    onClick={() => setShowGoalEditor(true)}
+                    className="text-xs px-2 py-1 rounded"
+                    style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.textMuted }}
+                  >
+                    Change
+                  </button>
+                </div>
+                {userData.goal && GOAL_INFO[userData.goal] ? (
+                  <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+                    <div className="flex items-center gap-3 mb-3">
+                      <span className="text-3xl">{GOAL_INFO[userData.goal].icon}</span>
+                      <div>
+                        <p className="font-semibold" style={{ color: COLORS.text }}>{GOAL_INFO[userData.goal].title}</p>
+                        <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                          {userData.experience === 'beginner' ? 'Beginner' : userData.experience === 'intermediate' ? 'Intermediate' : 'Advanced'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mb-2">
+                      <div className="flex justify-between text-xs mb-1">
+                        <span style={{ color: COLORS.textMuted }}>Progress to goal</span>
+                        <span style={{ color: COLORS.primary }}>
+                          {(() => {
+                            const start = parseFloat(userData.currentWeight) || overviewStats.startingWeight;
+                            const goal = parseFloat(userData.goalWeight) || overviewStats.targetWeight;
+                            const current = overviewStats.currentWeight;
+                            const totalChange = Math.abs(goal - start);
+                            const currentChange = Math.abs(current - start);
+                            return totalChange > 0 ? Math.min(100, Math.round((currentChange / totalChange) * 100)) : 0;
+                          })()}%
+                        </span>
+                      </div>
+                      <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: COLORS.surfaceLight }}>
+                        <div
+                          className="h-full rounded-full"
+                          style={{
+                            backgroundColor: COLORS.primary,
+                            width: `${(() => {
+                              const start = parseFloat(userData.currentWeight) || overviewStats.startingWeight;
+                              const goal = parseFloat(userData.goalWeight) || overviewStats.targetWeight;
+                              const current = overviewStats.currentWeight;
+                              const totalChange = Math.abs(goal - start);
+                              const currentChange = Math.abs(current - start);
+                              return totalChange > 0 ? Math.min(100, Math.round((currentChange / totalChange) * 100)) : 0;
+                            })()}%`
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span style={{ color: COLORS.textMuted }}>Start: {overviewStats.startingWeight}kg</span>
+                      <span style={{ color: COLORS.text }}>Now: {overviewStats.currentWeight}kg</span>
+                      <span style={{ color: COLORS.success }}>Goal: {overviewStats.targetWeight}kg</span>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setShowGoalEditor(true)}
+                    className="w-full p-4 rounded-xl text-center"
+                    style={{ backgroundColor: COLORS.surface, border: `2px dashed ${COLORS.surfaceLight}` }}
+                  >
+                    <Target size={24} color={COLORS.textMuted} className="mx-auto mb-2" />
+                    <p style={{ color: COLORS.textMuted }}>Set your fitness goal</p>
+                  </button>
+                )}
+              </div>
+
+              {/* Current Program */}
+              <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '20' }}>
+                      <Dumbbell size={20} color={COLORS.primary} />
+                    </div>
+                    <div>
+                      <p className="font-semibold" style={{ color: COLORS.text }}>{currentProgram.name}</p>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>{currentProgram.daysPerWeek} days/week</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex justify-between text-xs mb-1">
+                  <span style={{ color: COLORS.textMuted }}>Week {currentProgram.currentWeek} of {currentProgram.totalWeeks}</span>
+                  <span style={{ color: COLORS.primary }}>{Math.round((currentProgram.currentWeek / currentProgram.totalWeeks) * 100)}%</span>
+                </div>
+                <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: COLORS.surfaceLight }}>
+                  <div
+                    className="h-full rounded-full"
+                    style={{ backgroundColor: COLORS.primary, width: `${(currentProgram.currentWeek / currentProgram.totalWeeks) * 100}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Achievements */}
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold" style={{ color: COLORS.text }}>Achievements</h3>
+                  <span className="text-xs" style={{ color: COLORS.textMuted }}>
+                    {achievements.filter(a => a.unlocked).length}/{achievements.length} unlocked
+                  </span>
+                </div>
+                <div className="grid grid-cols-4 gap-2 mb-2">
+                  {achievements.slice(0, 8).map((achievement) => (
+                    <div
+                      key={achievement.id}
+                      className="p-3 rounded-xl text-center"
+                      style={{
+                        backgroundColor: COLORS.surface,
+                        opacity: achievement.unlocked ? 1 : 0.4
+                      }}
+                    >
+                      <span className="text-2xl">{achievement.icon}</span>
+                      <p className="text-xs mt-1 truncate" style={{ color: achievement.unlocked ? COLORS.text : COLORS.textMuted }}>
+                        {achievement.name}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                {achievements.length > 8 && (
+                  <button
+                    className="w-full py-2 rounded-xl text-sm"
+                    style={{ backgroundColor: COLORS.surface, color: COLORS.textMuted }}
+                  >
+                    View All Achievements
+                  </button>
+                )}
+              </div>
+
+              {/* Settings */}
+              <div className="mb-4">
+                <h3 className="font-semibold mb-3" style={{ color: COLORS.text }}>Settings</h3>
+                <div className="rounded-xl overflow-hidden" style={{ backgroundColor: COLORS.surface }}>
+                  <button
+                    onClick={() => setShowUnitsModal(true)}
+                    className="w-full p-4 flex items-center justify-between border-b"
+                    style={{ borderColor: COLORS.surfaceLight }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: COLORS.accent + '20' }}>
+                        <ArrowLeftRight size={16} color={COLORS.accent} />
+                      </div>
+                      <span style={{ color: COLORS.text }}>Units</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm" style={{ color: COLORS.textMuted }}>
+                        {settings.units === 'metric' ? 'Metric (kg)' : 'Imperial (lbs)'}
+                      </span>
+                      <ChevronRight size={18} color={COLORS.textMuted} />
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => setShowNotificationsModal(true)}
+                    className="w-full p-4 flex items-center justify-between border-b"
+                    style={{ borderColor: COLORS.surfaceLight }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: COLORS.warning + '20' }}>
+                        <Zap size={16} color={COLORS.warning} />
+                      </div>
+                      <span style={{ color: COLORS.text }}>Notifications</span>
+                    </div>
+                    <ChevronRight size={18} color={COLORS.textMuted} />
+                  </button>
+
+                  <button
+                    onClick={() => setShowPrivacyModal(true)}
+                    className="w-full p-4 flex items-center justify-between border-b"
+                    style={{ borderColor: COLORS.surfaceLight }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '20' }}>
+                        <Eye size={16} color={COLORS.primary} />
+                      </div>
+                      <span style={{ color: COLORS.text }}>Privacy</span>
+                    </div>
+                    <ChevronRight size={18} color={COLORS.textMuted} />
+                  </button>
+
+                  <button
+                    onClick={() => setShowAccountModal(true)}
+                    className="w-full p-4 flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: COLORS.surfaceLight }}>
+                        <User size={16} color={COLORS.textSecondary} />
+                      </div>
+                      <span style={{ color: COLORS.text }}>Account</span>
+                    </div>
+                    <ChevronRight size={18} color={COLORS.textMuted} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Support */}
+              <div className="mb-4">
+                <h3 className="font-semibold mb-3" style={{ color: COLORS.text }}>Support</h3>
+                <div className="rounded-xl overflow-hidden" style={{ backgroundColor: COLORS.surface }}>
+                  <button className="w-full p-4 flex items-center justify-between border-b" style={{ borderColor: COLORS.surfaceLight }}>
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: COLORS.surfaceLight }}>
+                        <Book size={16} color={COLORS.textSecondary} />
+                      </div>
+                      <span style={{ color: COLORS.text }}>Help Center</span>
+                    </div>
+                    <ChevronRight size={18} color={COLORS.textMuted} />
+                  </button>
+                  <button className="w-full p-4 flex items-center justify-between border-b" style={{ borderColor: COLORS.surfaceLight }}>
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: COLORS.surfaceLight }}>
+                        <MessageCircle size={16} color={COLORS.textSecondary} />
+                      </div>
+                      <span style={{ color: COLORS.text }}>Send Feedback</span>
+                    </div>
+                    <ChevronRight size={18} color={COLORS.textMuted} />
+                  </button>
+                  <button className="w-full p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: COLORS.surfaceLight }}>
+                        <Info size={16} color={COLORS.textSecondary} />
+                      </div>
+                      <span style={{ color: COLORS.text }}>About UpRep</span>
+                    </div>
+                    <span className="text-sm" style={{ color: COLORS.textMuted }}>v5.0.0</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Logout */}
+              <button
+                onClick={() => setShowLogoutConfirm(true)}
+                className="w-full p-4 rounded-xl mb-6"
+                style={{ backgroundColor: COLORS.error + '15' }}
+              >
+                <span className="font-semibold" style={{ color: COLORS.error }}>Log Out</span>
+              </button>
+
+              {/* Member since */}
+              <p className="text-center text-xs mb-4" style={{ color: COLORS.textMuted }}>
+                Member since December 2025
+              </p>
+            </div>
           </div>
         )}
       </div>
@@ -8906,7 +9605,7 @@ export default function UpRepDemo() {
       })()}
 
       {/* Active Workout Screen - rendered at MainScreen level for access from all tabs */}
-      {showActiveWorkout && <ActiveWorkoutScreen onClose={() => setShowActiveWorkout(false)} COLORS={COLORS} availableTime={workoutTime} userGoal={userData.goal || 'build_muscle'} />}
+      {showActiveWorkout && <ActiveWorkoutScreen onClose={() => setShowActiveWorkout(false)} onComplete={completeTodayWorkout} COLORS={COLORS} availableTime={workoutTime} userGoal={userData.goal || 'build_muscle'} />}
 
       {/* Reschedule Modal - rendered at MainScreen level for access from all tabs */}
       {showReschedule && <RescheduleModal />}
