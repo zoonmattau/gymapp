@@ -1,0 +1,23 @@
+improve workout database to include every exercise, every variant of every exercise and anything else.
+
+change friends to "Following" and allow users to see at a glance, the top followed people on the app or the most followed people in the last 7,14,31 days for example. 
+
+allow users to publish workouts and for other users to copy them and implement them into their workout plan. show "X users have completed this workout". 
+
+allow users to rate workouts provided by other people, and the default ones and show the overall rating of each workout as given by all users on the app
+
+add meal and add water buttons dont work, also add in quick water buttons for 1 cup, 500ml and 1L. the buttons should show up with their pop up when you click it. now it only shows up when you return to then home screen
+
+add in the option for setting benchmarks with different exercises when you start a program so the app can use this information to tailor weights, reps, sets to you
+
+add more achievements and make them clickable even if you don't have them unlocked to see what you have to do to get them.
+
+the private/public switch in the profile tab, still resets automatically to on when it should be switchable.
+
+make sure we do not see any wide screen screens, all screens should be fitted for app size
+
+check calories, protein and water goals, ensure they are dynamic and change with each day to make up for previous days - within reason
+
+allow user to input a profile picture and cover photo.
+
+work out subscription structure
