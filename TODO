@@ -1,3 +1,5 @@
+fix descriptions and information about each exercise.
+
 allow the user to select a program to do next, update the calendars with that program, personalised to them.
 
 the move up and move down buttons do nothing on the workout tab when looking at the workout over view. sometimes it moves the exercise down two spots? just make them all move down by one when pressed and move up by one when the move up button is selected.
