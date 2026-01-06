@@ -9633,14 +9633,19 @@ export default function UpRepDemo() {
                 if (supplementUnitRef.current) supplementUnitRef.current.value = 'mg';
               }}
                 className="flex-1 py-2 rounded text-sm" style={{ backgroundColor: COLORS.surface, color: COLORS.textMuted }}>Cancel</button>
-              <button type="button" onClick={(e) => {
+              <button type="button" onClick={async (e) => {
                 e.preventDefault();
                 const name = supplementNameRef.current?.value?.trim();
                 const amount = supplementDosageRef.current?.value?.trim();
                 const unit = supplementUnitRef.current?.value || 'mg';
                 const dosage = amount ? `${amount} ${unit}` : 'As needed';
-                if (name) {
-                  setSupplements(prev => [...prev, { id: Date.now().toString(), name, dosage, taken: false }]);
+                if (name && user?.id) {
+                  const { data, error } = await nutritionService.addSupplement(user.id, { name, dosage });
+                  if (!error && data) {
+                    setSupplements(prev => [...prev, { id: data.id, name: data.name, dosage: data.dosage, taken: false }]);
+                  } else {
+                    setSupplements(prev => [...prev, { id: Date.now().toString(), name, dosage, taken: false }]);
+                  }
                   setShowAddSupplement(false);
                   if (supplementNameRef.current) supplementNameRef.current.value = '';
                   if (supplementDosageRef.current) supplementDosageRef.current.value = '';
@@ -9656,10 +9661,14 @@ export default function UpRepDemo() {
           </div>
         )}
         <div className="mt-3 pt-3 border-t flex justify-between items-center" style={{ borderColor: COLORS.surfaceLight }}>
-          <span className="text-sm" style={{ color: COLORS.textMuted }}>{supplements.filter(s => s.taken).length}/{supplements.length} taken</span>
-          <div className="h-2 w-24 rounded-full overflow-hidden" style={{ backgroundColor: COLORS.surfaceLight }}>
-            <div className="h-full rounded-full" style={{ backgroundColor: COLORS.supplements, width: `${(supplements.filter(s => s.taken).length / supplements.length) * 100}%` }} />
-          </div>
+          <span className="text-sm" style={{ color: COLORS.textMuted }}>
+            {supplements.length === 0 ? 'No supplements added' : `${supplements.filter(s => s.taken).length}/${supplements.length} taken`}
+          </span>
+          {supplements.length > 0 && (
+            <div className="h-2 w-24 rounded-full overflow-hidden" style={{ backgroundColor: COLORS.surfaceLight }}>
+              <div className="h-full rounded-full" style={{ backgroundColor: COLORS.supplements, width: `${(supplements.filter(s => s.taken).length / supplements.length) * 100}%` }} />
+            </div>
+          )}
         </div>
       </div>
       </>
@@ -10776,14 +10785,16 @@ export default function UpRepDemo() {
                       className="h-full rounded-full transition-all"
                       style={{
                         backgroundColor: COLORS.supplements,
-                        width: `${(supplements.filter(s => s.taken).length / supplements.length) * 100}%`
+                        width: supplements.length > 0 ? `${(supplements.filter(s => s.taken).length / supplements.length) * 100}%` : '0%'
                       }}
                     />
                   </div>
                   <p className="text-xs text-center" style={{ color: COLORS.textMuted }}>
-                    {supplements.filter(s => s.taken).length === supplements.length 
-                      ? '🎉 All supplements taken!' 
-                      : `${supplements.length - supplements.filter(s => s.taken).length} remaining`
+                    {supplements.length === 0
+                      ? 'Add supplements to start tracking'
+                      : supplements.filter(s => s.taken).length === supplements.length
+                        ? '🎉 All supplements taken!'
+                        : `${supplements.length - supplements.filter(s => s.taken).length} remaining`
                     }
                   </p>
                 </div>
@@ -10883,19 +10894,18 @@ export default function UpRepDemo() {
                         Cancel
                       </button>
                       <button
-                        onClick={() => {
+                        onClick={async () => {
                           const name = supplementNameRef.current?.value?.trim();
                           const amount = supplementDosageRef.current?.value?.trim();
                           const unit = supplementUnitRef.current?.value || 'mg';
                           const dosage = amount ? `${amount} ${unit}` : 'As needed';
-                          if (name) {
-                            setSupplements(prev => [...prev, {
-                              id: Date.now().toString(),
-                              name,
-                              dosage,
-                              taken: false,
-                              time: ''
-                            }]);
+                          if (name && user?.id) {
+                            const { data, error } = await nutritionService.addSupplement(user.id, { name, dosage });
+                            if (!error && data) {
+                              setSupplements(prev => [...prev, { id: data.id, name: data.name, dosage: data.dosage, taken: false, time: '' }]);
+                            } else {
+                              setSupplements(prev => [...prev, { id: Date.now().toString(), name, dosage, taken: false, time: '' }]);
+                            }
                             setShowAddSupplement(false);
                             if (supplementNameRef.current) supplementNameRef.current.value = '';
                             if (supplementDosageRef.current) supplementDosageRef.current.value = '';
