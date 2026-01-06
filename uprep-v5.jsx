@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
-import { ChevronRight, ChevronLeft, Check, Plus, Minus, Play, X, Droplets, Moon, TrendingUp, User, Home, Dumbbell, Apple, BarChart3, Trophy, Flame, Clock, Target, Info, Calendar, AlertCircle, Zap, Coffee, Utensils, ChevronDown, ChevronUp, Eye, Undo2, Search, Book, History, Award, Edit3, Filter, ArrowLeftRight, GripVertical, Users, Heart, MessageCircle, Share2, Crown, Medal, Loader2 } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Check, Plus, Minus, Play, X, Droplets, Moon, TrendingUp, TrendingDown, User, Home, Dumbbell, Apple, BarChart3, Trophy, Flame, Clock, Target, Info, Calendar, AlertCircle, Zap, Coffee, Utensils, ChevronDown, ChevronUp, Eye, Undo2, Search, Book, History, Award, Edit3, Filter, ArrowLeftRight, GripVertical, Users, Heart, MessageCircle, Share2, Crown, Medal, Loader2, Settings } from 'lucide-react';
 import { useAuth } from './src/contexts/AuthContext';
 import { workoutService } from './src/services/workoutService';
 import { sleepService } from './src/services/sleepService';
 import { streakService } from './src/services/streakService';
 import { nutritionService } from './src/services/nutritionService';
 import { profileService } from './src/services/profileService';
+import { injuryService } from './src/services/injuryService';
 import { generateNutritionTargets, projectWeightProgress, generateWorkoutSchedule } from './src/utils/fitnessCalculations';
 
 // Dark mode color palette
@@ -1779,7 +1780,1017 @@ const ALL_EXERCISES = [
   { name: 'Cross Body Tricep Extension', muscleGroup: 'Triceps', equipment: 'Cable', type: 'isolation' },
 ];
 
-// Workout Templates Database
+// ============================================
+// DYNAMIC WORKOUT GENERATION SYSTEM
+// ============================================
+
+// Goal-based training parameters
+const GOAL_TRAINING_PARAMS = {
+  bulk: { setsPerExercise: [4, 5], repsPerSet: [6, 10], restTime: [90, 150], compoundFirst: true },
+  build_muscle: { setsPerExercise: [3, 4], repsPerSet: [8, 12], restTime: [60, 120], compoundFirst: true },
+  strength: { setsPerExercise: [4, 5], repsPerSet: [3, 6], restTime: [180, 300], compoundFirst: true },
+  recomp: { setsPerExercise: [3, 4], repsPerSet: [8, 12], restTime: [60, 90], compoundFirst: true },
+  fitness: { setsPerExercise: [2, 3], repsPerSet: [12, 15], restTime: [45, 60], compoundFirst: false },
+  athletic: { setsPerExercise: [3, 4], repsPerSet: [6, 10], restTime: [60, 120], compoundFirst: true },
+  lean: { setsPerExercise: [3, 4], repsPerSet: [10, 15], restTime: [30, 60], compoundFirst: false },
+  lose_fat: { setsPerExercise: [3, 4], repsPerSet: [12, 15], restTime: [30, 45], compoundFirst: false },
+};
+
+// Complementary muscle pairings for supersets (antagonist muscles only)
+// These muscles can be safely supersetted as they don't interfere with each other
+const SUPERSET_PAIRINGS = {
+  // Arms - biceps and triceps are perfect antagonists
+  'Biceps': ['Triceps'],
+  'Triceps': ['Biceps'],
+  // Chest and Back - classic push/pull antagonists
+  'Chest': ['Back', 'Lats', 'Rear Delts'],
+  'Upper Chest': ['Back', 'Lats', 'Rear Delts'],
+  'Back': ['Chest', 'Upper Chest'],
+  'Lats': ['Chest', 'Upper Chest'],
+  // Shoulders - front and rear delts are antagonists
+  'Shoulders': ['Rear Delts'],
+  'Front Delts': ['Rear Delts'],
+  'Rear Delts': ['Shoulders', 'Front Delts', 'Chest', 'Upper Chest'],
+  'Side Delts': ['Rear Delts'], // Side delts can pair with rear delts
+  // Legs - quads and hamstrings are antagonists
+  'Quads': ['Hamstrings'],
+  'Hamstrings': ['Quads'],
+  // Core - abs and lower back are antagonists
+  'Abs': ['Lower Back'],
+  'Core': ['Lower Back'],
+  'Lower Back': ['Abs', 'Core'],
+};
+
+// Muscles that should NEVER be supersetted together (synergists)
+// These muscles assist each other and supersetting would cause fatigue issues
+const INVALID_SUPERSET_PAIRINGS = {
+  'Biceps': ['Back', 'Lats', 'Rear Delts'], // Biceps assist in pulling movements
+  'Triceps': ['Chest', 'Upper Chest', 'Shoulders', 'Front Delts'], // Triceps assist in pressing
+  'Front Delts': ['Chest', 'Upper Chest'], // Front delts assist in chest pressing
+  'Glutes': ['Quads', 'Hamstrings'], // Glutes work with both in compound leg movements
+};
+
+// Check if two exercises can be supersetted
+const canSuperset = (exercise1, exercise2) => {
+  const muscle1 = exercise1.muscleGroup;
+  const muscle2 = exercise2.muscleGroup;
+
+  // Check if they're in the valid pairings
+  const validPairs = SUPERSET_PAIRINGS[muscle1] || [];
+  if (!validPairs.includes(muscle2)) return false;
+
+  // Double-check they're not in invalid pairings
+  const invalidPairs1 = INVALID_SUPERSET_PAIRINGS[muscle1] || [];
+  const invalidPairs2 = INVALID_SUPERSET_PAIRINGS[muscle2] || [];
+  if (invalidPairs1.includes(muscle2) || invalidPairs2.includes(muscle1)) return false;
+
+  // Don't superset two compound exercises (too fatiguing)
+  if (exercise1.type === 'compound' && exercise2.type === 'compound') return false;
+
+  return true;
+};
+
+// Create supersets from exercise list when time is limited
+const createSupersets = (exercises, targetTimeSavingMinutes = 0) => {
+  if (targetTimeSavingMinutes <= 0 || exercises.length < 2) {
+    return { exercises, supersets: [], timeSaved: 0 };
+  }
+
+  const result = [...exercises];
+  const supersets = [];
+  let timeSaved = 0;
+  const usedIndices = new Set();
+
+  // Try to create supersets to save time
+  // Each superset saves approximately the rest time between the two exercises
+  for (let i = 0; i < result.length && timeSaved < targetTimeSavingMinutes * 60; i++) {
+    if (usedIndices.has(i)) continue;
+
+    for (let j = i + 1; j < result.length; j++) {
+      if (usedIndices.has(j)) continue;
+
+      if (canSuperset(result[i], result[j])) {
+        // Create a superset
+        const exercise1 = result[i];
+        const exercise2 = result[j];
+
+        // Mark both as part of a superset
+        const supersetId = `superset_${Date.now()}_${i}`;
+        result[i] = {
+          ...exercise1,
+          supersetId,
+          supersetOrder: 1,
+          supersetWith: exercise2.name,
+          // No rest after first exercise in superset
+          restTime: 0,
+        };
+        result[j] = {
+          ...exercise2,
+          supersetId,
+          supersetOrder: 2,
+          supersetWith: exercise1.name,
+          // Normal rest after completing both exercises
+          restTime: exercise2.restTime || 60,
+        };
+
+        supersets.push({
+          id: supersetId,
+          exercise1: exercise1.name,
+          exercise2: exercise2.name,
+          muscle1: exercise1.muscleGroup,
+          muscle2: exercise2.muscleGroup,
+        });
+
+        // Time saved is the rest period we eliminated
+        timeSaved += (exercise1.restTime || 60);
+        usedIndices.add(i);
+        usedIndices.add(j);
+        break;
+      }
+    }
+  }
+
+  // Reorder exercises to keep superset pairs together
+  const reordered = [];
+  const supersetExercises = result.filter(ex => ex.supersetId);
+  const regularExercises = result.filter(ex => !ex.supersetId);
+
+  // Group superset exercises together
+  const supersetGroups = {};
+  supersetExercises.forEach(ex => {
+    if (!supersetGroups[ex.supersetId]) supersetGroups[ex.supersetId] = [];
+    supersetGroups[ex.supersetId].push(ex);
+  });
+
+  // Sort each group by supersetOrder
+  Object.values(supersetGroups).forEach(group => {
+    group.sort((a, b) => a.supersetOrder - b.supersetOrder);
+  });
+
+  // Interleave: compound exercises first, then supersets, then isolation
+  const compounds = regularExercises.filter(ex => ex.type === 'compound');
+  const isolations = regularExercises.filter(ex => ex.type !== 'compound');
+
+  reordered.push(...compounds);
+  Object.values(supersetGroups).forEach(group => reordered.push(...group));
+  reordered.push(...isolations);
+
+  return {
+    exercises: reordered,
+    supersets,
+    timeSaved: Math.round(timeSaved / 60) // Return in minutes
+  };
+};
+
+// Related muscle groups that shouldn't be trained back-to-back (synergists)
+// These muscles assist each other and need recovery time between exercises
+const RELATED_MUSCLE_GROUPS = {
+  'Chest': ['Upper Chest', 'Front Delts', 'Triceps'],
+  'Upper Chest': ['Chest', 'Front Delts', 'Triceps'],
+  'Back': ['Lats', 'Rear Delts', 'Biceps', 'Traps'],
+  'Lats': ['Back', 'Rear Delts', 'Biceps'],
+  'Shoulders': ['Front Delts', 'Side Delts', 'Upper Chest'],
+  'Front Delts': ['Shoulders', 'Chest', 'Upper Chest', 'Triceps'],
+  'Side Delts': ['Shoulders', 'Rear Delts'],
+  'Rear Delts': ['Back', 'Lats', 'Side Delts'],
+  'Triceps': ['Chest', 'Upper Chest', 'Shoulders', 'Front Delts'],
+  'Biceps': ['Back', 'Lats'],
+  'Quads': ['Glutes'],
+  'Hamstrings': ['Glutes', 'Lower Back'],
+  'Glutes': ['Quads', 'Hamstrings', 'Lower Back'],
+  'Calves': [],
+  'Abs': ['Core', 'Obliques'],
+  'Core': ['Abs', 'Obliques', 'Lower Back'],
+  'Traps': ['Back', 'Rear Delts'],
+  'Forearms': ['Biceps'],
+};
+
+// Check if two muscle groups are related (synergists)
+const areMusclesRelated = (muscle1, muscle2) => {
+  if (muscle1 === muscle2) return true;
+  const related1 = RELATED_MUSCLE_GROUPS[muscle1] || [];
+  const related2 = RELATED_MUSCLE_GROUPS[muscle2] || [];
+  return related1.includes(muscle2) || related2.includes(muscle1);
+};
+
+// Reorder exercises to avoid same/related muscle groups back-to-back
+// This allows for better recovery between exercises targeting the same muscles
+const reorderExercisesForRecovery = (exercises) => {
+  if (exercises.length <= 2) return exercises;
+
+  const reordered = [];
+  const remaining = [...exercises];
+
+  // Start with compounds first (they're usually more important)
+  remaining.sort((a, b) => {
+    if (a.exerciseType === 'compound' && b.exerciseType !== 'compound') return -1;
+    if (a.exerciseType !== 'compound' && b.exerciseType === 'compound') return 1;
+    return 0;
+  });
+
+  // Take the first exercise (usually a primary compound)
+  reordered.push(remaining.shift());
+
+  // Greedily select exercises that don't target related muscles
+  while (remaining.length > 0) {
+    const lastExercise = reordered[reordered.length - 1];
+    const lastMuscle = lastExercise.muscleGroup;
+
+    // Find the best next exercise (not targeting related muscles)
+    let bestIndex = -1;
+    let bestScore = -1;
+
+    for (let i = 0; i < remaining.length; i++) {
+      const candidate = remaining[i];
+      const candidateMuscle = candidate.muscleGroup;
+
+      // Score based on how unrelated the muscle is
+      let score = 0;
+      if (!areMusclesRelated(lastMuscle, candidateMuscle)) {
+        score = 10; // Great - completely unrelated
+      } else if (lastMuscle !== candidateMuscle) {
+        score = 5; // OK - related but not the same
+      } else {
+        score = 1; // Same muscle - least preferred
+      }
+
+      // Bonus for compounds early in the workout
+      if (candidate.exerciseType === 'compound' && reordered.length < 3) {
+        score += 2;
+      }
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestIndex = i;
+      }
+    }
+
+    // Take the best candidate (or first remaining if all are related)
+    const nextIndex = bestIndex >= 0 ? bestIndex : 0;
+    reordered.push(remaining.splice(nextIndex, 1)[0]);
+  }
+
+  return reordered;
+};
+
+// Get all target muscle groups from a workout structure
+const getTargetMuscleGroups = (workoutType) => {
+  const structure = WORKOUT_STRUCTURES[workoutType];
+  if (!structure) return [];
+  return [
+    ...structure.primaryMuscles,
+    ...structure.secondaryMuscles,
+    ...structure.tertiaryMuscles
+  ];
+};
+
+// Check which target muscles are covered by the current exercise list
+const getMusclesCovered = (exercises) => {
+  const covered = new Set();
+  exercises.forEach(ex => {
+    if (ex.muscleGroup && ex.muscleGroup !== 'Cardio') {
+      covered.add(ex.muscleGroup);
+    }
+  });
+  return covered;
+};
+
+// Find a compound exercise that covers multiple of the missing muscles
+const findCompoundForMuscles = (targetMuscles, usedExerciseIds = []) => {
+  // Look for compounds that hit any of the target muscles
+  const compounds = ALL_EXERCISES.filter(ex =>
+    ex.type === 'compound' &&
+    targetMuscles.includes(ex.muscleGroup) &&
+    !usedExerciseIds.includes(ex.id || ex.name)
+  );
+
+  // Sort by how many target muscles they help with (via related muscles)
+  compounds.sort((a, b) => {
+    const aRelated = RELATED_MUSCLE_GROUPS[a.muscleGroup] || [];
+    const bRelated = RELATED_MUSCLE_GROUPS[b.muscleGroup] || [];
+    const aHits = targetMuscles.filter(m => m === a.muscleGroup || aRelated.includes(m)).length;
+    const bHits = targetMuscles.filter(m => m === b.muscleGroup || bRelated.includes(m)).length;
+    return bHits - aHits; // Higher hits first
+  });
+
+  return compounds[0] || null;
+};
+
+// Ensure all target muscle groups are covered when shortening a workout
+// May swap isolation exercises for compounds to maintain coverage
+const ensureMuscleGroupCoverage = (exercises, workoutType, fullExercisePool) => {
+  const targetMuscles = getTargetMuscleGroups(workoutType);
+  if (targetMuscles.length === 0) return exercises;
+
+  let result = [...exercises];
+  const covered = getMusclesCovered(result);
+  const missing = targetMuscles.filter(m => !covered.has(m));
+
+  if (missing.length === 0) return result; // All covered
+
+  // Try to add compounds that cover missing muscles
+  const usedIds = result.map(ex => ex.id);
+
+  for (const missingMuscle of missing) {
+    // First, check if we can find a compound in the pool that covers this
+    const compound = findCompoundForMuscles([missingMuscle], usedIds);
+    if (compound) {
+      // Find an isolation exercise we can swap out (preferably targeting a muscle we have multiple exercises for)
+      const muscleCount = {};
+      result.forEach(ex => {
+        if (ex.exerciseType !== 'compound') {
+          muscleCount[ex.muscleGroup] = (muscleCount[ex.muscleGroup] || 0) + 1;
+        }
+      });
+
+      // Find an isolation with duplicate muscle coverage
+      const swapIndex = result.findIndex(ex =>
+        ex.exerciseType !== 'compound' &&
+        muscleCount[ex.muscleGroup] > 1 &&
+        ex.muscleGroup !== missingMuscle
+      );
+
+      if (swapIndex >= 0) {
+        // Swap the isolation for the compound
+        result[swapIndex] = {
+          id: compound.id || compound.name.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+          name: compound.name,
+          sets: result[swapIndex].sets,
+          targetReps: result[swapIndex].targetReps,
+          suggestedWeight: 0,
+          lastWeight: 0,
+          lastReps: Array(result[swapIndex].sets).fill(result[swapIndex].targetReps),
+          restTime: result[swapIndex].restTime + 30, // Compounds need more rest
+          muscleGroup: compound.muscleGroup,
+          equipment: compound.equipment,
+          exerciseType: 'compound',
+        };
+        usedIds.push(compound.id || compound.name);
+      }
+    }
+  }
+
+  return result;
+};
+
+// Workout structure definitions (muscle groups to target, not specific exercises)
+const WORKOUT_STRUCTURES = {
+  push: {
+    name: 'Push Day',
+    primaryMuscles: ['Chest', 'Upper Chest'],
+    secondaryMuscles: ['Shoulders', 'Side Delts'],
+    tertiaryMuscles: ['Triceps'],
+    exerciseCounts: { primary: 2, secondary: 2, tertiary: 1 },
+    focus: 'Chest, Shoulders & Triceps',
+  },
+  pull: {
+    name: 'Pull Day',
+    primaryMuscles: ['Back', 'Lats'],
+    secondaryMuscles: ['Rear Delts', 'Traps'],
+    tertiaryMuscles: ['Biceps'],
+    exerciseCounts: { primary: 3, secondary: 1, tertiary: 2 },
+    focus: 'Back & Biceps',
+  },
+  legs_quad: {
+    name: 'Leg Day (Quad Focus)',
+    primaryMuscles: ['Quads'],
+    secondaryMuscles: ['Hamstrings', 'Glutes'],
+    tertiaryMuscles: ['Calves'],
+    exerciseCounts: { primary: 3, secondary: 2, tertiary: 1 },
+    focus: 'Quads, Hamstrings & Glutes',
+  },
+  legs_posterior: {
+    name: 'Leg Day (Posterior Focus)',
+    primaryMuscles: ['Hamstrings', 'Glutes'],
+    secondaryMuscles: ['Quads'],
+    tertiaryMuscles: ['Calves'],
+    exerciseCounts: { primary: 3, secondary: 2, tertiary: 1 },
+    focus: 'Hamstrings, Glutes & Quads',
+  },
+  upper: {
+    name: 'Upper Body',
+    primaryMuscles: ['Chest', 'Back', 'Lats'],
+    secondaryMuscles: ['Shoulders', 'Side Delts'],
+    tertiaryMuscles: ['Biceps', 'Triceps'],
+    exerciseCounts: { primary: 3, secondary: 2, tertiary: 2 },
+    focus: 'Chest, Back & Shoulders',
+  },
+  lower: {
+    name: 'Lower Body',
+    primaryMuscles: ['Quads', 'Hamstrings'],
+    secondaryMuscles: ['Glutes'],
+    tertiaryMuscles: ['Calves'],
+    exerciseCounts: { primary: 3, secondary: 2, tertiary: 1 },
+    focus: 'Full Leg Development',
+  },
+  full_body: {
+    name: 'Full Body',
+    primaryMuscles: ['Quads', 'Chest', 'Back'],
+    secondaryMuscles: ['Shoulders', 'Hamstrings'],
+    tertiaryMuscles: ['Biceps', 'Triceps'],
+    exerciseCounts: { primary: 3, secondary: 2, tertiary: 2 },
+    focus: 'Complete Body Training',
+  },
+  arms: {
+    name: 'Arms Day',
+    primaryMuscles: ['Biceps', 'Triceps'],
+    secondaryMuscles: ['Forearms'],
+    tertiaryMuscles: [],
+    exerciseCounts: { primary: 4, secondary: 1, tertiary: 0 },
+    focus: 'Biceps & Triceps',
+  },
+};
+
+// Core/Ab exercises for finishers
+const CORE_MUSCLE_GROUPS = ['Abs', 'Core', 'Obliques'];
+
+// Cardio exercises for weight loss goals
+const CARDIO_EXERCISES = [
+  { name: 'Treadmill Intervals', duration: 15, description: '30s sprint / 60s walk intervals', type: 'cardio', caloriesBurned: 200 },
+  { name: 'Rowing Machine', duration: 10, description: 'Moderate intensity, focus on full strokes', type: 'cardio', caloriesBurned: 150 },
+  { name: 'Stair Climber', duration: 12, description: 'Steady state, level 6-8', type: 'cardio', caloriesBurned: 180 },
+  { name: 'Jump Rope', duration: 10, description: '30s on / 15s rest intervals', type: 'cardio', caloriesBurned: 160 },
+  { name: 'Stationary Bike HIIT', duration: 15, description: '20s max effort / 40s recovery', type: 'cardio', caloriesBurned: 190 },
+  { name: 'Battle Ropes', duration: 8, description: '20s work / 20s rest', type: 'cardio', caloriesBurned: 120 },
+  { name: 'Burpees', duration: 10, description: '10 reps x 5 sets with 30s rest', type: 'cardio', caloriesBurned: 150 },
+  { name: 'Mountain Climbers', duration: 8, description: '30s on / 30s rest', type: 'cardio', caloriesBurned: 100 },
+];
+
+// ============================================
+// INJURY RECOVERY SYSTEM
+// ============================================
+
+// Injury severity levels with recovery time multipliers
+const INJURY_SEVERITY = {
+  mild: { label: 'Mild', description: 'Minor discomfort, slight pain', multiplier: 1, color: '#fbbf24' },
+  moderate: { label: 'Moderate', description: 'Noticeable pain, limited movement', multiplier: 1.5, color: '#f97316' },
+  severe: { label: 'Severe', description: 'Significant pain, major limitation', multiplier: 2.5, color: '#ef4444' },
+};
+
+// Recovery phases with descriptions
+const RECOVERY_PHASES = {
+  rest: {
+    name: 'Rest & Protect',
+    description: 'Complete rest for the injured area. Focus on reducing inflammation.',
+    icon: '🛌',
+    tips: [
+      'Apply ice for 15-20 minutes every 2-3 hours',
+      'Keep the injured area elevated when possible',
+      'Avoid any movements that cause pain',
+      'Stay hydrated and eat anti-inflammatory foods',
+      'Get plenty of sleep for tissue repair',
+    ],
+  },
+  recovery: {
+    name: 'Active Recovery',
+    description: 'Gentle movement and stretching to restore mobility.',
+    icon: '🧘',
+    tips: [
+      'Start with gentle range of motion exercises',
+      'Light stretching - never push through pain',
+      'Consider foam rolling nearby muscles',
+      'Short walks to maintain general fitness',
+      'Listen to your body and rest if needed',
+    ],
+  },
+  strengthening: {
+    name: 'Rebuilding Strength',
+    description: 'Progressive loading to restore muscle strength.',
+    icon: '💪',
+    tips: [
+      'Start with bodyweight or very light weights',
+      'Focus on controlled movements',
+      'Gradually increase resistance over time',
+      'Include stability and balance work',
+      'Stop immediately if you feel sharp pain',
+    ],
+  },
+  return: {
+    name: 'Return to Training',
+    description: 'Gradually return to your normal workout routine.',
+    icon: '🏋️',
+    tips: [
+      'Start at 50-70% of your previous intensity',
+      'Increase volume before intensity',
+      'Include extra warm-up for the affected area',
+      'Monitor for any pain or discomfort',
+      'Be patient - full recovery takes time',
+    ],
+  },
+};
+
+// Base recovery timelines (in days) for each muscle group by injury type
+const INJURY_RECOVERY_DATA = {
+  // Upper Body
+  'Chest': { baseDays: 7, restPercent: 30, recoveryPercent: 30, strengthenPercent: 25, relatedMuscles: ['Upper Chest', 'Front Delts', 'Triceps'] },
+  'Upper Chest': { baseDays: 7, restPercent: 30, recoveryPercent: 30, strengthenPercent: 25, relatedMuscles: ['Chest', 'Front Delts'] },
+  'Back': { baseDays: 10, restPercent: 35, recoveryPercent: 30, strengthenPercent: 25, relatedMuscles: ['Lats', 'Rear Delts', 'Biceps'] },
+  'Lats': { baseDays: 8, restPercent: 30, recoveryPercent: 35, strengthenPercent: 25, relatedMuscles: ['Back', 'Biceps'] },
+  'Shoulders': { baseDays: 14, restPercent: 40, recoveryPercent: 30, strengthenPercent: 20, relatedMuscles: ['Front Delts', 'Side Delts', 'Rear Delts'] },
+  'Front Delts': { baseDays: 10, restPercent: 35, recoveryPercent: 30, strengthenPercent: 25, relatedMuscles: ['Shoulders', 'Chest'] },
+  'Side Delts': { baseDays: 8, restPercent: 30, recoveryPercent: 35, strengthenPercent: 25, relatedMuscles: ['Shoulders'] },
+  'Rear Delts': { baseDays: 8, restPercent: 30, recoveryPercent: 35, strengthenPercent: 25, relatedMuscles: ['Shoulders', 'Back'] },
+  'Biceps': { baseDays: 7, restPercent: 25, recoveryPercent: 35, strengthenPercent: 30, relatedMuscles: ['Forearms'] },
+  'Triceps': { baseDays: 7, restPercent: 25, recoveryPercent: 35, strengthenPercent: 30, relatedMuscles: ['Chest', 'Shoulders'] },
+  'Forearms': { baseDays: 10, restPercent: 35, recoveryPercent: 35, strengthenPercent: 20, relatedMuscles: ['Biceps'] },
+  // Lower Body
+  'Quads': { baseDays: 10, restPercent: 30, recoveryPercent: 35, strengthenPercent: 25, relatedMuscles: ['Glutes'] },
+  'Hamstrings': { baseDays: 14, restPercent: 40, recoveryPercent: 30, strengthenPercent: 20, relatedMuscles: ['Glutes', 'Lower Back'] },
+  'Glutes': { baseDays: 10, restPercent: 30, recoveryPercent: 35, strengthenPercent: 25, relatedMuscles: ['Quads', 'Hamstrings'] },
+  'Calves': { baseDays: 10, restPercent: 35, recoveryPercent: 35, strengthenPercent: 20, relatedMuscles: [] },
+  'Hip Flexors': { baseDays: 12, restPercent: 35, recoveryPercent: 35, strengthenPercent: 20, relatedMuscles: ['Quads', 'Core'] },
+  // Core & Back
+  'Abs': { baseDays: 7, restPercent: 25, recoveryPercent: 40, strengthenPercent: 25, relatedMuscles: ['Core', 'Obliques'] },
+  'Core': { baseDays: 10, restPercent: 30, recoveryPercent: 40, strengthenPercent: 20, relatedMuscles: ['Abs', 'Lower Back'] },
+  'Lower Back': { baseDays: 21, restPercent: 45, recoveryPercent: 30, strengthenPercent: 15, relatedMuscles: ['Core', 'Glutes', 'Hamstrings'] },
+  'Obliques': { baseDays: 7, restPercent: 25, recoveryPercent: 40, strengthenPercent: 25, relatedMuscles: ['Abs', 'Core'] },
+  'Traps': { baseDays: 10, restPercent: 35, recoveryPercent: 35, strengthenPercent: 20, relatedMuscles: ['Shoulders', 'Back'] },
+  // General
+  'Neck': { baseDays: 14, restPercent: 50, recoveryPercent: 30, strengthenPercent: 15, relatedMuscles: ['Traps'] },
+  'Groin': { baseDays: 14, restPercent: 40, recoveryPercent: 35, strengthenPercent: 15, relatedMuscles: ['Hip Flexors', 'Quads'] },
+  'Knee': { baseDays: 21, restPercent: 45, recoveryPercent: 30, strengthenPercent: 15, relatedMuscles: ['Quads', 'Hamstrings', 'Calves'] },
+  'Ankle': { baseDays: 14, restPercent: 40, recoveryPercent: 35, strengthenPercent: 15, relatedMuscles: ['Calves'] },
+  'Wrist': { baseDays: 14, restPercent: 40, recoveryPercent: 35, strengthenPercent: 15, relatedMuscles: ['Forearms'] },
+  'Elbow': { baseDays: 21, restPercent: 45, recoveryPercent: 30, strengthenPercent: 15, relatedMuscles: ['Biceps', 'Triceps', 'Forearms'] },
+};
+
+// Recovery exercises for each muscle group
+const RECOVERY_EXERCISES = {
+  'Chest': [
+    { name: 'Chest Stretch', duration: '30 sec each side', description: 'Doorway stretch, gentle hold' },
+    { name: 'Arm Circles', duration: '1 min', description: 'Small to large circles, both directions' },
+    { name: 'Wall Push-ups', duration: '2x10', description: 'Very light, focus on range of motion' },
+  ],
+  'Back': [
+    { name: 'Cat-Cow Stretch', duration: '1 min', description: 'Slow, controlled movements' },
+    { name: 'Child\'s Pose', duration: '1 min', description: 'Gentle lat stretch' },
+    { name: 'Prone Y Raises', duration: '2x10', description: 'No weight, focus on activation' },
+  ],
+  'Shoulders': [
+    { name: 'Pendulum Swings', duration: '1 min each arm', description: 'Let arm hang and swing gently' },
+    { name: 'Wall Slides', duration: '2x10', description: 'Back against wall, slide arms up' },
+    { name: 'Band Pull-Aparts', duration: '2x15', description: 'Very light band' },
+  ],
+  'Biceps': [
+    { name: 'Bicep Stretch', duration: '30 sec each arm', description: 'Arm extended, palm on wall' },
+    { name: 'Wrist Rotations', duration: '1 min', description: 'Gentle circles both directions' },
+    { name: 'Light Curls', duration: '2x15', description: '1-2kg max, full range of motion' },
+  ],
+  'Triceps': [
+    { name: 'Tricep Stretch', duration: '30 sec each arm', description: 'Overhead stretch' },
+    { name: 'Arm Extensions', duration: '2x15', description: 'No weight, focus on extension' },
+  ],
+  'Quads': [
+    { name: 'Quad Stretch', duration: '30 sec each leg', description: 'Standing or lying' },
+    { name: 'Leg Swings', duration: '1 min each leg', description: 'Front to back, controlled' },
+    { name: 'Wall Sits', duration: '3x15 sec', description: 'Shallow angle, no pain' },
+  ],
+  'Hamstrings': [
+    { name: 'Hamstring Stretch', duration: '30 sec each leg', description: 'Seated or lying' },
+    { name: 'Good Mornings', duration: '2x10', description: 'No weight, gentle hinge' },
+    { name: 'Glute Bridges', duration: '2x12', description: 'Focus on hamstring engagement' },
+  ],
+  'Glutes': [
+    { name: 'Pigeon Stretch', duration: '30 sec each side', description: 'Gentle hip opener' },
+    { name: 'Clamshells', duration: '2x15 each side', description: 'Side lying, no band' },
+    { name: 'Glute Bridges', duration: '2x12', description: 'Bodyweight only' },
+  ],
+  'Lower Back': [
+    { name: 'Knee to Chest', duration: '30 sec each leg', description: 'Lying on back' },
+    { name: 'Pelvic Tilts', duration: '2x15', description: 'Lying on back, gentle movement' },
+    { name: 'Bird Dogs', duration: '2x8 each side', description: 'Slow and controlled' },
+  ],
+  'Core': [
+    { name: 'Dead Bug', duration: '2x8 each side', description: 'Slow, controlled movement' },
+    { name: 'Diaphragmatic Breathing', duration: '2 min', description: 'Deep belly breaths' },
+    { name: 'Gentle Planks', duration: '3x15 sec', description: 'On knees if needed' },
+  ],
+};
+
+// Restrengthening exercises (progressive loading)
+const RESTRENGTHENING_EXERCISES = {
+  'Chest': [
+    { name: 'Incline Push-ups', sets: 3, reps: 12, description: 'Hands elevated, controlled tempo' },
+    { name: 'Light Dumbbell Press', sets: 3, reps: 12, description: 'Start with 50% usual weight' },
+    { name: 'Cable Flyes', sets: 3, reps: 15, description: 'Light weight, full stretch' },
+  ],
+  'Back': [
+    { name: 'Banded Rows', sets: 3, reps: 15, description: 'Focus on squeeze at top' },
+    { name: 'Light Lat Pulldowns', sets: 3, reps: 12, description: 'Controlled negative' },
+    { name: 'Face Pulls', sets: 3, reps: 15, description: 'Light band, external rotation' },
+  ],
+  'Shoulders': [
+    { name: 'Band External Rotation', sets: 3, reps: 15, description: 'Elbow at side' },
+    { name: 'Light Lateral Raises', sets: 3, reps: 15, description: 'Very light, controlled' },
+    { name: 'Y-T-W Raises', sets: 2, reps: 10, description: 'Prone position, no weight' },
+  ],
+  'Quads': [
+    { name: 'Bodyweight Squats', sets: 3, reps: 12, description: 'Controlled, pain-free range' },
+    { name: 'Step Ups', sets: 3, reps: 10, description: 'Low step, focus on control' },
+    { name: 'Leg Extensions', sets: 3, reps: 15, description: 'Light weight, full extension' },
+  ],
+  'Hamstrings': [
+    { name: 'Romanian Deadlifts', sets: 3, reps: 10, description: 'Very light, focus on stretch' },
+    { name: 'Stability Ball Curls', sets: 3, reps: 12, description: 'Slow and controlled' },
+    { name: 'Single Leg Glute Bridges', sets: 3, reps: 10, description: 'Focus on hamstring' },
+  ],
+  'Lower Back': [
+    { name: 'Superman Holds', sets: 3, reps: '10 sec', description: 'Gentle, don\'t overextend' },
+    { name: 'Hip Hinges', sets: 3, reps: 12, description: 'No weight, perfect form' },
+    { name: 'Kettlebell Deadlifts', sets: 3, reps: 10, description: 'Very light, controlled' },
+  ],
+};
+
+// Motivational coaching messages for each phase
+const COACHING_MESSAGES = {
+  rest: [
+    "Rest is not giving up - it's part of getting stronger. Your body is healing right now.",
+    "Every day of proper rest is an investment in your future performance. Trust the process.",
+    "The strongest athletes know when to rest. You're making the right choice.",
+    "Your muscles are rebuilding right now. Give them the time they need.",
+    "Recovery is where the magic happens. You're doing great by listening to your body.",
+  ],
+  recovery: [
+    "You're making progress! Gentle movement is exactly what your body needs right now.",
+    "Each small movement is a step toward full recovery. Keep going!",
+    "You're in the healing zone now. These exercises are rebuilding your strength foundation.",
+    "Moving again feels good, doesn't it? Your body is responding well.",
+    "Patience and persistence - you've got both. Recovery is going well!",
+  ],
+  strengthening: [
+    "You're getting stronger every day! Your body has healed and is ready to rebuild.",
+    "This is exciting - you're rebuilding better than before. Stay focused!",
+    "Controlled progress is smart progress. You're doing this the right way.",
+    "Your comeback is happening right now. Each rep is bringing you back stronger.",
+    "The finish line is in sight. Keep up the amazing work!",
+  ],
+  return: [
+    "Welcome back! You've earned this through patience and smart training.",
+    "You did it the right way - full recovery means you're back for good.",
+    "Stronger, smarter, and ready to crush it. Your dedication paid off!",
+    "This injury taught you something valuable. Now go show what you've got!",
+    "Full strength, full confidence. Time to get after it!",
+  ],
+};
+
+// Calculate recovery timeline for an injury
+const calculateRecoveryTimeline = (muscleGroup, severity, startDate) => {
+  const recoveryData = INJURY_RECOVERY_DATA[muscleGroup] || INJURY_RECOVERY_DATA['Core'];
+  const severityData = INJURY_SEVERITY[severity] || INJURY_SEVERITY.moderate;
+
+  const totalDays = Math.round(recoveryData.baseDays * severityData.multiplier);
+  const restDays = Math.round(totalDays * (recoveryData.restPercent / 100));
+  const recoveryDays = Math.round(totalDays * (recoveryData.recoveryPercent / 100));
+  const strengthenDays = Math.round(totalDays * (recoveryData.strengthenPercent / 100));
+  const returnDays = totalDays - restDays - recoveryDays - strengthenDays;
+
+  const start = new Date(startDate);
+
+  return {
+    totalDays,
+    phases: {
+      rest: {
+        startDate: start.toISOString(),
+        endDate: new Date(start.getTime() + restDays * 24 * 60 * 60 * 1000).toISOString(),
+        days: restDays,
+      },
+      recovery: {
+        startDate: new Date(start.getTime() + restDays * 24 * 60 * 60 * 1000).toISOString(),
+        endDate: new Date(start.getTime() + (restDays + recoveryDays) * 24 * 60 * 60 * 1000).toISOString(),
+        days: recoveryDays,
+      },
+      strengthening: {
+        startDate: new Date(start.getTime() + (restDays + recoveryDays) * 24 * 60 * 60 * 1000).toISOString(),
+        endDate: new Date(start.getTime() + (restDays + recoveryDays + strengthenDays) * 24 * 60 * 60 * 1000).toISOString(),
+        days: strengthenDays,
+      },
+      return: {
+        startDate: new Date(start.getTime() + (restDays + recoveryDays + strengthenDays) * 24 * 60 * 60 * 1000).toISOString(),
+        endDate: new Date(start.getTime() + totalDays * 24 * 60 * 60 * 1000).toISOString(),
+        days: returnDays,
+      },
+    },
+    expectedRecoveryDate: new Date(start.getTime() + totalDays * 24 * 60 * 60 * 1000).toISOString(),
+    affectedMuscles: [muscleGroup, ...(recoveryData.relatedMuscles || [])],
+  };
+};
+
+// Get current recovery phase for an injury
+const getCurrentRecoveryPhase = (injury) => {
+  if (!injury || !injury.timeline) return null;
+
+  const now = new Date();
+  const { phases } = injury.timeline;
+
+  for (const [phaseName, phaseData] of Object.entries(phases)) {
+    const start = new Date(phaseData.startDate);
+    const end = new Date(phaseData.endDate);
+    if (now >= start && now < end) {
+      const daysIntoPhase = Math.floor((now - start) / (24 * 60 * 60 * 1000));
+      const daysRemaining = Math.ceil((end - now) / (24 * 60 * 60 * 1000));
+      return {
+        phase: phaseName,
+        ...RECOVERY_PHASES[phaseName],
+        daysIntoPhase,
+        daysRemaining,
+        percentComplete: Math.round((daysIntoPhase / phaseData.days) * 100),
+      };
+    }
+  }
+
+  // If past all phases, return completed
+  const recoveryEnd = new Date(injury.timeline.expectedRecoveryDate);
+  if (now >= recoveryEnd) {
+    return { phase: 'completed', name: 'Fully Recovered', icon: '✅', percentComplete: 100 };
+  }
+
+  return null;
+};
+
+// Get a random coaching message for the current phase
+const getCoachingMessage = (phase) => {
+  const messages = COACHING_MESSAGES[phase] || COACHING_MESSAGES.rest;
+  return messages[Math.floor(Math.random() * messages.length)];
+};
+
+// Check if a muscle group is injured and should be avoided
+const isMuscleInjured = (muscleGroup, injuries) => {
+  if (!injuries || injuries.length === 0) return false;
+
+  return injuries.some(injury => {
+    if (!injury.active) return false;
+    const phase = getCurrentRecoveryPhase(injury);
+    // During rest phase, avoid all related muscles
+    if (phase?.phase === 'rest') {
+      return injury.timeline.affectedMuscles.includes(muscleGroup);
+    }
+    // During recovery phase, still avoid direct work on the injured muscle
+    if (phase?.phase === 'recovery') {
+      return injury.muscleGroup === muscleGroup;
+    }
+    return false;
+  });
+};
+
+// Get recovery exercises to add to a workout based on current injuries
+const getRecoveryExercisesForWorkout = (injuries) => {
+  const exercises = [];
+
+  injuries.forEach(injury => {
+    if (!injury.active) return;
+    const phase = getCurrentRecoveryPhase(injury);
+
+    if (phase?.phase === 'recovery') {
+      const recoveryExs = RECOVERY_EXERCISES[injury.muscleGroup] || RECOVERY_EXERCISES['Core'];
+      exercises.push(...recoveryExs.map(ex => ({
+        ...ex,
+        isRecovery: true,
+        forInjury: injury.muscleGroup,
+        phase: 'recovery',
+      })));
+    } else if (phase?.phase === 'strengthening') {
+      const strengthExs = RESTRENGTHENING_EXERCISES[injury.muscleGroup] || [];
+      if (strengthExs.length > 0) {
+        // Add 1-2 restrengthening exercises
+        exercises.push(...strengthExs.slice(0, 2).map(ex => ({
+          ...ex,
+          isRecovery: true,
+          forInjury: injury.muscleGroup,
+          phase: 'strengthening',
+        })));
+      }
+    }
+  });
+
+  return exercises;
+};
+
+// Helper: Get random element from array
+const getRandomElement = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+// Helper: Get random number in range (inclusive)
+const getRandomInRange = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+
+// Helper: Shuffle array (Fisher-Yates)
+const shuffleArray = (arr) => {
+  const shuffled = [...arr];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+};
+
+// Generate a unique exercise ID
+const generateExerciseId = (name) => name.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + Math.random().toString(36).substr(2, 5);
+
+// Select exercises for a muscle group, avoiding recently used ones
+const selectExercisesForMuscleGroup = (muscleGroups, count, usedExercises = [], preferCompound = true) => {
+  // Get all exercises for these muscle groups
+  let available = ALL_EXERCISES.filter(ex => muscleGroups.includes(ex.muscleGroup));
+
+  // Filter out recently used exercises
+  available = available.filter(ex => !usedExercises.includes(ex.name));
+
+  // Sort: compounds first if preferred
+  if (preferCompound) {
+    available.sort((a, b) => {
+      if (a.type === 'compound' && b.type !== 'compound') return -1;
+      if (a.type !== 'compound' && b.type === 'compound') return 1;
+      return 0;
+    });
+  }
+
+  // Shuffle within type groups for variety
+  const compounds = shuffleArray(available.filter(ex => ex.type === 'compound'));
+  const isolations = shuffleArray(available.filter(ex => ex.type === 'isolation'));
+
+  // Take the required count, preferring compounds for first exercises
+  const selected = [];
+  const pool = preferCompound ? [...compounds, ...isolations] : shuffleArray(available);
+
+  for (let i = 0; i < Math.min(count, pool.length); i++) {
+    selected.push(pool[i]);
+  }
+
+  return selected;
+};
+
+// Generate a complete dynamic workout
+const generateDynamicWorkout = (workoutType, userGoal = 'build_muscle', recentlyUsedExercises = []) => {
+  const structure = WORKOUT_STRUCTURES[workoutType];
+  if (!structure) return null;
+
+  const params = GOAL_TRAINING_PARAMS[userGoal] || GOAL_TRAINING_PARAMS.build_muscle;
+  const usedInThisWorkout = [...recentlyUsedExercises];
+  const exercises = [];
+
+  // Generate exercises for primary muscle groups
+  const primaryExercises = selectExercisesForMuscleGroup(
+    structure.primaryMuscles,
+    structure.exerciseCounts.primary,
+    usedInThisWorkout,
+    params.compoundFirst
+  );
+  primaryExercises.forEach(ex => usedInThisWorkout.push(ex.name));
+
+  // Generate exercises for secondary muscle groups
+  const secondaryExercises = selectExercisesForMuscleGroup(
+    structure.secondaryMuscles,
+    structure.exerciseCounts.secondary,
+    usedInThisWorkout,
+    false
+  );
+  secondaryExercises.forEach(ex => usedInThisWorkout.push(ex.name));
+
+  // Generate exercises for tertiary muscle groups
+  const tertiaryExercises = selectExercisesForMuscleGroup(
+    structure.tertiaryMuscles,
+    structure.exerciseCounts.tertiary,
+    usedInThisWorkout,
+    false
+  );
+  tertiaryExercises.forEach(ex => usedInThisWorkout.push(ex.name));
+
+  // Combine and format exercises
+  const allSelected = [...primaryExercises, ...secondaryExercises, ...tertiaryExercises];
+
+  allSelected.forEach((ex, index) => {
+    const sets = getRandomInRange(params.setsPerExercise[0], params.setsPerExercise[1]);
+    const reps = getRandomInRange(params.repsPerSet[0], params.repsPerSet[1]);
+    const rest = getRandomInRange(params.restTime[0], params.restTime[1]);
+
+    // Compounds get longer rest, isolations get shorter
+    const adjustedRest = ex.type === 'compound' ? rest + 30 : rest - 15;
+
+    exercises.push({
+      id: generateExerciseId(ex.name),
+      name: ex.name,
+      sets: sets,
+      targetReps: reps,
+      suggestedWeight: 0, // Will be calculated based on user history
+      lastWeight: 0,
+      lastReps: Array(sets).fill(reps),
+      restTime: Math.max(30, adjustedRest),
+      muscleGroup: ex.muscleGroup,
+      equipment: ex.equipment,
+      exerciseType: ex.type,
+    });
+  });
+
+  // Add a core/ab finisher
+  const coreExercises = selectExercisesForMuscleGroup(
+    CORE_MUSCLE_GROUPS,
+    1,
+    usedInThisWorkout,
+    false
+  );
+
+  if (coreExercises.length > 0) {
+    const coreEx = coreExercises[0];
+    const isHold = coreEx.name.includes('Plank') || coreEx.name.includes('Hold') || coreEx.name.includes('L-Sit');
+    exercises.push({
+      id: generateExerciseId(coreEx.name),
+      name: coreEx.name,
+      sets: 3,
+      targetReps: isHold ? 45 : 15, // Seconds for holds, reps for movements
+      suggestedWeight: 0,
+      lastWeight: 0,
+      lastReps: isHold ? [45, 40, 35] : [15, 12, 10],
+      restTime: 45,
+      muscleGroup: coreEx.muscleGroup,
+      equipment: coreEx.equipment,
+      exerciseType: coreEx.type,
+    });
+  }
+
+  // Add cardio for weight loss / lean goals
+  let cardioExercise = null;
+  if (['lose_fat', 'lean', 'fitness'].includes(userGoal)) {
+    const cardio = getRandomElement(CARDIO_EXERCISES);
+    cardioExercise = {
+      id: generateExerciseId(cardio.name),
+      name: cardio.name,
+      sets: 1,
+      targetReps: cardio.duration, // Duration in minutes
+      isCardio: true,
+      duration: cardio.duration,
+      description: cardio.description,
+      caloriesBurned: cardio.caloriesBurned,
+      restTime: 0,
+      muscleGroup: 'Cardio',
+      exerciseType: 'cardio',
+    };
+    exercises.push(cardioExercise);
+  }
+
+  // Generate goal-specific workout explanation
+  const goalExplanations = {
+    bulk: `High-volume training with moderate reps to maximize muscle growth. Compounds first for strength, followed by isolation work for detail.`,
+    build_muscle: `Balanced hypertrophy focus with 8-12 rep ranges. Exercise selection targets all heads of each muscle group for complete development.`,
+    strength: `Lower rep ranges with longer rest periods to maximize neural adaptation. Heavy compounds prioritized for strength gains.`,
+    recomp: `Moderate volume with compound movements to build muscle while burning calories. Balanced approach for body composition.`,
+    fitness: `Higher rep ranges with shorter rest to improve muscular endurance and cardiovascular health. Full body engagement.`,
+    athletic: `Power-focused movements with moderate reps. Exercises selected for functional strength and explosive power.`,
+    lean: `Higher reps with minimal rest to elevate heart rate. Compound movements maximize calorie burn while preserving muscle.`,
+    lose_fat: `Circuit-style training with cardio finisher. Shorter rest keeps heart rate elevated for maximum fat burning while maintaining muscle.`,
+  };
+
+  const explanation = goalExplanations[userGoal] || goalExplanations.build_muscle;
+
+  // Create detailed workout reasoning
+  const primaryMuscleNames = structure.primaryMuscles.join(', ');
+  const todaysFocus = `Today's focus is ${structure.focus.toLowerCase()}, targeting ${primaryMuscleNames} as the primary muscle groups.`;
+  const goalRationale = explanation;
+  const exerciseRationale = `${exercises.length} exercises selected to ensure complete ${workoutType} development while avoiding overtraining.`;
+
+  // Reorder exercises to avoid same/related muscle groups back-to-back
+  // This provides better recovery between exercises
+  // Keep cardio at the end
+  const cardioInList = exercises.filter(ex => ex.isCardio || ex.muscleGroup === 'Cardio');
+  const nonCardioInList = exercises.filter(ex => !ex.isCardio && ex.muscleGroup !== 'Cardio');
+  const reorderedExercises = [...reorderExercisesForRecovery(nonCardioInList), ...cardioInList];
+
+  return {
+    id: `${workoutType}_${Date.now()}`,
+    name: structure.name,
+    focus: structure.focus,
+    description: `${todaysFocus} ${goalRationale}`,
+    todaysFocus: todaysFocus,
+    goalRationale: goalRationale,
+    exerciseRationale: exerciseRationale,
+    goals: [`${structure.focus} development`, 'Progressive overload', 'Balanced training'],
+    exercises: reorderedExercises,
+    generatedAt: new Date().toISOString(),
+    workoutType: workoutType,
+    userGoal: userGoal,
+    hasCardio: cardioExercise !== null,
+  };
+};
+
+// Map old template IDs to workout types for backwards compatibility
+const TEMPLATE_TO_WORKOUT_TYPE = {
+  push_a: 'push', push_b: 'push',
+  pull_a: 'pull', pull_b: 'pull',
+  legs_a: 'legs_quad', legs_b: 'legs_posterior',
+  upper_a: 'upper', upper_b: 'upper',
+  lower: 'lower',
+  full_body_a: 'full_body', full_body_b: 'full_body',
+  arms: 'arms',
+  chest_specialization: 'push',
+  back_specialization: 'pull',
+  leg_specialization: 'lower',
+  powerlifting_squat: 'legs_quad',
+  powerlifting_bench: 'push',
+  powerlifting_deadlift: 'pull',
+  athletic_power: 'full_body',
+};
+
+// ============================================
+// END DYNAMIC WORKOUT GENERATION
+// ============================================
+
+// Workout Templates Database (kept for reference/fallback)
 const WORKOUT_TEMPLATES = {
   push_a: {
     id: 'push_a',
@@ -1793,6 +2804,7 @@ const WORKOUT_TEMPLATES = {
       { id: 'ohp', name: 'Overhead Press', sets: 3, targetReps: 8, suggestedWeight: 50, lastWeight: 47.5, lastReps: [8, 7, 6], restTime: 150, muscleGroup: 'Shoulders' },
       { id: 'lateral', name: 'Lateral Raises', sets: 3, targetReps: 15, suggestedWeight: 12, lastWeight: 10, lastReps: [15, 14, 12], restTime: 60, muscleGroup: 'Side Delts' },
       { id: 'pushdown', name: 'Tricep Pushdowns', sets: 3, targetReps: 12, suggestedWeight: 30, lastWeight: 27.5, lastReps: [12, 11, 10], restTime: 60, muscleGroup: 'Triceps' },
+      { id: 'hanging_leg_raise', name: 'Hanging Leg Raises', sets: 3, targetReps: 12, suggestedWeight: 0, lastWeight: 0, lastReps: [12, 10, 8], restTime: 60, muscleGroup: 'Abs' },
     ]
   },
   push_b: {
@@ -1808,6 +2820,7 @@ const WORKOUT_TEMPLATES = {
       { id: 'cable_fly', name: 'Cable Fly', sets: 3, targetReps: 12, suggestedWeight: 15, lastWeight: 12.5, lastReps: [12, 12, 10], restTime: 60, muscleGroup: 'Chest' },
       { id: 'skull', name: 'Skull Crushers', sets: 3, targetReps: 10, suggestedWeight: 30, lastWeight: 27.5, lastReps: [10, 9, 8], restTime: 90, muscleGroup: 'Triceps' },
       { id: 'face_pull', name: 'Face Pulls', sets: 3, targetReps: 15, suggestedWeight: 20, lastWeight: 17.5, lastReps: [15, 15, 12], restTime: 60, muscleGroup: 'Rear Delts' },
+      { id: 'cable_crunch', name: 'Cable Crunches', sets: 3, targetReps: 15, suggestedWeight: 0, lastWeight: 0, lastReps: [15, 14, 12], restTime: 60, muscleGroup: 'Abs' },
     ]
   },
   pull_a: {
@@ -1823,6 +2836,7 @@ const WORKOUT_TEMPLATES = {
       { id: 'face_pull', name: 'Face Pulls', sets: 3, targetReps: 15, suggestedWeight: 22.5, lastWeight: 20, lastReps: [15, 14, 12], restTime: 60, muscleGroup: 'Rear Delts' },
       { id: 'curl', name: 'Barbell Curl', sets: 3, targetReps: 10, suggestedWeight: 35, lastWeight: 32.5, lastReps: [10, 9, 8], restTime: 60, muscleGroup: 'Biceps' },
       { id: 'hammer', name: 'Hammer Curls', sets: 3, targetReps: 12, suggestedWeight: 14, lastWeight: 12, lastReps: [12, 11, 10], restTime: 60, muscleGroup: 'Biceps' },
+      { id: 'dead_bug', name: 'Dead Bug', sets: 3, targetReps: 10, suggestedWeight: 0, lastWeight: 0, lastReps: [10, 10, 8], restTime: 45, muscleGroup: 'Core' },
     ]
   },
   pull_b: {
@@ -1838,6 +2852,7 @@ const WORKOUT_TEMPLATES = {
       { id: 'straight_arm', name: 'Straight Arm Pulldown', sets: 3, targetReps: 12, suggestedWeight: 30, lastWeight: 27.5, lastReps: [12, 12, 10], restTime: 60, muscleGroup: 'Lats' },
       { id: 'preacher', name: 'Preacher Curl', sets: 3, targetReps: 10, suggestedWeight: 25, lastWeight: 22.5, lastReps: [10, 9, 8], restTime: 60, muscleGroup: 'Biceps' },
       { id: 'reverse_curl', name: 'Reverse Curls', sets: 2, targetReps: 15, suggestedWeight: 20, lastWeight: 17.5, lastReps: [15, 12], restTime: 60, muscleGroup: 'Forearms' },
+      { id: 'hanging_knee_raise', name: 'Hanging Knee Raises', sets: 3, targetReps: 15, suggestedWeight: 0, lastWeight: 0, lastReps: [15, 12, 10], restTime: 60, muscleGroup: 'Abs' },
     ]
   },
   legs_a: {
@@ -1853,6 +2868,7 @@ const WORKOUT_TEMPLATES = {
       { id: 'leg_ext', name: 'Leg Extension', sets: 3, targetReps: 12, suggestedWeight: 50, lastWeight: 45, lastReps: [12, 11, 10], restTime: 60, muscleGroup: 'Quads' },
       { id: 'leg_curl', name: 'Lying Leg Curl', sets: 3, targetReps: 12, suggestedWeight: 40, lastWeight: 37.5, lastReps: [12, 11, 10], restTime: 60, muscleGroup: 'Hamstrings' },
       { id: 'calf', name: 'Standing Calf Raises', sets: 4, targetReps: 15, suggestedWeight: 80, lastWeight: 70, lastReps: [15, 14, 12, 10], restTime: 60, muscleGroup: 'Calves' },
+      { id: 'plank', name: 'Plank', sets: 3, targetReps: 45, suggestedWeight: 0, lastWeight: 0, lastReps: [45, 45, 40], restTime: 45, muscleGroup: 'Core' },
     ]
   },
   legs_b: {
@@ -1868,6 +2884,7 @@ const WORKOUT_TEMPLATES = {
       { id: 'leg_curl', name: 'Seated Leg Curl', sets: 3, targetReps: 12, suggestedWeight: 45, lastWeight: 40, lastReps: [12, 11, 10], restTime: 60, muscleGroup: 'Hamstrings' },
       { id: 'abduct', name: 'Hip Abduction', sets: 3, targetReps: 15, suggestedWeight: 50, lastWeight: 45, lastReps: [15, 14, 12], restTime: 60, muscleGroup: 'Glutes' },
       { id: 'calf', name: 'Seated Calf Raises', sets: 4, targetReps: 15, suggestedWeight: 40, lastWeight: 35, lastReps: [15, 14, 12, 10], restTime: 60, muscleGroup: 'Calves' },
+      { id: 'ab_wheel', name: 'Ab Wheel Rollout', sets: 3, targetReps: 10, suggestedWeight: 0, lastWeight: 0, lastReps: [10, 8, 8], restTime: 60, muscleGroup: 'Core' },
     ]
   },
   upper_a: {
@@ -1883,6 +2900,7 @@ const WORKOUT_TEMPLATES = {
       { id: 'lat_pull', name: 'Lat Pulldown', sets: 3, targetReps: 10, suggestedWeight: 62.5, lastWeight: 60, lastReps: [10, 9, 8], restTime: 90, muscleGroup: 'Lats' },
       { id: 'curl', name: 'EZ Bar Curl', sets: 3, targetReps: 10, suggestedWeight: 32.5, lastWeight: 30, lastReps: [10, 9, 8], restTime: 60, muscleGroup: 'Biceps' },
       { id: 'pushdown', name: 'Rope Pushdowns', sets: 3, targetReps: 12, suggestedWeight: 25, lastWeight: 22.5, lastReps: [12, 11, 10], restTime: 60, muscleGroup: 'Triceps' },
+      { id: 'hanging_leg_raise', name: 'Hanging Leg Raises', sets: 3, targetReps: 12, suggestedWeight: 0, lastWeight: 0, lastReps: [12, 10, 8], restTime: 60, muscleGroup: 'Abs' },
     ]
   },
   upper_b: {
@@ -1899,6 +2917,7 @@ const WORKOUT_TEMPLATES = {
       { id: 'lateral', name: 'Lateral Raises', sets: 3, targetReps: 15, suggestedWeight: 12, lastWeight: 10, lastReps: [15, 14, 12], restTime: 60, muscleGroup: 'Side Delts' },
       { id: 'hammer', name: 'Hammer Curls', sets: 3, targetReps: 12, suggestedWeight: 16, lastWeight: 14, lastReps: [12, 11, 10], restTime: 60, muscleGroup: 'Biceps' },
       { id: 'overhead_ext', name: 'Overhead Tricep Extension', sets: 3, targetReps: 12, suggestedWeight: 27.5, lastWeight: 25, lastReps: [12, 11, 10], restTime: 60, muscleGroup: 'Triceps' },
+      { id: 'v_ups', name: 'V-Ups', sets: 3, targetReps: 12, suggestedWeight: 0, lastWeight: 0, lastReps: [12, 10, 8], restTime: 45, muscleGroup: 'Abs' },
     ]
   },
   lower: {
@@ -1914,6 +2933,7 @@ const WORKOUT_TEMPLATES = {
       { id: 'leg_curl', name: 'Lying Leg Curl', sets: 3, targetReps: 12, suggestedWeight: 42.5, lastWeight: 40, lastReps: [12, 11, 10], restTime: 60, muscleGroup: 'Hamstrings' },
       { id: 'leg_ext', name: 'Leg Extension', sets: 3, targetReps: 12, suggestedWeight: 52.5, lastWeight: 50, lastReps: [12, 11, 10], restTime: 60, muscleGroup: 'Quads' },
       { id: 'calf', name: 'Standing Calf Raises', sets: 4, targetReps: 15, suggestedWeight: 85, lastWeight: 80, lastReps: [15, 14, 12, 10], restTime: 60, muscleGroup: 'Calves' },
+      { id: 'bicycle_crunch', name: 'Bicycle Crunches', sets: 3, targetReps: 20, suggestedWeight: 0, lastWeight: 0, lastReps: [20, 18, 15], restTime: 45, muscleGroup: 'Abs' },
     ]
   },
   full_body_a: {
@@ -1928,6 +2948,7 @@ const WORKOUT_TEMPLATES = {
       { id: 'row', name: 'Barbell Row', sets: 4, targetReps: 6, suggestedWeight: 77.5, lastWeight: 75, lastReps: [6, 6, 5, 5], restTime: 150, muscleGroup: 'Back' },
       { id: 'ohp', name: 'Overhead Press', sets: 3, targetReps: 8, suggestedWeight: 47.5, lastWeight: 45, lastReps: [8, 7, 6], restTime: 120, muscleGroup: 'Shoulders' },
       { id: 'rdl', name: 'Romanian Deadlift', sets: 3, targetReps: 10, suggestedWeight: 85, lastWeight: 80, lastReps: [10, 9, 8], restTime: 120, muscleGroup: 'Hamstrings' },
+      { id: 'hanging_knee_raise', name: 'Hanging Knee Raises', sets: 3, targetReps: 15, suggestedWeight: 0, lastWeight: 0, lastReps: [15, 12, 10], restTime: 60, muscleGroup: 'Abs' },
     ]
   },
   full_body_b: {
@@ -1944,6 +2965,7 @@ const WORKOUT_TEMPLATES = {
       { id: 'lateral', name: 'Lateral Raises', sets: 3, targetReps: 15, suggestedWeight: 10, lastWeight: 8, lastReps: [15, 14, 12], restTime: 60, muscleGroup: 'Side Delts' },
       { id: 'curl', name: 'Dumbbell Curl', sets: 2, targetReps: 12, suggestedWeight: 14, lastWeight: 12, lastReps: [12, 10], restTime: 60, muscleGroup: 'Biceps' },
       { id: 'pushdown', name: 'Tricep Pushdowns', sets: 2, targetReps: 12, suggestedWeight: 27.5, lastWeight: 25, lastReps: [12, 10], restTime: 60, muscleGroup: 'Triceps' },
+      { id: 'dead_bug', name: 'Dead Bug', sets: 3, targetReps: 10, suggestedWeight: 0, lastWeight: 0, lastReps: [10, 10, 8], restTime: 45, muscleGroup: 'Core' },
     ]
   },
   arms: {
@@ -1961,6 +2983,7 @@ const WORKOUT_TEMPLATES = {
       { id: 'hammer', name: 'Hammer Curls', sets: 3, targetReps: 12, suggestedWeight: 16, lastWeight: 14, lastReps: [12, 11, 10], restTime: 60, muscleGroup: 'Biceps' },
       { id: 'overhead_ext', name: 'Overhead Tricep Extension', sets: 2, targetReps: 15, suggestedWeight: 25, lastWeight: 22.5, lastReps: [15, 12], restTime: 60, muscleGroup: 'Triceps' },
       { id: 'conc_curl', name: 'Concentration Curl', sets: 2, targetReps: 12, suggestedWeight: 10, lastWeight: 8, lastReps: [12, 10], restTime: 60, muscleGroup: 'Biceps' },
+      { id: 'plank', name: 'Plank', sets: 3, targetReps: 45, suggestedWeight: 0, lastWeight: 0, lastReps: [45, 40, 35], restTime: 45, muscleGroup: 'Core' },
     ]
   },
   // ADVANCED WORKOUT TEMPLATES
@@ -1980,6 +3003,7 @@ const WORKOUT_TEMPLATES = {
       { id: 'incline_fly', name: 'Incline Cable Fly', sets: 3, targetReps: 15, suggestedWeight: 12.5, lastWeight: 10, lastReps: [15, 14, 12], restTime: 60, muscleGroup: 'Upper Chest' },
       { id: 'dips', name: 'Dips', sets: 3, targetReps: 12, suggestedWeight: 0, lastWeight: 0, lastReps: [12, 10, 8], restTime: 90, muscleGroup: 'Lower Chest' },
       { id: 'pushdown', name: 'Tricep Pushdowns', sets: 3, targetReps: 15, suggestedWeight: 25, lastWeight: 22.5, lastReps: [15, 14, 12], restTime: 60, muscleGroup: 'Triceps' },
+      { id: 'hanging_leg_raise', name: 'Hanging Leg Raises', sets: 3, targetReps: 12, suggestedWeight: 0, lastWeight: 0, lastReps: [12, 10, 8], restTime: 60, muscleGroup: 'Abs' },
     ]
   },
   back_specialization: {
@@ -1999,6 +3023,7 @@ const WORKOUT_TEMPLATES = {
       { id: 'face_pull', name: 'Face Pulls', sets: 3, targetReps: 15, suggestedWeight: 22.5, lastWeight: 20, lastReps: [15, 15, 12], restTime: 60, muscleGroup: 'Rear Delts' },
       { id: 'shrugs', name: 'Barbell Shrugs', sets: 3, targetReps: 12, suggestedWeight: 100, lastWeight: 95, lastReps: [12, 11, 10], restTime: 90, muscleGroup: 'Traps' },
       { id: 'curl', name: 'EZ Bar Curl', sets: 3, targetReps: 10, suggestedWeight: 35, lastWeight: 32.5, lastReps: [10, 9, 8], restTime: 60, muscleGroup: 'Biceps' },
+      { id: 'ab_wheel', name: 'Ab Wheel Rollout', sets: 3, targetReps: 10, suggestedWeight: 0, lastWeight: 0, lastReps: [10, 8, 8], restTime: 60, muscleGroup: 'Core' },
     ]
   },
   leg_specialization: {
@@ -2018,6 +3043,7 @@ const WORKOUT_TEMPLATES = {
       { id: 'leg_curl', name: 'Lying Leg Curl', sets: 3, targetReps: 12, suggestedWeight: 45, lastWeight: 42.5, lastReps: [12, 11, 10], restTime: 60, muscleGroup: 'Hamstrings' },
       { id: 'calf_standing', name: 'Standing Calf Raises', sets: 4, targetReps: 12, suggestedWeight: 90, lastWeight: 85, lastReps: [12, 12, 10, 10], restTime: 60, muscleGroup: 'Calves' },
       { id: 'calf_seated', name: 'Seated Calf Raises', sets: 3, targetReps: 15, suggestedWeight: 45, lastWeight: 40, lastReps: [15, 14, 12], restTime: 60, muscleGroup: 'Calves' },
+      { id: 'hollow_hold', name: 'Hollow Body Hold', sets: 3, targetReps: 30, suggestedWeight: 0, lastWeight: 0, lastReps: [30, 25, 20], restTime: 45, muscleGroup: 'Core' },
     ]
   },
   powerlifting_squat: {
@@ -2050,6 +3076,7 @@ const WORKOUT_TEMPLATES = {
       { id: 'row', name: 'Barbell Row', sets: 4, targetReps: 8, suggestedWeight: 82.5, lastWeight: 80, lastReps: [8, 8, 7, 6], restTime: 120, muscleGroup: 'Back' },
       { id: 'face_pull', name: 'Face Pulls', sets: 3, targetReps: 15, suggestedWeight: 22.5, lastWeight: 20, lastReps: [15, 14, 12], restTime: 60, muscleGroup: 'Rear Delts' },
       { id: 'tricep_ext', name: 'Overhead Tricep Extension', sets: 3, targetReps: 12, suggestedWeight: 30, lastWeight: 27.5, lastReps: [12, 11, 10], restTime: 60, muscleGroup: 'Triceps' },
+      { id: 'dead_bug', name: 'Dead Bug', sets: 3, targetReps: 10, suggestedWeight: 0, lastWeight: 0, lastReps: [10, 10, 8], restTime: 45, muscleGroup: 'Core' },
     ]
   },
   powerlifting_deadlift: {
@@ -2066,6 +3093,7 @@ const WORKOUT_TEMPLATES = {
       { id: 'pullup', name: 'Pull Ups', sets: 3, targetReps: 8, suggestedWeight: 10, lastWeight: 7.5, lastReps: [8, 7, 6], restTime: 120, muscleGroup: 'Lats' },
       { id: 'leg_curl', name: 'Lying Leg Curl', sets: 3, targetReps: 12, suggestedWeight: 42.5, lastWeight: 40, lastReps: [12, 11, 10], restTime: 60, muscleGroup: 'Hamstrings' },
       { id: 'shrugs', name: 'Barbell Shrugs', sets: 3, targetReps: 10, suggestedWeight: 110, lastWeight: 105, lastReps: [10, 9, 8], restTime: 90, muscleGroup: 'Traps' },
+      { id: 'pallof_press', name: 'Pallof Press', sets: 3, targetReps: 10, suggestedWeight: 0, lastWeight: 0, lastReps: [10, 10, 8], restTime: 45, muscleGroup: 'Core' },
     ]
   },
   athletic_power: {
@@ -2329,8 +3357,245 @@ function RegisterScreen({ onBack, onRegister, COLORS }) {
   );
 }
 
+// Workout time calculation constants and helpers (outside component for initialization)
+const WORKOUT_TIMING = {
+  AVG_SET_DURATION: 45, // Average time to complete one set (seconds)
+  WARMUP_TIME: 180, // 3 minutes warmup
+  COOLDOWN_TIME: 120, // 2 minutes cooldown
+  TRANSITION_TIME: 30, // Time to move between exercises
+};
+
+const calculateWorkoutDuration = (exerciseList) => {
+  if (!exerciseList || exerciseList.length === 0) return 0;
+  let totalSeconds = WORKOUT_TIMING.WARMUP_TIME + WORKOUT_TIMING.COOLDOWN_TIME;
+  exerciseList.forEach((ex, exIndex) => {
+    const sets = ex.sets || 3;
+    const restTime = ex.restTime || 90;
+    totalSeconds += sets * WORKOUT_TIMING.AVG_SET_DURATION;
+    totalSeconds += (sets - 1) * restTime;
+    if (exIndex < exerciseList.length - 1) totalSeconds += WORKOUT_TIMING.TRANSITION_TIME;
+  });
+  return totalSeconds;
+};
+
+const optimizeExercisesForTime = (exerciseList, targetMinutes) => {
+  if (!exerciseList || exerciseList.length === 0) return exerciseList;
+  const targetSeconds = targetMinutes * 60;
+
+  // Calculate fixed time components
+  const fixedTime = WORKOUT_TIMING.WARMUP_TIME + WORKOUT_TIMING.COOLDOWN_TIME +
+    (exerciseList.length - 1) * WORKOUT_TIMING.TRANSITION_TIME;
+
+  // Start with base exercises
+  let optimized = exerciseList.map(ex => ({ ...ex, sets: ex.sets || 3 }));
+
+  // Calculate total sets and working time
+  let totalSets = optimized.reduce((sum, ex) => sum + ex.sets, 0);
+  let workingTime = totalSets * WORKOUT_TIMING.AVG_SET_DURATION;
+
+  // Calculate total rest periods needed (sets - exercises, since no rest after last set of each exercise)
+  let totalRestPeriods = totalSets - optimized.length;
+
+  // Available time for rest
+  let availableRestTime = targetSeconds - fixedTime - workingTime;
+
+  // If we have negative rest time, we need to reduce sets
+  while (availableRestTime < totalRestPeriods * 30 && optimized.some(ex => ex.sets > 2)) {
+    // Reduce sets from exercise with most sets
+    const maxSetsEx = optimized.reduce((max, ex) => (ex.sets > max.sets) ? ex : max, optimized[0]);
+    if (maxSetsEx.sets <= 2) break;
+    const idx = optimized.findIndex(ex => ex.id === maxSetsEx.id);
+    optimized[idx] = { ...optimized[idx], sets: optimized[idx].sets - 1 };
+
+    // Recalculate
+    totalSets = optimized.reduce((sum, ex) => sum + ex.sets, 0);
+    workingTime = totalSets * WORKOUT_TIMING.AVG_SET_DURATION;
+    totalRestPeriods = totalSets - optimized.length;
+    availableRestTime = targetSeconds - fixedTime - workingTime;
+  }
+
+  // If we have too much time, add sets
+  while (availableRestTime > totalRestPeriods * 180 && optimized.some(ex => ex.sets < 5)) {
+    const minSetsEx = optimized.reduce((min, ex) => (ex.sets < min.sets && ex.sets < 5) ? ex : min, optimized[0]);
+    if (minSetsEx.sets >= 5) break;
+    const idx = optimized.findIndex(ex => ex.id === minSetsEx.id);
+    optimized[idx] = { ...optimized[idx], sets: optimized[idx].sets + 1 };
+
+    // Recalculate
+    totalSets = optimized.reduce((sum, ex) => sum + ex.sets, 0);
+    workingTime = totalSets * WORKOUT_TIMING.AVG_SET_DURATION;
+    totalRestPeriods = totalSets - optimized.length;
+    availableRestTime = targetSeconds - fixedTime - workingTime;
+  }
+
+  // Now distribute rest time EVENLY across all rest periods
+  const restPerPeriod = totalRestPeriods > 0
+    ? Math.max(30, Math.min(180, Math.round(availableRestTime / totalRestPeriods)))
+    : 90;
+
+  // Apply the same rest time to ALL exercises (even distribution)
+  optimized = optimized.map(ex => ({
+    ...ex,
+    restTime: restPerPeriod
+  }));
+
+  return optimized;
+};
+
+const getWorkoutTimeBreakdown = (exerciseList) => {
+  if (!exerciseList || exerciseList.length === 0) {
+    return { workingTime: 0, restTime: 0, totalTime: 0, warmupCooldown: WORKOUT_TIMING.WARMUP_TIME + WORKOUT_TIMING.COOLDOWN_TIME };
+  }
+  let workingSeconds = 0, restSeconds = 0;
+  exerciseList.forEach((ex) => {
+    workingSeconds += (ex.sets || 3) * WORKOUT_TIMING.AVG_SET_DURATION;
+    restSeconds += ((ex.sets || 3) - 1) * (ex.restTime || 90);
+  });
+  const transitionTime = (exerciseList.length - 1) * WORKOUT_TIMING.TRANSITION_TIME;
+  const warmupCooldown = WORKOUT_TIMING.WARMUP_TIME + WORKOUT_TIMING.COOLDOWN_TIME;
+  return { workingTime: workingSeconds, restTime: restSeconds, transitionTime, warmupCooldown, totalTime: workingSeconds + restSeconds + transitionTime + warmupCooldown };
+};
+
+// Optimize exercises for a specific time AND exercise count
+// This allows users to have more or fewer exercises while keeping the same total time
+// workoutType is optional - if provided, ensures all target muscle groups are covered
+const optimizeExercisesForTimeAndCount = (baseExerciseList, fullExercisePool, targetMinutes, targetExerciseCount, workoutType = null) => {
+  if (!baseExerciseList || baseExerciseList.length === 0) return baseExerciseList;
+  const targetSeconds = targetMinutes * 60;
+
+  let exercises = [...baseExerciseList];
+  const defaultCount = Math.max(2, Math.floor(targetMinutes / 12));
+  const targetCount = targetExerciseCount || defaultCount;
+  const isShortening = targetCount < baseExerciseList.length;
+
+  // If we need more exercises, add from the pool
+  if (targetCount > exercises.length && fullExercisePool.length > exercises.length) {
+    const currentIds = exercises.map(ex => ex.id);
+    const additionalExercises = fullExercisePool
+      .filter(ex => !currentIds.includes(ex.id))
+      .slice(0, targetCount - exercises.length);
+    exercises = [...exercises, ...additionalExercises];
+  }
+
+  // If we need fewer exercises, intelligently select which to keep
+  if (targetCount < exercises.length) {
+    // Prioritize keeping compounds and ensuring muscle group coverage
+    const compounds = exercises.filter(ex => ex.exerciseType === 'compound');
+    const isolations = exercises.filter(ex => ex.exerciseType !== 'compound');
+
+    // Keep all compounds first (up to target count)
+    const toKeep = compounds.slice(0, targetCount);
+
+    // Fill remaining slots with isolations, prioritizing variety
+    if (toKeep.length < targetCount) {
+      const musclesCovered = new Set(toKeep.map(ex => ex.muscleGroup));
+      // First add isolations targeting muscles not yet covered
+      const uncoveredIsolations = isolations.filter(ex => !musclesCovered.has(ex.muscleGroup));
+      const coveredIsolations = isolations.filter(ex => musclesCovered.has(ex.muscleGroup));
+      const orderedIsolations = [...uncoveredIsolations, ...coveredIsolations];
+      toKeep.push(...orderedIsolations.slice(0, targetCount - toKeep.length));
+    }
+
+    exercises = toKeep;
+  }
+
+  // Ensure muscle group coverage if we shortened the workout
+  if (isShortening && workoutType) {
+    exercises = ensureMuscleGroupCoverage(exercises, workoutType, fullExercisePool);
+  }
+
+  // Calculate fixed time components
+  const fixedTime = WORKOUT_TIMING.WARMUP_TIME + WORKOUT_TIMING.COOLDOWN_TIME +
+    (exercises.length - 1) * WORKOUT_TIMING.TRANSITION_TIME;
+
+  // Start with base sets
+  let optimized = exercises.map(ex => ({ ...ex, sets: ex.sets || 3 }));
+
+  // Helper function to recalculate timing values
+  const recalculate = () => {
+    const totalSets = optimized.reduce((sum, ex) => sum + ex.sets, 0);
+    const workingTime = totalSets * WORKOUT_TIMING.AVG_SET_DURATION;
+    const totalRestPeriods = totalSets - optimized.length;
+    const availableRestTime = targetSeconds - fixedTime - workingTime;
+    return { totalSets, workingTime, totalRestPeriods, availableRestTime };
+  };
+
+  let timing = recalculate();
+
+  // First pass: If more exercises than default, reduce sets to fit
+  if (targetCount > defaultCount) {
+    while (timing.availableRestTime < timing.totalRestPeriods * 30 && optimized.some(ex => ex.sets > 2)) {
+      const maxSetsEx = optimized.reduce((max, ex) => (ex.sets > max.sets) ? ex : max, optimized[0]);
+      if (maxSetsEx.sets <= 2) break;
+      const idx = optimized.findIndex(ex => ex.id === maxSetsEx.id);
+      optimized[idx] = { ...optimized[idx], sets: optimized[idx].sets - 1 };
+      timing = recalculate();
+    }
+  }
+
+  // Second pass: ALWAYS try to fill remaining time by adding sets
+  // If rest per period would exceed 120 seconds (2 min), add more sets to use the time productively
+  // Max 6 sets per exercise to prevent excessive volume
+  const MAX_SETS_PER_EXERCISE = 6;
+  const IDEAL_REST_TIME = 90; // Target ~90 seconds rest between sets
+
+  while (timing.totalRestPeriods > 0 &&
+         timing.availableRestTime / timing.totalRestPeriods > IDEAL_REST_TIME + 30 &&
+         optimized.some(ex => ex.sets < MAX_SETS_PER_EXERCISE)) {
+    // Find exercise with fewest sets that's under max
+    const minSetsEx = optimized
+      .filter(ex => ex.sets < MAX_SETS_PER_EXERCISE)
+      .reduce((min, ex) => (ex.sets < min.sets) ? ex : min, optimized.find(ex => ex.sets < MAX_SETS_PER_EXERCISE));
+
+    if (!minSetsEx) break;
+
+    const idx = optimized.findIndex(ex => ex.id === minSetsEx.id);
+    optimized[idx] = { ...optimized[idx], sets: optimized[idx].sets + 1 };
+    timing = recalculate();
+
+    // Safety check: if we've maxed all exercises, stop
+    if (optimized.every(ex => ex.sets >= MAX_SETS_PER_EXERCISE)) break;
+  }
+
+  // Final recalculation
+  timing = recalculate();
+
+  // Distribute rest evenly (min 30s, max 180s)
+  const restPerPeriod = timing.totalRestPeriods > 0
+    ? Math.max(30, Math.min(180, Math.round(timing.availableRestTime / timing.totalRestPeriods)))
+    : 90;
+
+  optimized = optimized.map(ex => ({
+    ...ex,
+    restTime: restPerPeriod
+  }));
+
+  // Reorder exercises to avoid same muscle groups back-to-back
+  // This provides better recovery between exercises for the same muscles
+  // Skip cardio exercises in reordering (keep them at the end)
+  const cardioExercises = optimized.filter(ex => ex.isCardio || ex.muscleGroup === 'Cardio');
+  const nonCardioExercises = optimized.filter(ex => !ex.isCardio && ex.muscleGroup !== 'Cardio');
+  const reorderedNonCardio = reorderExercisesForRecovery(nonCardioExercises);
+  optimized = [...reorderedNonCardio, ...cardioExercises];
+
+  // Check if workout still exceeds target time - if so, try to create supersets
+  const currentTotalTime = getWorkoutTimeBreakdown(optimized).totalTime;
+  const timeOverTarget = (currentTotalTime - targetSeconds) / 60; // in minutes
+
+  if (timeOverTarget > 2) { // Only superset if we're more than 2 minutes over
+    const supersetResult = createSupersets(optimized, timeOverTarget);
+    if (supersetResult.supersets.length > 0) {
+      return supersetResult.exercises;
+    }
+  }
+
+  return optimized;
+};
+
 // ActiveWorkoutScreen as separate component
-function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, userGoal = 'build_muscle', userId = null, workoutName = 'Workout' }) {
+function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, userGoal = 'build_muscle', userId = null, workoutName = 'Workout', workoutTemplate = null, injuries = [] }) {
+  // Use passed workout template or fall back to CURRENT_WORKOUT
+  const activeWorkout = workoutTemplate || CURRENT_WORKOUT;
   const [sessionId, setSessionId] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [phase, setPhase] = useState('overview'); // 'overview', 'workout', 'workoutOverview', 'complete'
@@ -2343,7 +3608,17 @@ function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, 
   const [showExerciseHistory, setShowExerciseHistory] = useState(null);
   const [showSwapExercise, setShowSwapExercise] = useState(null);
   const [swapSearch, setSwapSearch] = useState('');
-  const [exercises, setExercises] = useState([...WORKOUT_EXERCISES]);
+  // Initialize exercises from workout template, optimized for available time
+  const [exercises, setExercises] = useState(() => {
+    const baseExercises = activeWorkout?.exercises || WORKOUT_EXERCISES;
+    const exerciseCount = Math.max(2, Math.floor(availableTime / 12));
+    const selectedExercises = baseExercises.slice(0, exerciseCount).map(ex => ({
+      ...ex,
+      history: [],
+      alternatives: ALL_EXERCISES.filter(e => e.muscleGroup === ex.muscleGroup).slice(0, 5).map(e => e.name)
+    }));
+    return optimizeExercisesForTime(selectedExercises, availableTime);
+  });
   const [showAddExercise, setShowAddExercise] = useState(false);
   const [addExerciseSearch, setAddExerciseSearch] = useState('');
   const [showFullWorkoutList, setShowFullWorkoutList] = useState(false);
@@ -2405,9 +3680,10 @@ function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, 
     return sorted;
   };
 
-  // Use all exercises (no time-based filtering - user controls via add/remove)
+  // Use exercises and calculate time breakdown
   const exercisesForTime = exercises;
-  
+  const timeBreakdown = getWorkoutTimeBreakdown(exercisesForTime);
+
   const totalSets = exercisesForTime.reduce((acc, ex) => acc + ex.sets, 0);
   const completedSetsCount = completedSets.length;
   const progressPercent = (completedSetsCount / totalSets) * 100;
@@ -2781,10 +4057,10 @@ function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, 
   if (phase === 'overview') {
     // Get workout purpose from template
     const workoutPurpose = {
-      title: CURRENT_WORKOUT.name,
-      focus: CURRENT_WORKOUT.focus,
-      description: CURRENT_WORKOUT.description,
-      goals: CURRENT_WORKOUT.goals
+      title: activeWorkout.name,
+      focus: activeWorkout.focus,
+      description: activeWorkout.description,
+      goals: activeWorkout.goals || []
     };
     
     return (
@@ -2815,49 +4091,178 @@ function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, 
               ))}
             </div>
           </div>
-          
-          <div className="space-y-3 mb-6">
-            {exercisesForTime.map((exercise, i) => (
-              <div key={exercise.id} className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
-                <div className="flex items-center justify-between mb-2">
-                  <button onClick={() => setShowExerciseHistory(i)} className="flex items-center gap-3 flex-1 text-left">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '20' }}>
-                      <span className="font-bold" style={{ color: COLORS.primary }}>{i + 1}</span>
+
+          {/* Injury Recovery Coaching */}
+          {injuries.length > 0 && (() => {
+            const primaryInjury = injuries[0];
+            const currentPhase = getCurrentRecoveryPhase(primaryInjury);
+            const phaseInfo = RECOVERY_PHASES[currentPhase];
+            const coachingMessage = getCoachingMessage(currentPhase, primaryInjury.muscleGroup);
+            const hasRecoveryExercises = exercisesForTime.some(ex => ex.isRecoveryExercise);
+
+            return (
+              <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.warning + '10', border: `1px solid ${COLORS.warning}30` }}>
+                <div className="flex items-start gap-3">
+                  <span className="text-2xl">{phaseInfo.icon}</span>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm font-semibold" style={{ color: COLORS.text }}>Recovery Mode Active</span>
+                      <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: INJURY_SEVERITY[primaryInjury.severity].color + '20', color: INJURY_SEVERITY[primaryInjury.severity].color }}>
+                        {primaryInjury.muscleGroup}
+                      </span>
                     </div>
-                    <div>
-                      <p className="font-semibold" style={{ color: COLORS.text }}>{exercise.name}</p>
-                      <p className="text-xs" style={{ color: COLORS.textMuted }}>{exercise.muscleGroup} • Tap to view history</p>
-                    </div>
-                  </button>
-                  <div className="flex items-center gap-2">
-                    <div className="text-right mr-2">
-                      <p className="font-semibold" style={{ color: COLORS.text }}>{exercise.sets} × {exercise.targetReps}</p>
-                      <p className="text-xs" style={{ color: COLORS.textMuted }}>{exercise.suggestedWeight}kg</p>
-                    </div>
-                    <button onClick={() => setShowSwapExercise(i)} className="p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
-                      <Undo2 size={16} color={COLORS.textMuted} />
-                    </button>
-                    {exercises.length > 1 && (
-                      <button onClick={() => removeExercise(i)} className="p-2 rounded-lg" style={{ backgroundColor: COLORS.error + '20' }}>
-                        <X size={16} color={COLORS.error} />
-                      </button>
+                    <p className="text-sm mb-2" style={{ color: COLORS.textSecondary }}>{coachingMessage}</p>
+                    {hasRecoveryExercises && (
+                      <p className="text-xs" style={{ color: COLORS.success }}>
+                        ✓ Rehab exercises included • Listen to your body and stop if you feel pain
+                      </p>
                     )}
                   </div>
                 </div>
-                <div className="mt-2 pt-2 border-t flex items-center justify-between" style={{ borderColor: COLORS.surfaceLight }}>
-                  <p className="text-xs" style={{ color: COLORS.textMuted }}>Last: {exercise.lastWeight}kg × {exercise.lastReps.join(', ')}</p>
-                  {exercise.suggestedWeight > exercise.lastWeight && (
-                    <span className="text-xs px-2 py-0.5 rounded" style={{ backgroundColor: COLORS.success + '20', color: COLORS.success }}>+{(exercise.suggestedWeight - exercise.lastWeight).toFixed(1)}kg</span>
-                  )}
-                </div>
               </div>
-            ))}
+            );
+          })()}
+
+          <div className="space-y-3 mb-6">
+            {exercisesForTime.map((exercise, i) => {
+              const isSuperset = exercise.supersetId;
+              const isFirstInSuperset = isSuperset && exercise.supersetOrder === 1;
+              const isSecondInSuperset = isSuperset && exercise.supersetOrder === 2;
+
+              return (
+                <div key={exercise.id}>
+                  {/* Superset header - show before first exercise in superset */}
+                  {isFirstInSuperset && (
+                    <div className="flex items-center gap-2 mb-2 px-2">
+                      <Zap size={14} color={COLORS.warning} />
+                      <span className="text-xs font-semibold" style={{ color: COLORS.warning }}>SUPERSET</span>
+                      <span className="text-xs" style={{ color: COLORS.textMuted }}>— No rest between these exercises</span>
+                    </div>
+                  )}
+                  <div
+                    className="p-4 rounded-xl"
+                    style={{
+                      backgroundColor: COLORS.surface,
+                      ...(isSuperset && {
+                        borderLeft: `3px solid ${COLORS.warning}`,
+                        borderRadius: isFirstInSuperset ? '12px 12px 0 0' : isSecondInSuperset ? '0 0 12px 12px' : '12px',
+                        marginTop: isSecondInSuperset ? '-1px' : 0
+                      })
+                    }}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <button onClick={() => setShowExerciseHistory(i)} className="flex items-center gap-3 flex-1 text-left">
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '20' }}>
+                          <span className="font-bold" style={{ color: COLORS.primary }}>{i + 1}</span>
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="font-semibold" style={{ color: COLORS.text }}>{exercise.name}</p>
+                            {exercise.isRecoveryExercise && (
+                              <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: COLORS.success + '20', color: COLORS.success }}>
+                                Rehab
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                            {exercise.muscleGroup} • {exercise.isRecoveryExercise ? 'Focus on form' : 'Tap to view history'}
+                            {isSuperset && <span style={{ color: COLORS.warning }}> — Paired with {exercise.supersetWith}</span>}
+                          </p>
+                        </div>
+                      </button>
+                      <div className="flex items-center gap-2">
+                        <div className="text-right mr-2">
+                          <p className="font-semibold" style={{ color: COLORS.text }}>{exercise.sets} × {exercise.targetReps}</p>
+                          <p className="text-xs" style={{ color: COLORS.textMuted }}>{exercise.suggestedWeight}kg</p>
+                        </div>
+                        <button onClick={() => setShowSwapExercise(i)} className="p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
+                          <Undo2 size={16} color={COLORS.textMuted} />
+                        </button>
+                        {exercises.length > 1 && (
+                          <button onClick={() => removeExercise(i)} className="p-2 rounded-lg" style={{ backgroundColor: COLORS.error + '20' }}>
+                            <X size={16} color={COLORS.error} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="mt-2 pt-2 border-t flex items-center justify-between" style={{ borderColor: COLORS.surfaceLight }}>
+                      <div className="flex items-center gap-3">
+                        <p className="text-xs" style={{ color: COLORS.textMuted }}>Last: {exercise.lastWeight}kg × {exercise.lastReps?.join(', ') || '-'}</p>
+                        {isSuperset && exercise.restTime === 0 ? (
+                          <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: COLORS.warning + '15', color: COLORS.warning }}>
+                            No rest
+                          </span>
+                        ) : (
+                          <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: COLORS.warning + '15', color: COLORS.warning }}>
+                            {Math.floor((exercise.restTime || 90) / 60)}:{((exercise.restTime || 90) % 60).toString().padStart(2, '0')} rest
+                          </span>
+                        )}
+                      </div>
+                      {exercise.suggestedWeight > (exercise.lastWeight || 0) && (
+                        <span className="text-xs px-2 py-0.5 rounded" style={{ backgroundColor: COLORS.success + '20', color: COLORS.success }}>+{(exercise.suggestedWeight - (exercise.lastWeight || 0)).toFixed(1)}kg</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
           <button onClick={() => setShowAddExercise(true)} className="w-full p-4 rounded-xl flex items-center justify-center gap-2 mb-4" style={{ backgroundColor: COLORS.surfaceLight, border: `2px dashed ${COLORS.textMuted}` }}>
             <Plus size={18} color={COLORS.textMuted} /><span style={{ color: COLORS.textMuted }}>Add Exercise</span>
           </button>
+
+          {/* Time Breakdown Overview */}
+          <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
+            <div className="flex items-center gap-2 mb-3">
+              <Clock size={18} color={COLORS.primary} />
+              <span className="font-semibold" style={{ color: COLORS.text }}>Workout Time Breakdown</span>
+            </div>
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <div className="p-3 rounded-lg text-center" style={{ backgroundColor: COLORS.primary + '15' }}>
+                <p className="text-xl font-bold" style={{ color: COLORS.primary }}>
+                  {Math.floor(timeBreakdown.workingTime / 60)}:{(timeBreakdown.workingTime % 60).toString().padStart(2, '0')}
+                </p>
+                <p className="text-xs" style={{ color: COLORS.textMuted }}>Working Time</p>
+              </div>
+              <div className="p-3 rounded-lg text-center" style={{ backgroundColor: COLORS.warning + '15' }}>
+                <p className="text-xl font-bold" style={{ color: COLORS.warning }}>
+                  {Math.floor(timeBreakdown.restTime / 60)}:{(timeBreakdown.restTime % 60).toString().padStart(2, '0')}
+                </p>
+                <p className="text-xs" style={{ color: COLORS.textMuted }}>Rest Time</p>
+              </div>
+            </div>
+            <div className="flex items-center justify-between p-3 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
+              <div>
+                <p className="text-sm font-medium" style={{ color: COLORS.text }}>Total Duration</p>
+                <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                  Incl. {Math.floor(WORKOUT_TIMING.WARMUP_TIME / 60)} min warmup + {Math.floor(WORKOUT_TIMING.COOLDOWN_TIME / 60)} min cooldown
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-2xl font-bold" style={{ color: COLORS.success }}>
+                  ~{Math.round(timeBreakdown.totalTime / 60)} min
+                </p>
+                {Math.abs(timeBreakdown.totalTime / 60 - availableTime) <= 5 && (
+                  <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: COLORS.success + '20', color: COLORS.success }}>
+                    ✓ On target
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="mt-3 text-xs space-y-1" style={{ color: COLORS.textMuted }}>
+              <div className="flex justify-between">
+                <span>• {totalSets} total sets × ~{WORKOUT_TIMING.AVG_SET_DURATION}s avg</span>
+                <span>{Math.floor(timeBreakdown.workingTime / 60)}m working</span>
+              </div>
+              <div className="flex justify-between">
+                <span>• Rest periods adjusted for {availableTime} min target</span>
+                <span>~{Math.round((timeBreakdown.restTime / (totalSets - exercisesForTime.length)) || 0)}s/set</span>
+              </div>
+            </div>
+          </div>
+
           <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surfaceLight }}>
-            <p className="text-sm" style={{ color: COLORS.textSecondary }}>💡 <strong style={{ color: COLORS.text }}>Tip:</strong> Exercises are auto-ordered for your goal. Tap any exercise to view history, swap to substitute, or remove with the X button.</p>
+            <p className="text-sm" style={{ color: COLORS.textSecondary }}>💡 <strong style={{ color: COLORS.text }}>Tip:</strong> Exercises are auto-ordered for your goal. Rest times and sets have been adjusted to fit your {availableTime} min target.</p>
           </div>
         </div>
         <div className="p-4 border-t" style={{ borderColor: COLORS.surfaceLight }}>
@@ -2976,7 +4381,7 @@ function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, 
           <div className="text-center mb-6">
             <span className="text-6xl mb-2 block">🎉</span>
             <h2 className="text-2xl font-bold" style={{ color: COLORS.text }}>Workout Complete!</h2>
-            <p className="text-sm" style={{ color: COLORS.textSecondary }}>{CURRENT_WORKOUT.name} • {totalDurationMins} mins</p>
+            <p className="text-sm" style={{ color: COLORS.textSecondary }}>{activeWorkout.name} • {totalDurationMins} mins</p>
           </div>
           
           {/* Time Breakdown */}
@@ -3655,6 +5060,12 @@ export default function UpRepDemo() {
         // Calculate program start date from goals created_at or use a reasonable default
         const startDate = goals.created_at ? new Date(goals.created_at) : new Date();
 
+        // Calculate current program week based on start date
+        const now = new Date();
+        const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+        const weeksSinceStart = Math.floor((now - startDate) / msPerWeek) + 1;
+        const currentProgramWeek = Math.min(weeksSinceStart, weeks);
+
         setOverviewStats(prev => ({
           ...prev,
           startingWeight: startW,
@@ -3663,6 +5074,15 @@ export default function UpRepDemo() {
           weeklyTarget: parseFloat(weeklyTarget.toFixed(2)),
           programLength: weeks,
           programStartDate: startDate.toISOString().split('T')[0],
+          programWeek: Math.max(1, currentProgramWeek),
+        }));
+
+        // Also update currentProgram to stay in sync
+        setCurrentProgram(prev => ({
+          ...prev,
+          currentWeek: Math.max(1, currentProgramWeek),
+          totalWeeks: weeks,
+          daysPerWeek: goals.days_per_week || prev.daysPerWeek,
         }));
 
         // Calculate personalized nutrition targets
@@ -3784,6 +5204,42 @@ export default function UpRepDemo() {
     return () => { isMounted = false; };
   }, [user?.id, isAuthenticated, TODAY_DATE_KEY]);
 
+  // Load injuries from database
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadInjuries = async () => {
+      if (!user?.id || !isAuthenticated) return;
+
+      try {
+        // Sync injury phases based on current date and get active injuries
+        const { data: activeInjuries, error } = await injuryService.syncInjuryPhases(user.id);
+        if (error) {
+          console.warn('Injuries error:', error?.message);
+          return;
+        }
+
+        if (isMounted && activeInjuries) {
+          // Convert database format to app format
+          setInjuries(activeInjuries.map(injury => ({
+            id: injury.id,
+            muscleGroup: injury.muscle_group,
+            severity: injury.severity,
+            notes: injury.notes,
+            reportedDate: injury.reported_date,
+            timeline: injury.timeline,
+          })));
+        }
+      } catch (err) {
+        console.warn('Error loading injuries:', err?.message || err);
+      }
+    };
+
+    loadInjuries();
+
+    return () => { isMounted = false; };
+  }, [user?.id, isAuthenticated]);
+
   // Load chart data from database
   useEffect(() => {
     let isMounted = true;
@@ -3890,6 +5346,13 @@ export default function UpRepDemo() {
         }
 
         if (isMounted) {
+          // Update total workouts count from actual data
+          const totalCompletedWorkouts = workoutData?.length || 0;
+          setOverviewStats(prev => ({
+            ...prev,
+            totalWorkouts: totalCompletedWorkouts,
+          }));
+
           setChartData(prev => ({
             ...prev,
             weight: weightChartData,
@@ -3938,6 +5401,33 @@ export default function UpRepDemo() {
   const [showActiveWorkout, setShowActiveWorkout] = useState(false);
   const [workoutTime, setWorkoutTime] = useState(60);
   const [showTimeEditor, setShowTimeEditor] = useState(false);
+  const [expandedExerciseId, setExpandedExerciseId] = useState(null);
+  const [customizedExercises, setCustomizedExercises] = useState(null); // null = use default, array = customized
+  const [customExerciseCount, setCustomExerciseCount] = useState(null); // null = use default (workoutTime / 12), number = override
+  const workoutTabScrollRef = useRef(null);
+
+  // Wrapper to preserve scroll when updating workout time/count
+  const updateWorkoutTimeWithScroll = (time) => {
+    const scrollTop = workoutTabScrollRef.current?.scrollTop;
+    setWorkoutTime(time);
+    setCustomExerciseCount(null);
+    requestAnimationFrame(() => {
+      if (workoutTabScrollRef.current && scrollTop !== undefined) {
+        workoutTabScrollRef.current.scrollTop = scrollTop;
+      }
+    });
+  };
+
+  const updateExerciseCountWithScroll = (countOrUpdater) => {
+    const scrollTop = workoutTabScrollRef.current?.scrollTop;
+    setCustomExerciseCount(countOrUpdater);
+    requestAnimationFrame(() => {
+      if (workoutTabScrollRef.current && scrollTop !== undefined) {
+        workoutTabScrollRef.current.scrollTop = scrollTop;
+      }
+    });
+  };
+
   const [showReschedule, setShowReschedule] = useState(false);
   const [showPausePlan, setShowPausePlan] = useState(false);
   const [rescheduleOption, setRescheduleOption] = useState(null);
@@ -3959,6 +5449,7 @@ export default function UpRepDemo() {
   const [selectedStreakDay, setSelectedStreakDay] = useState(null);
   const [draggedDay, setDraggedDay] = useState(null);
   const [dragOverDay, setDragOverDay] = useState(null);
+  const [showScheduleSettings, setShowScheduleSettings] = useState(false);
   const [pauseDuration, setPauseDuration] = useState(null);
   const [pauseCalendarMonth, setPauseCalendarMonth] = useState(currentMonth);
   const [pauseCalendarYear, setPauseCalendarYear] = useState(currentYear);
@@ -3992,7 +5483,15 @@ export default function UpRepDemo() {
   const [pauseReturnDate, setPauseReturnDate] = useState(null);
   const [isRescheduled, setIsRescheduled] = useState(false);
   const [originalWorkout, setOriginalWorkout] = useState(null);
-  
+
+  // Injury tracking
+  const [injuries, setInjuries] = useState([]);
+  const [showReportInjury, setShowReportInjury] = useState(false);
+  const [showInjuryRecovery, setShowInjuryRecovery] = useState(null); // injury object or null
+  const [selectedInjuryMuscle, setSelectedInjuryMuscle] = useState(null);
+  const [injurySeverity, setInjurySeverity] = useState('mild');
+  const [injuryNotes, setInjuryNotes] = useState('');
+
   // Supplements - start empty, load from database
   const [supplements, setSupplements] = useState([]);
   const [showAddSupplement, setShowAddSupplement] = useState(false);
@@ -4032,6 +5531,8 @@ export default function UpRepDemo() {
   const [showAddFriendModal, setShowAddFriendModal] = useState(false);
   const [friendSearchQuery, setFriendSearchQuery] = useState('');
   const [expandedActivity, setExpandedActivity] = useState(null);
+  const friendSearchInputRef = useRef(null);
+  const friendSearchTimeoutRef = useRef(null);
   
   // Friends list - loaded from database
   const [friends, setFriends] = useState([]);
@@ -4147,6 +5648,7 @@ export default function UpRepDemo() {
   // Friend search state
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
 
   // Meal and water tracking modals
   const [showMealEntry, setShowMealEntry] = useState(false);
@@ -4188,13 +5690,13 @@ export default function UpRepDemo() {
   const [exerciseSearchQuery, setExerciseSearchQuery] = useState('');
   const [exerciseFilterGroup, setExerciseFilterGroup] = useState('All');
   
-  // Current program state
+  // Current program state - will be updated from database
   const [currentProgram, setCurrentProgram] = useState({
     id: 'ppl',
     name: 'Push/Pull/Legs',
     description: '6-day split for maximum muscle growth',
     daysPerWeek: 6,
-    currentWeek: 5,
+    currentWeek: 1, // Will be calculated from program start date
     totalWeeks: 16,
   });
   
@@ -4204,21 +5706,42 @@ export default function UpRepDemo() {
   const [editingScheduleDay, setEditingScheduleDay] = useState(null);
   const [showWorkoutTimeEditor, setShowWorkoutTimeEditor] = useState(false);
   const scheduleScrollRef = useRef(null);
-  
-  // Master schedule - editable workout plan
+
+  // Get workout rotation based on days per week
+  // Returns workout type identifiers for dynamic generation (not full templates)
+  const getWorkoutTypeRotation = (daysPerWeek) => {
+    switch(daysPerWeek) {
+      case 3: // Full body 3x
+        return ['full_body', 'full_body', 'full_body'];
+      case 4: // Upper/Lower split
+        return ['upper', 'lower', 'upper', 'lower'];
+      case 5: // PPL + Upper/Lower
+        return ['push', 'pull', 'legs_quad', 'upper', 'lower'];
+      case 6: // PPL x2
+      default:
+        return ['push', 'pull', 'legs_quad', 'push', 'pull', 'legs_posterior'];
+    }
+  };
+
+  // Cache for generated workouts (keyed by date to ensure consistency within a day)
+  const [generatedWorkoutsCache, setGeneratedWorkoutsCache] = useState({});
+
+  // Track recently used exercises for variety
+  const [recentlyUsedExercises, setRecentlyUsedExercises] = useState([]);
+
+  // Get user's current goal
+  const userGoal = userData.goal || 'build_muscle';
+
+  // Master schedule - stores workout TYPE (not full workout) for dynamic generation
   const [masterSchedule, setMasterSchedule] = useState(() => {
-    // Generate 52 weeks of schedule (1 year)
+    // Use user's rest days or default to Sat/Sun
+    const userRestDays = userData.restDays || [5, 6]; // 0=Mon, 6=Sun
+    const daysPerWeek = userData.daysPerWeek || (7 - userRestDays.length);
+    const workoutTypeRotation = getWorkoutTypeRotation(daysPerWeek);
+
     const schedule = {};
-    const workoutRotation = [
-      WORKOUT_TEMPLATES.push_a,
-      WORKOUT_TEMPLATES.pull_a,
-      WORKOUT_TEMPLATES.legs_a,
-      null, // Rest
-      WORKOUT_TEMPLATES.push_b,
-      WORKOUT_TEMPLATES.pull_b,
-      WORKOUT_TEMPLATES.legs_b,
-    ];
-    
+    let workoutIndex = 0;
+
     // Generate schedule starting 30 days ago to 365 days in future
     const scheduleStart = new Date(today);
     scheduleStart.setDate(today.getDate() - 30);
@@ -4226,37 +5749,134 @@ export default function UpRepDemo() {
       const date = new Date(scheduleStart);
       date.setDate(scheduleStart.getDate() + i);
       const dateKey = date.toISOString().split('T')[0];
-      const dayOfWeek = date.getDay();
-      const isPast = date < today;
+      // Convert to Monday=0 format: (getDay() + 6) % 7
+      const dayOfWeek = (date.getDay() + 6) % 7;
 
-      // Rest on Sunday (getDay()=0) and Saturday (getDay()=6)
-      if (dayOfWeek === 0 || dayOfWeek === 6) {
-        schedule[dateKey] = { workout: null, completed: false };
+      // Check if this day is a rest day
+      if (userRestDays.includes(dayOfWeek)) {
+        schedule[dateKey] = { workoutType: null, completed: false };
       } else {
-        const rotationIndex = i % 7;
-        const workout = workoutRotation[rotationIndex % workoutRotation.length];
         schedule[dateKey] = {
-          workout,
+          workoutType: workoutTypeRotation[workoutIndex % workoutTypeRotation.length],
           completed: false // Will be loaded from database
         };
+        workoutIndex++;
       }
     }
     return schedule;
   });
 
-  // Sync todayWorkout with masterSchedule on mount
+  // Generate or retrieve cached workout for a date
+  const getWorkoutForDate = (dateKey) => {
+    const scheduleEntry = masterSchedule[dateKey];
+    if (!scheduleEntry || !scheduleEntry.workoutType) return null;
+
+    // Check cache first
+    if (generatedWorkoutsCache[dateKey]) {
+      return generatedWorkoutsCache[dateKey];
+    }
+
+    // Generate new workout
+    const workout = generateDynamicWorkout(scheduleEntry.workoutType, userGoal, recentlyUsedExercises);
+
+    // Cache it for consistency
+    setGeneratedWorkoutsCache(prev => ({ ...prev, [dateKey]: workout }));
+
+    // Update recently used exercises (keep last 20)
+    if (workout) {
+      const newUsed = workout.exercises.map(ex => ex.name);
+      setRecentlyUsedExercises(prev => [...newUsed, ...prev].slice(0, 20));
+    }
+
+    return workout;
+  };
+
+  // Regenerate schedule when rest days or days per week changes
+  const regenerateSchedule = (newRestDays, newDaysPerWeek) => {
+    const workoutTypeRotation = getWorkoutTypeRotation(newDaysPerWeek);
+    const newSchedule = {};
+    let workoutIndex = 0;
+
+    const scheduleStart = new Date(today);
+    scheduleStart.setDate(today.getDate() - 30);
+
+    for (let i = 0; i < 395; i++) {
+      const date = new Date(scheduleStart);
+      date.setDate(scheduleStart.getDate() + i);
+      const dateKey = date.toISOString().split('T')[0];
+      const dayOfWeek = (date.getDay() + 6) % 7; // Monday=0
+
+      // Preserve completed workouts from old schedule
+      const existingEntry = masterSchedule[dateKey];
+      if (existingEntry?.completed) {
+        newSchedule[dateKey] = existingEntry;
+        if (existingEntry.workoutType) workoutIndex++; // Keep rotation in sync
+        continue;
+      }
+
+      if (newRestDays.includes(dayOfWeek)) {
+        newSchedule[dateKey] = { workoutType: null, completed: false };
+      } else {
+        newSchedule[dateKey] = {
+          workoutType: workoutTypeRotation[workoutIndex % workoutTypeRotation.length],
+          completed: false
+        };
+        workoutIndex++;
+      }
+    }
+
+    setMasterSchedule(newSchedule);
+    // Clear cache to regenerate workouts with new schedule
+    setGeneratedWorkoutsCache({});
+
+    // Update userData
+    setUserData(prev => ({
+      ...prev,
+      restDays: newRestDays,
+      daysPerWeek: newDaysPerWeek,
+    }));
+
+    // Save to database
+    if (updateGoals) {
+      updateGoals({
+        rest_days: newRestDays,
+        days_per_week: newDaysPerWeek,
+      });
+    }
+  };
+
+  // Auto-regenerate schedule when rest days change (e.g., during onboarding)
+  const prevRestDaysRef = useRef(userData.restDays);
+  useEffect(() => {
+    const prevRestDays = prevRestDaysRef.current;
+    const currentRestDays = userData.restDays || [5, 6];
+    const currentDaysPerWeek = 7 - currentRestDays.length;
+
+    // Check if rest days actually changed (not just on mount)
+    if (prevRestDays && JSON.stringify(prevRestDays) !== JSON.stringify(currentRestDays)) {
+      regenerateSchedule(currentRestDays, currentDaysPerWeek);
+    }
+    prevRestDaysRef.current = currentRestDays;
+  }, [userData.restDays]);
+
+  // Sync todayWorkout with masterSchedule (on mount and when today's workout type changes)
+  const todayWorkoutType = masterSchedule[TODAY_DATE_KEY]?.workoutType;
   useEffect(() => {
     const todayEntry = masterSchedule[TODAY_DATE_KEY];
     if (todayEntry) {
       setTodayWorkoutCompleted(todayEntry.completed);
-      if (todayEntry.workout) {
-        setTodayWorkout({
-          type: todayEntry.workout.name.replace(' Day ', ' ').replace('Day ', ''),
-          name: todayEntry.workout.name,
-          exercises: todayEntry.workout.exercises?.length || 0,
-          duration: 60,
-          focus: todayEntry.workout.focus || ''
-        });
+      if (todayEntry.workoutType) {
+        // Get the dynamically generated workout for today
+        const generatedWorkout = getWorkoutForDate(TODAY_DATE_KEY);
+        if (generatedWorkout) {
+          setTodayWorkout({
+            type: generatedWorkout.name.replace(' Day ', ' ').replace('Day ', ''),
+            name: generatedWorkout.name,
+            exercises: generatedWorkout.exercises?.length || 0,
+            duration: 60,
+            focus: generatedWorkout.focus || ''
+          });
+        }
       } else {
         setTodayWorkout({
           type: 'Rest',
@@ -4267,7 +5887,102 @@ export default function UpRepDemo() {
         });
       }
     }
-  }, []);
+  }, [todayWorkoutType]);
+
+  // Get today's dynamically generated workout (cached for consistency within the day)
+  const todayWorkoutTemplate = getWorkoutForDate(TODAY_DATE_KEY) || CURRENT_WORKOUT;
+
+  // Get the current exercises (either customized or from template)
+  const getCurrentExercises = () => {
+    let exercises = customizedExercises || todayWorkoutTemplate?.exercises || [];
+
+    // Filter out exercises targeting injured muscles
+    if (injuries.length > 0) {
+      exercises = exercises.filter(ex => {
+        // Check if this exercise targets any injured muscle
+        for (const injury of injuries) {
+          if (isMuscleInjured(ex.muscleGroup, injuries)) {
+            return false;
+          }
+          // Also check secondary muscles if defined
+          if (ex.secondaryMuscles) {
+            for (const secondary of ex.secondaryMuscles) {
+              if (isMuscleInjured(secondary, injuries)) {
+                return false;
+              }
+            }
+          }
+        }
+        return true;
+      });
+    }
+
+    return exercises;
+  };
+
+  // Get recovery exercises to add based on current injuries
+  const getInjuryRecoveryExercisesToAdd = () => {
+    if (injuries.length === 0) return [];
+    return getRecoveryExercisesForWorkout(injuries);
+  };
+
+  // Find alternative exercise from same muscle group
+  const getAlternativeExercise = (currentExercise, excludeIds = []) => {
+    const alternatives = ALL_EXERCISES.filter(ex =>
+      ex.muscleGroup === currentExercise.muscleGroup &&
+      ex.name !== currentExercise.name &&
+      !excludeIds.includes(ex.id)
+    );
+    if (alternatives.length === 0) return null;
+    const randomAlt = alternatives[Math.floor(Math.random() * alternatives.length)];
+    return {
+      ...currentExercise,
+      id: randomAlt.id || randomAlt.name.toLowerCase().replace(/\s+/g, '_'),
+      name: randomAlt.name,
+      muscleGroup: randomAlt.muscleGroup,
+    };
+  };
+
+  // Swap exercise with alternative
+  const swapExercise = (exerciseIndex) => {
+    const exercises = getCurrentExercises();
+    const currentExercise = exercises[exerciseIndex];
+    const excludeIds = exercises.map(ex => ex.id);
+    const alternative = getAlternativeExercise(currentExercise, excludeIds);
+
+    if (alternative) {
+      const newExercises = [...exercises];
+      newExercises[exerciseIndex] = alternative;
+      setCustomizedExercises(newExercises);
+      setExpandedExerciseId(null);
+    }
+  };
+
+  // Remove exercise and redistribute sets
+  const removeExercise = (exerciseIndex) => {
+    const exercises = getCurrentExercises();
+    if (exercises.length <= 2) return; // Don't allow removing if only 2 exercises left
+
+    const removedExercise = exercises[exerciseIndex];
+    const removedSets = removedExercise.sets;
+    const newExercises = exercises.filter((_, i) => i !== exerciseIndex);
+
+    // Distribute removed sets among remaining exercises
+    const setsToAdd = Math.ceil(removedSets / newExercises.length);
+    const redistributedExercises = newExercises.map((ex, i) => ({
+      ...ex,
+      sets: ex.sets + (i < removedSets ? 1 : 0) // Add 1 set to first N exercises
+    }));
+
+    setCustomizedExercises(redistributedExercises);
+    setExpandedExerciseId(null);
+  };
+
+  // Reset customizations
+  const resetCustomizations = () => {
+    setCustomizedExercises(null);
+    setExpandedExerciseId(null);
+  };
 
   // Mark today's workout as complete
   const completeTodayWorkout = () => {
@@ -4291,8 +6006,10 @@ export default function UpRepDemo() {
       const date = new Date(startOfWeek);
       date.setDate(startOfWeek.getDate() + i);
       const dateKey = date.toISOString().split('T')[0];
-      const scheduleEntry = masterSchedule[dateKey] || { workout: null, completed: false };
+      const scheduleEntry = masterSchedule[dateKey] || { workoutType: null, completed: false };
       const isPast = date < todayStart;
+      // Generate workout if there's a workout type scheduled
+      const workout = scheduleEntry.workoutType ? getWorkoutForDate(dateKey) : null;
 
       days.push({
         day: dayNames[i],
@@ -4300,7 +6017,8 @@ export default function UpRepDemo() {
         month: date.getMonth(),
         year: date.getFullYear(),
         dateKey,
-        workout: scheduleEntry.workout,
+        workout: workout,
+        workoutType: scheduleEntry.workoutType,
         completed: scheduleEntry.completed,
         isToday: date.toDateString() === today.toDateString(),
         isPast
@@ -4308,29 +6026,42 @@ export default function UpRepDemo() {
     }
     return days;
   };
-  
+
   const currentWeekDates = getWeekDates(scheduleWeekOffset);
-  
-  // Swap workouts between two days
+
+  // Swap workout types between two days
   const swapWorkoutDays = (fromDateKey, toDateKey) => {
     setMasterSchedule(prev => {
       const newSchedule = { ...prev };
-      const fromWorkout = newSchedule[fromDateKey]?.workout;
-      const toWorkout = newSchedule[toDateKey]?.workout;
-      
-      newSchedule[fromDateKey] = { ...newSchedule[fromDateKey], workout: toWorkout };
-      newSchedule[toDateKey] = { ...newSchedule[toDateKey], workout: fromWorkout };
-      
+      const fromType = newSchedule[fromDateKey]?.workoutType;
+      const toType = newSchedule[toDateKey]?.workoutType;
+
+      newSchedule[fromDateKey] = { ...newSchedule[fromDateKey], workoutType: toType };
+      newSchedule[toDateKey] = { ...newSchedule[toDateKey], workoutType: fromType };
+
       return newSchedule;
     });
+    // Clear cache for swapped days to regenerate workouts
+    setGeneratedWorkoutsCache(prev => {
+      const newCache = { ...prev };
+      delete newCache[fromDateKey];
+      delete newCache[toDateKey];
+      return newCache;
+    });
   };
-  
-  // Change workout for a specific day
-  const setWorkoutForDay = (dateKey, workout) => {
+
+  // Change workout type for a specific day
+  const setWorkoutForDay = (dateKey, workoutType) => {
     setMasterSchedule(prev => ({
       ...prev,
-      [dateKey]: { ...prev[dateKey], workout }
+      [dateKey]: { ...prev[dateKey], workoutType }
     }));
+    // Clear cache for this day to regenerate workout
+    setGeneratedWorkoutsCache(prev => {
+      const newCache = { ...prev };
+      delete newCache[dateKey];
+      return newCache;
+    });
   };
   
   // Get month name for week header
@@ -4358,14 +6089,18 @@ export default function UpRepDemo() {
       date.setDate(today.getDate() + i);
       const dateKey = date.toISOString().split('T')[0];
       const entry = masterSchedule[dateKey];
-      if (entry?.workout) {
+      if (entry?.workoutType) {
         const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
         const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        upcoming.push({
-          date: `${dayNames[(date.getDay() + 6) % 7]}, ${monthNames[date.getMonth()]} ${date.getDate()}`,
-          dateKey,
-          workout: entry.workout
-        });
+        // Generate workout for display
+        const workout = getWorkoutForDate(dateKey);
+        if (workout) {
+          upcoming.push({
+            date: `${dayNames[(date.getDay() + 6) % 7]}, ${monthNames[date.getMonth()]} ${date.getDate()}`,
+            dateKey,
+            workout: workout
+          });
+        }
       }
     }
     return upcoming;
@@ -5197,6 +6932,401 @@ export default function UpRepDemo() {
     );
   };
 
+  // Report Injury Modal
+  const ReportInjuryModal = () => {
+    const muscleGroups = Object.keys(INJURY_RECOVERY_DATA);
+
+    const handleReportInjury = async () => {
+      if (!selectedInjuryMuscle) return;
+
+      const timeline = calculateRecoveryTimeline(selectedInjuryMuscle, injurySeverity, new Date());
+
+      const injuryData = {
+        muscleGroup: selectedInjuryMuscle,
+        severity: injurySeverity,
+        notes: injuryNotes,
+        reportedDate: new Date().toISOString().split('T')[0],
+        timeline: timeline,
+      };
+
+      // Save to database if user is authenticated
+      if (user?.id) {
+        try {
+          const { data: savedInjury, error } = await injuryService.reportInjury(user.id, injuryData);
+          if (error) {
+            console.error('Error saving injury:', error?.message);
+          } else if (savedInjury) {
+            // Use the database ID
+            const newInjury = {
+              id: savedInjury.id,
+              muscleGroup: savedInjury.muscle_group,
+              severity: savedInjury.severity,
+              notes: savedInjury.notes,
+              reportedDate: savedInjury.reported_date,
+              timeline: savedInjury.timeline,
+            };
+            setInjuries(prev => [...prev, newInjury]);
+            setSelectedInjuryMuscle(null);
+            setInjurySeverity('mild');
+            setInjuryNotes('');
+            setShowReportInjury(false);
+            setShowInjuryRecovery(newInjury);
+            return;
+          }
+        } catch (err) {
+          console.error('Error saving injury:', err);
+        }
+      }
+
+      // Fallback for non-authenticated users
+      const newInjury = {
+        id: Date.now(),
+        ...injuryData,
+      };
+
+      setInjuries(prev => [...prev, newInjury]);
+      setSelectedInjuryMuscle(null);
+      setInjurySeverity('mild');
+      setInjuryNotes('');
+      setShowReportInjury(false);
+      setShowInjuryRecovery(newInjury);
+    };
+
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
+        <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
+          <button onClick={() => { setSelectedInjuryMuscle(null); setInjurySeverity('mild'); setInjuryNotes(''); setShowReportInjury(false); }}>
+            <ChevronLeft size={24} color={COLORS.text} />
+          </button>
+          <h2 className="text-lg font-bold" style={{ color: COLORS.text }}>Report Injury</h2>
+        </div>
+        <div className="flex-1 overflow-auto p-4">
+          {/* Supportive Message */}
+          <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
+            <div className="flex items-start gap-3">
+              <span className="text-3xl">💙</span>
+              <div>
+                <h3 className="font-bold mb-1" style={{ color: COLORS.text }}>We're Here to Help You Heal</h3>
+                <p className="text-sm" style={{ color: COLORS.textSecondary }}>
+                  Injuries happen to everyone. Let's work together to get you back to your best safely. We'll adjust your workouts and guide you through recovery.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Select Muscle Group */}
+          <p className="font-semibold mb-3" style={{ color: COLORS.text }}>Which area is affected?</p>
+          <div className="grid grid-cols-3 gap-2 mb-6">
+            {muscleGroups.map(muscle => (
+              <button
+                key={muscle}
+                onClick={() => setSelectedInjuryMuscle(muscle)}
+                className="p-3 rounded-xl text-center text-sm font-medium transition-all"
+                style={{
+                  backgroundColor: selectedInjuryMuscle === muscle ? COLORS.primary : COLORS.surface,
+                  color: selectedInjuryMuscle === muscle ? '#fff' : COLORS.text,
+                  border: selectedInjuryMuscle === muscle ? `2px solid ${COLORS.primary}` : `2px solid ${COLORS.surfaceLight}`
+                }}
+              >
+                {muscle}
+              </button>
+            ))}
+          </div>
+
+          {/* Severity Selection */}
+          <p className="font-semibold mb-3" style={{ color: COLORS.text }}>How severe is it?</p>
+          <div className="space-y-2 mb-6">
+            {Object.entries(INJURY_SEVERITY).map(([key, val]) => (
+              <button
+                key={key}
+                onClick={() => setInjurySeverity(key)}
+                className="w-full p-4 rounded-xl flex items-center gap-4 transition-all"
+                style={{
+                  backgroundColor: injurySeverity === key ? val.color + '20' : COLORS.surface,
+                  border: injurySeverity === key ? `2px solid ${val.color}` : `2px solid ${COLORS.surfaceLight}`
+                }}
+              >
+                <div className="w-4 h-4 rounded-full" style={{ backgroundColor: val.color }} />
+                <div className="text-left flex-1">
+                  <p className="font-semibold" style={{ color: COLORS.text }}>{val.label}</p>
+                  <p className="text-xs" style={{ color: COLORS.textSecondary }}>
+                    {key === 'mild' && 'Minor discomfort, can do most activities'}
+                    {key === 'moderate' && 'Noticeable pain, need to limit activities'}
+                    {key === 'severe' && 'Significant pain, need medical attention'}
+                  </p>
+                </div>
+                {injurySeverity === key && <Check size={20} color={val.color} />}
+              </button>
+            ))}
+          </div>
+
+          {/* Notes */}
+          <p className="font-semibold mb-3" style={{ color: COLORS.text }}>Additional notes (optional)</p>
+          <textarea
+            value={injuryNotes}
+            onChange={(e) => setInjuryNotes(e.target.value)}
+            placeholder="Describe how it happened, symptoms, etc..."
+            className="w-full p-4 rounded-xl mb-4"
+            style={{ backgroundColor: COLORS.surface, color: COLORS.text, border: `1px solid ${COLORS.surfaceLight}`, minHeight: '100px' }}
+          />
+
+          {/* What to expect */}
+          {selectedInjuryMuscle && (
+            <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surfaceLight }}>
+              <p className="text-sm font-semibold mb-2" style={{ color: COLORS.text }}>What happens next:</p>
+              <div className="space-y-2">
+                {[
+                  { icon: '🛡️', text: 'Workouts will avoid the injured area' },
+                  { icon: '📋', text: 'Personalized recovery plan created' },
+                  { icon: '🏥', text: 'Rehab exercises added when appropriate' },
+                  { icon: '💪', text: 'Gradual return to full training' },
+                ].map((item, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <span>{item.icon}</span>
+                    <p className="text-xs" style={{ color: COLORS.textSecondary }}>{item.text}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="p-4 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+          <button
+            onClick={handleReportInjury}
+            disabled={!selectedInjuryMuscle}
+            className="w-full py-4 rounded-xl font-semibold"
+            style={{ backgroundColor: COLORS.primary, color: '#fff', opacity: selectedInjuryMuscle ? 1 : 0.5 }}
+          >
+            {selectedInjuryMuscle ? `Start ${selectedInjuryMuscle} Recovery Plan` : 'Select Affected Area'}
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // Injury Recovery Screen
+  const InjuryRecoveryScreen = ({ injury }) => {
+    if (!injury) return null;
+
+    const currentPhase = getCurrentRecoveryPhase(injury);
+    const phaseInfo = RECOVERY_PHASES[currentPhase];
+    const timeline = injury.timeline;
+    const coachingMessage = getCoachingMessage(currentPhase, injury.muscleGroup);
+
+    const recoveryExercises = currentPhase === 'recovery' || currentPhase === 'strengthening'
+      ? (currentPhase === 'recovery'
+          ? RECOVERY_EXERCISES[injury.muscleGroup]
+          : RESTRENGTHENING_EXERCISES[injury.muscleGroup]) || []
+      : [];
+
+    const daysUntilRecovery = Math.ceil((new Date(timeline.return.end) - new Date()) / (1000 * 60 * 60 * 24));
+    const totalDays = Math.ceil((new Date(timeline.return.end) - new Date(injury.reportedDate)) / (1000 * 60 * 60 * 24));
+    const progressPercent = Math.max(0, Math.min(100, ((totalDays - daysUntilRecovery) / totalDays) * 100));
+
+    const formatDate = (dateStr) => {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    };
+
+    const handleMarkHealed = async () => {
+      // Update in database if user is authenticated
+      if (user?.id && injury.id) {
+        try {
+          const { error } = await injuryService.markAsHealed(injury.id);
+          if (error) {
+            console.error('Error marking injury as healed:', error?.message);
+          }
+        } catch (err) {
+          console.error('Error marking injury as healed:', err);
+        }
+      }
+
+      setInjuries(prev => prev.filter(i => i.id !== injury.id));
+      setShowInjuryRecovery(null);
+    };
+
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
+        <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
+          <button onClick={() => setShowInjuryRecovery(null)}>
+            <ChevronLeft size={24} color={COLORS.text} />
+          </button>
+          <h2 className="text-lg font-bold" style={{ color: COLORS.text }}>{injury.muscleGroup} Recovery</h2>
+        </div>
+        <div className="flex-1 overflow-auto p-4">
+          {/* Coaching Message */}
+          <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.primary + '15', border: `1px solid ${COLORS.primary}30` }}>
+            <div className="flex items-start gap-3">
+              <span className="text-2xl">{phaseInfo.icon}</span>
+              <div>
+                <p className="font-bold mb-1" style={{ color: COLORS.primary }}>Coach's Note</p>
+                <p className="text-sm" style={{ color: COLORS.text }}>{coachingMessage}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Progress Overview */}
+          <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-bold" style={{ color: COLORS.text }}>Recovery Progress</h3>
+              <span className="text-sm font-semibold" style={{ color: COLORS.primary }}>{Math.round(progressPercent)}%</span>
+            </div>
+            <div className="w-full h-3 rounded-full mb-3" style={{ backgroundColor: COLORS.surfaceLight }}>
+              <div
+                className="h-full rounded-full transition-all"
+                style={{ width: `${progressPercent}%`, backgroundColor: COLORS.primary }}
+              />
+            </div>
+            <div className="flex justify-between text-xs" style={{ color: COLORS.textMuted }}>
+              <span>Started {formatDate(injury.reportedDate)}</span>
+              <span>Est. recovery: {formatDate(timeline.return.end)}</span>
+            </div>
+          </div>
+
+          {/* Current Phase */}
+          <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: phaseInfo.color || COLORS.primary, color: '#fff' }}>
+            <div className="flex items-center gap-3 mb-2">
+              <span className="text-2xl">{phaseInfo.icon}</span>
+              <div>
+                <p className="text-xs opacity-80">Current Phase</p>
+                <h3 className="font-bold text-lg">{phaseInfo.name}</h3>
+              </div>
+            </div>
+            <p className="text-sm opacity-90">{phaseInfo.description}</p>
+          </div>
+
+          {/* Phase Timeline */}
+          <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
+            <h3 className="font-bold mb-4" style={{ color: COLORS.text }}>Your Recovery Timeline</h3>
+            <div className="space-y-4">
+              {['rest', 'recovery', 'strengthening', 'return'].map((phase, i) => {
+                const isActive = phase === currentPhase;
+                const isPast = ['rest', 'recovery', 'strengthening', 'return'].indexOf(currentPhase) > i;
+                const phaseData = timeline[phase];
+                const info = RECOVERY_PHASES[phase];
+
+                return (
+                  <div key={phase} className="flex gap-3">
+                    <div className="flex flex-col items-center">
+                      <div
+                        className="w-8 h-8 rounded-full flex items-center justify-center"
+                        style={{
+                          backgroundColor: isPast ? COLORS.success : isActive ? COLORS.primary : COLORS.surfaceLight,
+                          color: isPast || isActive ? '#fff' : COLORS.textMuted
+                        }}
+                      >
+                        {isPast ? <Check size={16} /> : <span className="text-sm">{info.icon}</span>}
+                      </div>
+                      {i < 3 && (
+                        <div
+                          className="w-0.5 flex-1 mt-1"
+                          style={{ backgroundColor: isPast ? COLORS.success : COLORS.surfaceLight }}
+                        />
+                      )}
+                    </div>
+                    <div className="flex-1 pb-4">
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold" style={{ color: isActive ? COLORS.primary : isPast ? COLORS.success : COLORS.text }}>
+                          {info.name}
+                        </p>
+                        {isActive && (
+                          <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: COLORS.primary + '20', color: COLORS.primary }}>
+                            Now
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs mt-1" style={{ color: COLORS.textMuted }}>
+                        {formatDate(phaseData.start)} - {formatDate(phaseData.end)}
+                      </p>
+                      {isActive && info.tips && info.tips.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          {info.tips.slice(0, 2).map((tip, j) => (
+                            <p key={j} className="text-xs" style={{ color: COLORS.textSecondary }}>
+                              • {tip}
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Recovery Exercises */}
+          {recoveryExercises.length > 0 && (
+            <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
+              <h3 className="font-bold mb-3" style={{ color: COLORS.text }}>
+                {currentPhase === 'recovery' ? 'Rehab Exercises' : 'Strengthening Exercises'}
+              </h3>
+              <p className="text-sm mb-3" style={{ color: COLORS.textSecondary }}>
+                {currentPhase === 'recovery'
+                  ? 'Gentle exercises to promote healing and mobility'
+                  : 'Progressive exercises to rebuild strength safely'}
+              </p>
+              <div className="space-y-2">
+                {recoveryExercises.map((exercise, i) => (
+                  <div key={i} className="p-3 rounded-lg flex items-center gap-3" style={{ backgroundColor: COLORS.surfaceLight }}>
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '20' }}>
+                      <span className="text-sm">{currentPhase === 'recovery' ? '🧘' : '💪'}</span>
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-sm" style={{ color: COLORS.text }}>{exercise.name}</p>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>{exercise.sets} sets × {exercise.reps} reps</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Tips for Current Phase */}
+          <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surfaceLight }}>
+            <h3 className="font-semibold mb-3" style={{ color: COLORS.text }}>Tips for {phaseInfo.name}</h3>
+            <div className="space-y-2">
+              {(phaseInfo.tips || []).map((tip, i) => (
+                <div key={i} className="flex items-start gap-2">
+                  <Check size={14} color={COLORS.success} className="mt-0.5" />
+                  <p className="text-sm" style={{ color: COLORS.textSecondary }}>{tip}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Severity Info */}
+          <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: INJURY_SEVERITY[injury.severity].color }} />
+              <p className="font-semibold" style={{ color: COLORS.text }}>{INJURY_SEVERITY[injury.severity].label} Injury</p>
+            </div>
+            {injury.notes && (
+              <p className="text-sm" style={{ color: COLORS.textMuted }}>Notes: {injury.notes}</p>
+            )}
+          </div>
+        </div>
+        <div className="p-4 border-t space-y-2" style={{ borderColor: COLORS.surfaceLight }}>
+          {currentPhase === 'return' && (
+            <button
+              onClick={handleMarkHealed}
+              className="w-full py-4 rounded-xl font-semibold"
+              style={{ backgroundColor: COLORS.success, color: '#fff' }}
+            >
+              Mark as Healed
+            </button>
+          )}
+          <button
+            onClick={() => setShowInjuryRecovery(null)}
+            className="w-full py-3 rounded-xl font-semibold"
+            style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text }}
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   // Home Tab scroll ref
   const homeScrollRef = React.useRef(null);
   const homeScrollPos = React.useRef(0);
@@ -5243,7 +7373,7 @@ export default function UpRepDemo() {
               </p>
             </div>
           </div>
-          <button onClick={() => { setIsPaused(false); setPauseReturnDate(null); setTodayWorkout({ type: 'Push A', name: 'Push Day A', focus: CURRENT_WORKOUT.focus, exercises: 5, duration: 60 }); }}
+          <button onClick={() => { setIsPaused(false); setPauseReturnDate(null); setTodayWorkout({ type: todayWorkoutTemplate?.name?.replace(' Day ', ' ').replace('Day ', '') || 'Workout', name: todayWorkoutTemplate?.name || 'Workout', focus: todayWorkoutTemplate?.focus || '', exercises: todayWorkoutTemplate?.exercises?.length || 5, duration: 60 }); }}
             className="px-4 py-2 rounded-lg font-semibold text-sm"
             style={{ backgroundColor: COLORS.warning, color: COLORS.background }}>
             Resume Now
@@ -5266,6 +7396,53 @@ export default function UpRepDemo() {
             style={{ backgroundColor: COLORS.accent, color: COLORS.background }}>
             Undo
           </button>
+        </div>
+      )}
+
+      {/* Active Injuries Banner */}
+      {injuries.length > 0 && (
+        <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface, border: `1px solid ${INJURY_SEVERITY[injuries[0].severity].color}40` }}>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">🩹</span>
+              <h3 className="font-bold" style={{ color: COLORS.text }}>Recovery in Progress</h3>
+            </div>
+            <button
+              onClick={() => setShowReportInjury(true)}
+              className="text-xs px-3 py-1 rounded-full"
+              style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.textSecondary }}
+            >
+              + Add
+            </button>
+          </div>
+          <div className="space-y-2">
+            {injuries.map(injury => {
+              const currentPhase = getCurrentRecoveryPhase(injury);
+              const phaseInfo = RECOVERY_PHASES[currentPhase];
+              const daysLeft = Math.ceil((new Date(injury.timeline.return.end) - new Date()) / (1000 * 60 * 60 * 24));
+
+              return (
+                <button
+                  key={injury.id}
+                  onClick={() => setShowInjuryRecovery(injury)}
+                  className="w-full p-3 rounded-lg flex items-center gap-3 text-left"
+                  style={{ backgroundColor: COLORS.surfaceLight }}
+                >
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: INJURY_SEVERITY[injury.severity].color + '20' }}>
+                    <span>{phaseInfo.icon}</span>
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-sm" style={{ color: COLORS.text }}>{injury.muscleGroup}</p>
+                    <p className="text-xs" style={{ color: COLORS.textMuted }}>{phaseInfo.name} • {daysLeft > 0 ? `~${daysLeft} days left` : 'Ready to heal'}</p>
+                  </div>
+                  <ChevronRight size={18} color={COLORS.textMuted} />
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-xs mt-3" style={{ color: COLORS.textSecondary }}>
+            {getCoachingMessage(getCurrentRecoveryPhase(injuries[0]), injuries[0].muscleGroup)}
+          </p>
         </div>
       )}
 
@@ -5760,57 +7937,62 @@ export default function UpRepDemo() {
         <>
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-semibold" style={{ color: COLORS.text }}>Friend Activity</h3>
-            <button 
-              onClick={() => setActiveTab('friends')}
-              className="text-xs flex items-center gap-1"
-              style={{ color: COLORS.primary }}
-            >
-              See All <ChevronRight size={14} />
-            </button>
+            {friends.length > 0 && (
+              <button
+                onClick={() => setActiveTab('friends')}
+                className="text-xs flex items-center gap-1"
+                style={{ color: COLORS.primary }}
+              >
+                See All <ChevronRight size={14} />
+              </button>
+            )}
           </div>
-          <div className="space-y-2 mb-4">
-            {activityFeed.slice(0, 2).map(activity => {
-              const friend = friends.find(f => f.id === activity.friendId);
-              if (!friend) return null;
-              
-              return (
-                <button 
-                  key={activity.id}
+          {friends.length === 0 ? (
+            <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
+              <div className="flex flex-col items-center justify-center py-4">
+                <Users size={40} color={COLORS.textMuted} style={{ opacity: 0.5 }} />
+                <p className="text-sm mt-3 font-medium" style={{ color: COLORS.text }}>No friends yet</p>
+                <p className="text-xs text-center mt-1 mb-4" style={{ color: COLORS.textMuted }}>
+                  Add friends to see their workouts and stay motivated together
+                </p>
+                <button
+                  onClick={() => setActiveTab('friends')}
+                  className="px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2"
+                  style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+                >
+                  <Search size={16} />
+                  Find Friends
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2 mb-4">
+              {friends.slice(0, 3).map(friend => (
+                <button
+                  key={friend.id}
                   onClick={() => setActiveTab('friends')}
                   className="w-full p-3 rounded-xl flex items-center gap-3 text-left"
                   style={{ backgroundColor: COLORS.surface }}
                 >
-                  <div 
+                  <div
                     className="w-10 h-10 rounded-full flex items-center justify-center text-lg flex-shrink-0"
                     style={{ backgroundColor: COLORS.surfaceLight }}
                   >
                     {friend.avatar}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-sm" style={{ color: COLORS.text }}>{friend.name.split(' ')[0]}</span>
-                      {activity.type === 'workout' && (
-                        <span className="text-xs" style={{ color: COLORS.primary }}>completed {activity.workoutName}</span>
-                      )}
-                      {activity.type === 'pr' && (
-                        <span className="text-xs" style={{ color: COLORS.success }}>🏆 new {activity.exercise} PR</span>
-                      )}
-                      {activity.type === 'milestone' && (
-                        <span className="text-xs" style={{ color: COLORS.accent }}>🎉 {activity.milestone}</span>
-                      )}
-                    </div>
-                    <p className="text-xs" style={{ color: COLORS.textMuted }}>{activity.time}</p>
+                    <p className="font-semibold text-sm" style={{ color: COLORS.text }}>{friend.name}</p>
+                    <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                      {friend.streak > 0 ? `🔥 ${friend.streak} day streak` : 'No recent activity'}
+                    </p>
                   </div>
-                  {friend.streak >= 7 && (
-                    <div className="flex items-center gap-1">
-                      <Flame size={12} color={COLORS.warning} />
-                      <span className="text-xs font-bold" style={{ color: COLORS.warning }}>{friend.streak}</span>
-                    </div>
+                  {friend.isOnline && (
+                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS.success }} />
                   )}
                 </button>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          )}
         </>
       )}
 
@@ -6074,7 +8256,7 @@ export default function UpRepDemo() {
                 <Moon size={14} /> Pause
               </button>
             ) : (
-              <button onClick={() => { setIsPaused(false); setPauseReturnDate(null); setTodayWorkout({ type: 'Push A', name: 'Push Day A', focus: CURRENT_WORKOUT.focus, exercises: 5, duration: 60 }); }}
+              <button onClick={() => { setIsPaused(false); setPauseReturnDate(null); setTodayWorkout({ type: todayWorkoutTemplate?.name?.replace(' Day ', ' ').replace('Day ', '') || 'Workout', name: todayWorkoutTemplate?.name || 'Workout', focus: todayWorkoutTemplate?.focus || '', exercises: todayWorkoutTemplate?.exercises?.length || 5, duration: 60 }); }}
                 className="text-sm px-2 py-1 rounded flex items-center gap-1"
                 style={{ backgroundColor: COLORS.warning, color: COLORS.background }}>
                 <Play size={14} /> Resume
@@ -6086,6 +8268,10 @@ export default function UpRepDemo() {
                 <Calendar size={14} /> Reschedule
               </button>
             )}
+            <button onClick={() => setShowReportInjury(true)} className="text-sm px-2 py-1 rounded flex items-center gap-1"
+              style={{ backgroundColor: injuries.length > 0 ? COLORS.warning + '20' : COLORS.surfaceLight, color: injuries.length > 0 ? COLORS.warning : COLORS.textSecondary }}>
+              <Heart size={14} /> {injuries.length > 0 ? `${injuries.length} Injury` : 'Injury'}
+            </button>
           </div>
         </div>
         
@@ -6104,7 +8290,7 @@ export default function UpRepDemo() {
                 </p>
               </div>
             </div>
-            <button onClick={() => { setIsPaused(false); setPauseReturnDate(null); setTodayWorkout({ type: 'Push A', name: 'Push Day A', focus: CURRENT_WORKOUT.focus, exercises: 5, duration: 60 }); }}
+            <button onClick={() => { setIsPaused(false); setPauseReturnDate(null); setTodayWorkout({ type: todayWorkoutTemplate?.name?.replace(' Day ', ' ').replace('Day ', '') || 'Workout', name: todayWorkoutTemplate?.name || 'Workout', focus: todayWorkoutTemplate?.focus || '', exercises: todayWorkoutTemplate?.exercises?.length || 5, duration: 60 }); }}
               className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
               style={{ backgroundColor: COLORS.warning, color: COLORS.background }}>
               Resume Plan Early <Play size={16} />
@@ -6146,7 +8332,7 @@ export default function UpRepDemo() {
                 <p className="text-sm" style={{ color: COLORS.textSecondary }}>No workout scheduled for today</p>
               </div>
             </div>
-            <button onClick={() => { setTodayWorkout({ type: 'Push A', name: 'Push Day A', focus: CURRENT_WORKOUT.focus, exercises: 5, duration: 60 }); setIsRescheduled(false); setOriginalWorkout(null); }} 
+            <button onClick={() => { setTodayWorkout({ type: todayWorkoutTemplate?.name?.replace(' Day ', ' ').replace('Day ', '') || 'Workout', name: todayWorkoutTemplate?.name || 'Workout', focus: todayWorkoutTemplate?.focus || '', exercises: todayWorkoutTemplate?.exercises?.length || 5, duration: 60 }); setIsRescheduled(false); setOriginalWorkout(null); }} 
               className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
               style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text }}>
               Undo Skip
@@ -6191,13 +8377,62 @@ export default function UpRepDemo() {
                 <p className="text-sm" style={{ color: getWorkoutColor(todayWorkout.type, COLORS) }}>{todayWorkout.focus}</p>
               </div>
               <button
-                onClick={() => setShowWorkoutPreview(CURRENT_WORKOUT.id)}
+                onClick={() => todayWorkoutTemplate && setShowWorkoutPreview(todayWorkoutTemplate)}
                 className="p-2 rounded-lg"
                 style={{ backgroundColor: COLORS.surfaceLight }}
               >
                 <Eye size={18} color={COLORS.textMuted} />
               </button>
             </div>
+
+            {/* Workout Explanation */}
+            {todayWorkoutTemplate?.description && (
+              <div className="mb-3 p-3 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
+                <p className="text-xs leading-relaxed" style={{ color: COLORS.textSecondary }}>
+                  {todayWorkoutTemplate.description}
+                </p>
+                {todayWorkoutTemplate.hasCardio && (
+                  <p className="text-xs mt-1 font-medium" style={{ color: COLORS.primary }}>
+                    Includes cardio finisher for your weight loss goal
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Injury Adaptation Notice */}
+            {injuries.length > 0 && (() => {
+              const affectedMuscles = injuries.map(i => i.muscleGroup);
+              const recoveryExercises = getInjuryRecoveryExercisesToAdd();
+              return (
+                <div className="mb-3 p-3 rounded-lg" style={{ backgroundColor: COLORS.warning + '15', border: `1px solid ${COLORS.warning}30` }}>
+                  <div className="flex items-start gap-2">
+                    <span className="text-lg">🩹</span>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold mb-1" style={{ color: COLORS.text }}>Workout Adapted for Recovery</p>
+                      <p className="text-xs mb-2" style={{ color: COLORS.textSecondary }}>
+                        Exercises targeting {affectedMuscles.join(', ')} will be skipped. {recoveryExercises.length > 0 ? `${recoveryExercises.length} rehab exercise${recoveryExercises.length > 1 ? 's' : ''} added.` : ''}
+                      </p>
+                      {recoveryExercises.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {recoveryExercises.map((ex, i) => (
+                            <span key={i} className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: COLORS.success + '20', color: COLORS.success }}>
+                              + {ex.name}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => setShowInjuryRecovery(injuries[0])}
+                      className="text-xs underline"
+                      style={{ color: COLORS.warning }}
+                    >
+                      View Plan
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Time Editor */}
             <button
@@ -6208,15 +8443,35 @@ export default function UpRepDemo() {
               <div className="flex items-center gap-2">
                 <Clock size={16} color={COLORS.textSecondary} />
                 <span className="text-sm" style={{ color: COLORS.textSecondary }}>
-                  {workoutTime} min • {Math.max(2, Math.floor(workoutTime / 12))} exercises
+                  {workoutTime} min • {customExerciseCount || Math.max(2, Math.floor(workoutTime / 12))} exercises
                 </span>
               </div>
               <ChevronDown size={16} color={COLORS.textMuted} style={{ transform: showTimeEditor ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
             </button>
 
             {showTimeEditor && (() => {
-              const exerciseCount = Math.max(2, Math.floor(workoutTime / 12));
-              const exercisesForTime = CURRENT_WORKOUT.exercises.slice(0, exerciseCount);
+              const defaultExerciseCount = Math.max(2, Math.floor(workoutTime / 12));
+              const exerciseCount = customExerciseCount || defaultExerciseCount;
+              const allExercises = getCurrentExercises();
+              const fullPool = todayWorkoutTemplate?.exercises || allExercises;
+              // Min: 2 exercises, Max: pool size or time-based max (allowing more exercises with less rest)
+              const minExercises = 2;
+              const maxExercises = Math.min(fullPool.length, Math.floor(workoutTime / 5)); // ~5min minimum per exercise
+              // Optimize exercises for the selected time AND count
+              const workoutTypeForCoverage = todayWorkoutTemplate?.workoutType || todayWorkout?.type || null;
+              const exercisesForTime = optimizeExercisesForTimeAndCount(allExercises, fullPool, workoutTime, exerciseCount, workoutTypeForCoverage);
+              const timeBreakdown = getWorkoutTimeBreakdown(exercisesForTime);
+              const totalSetsPreview = exercisesForTime.reduce((acc, ex) => acc + (ex.sets || 3), 0);
+
+              const handleDecreaseExercises = () => {
+                const newCount = Math.max(minExercises, exerciseCount - 1);
+                setCustomExerciseCount(newCount === defaultExerciseCount ? null : newCount);
+              };
+
+              const handleIncreaseExercises = () => {
+                const newCount = Math.min(maxExercises, exerciseCount + 1);
+                setCustomExerciseCount(newCount === defaultExerciseCount ? null : newCount);
+              };
 
               return (
                 <div className="mb-4 p-3 rounded-lg" style={{ backgroundColor: COLORS.background }}>
@@ -6225,7 +8480,10 @@ export default function UpRepDemo() {
                     {[20, 30, 45, 60, 75, 90].map(time => (
                       <button
                         key={time}
-                        onClick={() => setWorkoutTime(time)}
+                        onClick={() => {
+                          setWorkoutTime(time);
+                          setCustomExerciseCount(null); // Reset to default when time changes
+                        }}
                         className="py-2 rounded-lg text-sm font-semibold"
                         style={{
                           backgroundColor: workoutTime === time ? COLORS.primary : COLORS.surface,
@@ -6237,42 +8495,227 @@ export default function UpRepDemo() {
                     ))}
                   </div>
 
+                  {/* Exercise Count Adjuster */}
+                  <div className="flex items-center justify-between mb-3 p-2 rounded-lg" style={{ backgroundColor: COLORS.surface }}>
+                    <span className="text-sm" style={{ color: COLORS.textSecondary }}>Number of exercises</span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handleDecreaseExercises}
+                        disabled={exerciseCount <= minExercises}
+                        className="w-8 h-8 rounded-full flex items-center justify-center"
+                        style={{
+                          backgroundColor: exerciseCount <= minExercises ? COLORS.surfaceLight : COLORS.primary + '20',
+                          color: exerciseCount <= minExercises ? COLORS.textMuted : COLORS.primary,
+                          opacity: exerciseCount <= minExercises ? 0.5 : 1
+                        }}
+                      >
+                        <Minus size={16} />
+                      </button>
+                      <span className="text-lg font-bold w-8 text-center" style={{ color: COLORS.text }}>
+                        {exerciseCount}
+                      </span>
+                      <button
+                        onClick={handleIncreaseExercises}
+                        disabled={exerciseCount >= maxExercises}
+                        className="w-8 h-8 rounded-full flex items-center justify-center"
+                        style={{
+                          backgroundColor: exerciseCount >= maxExercises ? COLORS.surfaceLight : COLORS.primary + '20',
+                          color: exerciseCount >= maxExercises ? COLORS.textMuted : COLORS.primary,
+                          opacity: exerciseCount >= maxExercises ? 0.5 : 1
+                        }}
+                      >
+                        <Plus size={16} />
+                      </button>
+                    </div>
+                  </div>
+                  {customExerciseCount && customExerciseCount !== defaultExerciseCount && (
+                    <p className="text-xs text-center mb-2" style={{ color: COLORS.warning }}>
+                      {customExerciseCount > defaultExerciseCount
+                        ? 'More exercises = shorter rest periods'
+                        : 'Fewer exercises = longer rest periods & more sets'}
+                    </p>
+                  )}
+
+                  {/* Time Breakdown Summary */}
+                  <div className="grid grid-cols-3 gap-2 mb-2">
+                    <div className="p-2 rounded-lg text-center" style={{ backgroundColor: COLORS.primary + '15' }}>
+                      <p className="text-sm font-bold" style={{ color: COLORS.primary }}>
+                        {Math.floor(timeBreakdown.workingTime / 60)}m
+                      </p>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>Working</p>
+                    </div>
+                    <div className="p-2 rounded-lg text-center" style={{ backgroundColor: COLORS.warning + '15' }}>
+                      <p className="text-sm font-bold" style={{ color: COLORS.warning }}>
+                        {Math.floor(timeBreakdown.restTime / 60)}m
+                      </p>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>Rest</p>
+                    </div>
+                    <div className="p-2 rounded-lg text-center" style={{ backgroundColor: COLORS.success + '15' }}>
+                      <p className="text-sm font-bold" style={{ color: COLORS.success }}>
+                        ~{Math.round(timeBreakdown.totalTime / 60)}m
+                      </p>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>Total</p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-center mb-3" style={{ color: COLORS.textMuted }}>
+                    Rest time evenly distributed between all sets
+                  </p>
+
                   {/* Exercise Overview */}
                   <div className="border-t pt-3" style={{ borderColor: COLORS.surfaceLight }}>
-                    <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>
-                      EXERCISES FOR {workoutTime} MIN ({exercisesForTime.length})
-                    </p>
-                    <div className="space-y-2">
-                      {exercisesForTime.map((exercise, i) => (
-                        <div
-                          key={exercise.id}
-                          className="flex items-center justify-between p-2 rounded-lg"
-                          style={{ backgroundColor: COLORS.surface }}
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs font-semibold" style={{ color: COLORS.textMuted }}>
+                        {exercisesForTime.length} EXERCISES • {totalSetsPreview} SETS
+                      </p>
+                      {(customizedExercises || customExerciseCount) && (
+                        <button
+                          onClick={() => {
+                            resetCustomizations();
+                            setCustomExerciseCount(null);
+                          }}
+                          className="text-xs px-2 py-1 rounded-full flex items-center gap-1"
+                          style={{ backgroundColor: COLORS.warning + '20', color: COLORS.warning }}
                         >
-                          <div className="flex items-center gap-2">
-                            <div
-                              className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
-                              style={{ backgroundColor: getWorkoutColor(todayWorkout.type, COLORS) + '20', color: getWorkoutColor(todayWorkout.type, COLORS) }}
-                            >
-                              {i + 1}
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium" style={{ color: COLORS.text }}>{exercise.name}</p>
-                              <p className="text-xs" style={{ color: COLORS.textMuted }}>{exercise.muscleGroup}</p>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-sm font-semibold" style={{ color: COLORS.text }}>{exercise.sets}×{exercise.targetReps}</p>
-                            <p className="text-xs" style={{ color: COLORS.textMuted }}>{exercise.suggestedWeight}kg</p>
-                          </div>
-                        </div>
-                      ))}
+                          <Undo2 size={10} /> Reset
+                        </button>
+                      )}
                     </div>
-                    {CURRENT_WORKOUT.exercises.length > exerciseCount && (
+
+                    {/* Warm-up Preview */}
+                    <div className="p-2 rounded-lg mb-2" style={{ backgroundColor: COLORS.warning + '10', border: `1px solid ${COLORS.warning}20` }}>
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold" style={{ backgroundColor: COLORS.warning + '20', color: COLORS.warning }}>W</span>
+                        <span className="text-xs font-medium" style={{ color: COLORS.warning }}>Warm-up</span>
+                        <span className="text-xs ml-auto" style={{ color: COLORS.textMuted }}>3 min</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      {exercisesForTime.map((exercise, i) => {
+                        const isExpanded = expandedExerciseId === exercise.id;
+                        const originalIndex = allExercises.findIndex(ex => ex.id === exercise.id);
+                        const isSuperset = exercise.supersetId;
+                        const isFirstInSuperset = isSuperset && exercise.supersetOrder === 1;
+                        const isSecondInSuperset = isSuperset && exercise.supersetOrder === 2;
+
+                        return (
+                          <div key={exercise.id}>
+                            {/* Superset header - show before first exercise in superset */}
+                            {isFirstInSuperset && (
+                              <div className="flex items-center gap-2 mb-1 px-1">
+                                <Zap size={12} color={COLORS.warning} />
+                                <span className="text-xs font-semibold" style={{ color: COLORS.warning }}>SUPERSET</span>
+                              </div>
+                            )}
+                            <div
+                              className="rounded-lg overflow-hidden"
+                              style={{
+                                backgroundColor: COLORS.surface,
+                                ...(isSuperset && {
+                                  borderLeft: `3px solid ${COLORS.warning}`,
+                                  borderRadius: isFirstInSuperset ? '8px 8px 0 0' : isSecondInSuperset ? '0 0 8px 8px' : '8px',
+                                  marginTop: isSecondInSuperset ? '-2px' : 0
+                                })
+                              }}
+                            >
+                            <button
+                              onClick={() => setExpandedExerciseId(isExpanded ? null : exercise.id)}
+                              className="w-full flex items-center justify-between p-2"
+                            >
+                              <div className="flex items-center gap-2">
+                                <div
+                                  className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
+                                  style={{ backgroundColor: getWorkoutColor(todayWorkout.type, COLORS) + '20', color: getWorkoutColor(todayWorkout.type, COLORS) }}
+                                >
+                                  {i + 1}
+                                </div>
+                                <div className="text-left">
+                                  <p className="text-sm font-medium" style={{ color: COLORS.text }}>{exercise.name}</p>
+                                  <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                                    {exercise.muscleGroup}
+                                    {isSuperset && <span style={{ color: COLORS.warning }}> — {exercise.supersetWith}</span>}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <div className="text-right">
+                                  <p className="text-sm font-semibold" style={{ color: COLORS.text }}>{exercise.sets}×{exercise.targetReps}</p>
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-xs" style={{ color: COLORS.textMuted }}>{exercise.suggestedWeight}kg</span>
+                                    {isSuperset && exercise.restTime === 0 ? (
+                                      <span className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: COLORS.warning + '15', color: COLORS.warning }}>
+                                        No rest
+                                      </span>
+                                    ) : (
+                                      <span className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: COLORS.warning + '15', color: COLORS.warning }}>
+                                        {Math.floor((exercise.restTime || 90) / 60)}:{((exercise.restTime || 90) % 60).toString().padStart(2, '0')} rest
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <ChevronDown
+                                  size={16}
+                                  color={COLORS.textMuted}
+                                  style={{ transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
+                                />
+                              </div>
+                            </button>
+
+                            {/* Expanded Options */}
+                            {isExpanded && (
+                              <div className="px-2 pb-2 pt-1 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => swapExercise(originalIndex)}
+                                    className="flex-1 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
+                                    style={{ backgroundColor: COLORS.primary + '20', color: COLORS.primary }}
+                                  >
+                                    <ArrowLeftRight size={14} />
+                                    Swap Exercise
+                                  </button>
+                                  <button
+                                    onClick={() => removeExercise(originalIndex)}
+                                    disabled={allExercises.length <= 2}
+                                    className="flex-1 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
+                                    style={{
+                                      backgroundColor: allExercises.length <= 2 ? COLORS.surfaceLight : COLORS.error + '20',
+                                      color: allExercises.length <= 2 ? COLORS.textMuted : COLORS.error,
+                                      opacity: allExercises.length <= 2 ? 0.5 : 1
+                                    }}
+                                  >
+                                    <X size={14} />
+                                    Remove
+                                  </button>
+                                </div>
+                                {allExercises.length <= 2 && (
+                                  <p className="text-xs text-center mt-2" style={{ color: COLORS.textMuted }}>
+                                    Minimum 2 exercises required
+                                  </p>
+                                )}
+                                <p className="text-xs text-center mt-2" style={{ color: COLORS.textMuted }}>
+                                  Removing adds sets to remaining exercises
+                                </p>
+                              </div>
+                            )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {allExercises.length > exerciseCount && (
                       <p className="text-xs text-center mt-2" style={{ color: COLORS.textMuted }}>
-                        +{CURRENT_WORKOUT.exercises.length - exerciseCount} more exercises with more time
+                        +{allExercises.length - exerciseCount} more exercises with more time
                       </p>
                     )}
+
+                    {/* Cool-down Preview */}
+                    <div className="p-2 rounded-lg mt-2" style={{ backgroundColor: COLORS.info + '10', border: `1px solid ${COLORS.info}20` }}>
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold" style={{ backgroundColor: COLORS.info + '20', color: COLORS.info }}>C</span>
+                        <span className="text-xs font-medium" style={{ color: COLORS.info }}>Cool-down</span>
+                        <span className="text-xs ml-auto" style={{ color: COLORS.textMuted }}>2 min</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               );
@@ -6722,7 +9165,25 @@ export default function UpRepDemo() {
       </>
       )}
 
-      {showActiveWorkout && <ActiveWorkoutScreen onClose={() => setShowActiveWorkout(false)} onComplete={completeTodayWorkout} COLORS={COLORS} availableTime={workoutTime} userGoal={userData.goal || 'build_muscle'} userId={user?.id} workoutName={todayWorkout?.name || 'Workout'} />}
+      {showActiveWorkout && (() => {
+        const filteredExercises = getCurrentExercises();
+        const recoveryExercises = getInjuryRecoveryExercisesToAdd();
+        const allExercises = [...filteredExercises, ...recoveryExercises];
+        const template = { ...todayWorkoutTemplate, exercises: allExercises };
+        return (
+          <ActiveWorkoutScreen
+            onClose={() => setShowActiveWorkout(false)}
+            onComplete={completeTodayWorkout}
+            COLORS={COLORS}
+            availableTime={workoutTime}
+            userGoal={userData.goal || 'build_muscle'}
+            userId={user?.id}
+            workoutName={todayWorkout?.name || 'Workout'}
+            workoutTemplate={template}
+            injuries={injuries}
+          />
+        );
+      })()}
     </div>
   );
   };
@@ -6733,25 +9194,36 @@ export default function UpRepDemo() {
       <div className="flex-1 overflow-hidden">
         {activeTab === 'home' && <HomeTab />}
         {activeTab === 'workouts' && (
-          <div className="p-4 h-full overflow-auto">
+          <div ref={workoutTabScrollRef} className="p-4 h-full overflow-auto">
             {/* Scrollable Week Schedule */}
             <div className="mb-6">
               <div className="flex items-center justify-between mb-3">
-                <button 
-                  onClick={() => setScheduleWeekOffset(prev => prev - 1)}
-                  className="p-2 rounded-lg"
-                  style={{ backgroundColor: COLORS.surface }}
-                >
-                  <ChevronLeft size={18} color={COLORS.text} />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setScheduleWeekOffset(prev => prev - 1)}
+                    className="p-2 rounded-lg"
+                    style={{ backgroundColor: COLORS.surface }}
+                  >
+                    <ChevronLeft size={18} color={COLORS.text} />
+                  </button>
+                </div>
                 <h3 className="font-semibold" style={{ color: COLORS.text }}>{getWeekHeaderText(scheduleWeekOffset)}</h3>
-                <button 
-                  onClick={() => setScheduleWeekOffset(prev => prev + 1)}
-                  className="p-2 rounded-lg"
-                  style={{ backgroundColor: COLORS.surface }}
-                >
-                  <ChevronRight size={18} color={COLORS.text} />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setScheduleWeekOffset(prev => prev + 1)}
+                    className="p-2 rounded-lg"
+                    style={{ backgroundColor: COLORS.surface }}
+                  >
+                    <ChevronRight size={18} color={COLORS.text} />
+                  </button>
+                  <button
+                    onClick={() => setShowScheduleSettings(true)}
+                    className="p-2 rounded-lg"
+                    style={{ backgroundColor: COLORS.surface }}
+                  >
+                    <Settings size={18} color={COLORS.textMuted} />
+                  </button>
+                </div>
               </div>
               <div className="flex gap-2">
                 {(() => {
@@ -6854,7 +9326,7 @@ export default function UpRepDemo() {
                         </p>
                       </div>
                     </div>
-                    <button onClick={() => { setIsPaused(false); setPauseReturnDate(null); setTodayWorkout({ type: 'Push A', name: 'Push Day A', focus: CURRENT_WORKOUT.focus, exercises: 5, duration: 60 }); }}
+                    <button onClick={() => { setIsPaused(false); setPauseReturnDate(null); setTodayWorkout({ type: todayWorkoutTemplate?.name?.replace(' Day ', ' ').replace('Day ', '') || 'Workout', name: todayWorkoutTemplate?.name || 'Workout', focus: todayWorkoutTemplate?.focus || '', exercises: todayWorkoutTemplate?.exercises?.length || 5, duration: 60 }); }}
                       className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
                       style={{ backgroundColor: COLORS.warning, color: COLORS.background }}>
                       Resume Plan Early <Play size={16} />
@@ -6925,7 +9397,7 @@ export default function UpRepDemo() {
                           <Calendar size={16} color={COLORS.textMuted} />
                         </button>
                         <button
-                          onClick={() => setShowWorkoutPreview(CURRENT_WORKOUT.id)}
+                          onClick={() => todayWorkoutTemplate && setShowWorkoutPreview(todayWorkoutTemplate)}
                           className="p-2 rounded-lg"
                           style={{ backgroundColor: COLORS.surfaceLight }}
                           title="Preview"
@@ -6934,6 +9406,20 @@ export default function UpRepDemo() {
                         </button>
                       </div>
                     </div>
+
+                    {/* Workout Explanation */}
+                    {todayWorkoutTemplate?.description && (
+                      <div className="mb-3 p-3 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
+                        <p className="text-xs leading-relaxed" style={{ color: COLORS.textSecondary }}>
+                          {todayWorkoutTemplate.description}
+                        </p>
+                        {todayWorkoutTemplate.hasCardio && (
+                          <p className="text-xs mt-1 font-medium" style={{ color: COLORS.primary }}>
+                            Includes cardio finisher for your weight loss goal
+                          </p>
+                        )}
+                      </div>
+                    )}
 
                 {/* Time Editor */}
                 <button
@@ -6944,15 +9430,25 @@ export default function UpRepDemo() {
                   <div className="flex items-center gap-2">
                     <Clock size={16} color={COLORS.textSecondary} />
                     <span className="text-sm" style={{ color: COLORS.textSecondary }}>
-                      {workoutTime} min • {Math.max(2, Math.floor(workoutTime / 12))} exercises
+                      {workoutTime} min • {customExerciseCount || Math.max(2, Math.floor(workoutTime / 12))} exercises
                     </span>
                   </div>
                   <ChevronDown size={16} color={COLORS.textMuted} style={{ transform: showWorkoutTimeEditor ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
                 </button>
 
                 {showWorkoutTimeEditor && (() => {
-                  const exerciseCount = Math.max(2, Math.floor(workoutTime / 12));
-                  const exercisesForTime = CURRENT_WORKOUT.exercises.slice(0, exerciseCount);
+                  const defaultExerciseCount = Math.max(2, Math.floor(workoutTime / 12));
+                  const exerciseCount = customExerciseCount || defaultExerciseCount;
+                  const allExercises = getCurrentExercises();
+                  const fullPool = todayWorkoutTemplate?.exercises || allExercises;
+                  // Min: 2 exercises, Max: pool size or time-based max (allowing more exercises with less rest)
+                  const minExercises = 2;
+                  const maxExercises = Math.min(fullPool.length, Math.floor(workoutTime / 5)); // ~5min minimum per exercise
+                  // Optimize exercises for the selected time AND count
+                  const workoutTypeForCoverage = todayWorkoutTemplate?.workoutType || todayWorkout?.type || null;
+                  const exercisesForTime = optimizeExercisesForTimeAndCount(allExercises, fullPool, workoutTime, exerciseCount, workoutTypeForCoverage);
+                  const timeBreakdown = getWorkoutTimeBreakdown(exercisesForTime);
+                  const totalSetsPreview = exercisesForTime.reduce((acc, ex) => acc + (ex.sets || 3), 0);
 
                   return (
                     <div className="mb-4 p-3 rounded-lg" style={{ backgroundColor: COLORS.background }}>
@@ -6961,7 +9457,7 @@ export default function UpRepDemo() {
                         {[20, 30, 45, 60, 75, 90].map(time => (
                           <button
                             key={time}
-                            onClick={() => setWorkoutTime(time)}
+                            onClick={() => updateWorkoutTimeWithScroll(time)}
                             className="py-2 rounded-lg text-sm font-semibold"
                             style={{
                               backgroundColor: workoutTime === time ? COLORS.primary : COLORS.surface,
@@ -6973,42 +9469,239 @@ export default function UpRepDemo() {
                         ))}
                       </div>
 
+                      {/* Exercise Count Adjuster */}
+                      <div className="flex items-center justify-between mb-3 p-2 rounded-lg" style={{ backgroundColor: COLORS.surface }}>
+                        <span className="text-sm" style={{ color: COLORS.textSecondary }}>Number of exercises</span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => {
+                              const newCount = Math.max(minExercises, exerciseCount - 1);
+                              updateExerciseCountWithScroll(newCount === defaultExerciseCount ? null : newCount);
+                            }}
+                            disabled={exerciseCount <= minExercises}
+                            className="w-8 h-8 rounded-full flex items-center justify-center"
+                            style={{
+                              backgroundColor: exerciseCount <= minExercises ? COLORS.surfaceLight : COLORS.primary + '20',
+                              color: exerciseCount <= minExercises ? COLORS.textMuted : COLORS.primary,
+                              opacity: exerciseCount <= minExercises ? 0.5 : 1
+                            }}
+                          >
+                            <Minus size={16} />
+                          </button>
+                          <span className="text-lg font-bold w-8 text-center" style={{ color: COLORS.text }}>
+                            {exerciseCount}
+                          </span>
+                          <button
+                            onClick={() => {
+                              const newCount = Math.min(maxExercises, exerciseCount + 1);
+                              updateExerciseCountWithScroll(newCount === defaultExerciseCount ? null : newCount);
+                            }}
+                            disabled={exerciseCount >= maxExercises}
+                            className="w-8 h-8 rounded-full flex items-center justify-center"
+                            style={{
+                              backgroundColor: exerciseCount >= maxExercises ? COLORS.surfaceLight : COLORS.primary + '20',
+                              color: exerciseCount >= maxExercises ? COLORS.textMuted : COLORS.primary,
+                              opacity: exerciseCount >= maxExercises ? 0.5 : 1
+                            }}
+                          >
+                            <Plus size={16} />
+                          </button>
+                        </div>
+                      </div>
+                      {customExerciseCount && customExerciseCount !== defaultExerciseCount && (
+                        <p className="text-xs text-center mb-2" style={{ color: COLORS.warning }}>
+                          {customExerciseCount > defaultExerciseCount
+                            ? 'More exercises = shorter rest periods'
+                            : 'Fewer exercises = longer rest periods & more sets'}
+                        </p>
+                      )}
+
+                      {/* Time Breakdown Summary */}
+                      <div className="grid grid-cols-3 gap-2 mb-2">
+                        <div className="p-2 rounded-lg text-center" style={{ backgroundColor: COLORS.primary + '15' }}>
+                          <p className="text-sm font-bold" style={{ color: COLORS.primary }}>
+                            {Math.floor(timeBreakdown.workingTime / 60)}m
+                          </p>
+                          <p className="text-xs" style={{ color: COLORS.textMuted }}>Working</p>
+                        </div>
+                        <div className="p-2 rounded-lg text-center" style={{ backgroundColor: COLORS.warning + '15' }}>
+                          <p className="text-sm font-bold" style={{ color: COLORS.warning }}>
+                            {Math.floor(timeBreakdown.restTime / 60)}m
+                          </p>
+                          <p className="text-xs" style={{ color: COLORS.textMuted }}>Rest</p>
+                        </div>
+                        <div className="p-2 rounded-lg text-center" style={{ backgroundColor: COLORS.success + '15' }}>
+                          <p className="text-sm font-bold" style={{ color: COLORS.success }}>
+                            ~{Math.round(timeBreakdown.totalTime / 60)}m
+                          </p>
+                          <p className="text-xs" style={{ color: COLORS.textMuted }}>Total</p>
+                        </div>
+                      </div>
+                      <p className="text-xs text-center mb-3" style={{ color: COLORS.textMuted }}>
+                        Rest time evenly distributed between all sets
+                      </p>
+
                       {/* Exercise Overview */}
                       <div className="border-t pt-3" style={{ borderColor: COLORS.surfaceLight }}>
-                        <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>
-                          EXERCISES FOR {workoutTime} MIN ({exercisesForTime.length})
-                        </p>
-                        <div className="space-y-2">
-                          {exercisesForTime.map((exercise, i) => (
-                            <div
-                              key={exercise.id}
-                              className="flex items-center justify-between p-2 rounded-lg"
-                              style={{ backgroundColor: COLORS.surface }}
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-xs font-semibold" style={{ color: COLORS.textMuted }}>
+                            {exercisesForTime.length} EXERCISES • {totalSetsPreview} SETS
+                          </p>
+                          {(customizedExercises || customExerciseCount) && (
+                            <button
+                              onClick={() => {
+                                const scrollTop = workoutTabScrollRef.current?.scrollTop;
+                                resetCustomizations();
+                                setCustomExerciseCount(null);
+                                requestAnimationFrame(() => {
+                                  if (workoutTabScrollRef.current && scrollTop !== undefined) {
+                                    workoutTabScrollRef.current.scrollTop = scrollTop;
+                                  }
+                                });
+                              }}
+                              className="text-xs px-2 py-1 rounded-full flex items-center gap-1"
+                              style={{ backgroundColor: COLORS.warning + '20', color: COLORS.warning }}
                             >
-                              <div className="flex items-center gap-2">
-                                <div
-                                  className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
-                                  style={{ backgroundColor: getWorkoutColor(todayWorkout.type, COLORS) + '20', color: getWorkoutColor(todayWorkout.type, COLORS) }}
-                                >
-                                  {i + 1}
-                                </div>
-                                <div>
-                                  <p className="text-sm font-medium" style={{ color: COLORS.text }}>{exercise.name}</p>
-                                  <p className="text-xs" style={{ color: COLORS.textMuted }}>{exercise.muscleGroup}</p>
-                                </div>
-                              </div>
-                              <div className="text-right">
-                                <p className="text-sm font-semibold" style={{ color: COLORS.text }}>{exercise.sets}×{exercise.targetReps}</p>
-                                <p className="text-xs" style={{ color: COLORS.textMuted }}>{exercise.suggestedWeight}kg</p>
-                              </div>
-                            </div>
-                          ))}
+                              <Undo2 size={10} /> Reset
+                            </button>
+                          )}
                         </div>
-                        {CURRENT_WORKOUT.exercises.length > exerciseCount && (
+
+                        {/* Warm-up Preview */}
+                        <div className="p-2 rounded-lg mb-2" style={{ backgroundColor: COLORS.warning + '10', border: `1px solid ${COLORS.warning}20` }}>
+                          <div className="flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold" style={{ backgroundColor: COLORS.warning + '20', color: COLORS.warning }}>W</span>
+                            <span className="text-xs font-medium" style={{ color: COLORS.warning }}>Warm-up</span>
+                            <span className="text-xs ml-auto" style={{ color: COLORS.textMuted }}>3 min</span>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          {exercisesForTime.map((exercise, i) => {
+                            const isExpanded = expandedExerciseId === exercise.id;
+                            const originalIndex = allExercises.findIndex(ex => ex.id === exercise.id);
+                            const isSuperset = exercise.supersetId;
+                            const isFirstInSuperset = isSuperset && exercise.supersetOrder === 1;
+                            const isSecondInSuperset = isSuperset && exercise.supersetOrder === 2;
+
+                            return (
+                              <div key={exercise.id}>
+                                {/* Superset header - show before first exercise in superset */}
+                                {isFirstInSuperset && (
+                                  <div className="flex items-center gap-2 mb-1 px-1">
+                                    <Zap size={12} color={COLORS.warning} />
+                                    <span className="text-xs font-semibold" style={{ color: COLORS.warning }}>SUPERSET</span>
+                                  </div>
+                                )}
+                                <div
+                                  className="rounded-lg overflow-hidden"
+                                  style={{
+                                    backgroundColor: COLORS.surface,
+                                    ...(isSuperset && {
+                                      borderLeft: `3px solid ${COLORS.warning}`,
+                                      borderRadius: isFirstInSuperset ? '8px 8px 0 0' : isSecondInSuperset ? '0 0 8px 8px' : '8px',
+                                      marginTop: isSecondInSuperset ? '-2px' : 0
+                                    })
+                                  }}
+                                >
+                                <button
+                                  onClick={() => setExpandedExerciseId(isExpanded ? null : exercise.id)}
+                                  className="w-full flex items-center justify-between p-2"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <div
+                                      className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
+                                      style={{ backgroundColor: getWorkoutColor(todayWorkout.type, COLORS) + '20', color: getWorkoutColor(todayWorkout.type, COLORS) }}
+                                    >
+                                      {i + 1}
+                                    </div>
+                                    <div className="text-left">
+                                      <p className="text-sm font-medium" style={{ color: COLORS.text }}>{exercise.name}</p>
+                                      <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                                        {exercise.muscleGroup}
+                                        {isSuperset && <span style={{ color: COLORS.warning }}> — {exercise.supersetWith}</span>}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <div className="text-right">
+                                      <p className="text-sm font-semibold" style={{ color: COLORS.text }}>{exercise.sets}×{exercise.targetReps}</p>
+                                      <div className="flex items-center gap-1">
+                                        <span className="text-xs" style={{ color: COLORS.textMuted }}>{exercise.suggestedWeight}kg</span>
+                                        {isSuperset && exercise.restTime === 0 ? (
+                                          <span className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: COLORS.warning + '15', color: COLORS.warning }}>
+                                            No rest
+                                          </span>
+                                        ) : (
+                                          <span className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: COLORS.warning + '15', color: COLORS.warning }}>
+                                            {Math.floor((exercise.restTime || 90) / 60)}:{((exercise.restTime || 90) % 60).toString().padStart(2, '0')} rest
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <ChevronDown
+                                      size={16}
+                                      color={COLORS.textMuted}
+                                      style={{ transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
+                                    />
+                                  </div>
+                                </button>
+
+                                {/* Expanded Options */}
+                                {isExpanded && (
+                                  <div className="px-2 pb-2 pt-1 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+                                    <div className="flex gap-2">
+                                      <button
+                                        onClick={() => swapExercise(originalIndex)}
+                                        className="flex-1 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
+                                        style={{ backgroundColor: COLORS.primary + '20', color: COLORS.primary }}
+                                      >
+                                        <ArrowLeftRight size={14} />
+                                        Swap Exercise
+                                      </button>
+                                      <button
+                                        onClick={() => removeExercise(originalIndex)}
+                                        disabled={allExercises.length <= 2}
+                                        className="flex-1 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
+                                        style={{
+                                          backgroundColor: allExercises.length <= 2 ? COLORS.surfaceLight : COLORS.error + '20',
+                                          color: allExercises.length <= 2 ? COLORS.textMuted : COLORS.error,
+                                          opacity: allExercises.length <= 2 ? 0.5 : 1
+                                        }}
+                                      >
+                                        <X size={14} />
+                                        Remove
+                                      </button>
+                                    </div>
+                                    {allExercises.length <= 2 && (
+                                      <p className="text-xs text-center mt-2" style={{ color: COLORS.textMuted }}>
+                                        Minimum 2 exercises required
+                                      </p>
+                                    )}
+                                    <p className="text-xs text-center mt-2" style={{ color: COLORS.textMuted }}>
+                                      Removing adds sets to remaining exercises
+                                    </p>
+                                  </div>
+                                )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        {allExercises.length > exerciseCount && (
                           <p className="text-xs text-center mt-2" style={{ color: COLORS.textMuted }}>
-                            +{CURRENT_WORKOUT.exercises.length - exerciseCount} more exercises with more time
+                            +{allExercises.length - exerciseCount} more exercises with more time
                           </p>
                         )}
+
+                        {/* Cool-down Preview */}
+                        <div className="p-2 rounded-lg mt-2" style={{ backgroundColor: COLORS.info + '10', border: `1px solid ${COLORS.info}20` }}>
+                          <div className="flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold" style={{ backgroundColor: COLORS.info + '20', color: COLORS.info }}>C</span>
+                            <span className="text-xs font-medium" style={{ color: COLORS.info }}>Cool-down</span>
+                            <span className="text-xs ml-auto" style={{ color: COLORS.textMuted }}>2 min</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   );
@@ -7129,26 +9822,29 @@ export default function UpRepDemo() {
             <div className="mb-6">
               <h3 className="font-semibold mb-3" style={{ color: COLORS.text }}>Upcoming</h3>
               <div className="space-y-2">
-                {upcomingWorkouts.map((item, i) => (
-                  <button 
-                    key={i}
-                    onClick={() => setShowWorkoutPreview(item.workout.id)}
-                    className="w-full p-3 rounded-xl flex items-center justify-between"
-                    style={{ backgroundColor: COLORS.surface }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div 
-                        className="w-1 h-10 rounded-full"
-                        style={{ backgroundColor: getWorkoutColor(item.workout.name, COLORS) }}
-                      />
-                      <div className="text-left">
-                        <p className="font-semibold" style={{ color: COLORS.text }}>{item.workout.name}</p>
-                        <p className="text-xs" style={{ color: COLORS.textMuted }}>{item.date} • {item.workout.exercises.length} exercises</p>
+                {upcomingWorkouts.map((item, i) => {
+                  const workoutTime = Math.round(getWorkoutTimeBreakdown(item.workout.exercises).totalTime / 60);
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => setShowWorkoutPreview(item.workout)}
+                      className="w-full p-3 rounded-xl flex items-center justify-between"
+                      style={{ backgroundColor: COLORS.surface }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-1 h-10 rounded-full"
+                          style={{ backgroundColor: getWorkoutColor(item.workout.name, COLORS) }}
+                        />
+                        <div className="text-left">
+                          <p className="font-semibold" style={{ color: COLORS.text }}>{item.workout.name}</p>
+                          <p className="text-xs" style={{ color: COLORS.textMuted }}>{item.date} • {item.workout.exercises.length} exercises • {workoutTime} min</p>
+                        </div>
                       </div>
-                    </div>
-                    <ChevronRight size={18} color={COLORS.textMuted} />
-                  </button>
-                ))}
+                      <ChevronRight size={18} color={COLORS.textMuted} />
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -7803,7 +10499,7 @@ export default function UpRepDemo() {
                         <p className="text-xs" style={{ color: COLORS.textSecondary }}>{userData.firstName} {userData.lastName}</p>
                         <div className="flex items-center gap-1 mt-0.5">
                           <Flame size={12} color={COLORS.warning} />
-                          <span className="text-xs font-semibold" style={{ color: COLORS.warning }}>12 day streak</span>
+                          <span className="text-xs font-semibold" style={{ color: COLORS.warning }}>{streaks.weeklyWorkouts.weeksCompleted} week streak</span>
                         </div>
                       </div>
                     </div>
@@ -7821,16 +10517,16 @@ export default function UpRepDemo() {
                   )}
                   <div className="grid grid-cols-3 gap-3 text-center">
                     <div className="p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
-                      <p className="font-bold" style={{ color: COLORS.text }}>47</p>
+                      <p className="font-bold" style={{ color: COLORS.text }}>{overviewStats.totalWorkouts}</p>
                       <p className="text-xs" style={{ color: COLORS.textMuted }}>workouts</p>
                     </div>
                     <div className="p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
-                      <p className="font-bold" style={{ color: COLORS.text }}>6</p>
+                      <p className="font-bold" style={{ color: COLORS.text }}>{personalRecords.length}</p>
                       <p className="text-xs" style={{ color: COLORS.textMuted }}>PRs</p>
                     </div>
                     <div className="p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
-                      <p className="font-bold" style={{ color: COLORS.text }}>12</p>
-                      <p className="text-xs" style={{ color: COLORS.textMuted }}>day streak</p>
+                      <p className="font-bold" style={{ color: COLORS.text }}>{streaks.weeklyWorkouts.weeksCompleted}</p>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>week streak</p>
                     </div>
                   </div>
                 </div>
@@ -8342,21 +11038,23 @@ export default function UpRepDemo() {
                     💪
                   </div>
                   <div>
-                    <p className="font-bold" style={{ color: COLORS.text }}>Your Fitness Journey</p>
-                    <p className="text-xs" style={{ color: COLORS.textMuted }}>12 day streak • 47 workouts</p>
+                    <p className="font-bold" style={{ color: COLORS.text }}>{userData.firstName ? `${userData.firstName}'s` : 'My'} Fitness Journey</p>
+                    <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                      {streaks.weeklyWorkouts.weeksCompleted} week streak • {overviewStats.totalWorkouts} workouts
+                    </p>
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-center">
                   <div className="p-2 rounded-lg" style={{ backgroundColor: COLORS.surface }}>
-                    <p className="font-bold" style={{ color: COLORS.warning }}>🔥 12</p>
-                    <p className="text-xs" style={{ color: COLORS.textMuted }}>streak</p>
+                    <p className="font-bold" style={{ color: COLORS.warning }}>🔥 {streaks.weeklyWorkouts.weeksCompleted}</p>
+                    <p className="text-xs" style={{ color: COLORS.textMuted }}>week streak</p>
                   </div>
                   <div className="p-2 rounded-lg" style={{ backgroundColor: COLORS.surface }}>
-                    <p className="font-bold" style={{ color: COLORS.primary }}>47</p>
+                    <p className="font-bold" style={{ color: COLORS.primary }}>{overviewStats.totalWorkouts}</p>
                     <p className="text-xs" style={{ color: COLORS.textMuted }}>workouts</p>
                   </div>
                   <div className="p-2 rounded-lg" style={{ backgroundColor: COLORS.surface }}>
-                    <p className="font-bold" style={{ color: COLORS.success }}>6</p>
+                    <p className="font-bold" style={{ color: COLORS.success }}>{personalRecords.length}</p>
                     <p className="text-xs" style={{ color: COLORS.textMuted }}>PRs</p>
                   </div>
                 </div>
@@ -9053,7 +11751,7 @@ export default function UpRepDemo() {
         {showAddFriendModal && (
           <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
             <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
-              <button onClick={() => { setShowAddFriendModal(false); setFriendSearchQuery(''); setSearchResults([]); }}>
+              <button onClick={() => { setShowAddFriendModal(false); setFriendSearchQuery(''); setSearchResults([]); setHasSearched(false); }}>
                 <X size={24} color={COLORS.text} />
               </button>
               <h3 className="text-lg font-bold" style={{ color: COLORS.text }}>Find People</h3>
@@ -9066,28 +11764,41 @@ export default function UpRepDemo() {
                 <input
                   type="text"
                   placeholder="Search by username or name..."
-                  value={friendSearchQuery}
+                  autoComplete="off"
+                  autoFocus
                   onChange={(e) => {
                     const query = e.target.value;
-                    setFriendSearchQuery(query);
 
-                    if (query.length >= 2) {
-                      setSearchLoading(true);
-                      // Wrap in async IIFE to handle errors gracefully
-                      (async () => {
-                        try {
-                          const { data } = await profileService.searchUsers(query, user?.id);
-                          setSearchResults(data || []);
-                        } catch (err) {
-                          console.error('Search error:', err);
-                          setSearchResults([]);
-                        } finally {
-                          setSearchLoading(false);
-                        }
-                      })();
-                    } else {
-                      setSearchResults([]);
+                    // Clear previous timeout
+                    if (friendSearchTimeoutRef.current) {
+                      clearTimeout(friendSearchTimeoutRef.current);
                     }
+
+                    if (query.length < 2) {
+                      // Only clear results if we had some before
+                      if (searchResults.length > 0 || searchLoading || hasSearched) {
+                        setSearchResults([]);
+                        setSearchLoading(false);
+                        setHasSearched(false);
+                      }
+                      return;
+                    }
+
+                    // Debounce the search - only set loading after a small delay
+                    friendSearchTimeoutRef.current = setTimeout(async () => {
+                      setSearchLoading(true);
+                      try {
+                        const { data } = await profileService.searchUsers(query, user?.id);
+                        setSearchResults(data || []);
+                        setHasSearched(true);
+                      } catch (err) {
+                        console.error('Search error:', err);
+                        setSearchResults([]);
+                        setHasSearched(true);
+                      } finally {
+                        setSearchLoading(false);
+                      }
+                    }, 400);
                   }}
                   className="w-full pl-10 pr-4 py-3 rounded-xl text-sm"
                   style={{ backgroundColor: COLORS.surface, color: COLORS.text, border: 'none' }}
@@ -9098,11 +11809,18 @@ export default function UpRepDemo() {
               </div>
 
               {/* Search Results */}
-              {friendSearchQuery.length >= 2 && (
+              {(searchResults.length > 0 || searchLoading || hasSearched) && (
                 <div className="mb-6">
                   <h4 className="font-semibold mb-3" style={{ color: COLORS.text }}>
-                    {searchResults.length > 0 ? `Found ${searchResults.length} users` : 'No results'}
+                    {searchLoading ? 'Searching...' : searchResults.length > 0 ? `Found ${searchResults.length} users` : 'No users found'}
                   </h4>
+                  {hasSearched && searchResults.length === 0 && !searchLoading && (
+                    <div className="p-4 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
+                      <p className="text-sm" style={{ color: COLORS.textMuted }}>
+                        No users match your search. Try a different name or username.
+                      </p>
+                    </div>
+                  )}
                   <div className="space-y-2">
                     {searchResults.map(person => (
                       <div
@@ -9194,7 +11912,7 @@ export default function UpRepDemo() {
               )}
 
               {/* Only show these sections if not actively searching */}
-              {friendSearchQuery.length < 2 && (
+              {!searchLoading && searchResults.length === 0 && (
                 <>
                   {/* Invite Friends */}
                   <button
@@ -9251,6 +11969,13 @@ export default function UpRepDemo() {
                   {/* From Contacts */}
                   <h4 className="font-semibold mb-3" style={{ color: COLORS.text }}>Find from Contacts</h4>
                   <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      // Contact sync is not available in web version
+                      alert('Contact sync is available in the mobile app');
+                    }}
                     className="w-full p-4 rounded-xl flex items-center gap-3"
                     style={{ backgroundColor: COLORS.surface }}
                   >
@@ -9638,30 +12363,38 @@ export default function UpRepDemo() {
                 </div>
               </div>
               <div style={{ height: 160 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={[
-                    { date: 'Week 1', weight: 82, bodyFat: 22, muscle: 38 },
-                    { date: 'Week 2', weight: 81.5, bodyFat: 21.5, muscle: 38.2 },
-                    { date: 'Week 3', weight: 81.2, bodyFat: 21.2, muscle: 38.5 },
-                    { date: 'Week 4', weight: 80.8, bodyFat: 20.8, muscle: 38.8 },
-                    { date: 'Week 5', weight: 80.3, bodyFat: 20.3, muscle: 39 },
-                    { date: 'Week 6', weight: 80, bodyFat: 20, muscle: 39.2 },
-                  ]}>
-                    <XAxis dataKey="date" tick={{ fill: COLORS.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fill: COLORS.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} width={35} domain={['dataMin - 1', 'dataMax + 1']} />
-                    <Tooltip 
-                      contentStyle={{ backgroundColor: COLORS.surface, border: 'none', borderRadius: 8 }}
-                      labelStyle={{ color: COLORS.text }}
-                      formatter={(value, name) => [value + (name === 'weight' ? 'kg' : '%'), name === 'weight' ? 'Weight' : name === 'bodyFat' ? 'Body Fat' : 'Muscle']}
-                    />
-                    <Line type="monotone" dataKey="weight" stroke={COLORS.primary} strokeWidth={2} dot={{ fill: COLORS.primary, r: 3 }} />
-                  </LineChart>
-                </ResponsiveContainer>
+                {chartData.weight.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={chartData.weight.map(d => ({ date: `Week ${d.week}`, weight: d.value, expected: d.expected }))}>
+                      <XAxis dataKey="date" tick={{ fill: COLORS.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fill: COLORS.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} width={35} domain={['dataMin - 2', 'dataMax + 2']} />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: COLORS.surface, border: 'none', borderRadius: 8 }}
+                        labelStyle={{ color: COLORS.text }}
+                        formatter={(value, name) => [value ? value + 'kg' : 'No data', name === 'weight' ? 'Actual' : 'Target']}
+                      />
+                      <Line type="monotone" dataKey="expected" stroke={COLORS.textMuted} strokeWidth={1} strokeDasharray="5 5" dot={false} />
+                      <Line type="monotone" dataKey="weight" stroke={COLORS.primary} strokeWidth={2} dot={{ fill: COLORS.primary, r: 3 }} connectNulls />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex items-center justify-center">
+                    <div className="text-center">
+                      <Scale size={32} color={COLORS.textMuted} className="mx-auto mb-2" />
+                      <p className="text-sm" style={{ color: COLORS.textMuted }}>No weigh-in data yet</p>
+                      <p className="text-xs mt-1" style={{ color: COLORS.textMuted }}>Log your first weigh-in to start tracking</p>
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="flex justify-center gap-4 mt-2">
                 <div className="flex items-center gap-1">
                   <div className="w-3 h-0.5 rounded" style={{ backgroundColor: COLORS.primary }} />
-                  <span className="text-xs" style={{ color: COLORS.textMuted }}>Weight</span>
+                  <span className="text-xs" style={{ color: COLORS.textMuted }}>Actual</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-0.5 rounded" style={{ backgroundColor: COLORS.textMuted, borderStyle: 'dashed' }} />
+                  <span className="text-xs" style={{ color: COLORS.textMuted }}>Target</span>
                 </div>
               </div>
             </div>
@@ -10055,7 +12788,10 @@ export default function UpRepDemo() {
       
       {/* Workout Preview Modal */}
       {showWorkoutPreview && (() => {
-        const workout = Object.values(WORKOUT_TEMPLATES).find(w => w.id === showWorkoutPreview);
+        // Support both workout object directly or legacy ID lookup
+        const workout = typeof showWorkoutPreview === 'object'
+          ? showWorkoutPreview
+          : Object.values(WORKOUT_TEMPLATES).find(w => w.id === showWorkoutPreview);
         if (!workout) return null;
         return (
           <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
@@ -10079,25 +12815,113 @@ export default function UpRepDemo() {
                 </div>
               </div>
               
-              <h3 className="font-semibold mb-3" style={{ color: COLORS.text }}>Exercises ({workout.exercises.length})</h3>
-              <div className="space-y-3">
-                {workout.exercises.map((exercise, i) => (
-                  <div key={exercise.id} className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: getWorkoutColor(workout.name, COLORS) + '20' }}>
-                        <span className="font-bold text-sm" style={{ color: getWorkoutColor(workout.name, COLORS) }}>{i + 1}</span>
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-semibold" style={{ color: COLORS.text }}>{exercise.name}</p>
-                        <p className="text-xs" style={{ color: COLORS.textMuted }}>{exercise.muscleGroup}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold" style={{ color: COLORS.text }}>{exercise.sets} × {exercise.targetReps}</p>
-                        <p className="text-xs" style={{ color: COLORS.textMuted }}>{exercise.suggestedWeight}kg</p>
-                      </div>
+              {/* Warm-up Section */}
+              <div className="mb-4">
+                <h3 className="font-semibold mb-3 flex items-center gap-2" style={{ color: COLORS.text }}>
+                  <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs" style={{ backgroundColor: COLORS.warning + '20', color: COLORS.warning }}>W</span>
+                  Warm-up (3 min)
+                </h3>
+                <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.warning + '10', border: `1px solid ${COLORS.warning}30` }}>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS.warning }} />
+                      <p className="text-sm" style={{ color: COLORS.text }}>Light cardio (jumping jacks, jogging in place)</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS.warning }} />
+                      <p className="text-sm" style={{ color: COLORS.text }}>Dynamic stretches for target muscle groups</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS.warning }} />
+                      <p className="text-sm" style={{ color: COLORS.text }}>1-2 light warm-up sets of first exercise</p>
                     </div>
                   </div>
-                ))}
+                </div>
+              </div>
+
+              {/* Exercises Section */}
+              <h3 className="font-semibold mb-3" style={{ color: COLORS.text }}>Exercises ({workout.exercises.length})</h3>
+              <div className="space-y-3 mb-4">
+                {workout.exercises.map((exercise, i) => {
+                  const isSuperset = exercise.supersetId;
+                  const isFirstInSuperset = isSuperset && exercise.supersetOrder === 1;
+                  const isSecondInSuperset = isSuperset && exercise.supersetOrder === 2;
+
+                  return (
+                    <div key={exercise.id}>
+                      {/* Superset header - show before first exercise in superset */}
+                      {isFirstInSuperset && (
+                        <div className="flex items-center gap-2 mb-2 px-2">
+                          <Zap size={14} color={COLORS.warning} />
+                          <span className="text-xs font-semibold" style={{ color: COLORS.warning }}>SUPERSET</span>
+                          <span className="text-xs" style={{ color: COLORS.textMuted }}>— No rest between these exercises</span>
+                        </div>
+                      )}
+                      <div
+                        className="p-4 rounded-xl"
+                        style={{
+                          backgroundColor: exercise.isCardio ? COLORS.primary + '10' : COLORS.surface,
+                          ...(isSuperset && {
+                            borderLeft: `3px solid ${COLORS.warning}`,
+                            marginLeft: isFirstInSuperset ? 0 : 0,
+                            borderRadius: isFirstInSuperset ? '12px 12px 0 0' : isSecondInSuperset ? '0 0 12px 12px' : '12px',
+                            marginTop: isSecondInSuperset ? '-1px' : 0
+                          })
+                        }}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: exercise.isCardio ? COLORS.primary + '20' : getWorkoutColor(workout.name, COLORS) + '20' }}>
+                            <span className="font-bold text-sm" style={{ color: exercise.isCardio ? COLORS.primary : getWorkoutColor(workout.name, COLORS) }}>{i + 1}</span>
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-semibold" style={{ color: COLORS.text }}>{exercise.name}</p>
+                            <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                              {exercise.isCardio ? exercise.description : exercise.muscleGroup}
+                              {isSuperset && <span style={{ color: COLORS.warning }}> — Paired with {exercise.supersetWith}</span>}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            {exercise.isCardio ? (
+                              <>
+                                <p className="font-semibold" style={{ color: COLORS.primary }}>{exercise.duration} min</p>
+                                <p className="text-xs" style={{ color: COLORS.textMuted }}>~{exercise.caloriesBurned} cal</p>
+                              </>
+                            ) : (
+                              <>
+                                <p className="font-semibold" style={{ color: COLORS.text }}>{exercise.sets} × {exercise.targetReps}</p>
+                                <p className="text-xs" style={{ color: COLORS.textMuted }}>{exercise.suggestedWeight > 0 ? `${exercise.suggestedWeight}kg` : 'Bodyweight'}</p>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Cool-down Section */}
+              <div className="mb-4">
+                <h3 className="font-semibold mb-3 flex items-center gap-2" style={{ color: COLORS.text }}>
+                  <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs" style={{ backgroundColor: COLORS.info + '20', color: COLORS.info }}>C</span>
+                  Cool-down (2 min)
+                </h3>
+                <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.info + '10', border: `1px solid ${COLORS.info}30` }}>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS.info }} />
+                      <p className="text-sm" style={{ color: COLORS.text }}>Light walking or slow movements</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS.info }} />
+                      <p className="text-sm" style={{ color: COLORS.text }}>Static stretches for worked muscles</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS.info }} />
+                      <p className="text-sm" style={{ color: COLORS.text }}>Deep breathing to lower heart rate</p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
             <div className="p-4 border-t" style={{ borderColor: COLORS.surfaceLight }}>
@@ -10464,21 +13288,20 @@ export default function UpRepDemo() {
                   // Check if this date is before user's program start date
                   const isBeforeProgram = overviewStats.programStartDate && dateKey < overviewStats.programStartDate;
 
-                  const getShortName = (workout) => {
-                    if (!workout) return null;
-                    const name = workout.name;
-                    if (name.includes('Push')) return 'Push';
-                    if (name.includes('Pull')) return 'Pull';
-                    if (name.includes('Leg')) return 'Legs';
-                    if (name.includes('Upper')) return 'Upper';
-                    if (name.includes('Lower')) return 'Lower';
-                    if (name.includes('Full')) return 'Full';
-                    if (name.includes('Arm')) return 'Arms';
-                    return name.split(' ')[0];
+                  // Get short name from workout type
+                  const getShortNameFromType = (type) => {
+                    if (!type) return null;
+                    const typeMap = {
+                      push: 'Push', pull: 'Pull', legs_quad: 'Legs', legs_posterior: 'Legs',
+                      upper: 'Upper', lower: 'Lower', full_body: 'Full', arms: 'Arms'
+                    };
+                    return typeMap[type] || type.charAt(0).toUpperCase() + type.slice(1);
                   };
 
-                  const shortName = isBeforeProgram ? null : getShortName(entry?.workout);
-                  const isMissed = isPast && entry?.workout && !entry?.completed && !isBeforeProgram;
+                  const shortName = isBeforeProgram ? null : getShortNameFromType(entry?.workoutType);
+                  const isMissed = isPast && entry?.workoutType && !entry?.completed && !isBeforeProgram;
+                  // Get full workout for editing modal
+                  const workout = entry?.workoutType ? getWorkoutForDate(dateKey) : null;
 
                   return (
                     <button
@@ -10491,7 +13314,8 @@ export default function UpRepDemo() {
                             month: fullScheduleMonth,
                             year: fullScheduleYear,
                             dateKey,
-                            workout: entry?.workout || null,
+                            workout: workout,
+                            workoutType: entry?.workoutType || null,
                             completed: entry?.completed || false,
                             isToday,
                             isPast
@@ -10598,41 +13422,42 @@ export default function UpRepDemo() {
                   <button
                     onClick={() => {
                       setWorkoutForDay(editingScheduleDay.dateKey, null);
-                      setEditingScheduleDay({ ...editingScheduleDay, workout: null });
+                      setEditingScheduleDay({ ...editingScheduleDay, workout: null, workoutType: null });
                     }}
                     className="w-full p-3 rounded-xl flex items-center gap-3"
                     style={{
-                      backgroundColor: !editingScheduleDay.workout ? COLORS.primary + '20' : COLORS.surface,
-                      border: !editingScheduleDay.workout ? `2px solid ${COLORS.primary}` : '2px solid transparent'
+                      backgroundColor: !editingScheduleDay.workoutType ? COLORS.primary + '20' : COLORS.surface,
+                      border: !editingScheduleDay.workoutType ? `2px solid ${COLORS.primary}` : '2px solid transparent'
                     }}
                   >
                     <Moon size={18} color={COLORS.textMuted} />
                     <span style={{ color: COLORS.text }}>Rest Day</span>
                   </button>
-                  {Object.values(WORKOUT_TEMPLATES).map(workout => (
+                  {Object.entries(WORKOUT_STRUCTURES).map(([typeId, structure]) => (
                     <button
-                      key={workout.id}
+                      key={typeId}
                       onClick={() => {
-                        setWorkoutForDay(editingScheduleDay.dateKey, workout);
-                        setEditingScheduleDay({ ...editingScheduleDay, workout });
+                        setWorkoutForDay(editingScheduleDay.dateKey, typeId);
+                        const newWorkout = generateDynamicWorkout(typeId, userGoal, recentlyUsedExercises);
+                        setEditingScheduleDay({ ...editingScheduleDay, workout: newWorkout, workoutType: typeId });
                       }}
                       className="w-full p-3 rounded-xl flex items-center gap-3"
                       style={{
-                        backgroundColor: editingScheduleDay.workout?.id === workout.id ? COLORS.primary + '20' : COLORS.surface,
-                        border: editingScheduleDay.workout?.id === workout.id ? `2px solid ${COLORS.primary}` : '2px solid transparent'
+                        backgroundColor: editingScheduleDay.workoutType === typeId ? COLORS.primary + '20' : COLORS.surface,
+                        border: editingScheduleDay.workoutType === typeId ? `2px solid ${COLORS.primary}` : '2px solid transparent'
                       }}
                     >
                       <div
                         className="w-8 h-8 rounded-lg flex items-center justify-center"
-                        style={{ backgroundColor: getWorkoutColor(workout.name, COLORS) + '20' }}
+                        style={{ backgroundColor: getWorkoutColor(structure.name, COLORS) + '20' }}
                       >
-                        <Dumbbell size={14} color={getWorkoutColor(workout.name, COLORS)} />
+                        <Dumbbell size={14} color={getWorkoutColor(structure.name, COLORS)} />
                       </div>
                       <div className="flex-1 text-left">
-                        <p className="font-semibold text-sm" style={{ color: COLORS.text }}>{workout.name}</p>
-                        <p className="text-xs" style={{ color: COLORS.textMuted }}>{workout.focus}</p>
+                        <p className="font-semibold text-sm" style={{ color: COLORS.text }}>{structure.name}</p>
+                        <p className="text-xs" style={{ color: COLORS.textMuted }}>{structure.focus}</p>
                       </div>
-                      {editingScheduleDay.workout?.id === workout.id && (
+                      {editingScheduleDay.workoutType === typeId && (
                         <Check size={18} color={COLORS.primary} />
                       )}
                     </button>
@@ -10667,9 +13492,9 @@ export default function UpRepDemo() {
                       >
                         <p className="text-xs" style={{ color: COLORS.textMuted }}>{dayNames[(date.getDay() + 6) % 7]}</p>
                         <p className="font-bold" style={{ color: COLORS.text }}>{date.getDate()}</p>
-                        {entry?.workout ? (
-                          <p className="text-xs mt-1" style={{ color: getWorkoutColor(entry.workout.name, COLORS) }}>
-                            {entry.workout.name.split(' ')[0]}
+                        {entry?.workoutType ? (
+                          <p className="text-xs mt-1" style={{ color: getWorkoutColor(WORKOUT_STRUCTURES[entry.workoutType]?.name || 'Workout', COLORS) }}>
+                            {WORKOUT_STRUCTURES[entry.workoutType]?.name?.split(' ')[0] || entry.workoutType}
                           </p>
                         ) : (
                           <p className="text-xs mt-1" style={{ color: COLORS.textMuted }}>Rest</p>
@@ -10809,43 +13634,38 @@ export default function UpRepDemo() {
 
               <h4 className="font-semibold mb-3" style={{ color: COLORS.text }}>Progress Chart</h4>
               <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
-                <div className="h-40">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={[
-                      { week: 'W1', weight: 60 },
-                      { week: 'W2', weight: 62.5 },
-                      { week: 'W3', weight: 65 },
-                      { week: 'W4', weight: 67.5 },
-                      { week: 'W5', weight: 70 },
-                      { week: 'W6', weight: pr?.weight || 72.5 },
-                    ]}>
-                      <XAxis dataKey="week" tick={{ fill: COLORS.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fill: COLORS.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} width={35} />
-                      <Tooltip 
-                        contentStyle={{ backgroundColor: COLORS.surface, border: 'none', borderRadius: 8 }}
-                        labelStyle={{ color: COLORS.text }}
-                      />
-                      <Line type="monotone" dataKey="weight" stroke={COLORS.primary} strokeWidth={2} dot={{ fill: COLORS.primary, r: 4 }} />
-                    </LineChart>
-                  </ResponsiveContainer>
+                <div className="h-32 flex flex-col items-center justify-center">
+                  <TrendingUp size={32} color={COLORS.textMuted} style={{ opacity: 0.5 }} />
+                  <p className="text-sm mt-2" style={{ color: COLORS.textMuted }}>No progress data yet</p>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>Complete workouts to track your progress</p>
                 </div>
               </div>
 
               <h4 className="font-semibold mt-4 mb-3" style={{ color: COLORS.text }}>Recent Sessions</h4>
-              <div className="space-y-2">
-                {[
-                  { date: 'Jan 6', sets: '4×6', weight: pr?.weight || 70, volume: 1680 },
-                  { date: 'Jan 3', sets: '4×6', weight: (pr?.weight || 70) - 2.5, volume: 1620 },
-                  { date: 'Jan 1', sets: '4×5', weight: (pr?.weight || 70) - 5, volume: 1300 },
-                ].map((session, i) => (
-                  <div key={i} className="p-3 rounded-xl flex items-center justify-between" style={{ backgroundColor: COLORS.surface }}>
-                    <div>
-                      <p className="font-semibold text-sm" style={{ color: COLORS.text }}>{session.date}</p>
-                      <p className="text-xs" style={{ color: COLORS.textMuted }}>{session.sets} @ {session.weight}kg</p>
-                    </div>
-                    <p className="text-sm" style={{ color: COLORS.textSecondary }}>{session.volume}kg vol</p>
+              <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+                <div className="flex flex-col items-center justify-center py-4">
+                  <Dumbbell size={32} color={COLORS.textMuted} style={{ opacity: 0.5 }} />
+                  <p className="text-sm mt-2" style={{ color: COLORS.textMuted }}>No sessions recorded</p>
+                  <p className="text-xs text-center" style={{ color: COLORS.textMuted }}>Your workout history for this exercise will appear here</p>
+                </div>
+              </div>
+
+              <h4 className="font-semibold mt-4 mb-3" style={{ color: COLORS.text }}>Tips</h4>
+              <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.primary + '10', border: `1px solid ${COLORS.primary}20` }}>
+                <div className="space-y-2">
+                  <div className="flex items-start gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full mt-1.5" style={{ backgroundColor: COLORS.primary }} />
+                    <p className="text-sm" style={{ color: COLORS.text }}>Start with a weight you can control for all reps</p>
                   </div>
-                ))}
+                  <div className="flex items-start gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full mt-1.5" style={{ backgroundColor: COLORS.primary }} />
+                    <p className="text-sm" style={{ color: COLORS.text }}>Focus on form before increasing weight</p>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full mt-1.5" style={{ backgroundColor: COLORS.primary }} />
+                    <p className="text-sm" style={{ color: COLORS.text }}>Log your sets to track progressive overload</p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -10853,7 +13673,26 @@ export default function UpRepDemo() {
       })()}
 
       {/* Active Workout Screen - rendered at MainScreen level for access from all tabs */}
-      {showActiveWorkout && <ActiveWorkoutScreen onClose={() => setShowActiveWorkout(false)} onComplete={completeTodayWorkout} COLORS={COLORS} availableTime={workoutTime} userGoal={userData.goal || 'build_muscle'} userId={user?.id} workoutName={todayWorkout?.name || 'Workout'} />}
+      {showActiveWorkout && (() => {
+        // Get exercises filtered for injuries plus recovery exercises
+        const filteredExercises = getCurrentExercises();
+        const recoveryExercises = getInjuryRecoveryExercisesToAdd();
+        const allExercises = [...filteredExercises, ...recoveryExercises];
+        const template = { ...todayWorkoutTemplate, exercises: allExercises };
+        return (
+          <ActiveWorkoutScreen
+            onClose={() => setShowActiveWorkout(false)}
+            onComplete={completeTodayWorkout}
+            COLORS={COLORS}
+            availableTime={workoutTime}
+            userGoal={userData.goal || 'build_muscle'}
+            userId={user?.id}
+            workoutName={todayWorkout?.name || 'Workout'}
+            workoutTemplate={template}
+            injuries={injuries}
+          />
+        );
+      })()}
 
       {/* Reschedule Modal - rendered at MainScreen level for access from all tabs */}
       {showReschedule && <RescheduleModal />}
@@ -10861,9 +13700,15 @@ export default function UpRepDemo() {
       {/* Pause Plan Modal - rendered at MainScreen level for access from all tabs */}
       {showPausePlan && <PausePlanModal />}
 
+      {/* Report Injury Modal */}
+      {showReportInjury && <ReportInjuryModal />}
+
+      {/* Injury Recovery Screen */}
+      {showInjuryRecovery && <InjuryRecoveryScreen injury={showInjuryRecovery} />}
+
       {/* Full Meal Entry Modal */}
       {showAddMealFull && (
-        <FullMealEntryModal 
+        <FullMealEntryModal
           COLORS={COLORS}
           onClose={() => setShowAddMealFull(false)}
           onSave={(meal) => {
@@ -10875,6 +13720,164 @@ export default function UpRepDemo() {
             setShowAddMealFull(false);
           }}
         />
+      )}
+
+      {/* Schedule Settings Modal */}
+      {showScheduleSettings && (
+        <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
+          {/* Header */}
+          <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
+            <button
+              onClick={() => setShowScheduleSettings(false)}
+              className="p-2 rounded-lg"
+              style={{ backgroundColor: COLORS.surface }}
+            >
+              <ChevronLeft size={24} color={COLORS.text} />
+            </button>
+            <h2 className="text-xl font-bold" style={{ color: COLORS.text }}>Schedule Settings</h2>
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 overflow-auto p-4 space-y-6">
+            {/* Rest Days - Free Toggle */}
+            <div>
+              <h4 className="font-semibold mb-2" style={{ color: COLORS.text }}>Select Your Rest Days</h4>
+              <p className="text-sm mb-3" style={{ color: COLORS.textMuted }}>
+                Tap days to toggle between training and rest
+              </p>
+              <div className="flex gap-1">
+                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, i) => {
+                  const isRestDay = (userData.restDays || [5, 6]).includes(i);
+                  return (
+                    <button
+                      key={day}
+                      onClick={() => {
+                        setUserData(prev => {
+                          const currentRestDays = prev.restDays || [5, 6];
+                          const newRestDays = isRestDay
+                            ? currentRestDays.filter(d => d !== i)
+                            : [...currentRestDays, i].sort((a, b) => a - b);
+                          const newDaysPerWeek = 7 - newRestDays.length;
+                          return { ...prev, restDays: newRestDays, daysPerWeek: newDaysPerWeek };
+                        });
+                      }}
+                      className="flex-1 py-3 rounded-xl text-sm font-medium flex flex-col items-center gap-1"
+                      style={{
+                        backgroundColor: isRestDay ? COLORS.surfaceLight : COLORS.primary,
+                        color: isRestDay ? COLORS.textMuted : '#fff'
+                      }}
+                    >
+                      <span>{day}</span>
+                      <span style={{ fontSize: 10 }}>{isRestDay ? 'Rest' : 'Train'}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Training Days Summary */}
+              {(() => {
+                const trainingDays = 7 - (userData.restDays || [5, 6]).length;
+                const isTooFew = trainingDays < 3;
+                const isTooMany = trainingDays > 6;
+                const isOptimal = trainingDays >= 3 && trainingDays <= 6;
+
+                return (
+                  <div className="mt-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm" style={{ color: COLORS.textMuted }}>Training days per week:</span>
+                      <span className="font-bold text-lg" style={{ color: isOptimal ? COLORS.primary : COLORS.warning }}>
+                        {trainingDays}
+                      </span>
+                    </div>
+
+                    {/* Warning Messages */}
+                    {isTooFew && (
+                      <div className="p-3 rounded-lg flex items-start gap-2" style={{ backgroundColor: COLORS.warning + '20' }}>
+                        <AlertCircle size={18} color={COLORS.warning} className="flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-sm font-semibold" style={{ color: COLORS.warning }}>Too few training days</p>
+                          <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                            We recommend at least 3 training days per week for optimal progress.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                    {isTooMany && (
+                      <div className="p-3 rounded-lg flex items-start gap-2" style={{ backgroundColor: COLORS.warning + '20' }}>
+                        <AlertCircle size={18} color={COLORS.warning} className="flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-sm font-semibold" style={{ color: COLORS.warning }}>No rest days selected</p>
+                          <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                            Rest is essential for recovery. We recommend at least 1 rest day per week.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                    {isOptimal && (
+                      <p className="text-sm" style={{ color: COLORS.textMuted }}>
+                        {trainingDays === 3 && 'Full body workouts, great for beginners'}
+                        {trainingDays === 4 && 'Upper/Lower split, balanced approach'}
+                        {trainingDays === 5 && 'Push/Pull/Legs + extras, intermediate level'}
+                        {trainingDays === 6 && 'Push/Pull/Legs x2, advanced training'}
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Weekly Preview */}
+            <div>
+              <h4 className="font-semibold mb-3" style={{ color: COLORS.text }}>Weekly Preview</h4>
+              <div className="rounded-xl p-4 space-y-2" style={{ backgroundColor: COLORS.surface }}>
+                {(() => {
+                  const restDays = userData.restDays || [5, 6];
+                  const trainingDays = 7 - restDays.length;
+                  const previewRotation = getWorkoutRotation(trainingDays);
+                  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+                  let workoutIndex = 0;
+
+                  return days.map((day, i) => {
+                    const isRest = restDays.includes(i);
+                    const workout = isRest ? null : previewRotation[workoutIndex % previewRotation.length];
+                    if (!isRest) workoutIndex++;
+
+                    return (
+                      <div key={day} className="flex justify-between items-center py-2">
+                        <span style={{ color: COLORS.text }}>{day}</span>
+                        <span
+                          className="text-sm px-3 py-1 rounded-full"
+                          style={{
+                            backgroundColor: isRest ? COLORS.surfaceLight : COLORS.primary + '20',
+                            color: isRest ? COLORS.textMuted : COLORS.primary
+                          }}
+                        >
+                          {isRest ? 'Rest' : workout?.name || 'Workout'}
+                        </span>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+          </div>
+
+          {/* Apply Button */}
+          <div className="p-4" style={{ backgroundColor: COLORS.surface }}>
+            <button
+              onClick={() => {
+                const restDays = userData.restDays || [5, 6];
+                const trainingDays = 7 - restDays.length;
+                regenerateSchedule(restDays, trainingDays);
+                setShowScheduleSettings(false);
+              }}
+              className="w-full py-4 rounded-xl font-semibold"
+              style={{ backgroundColor: COLORS.primary, color: '#fff' }}
+            >
+              Apply & Regenerate Schedule
+            </button>
+          </div>
+        </div>
       )}
 
       <div className="flex justify-around py-2 border-t" style={{ backgroundColor: COLORS.surface, borderColor: COLORS.surfaceLight }}>

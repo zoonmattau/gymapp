@@ -321,6 +321,32 @@ CREATE TABLE user_streaks (
 );
 
 -- ============================================
+-- INJURY TRACKING
+-- ============================================
+
+CREATE TABLE user_injuries (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    muscle_group VARCHAR(50) NOT NULL,
+    severity VARCHAR(20) NOT NULL CHECK (severity IN ('mild', 'moderate', 'severe')),
+    notes TEXT,
+    reported_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    -- Recovery timeline stored as JSONB for flexibility
+    timeline JSONB NOT NULL,
+    -- Current phase for quick filtering
+    current_phase VARCHAR(20) DEFAULT 'rest' CHECK (current_phase IN ('rest', 'recovery', 'strengthening', 'return', 'healed')),
+    -- Expected recovery date for queries
+    expected_recovery_date DATE,
+    -- When injury was marked as healed
+    healed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Index for active injuries lookup
+CREATE INDEX idx_user_injuries_active ON user_injuries(user_id, current_phase) WHERE current_phase != 'healed';
+
+-- ============================================
 -- ACHIEVEMENTS
 -- ============================================
 
@@ -465,6 +491,7 @@ ALTER TABLE user_supplements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE supplement_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE nutrition_goals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sleep_goals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_injuries ENABLE ROW LEVEL SECURITY;
 
 -- Profiles policies
 CREATE POLICY "Users can view own profile" ON profiles FOR SELECT USING (id = auth.uid());
@@ -514,6 +541,9 @@ CREATE POLICY "Users can manage own achievements" ON user_achievements FOR ALL U
 -- Supplement policies
 CREATE POLICY "Users can manage own supplements" ON user_supplements FOR ALL USING (user_id = auth.uid());
 CREATE POLICY "Users can manage own supplement logs" ON supplement_logs FOR ALL USING (user_id = auth.uid());
+
+-- Injury policies
+CREATE POLICY "Users can manage own injuries" ON user_injuries FOR ALL USING (user_id = auth.uid());
 
 -- Activity feed policies (can see own and friends')
 CREATE POLICY "Users can view activity from friends" ON activity_feed FOR SELECT USING (
