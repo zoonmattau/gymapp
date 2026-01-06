@@ -61,6 +61,71 @@ const COLORS_LIGHT = {
 // Default to dark mode
 const COLORS = COLORS_DARK;
 
+// Suggested supplements with reasons
+const SUGGESTED_SUPPLEMENTS = [
+  {
+    id: 'creatine',
+    name: 'Creatine Monohydrate',
+    dosage: '5 g',
+    reasons: [
+      'Most researched supplement for muscle & strength',
+      'Improves high-intensity exercise performance',
+      'Safe for long-term daily use',
+      'Supports brain health and cognitive function',
+    ],
+    forGoals: ['all'], // Show to everyone
+  },
+];
+
+// Experience levels - expanded from 3 to 4 tiers
+const EXPERIENCE_LEVELS = {
+  beginner: {
+    id: 'beginner',
+    label: 'Beginner',
+    desc: 'New to lifting (0-6 months)',
+    icon: '🌱',
+    showHeadSpecificity: false,
+    workoutComplexity: 'basic',
+  },
+  novice: {
+    id: 'novice',
+    label: 'Novice',
+    desc: 'Learning the basics (6-18 months)',
+    icon: '📈',
+    showHeadSpecificity: false,
+    workoutComplexity: 'basic',
+  },
+  experienced: {
+    id: 'experienced',
+    label: 'Experienced',
+    desc: 'Consistent training (1.5-4 years)',
+    icon: '💪',
+    showHeadSpecificity: true,
+    workoutComplexity: 'advanced',
+  },
+  expert: {
+    id: 'expert',
+    label: 'Expert',
+    desc: 'Advanced lifter (4+ years)',
+    icon: '🏆',
+    showHeadSpecificity: true,
+    workoutComplexity: 'advanced',
+  },
+};
+
+// Muscle head mappings for advanced users
+const MUSCLE_HEAD_MAPPINGS = {
+  'Biceps': ['Long Head Biceps', 'Short Head Biceps'],
+  'Triceps': ['Long Head Triceps', 'Lateral Head Triceps', 'Medial Head Triceps'],
+  'Back': ['Upper Back', 'Mid Back', 'Lower Back'],
+  'Quads': ['Vastus Lateralis', 'Vastus Medialis', 'Rectus Femoris'],
+  'Hamstrings': ['Bicep Femoris', 'Semitendinosus'],
+  'Glutes': ['Gluteus Maximus', 'Gluteus Medius'],
+  // Already have specificity:
+  // Shoulders -> Front Delts, Side Delts, Rear Delts
+  // Chest -> Upper Chest, Lower Chest, Chest
+};
+
 // Programs ordered from weight gain to weight loss
 const GOAL_INFO = {
   bulk: {
@@ -182,6 +247,791 @@ const GOAL_TO_PROGRAM = {
   athletic: { id: 'athlete', name: 'Athletic Performance', days: 5, weeks: 12, desc: 'Speed, agility, and power focus' },
   lean: { id: 'fat_loss', name: 'Fat Loss Circuit', days: 4, weeks: 8, desc: 'High intensity with cardio elements' },
   lose_fat: { id: 'fat_loss', name: 'Fat Loss Circuit', days: 4, weeks: 8, desc: 'High intensity with cardio elements' },
+};
+
+// Suggested next programs based on current program completion
+const NEXT_PROGRAM_SUGGESTIONS = {
+  ppl: [
+    { id: 'strength', name: 'Strength Focus', days: 4, weeks: 12, desc: 'Build on your muscle with raw strength', reason: 'Great for converting muscle gains to strength' },
+    { id: 'fat_loss_cut', name: 'Cutting Phase', days: 5, weeks: 8, desc: 'Reveal your hard-earned muscle', reason: 'Time to shred and show off your gains' },
+    { id: 'upper_lower', name: 'Upper/Lower', days: 4, weeks: 16, desc: 'More recovery, continued growth', reason: 'Allows recovery while maintaining gains' },
+  ],
+  upper_lower: [
+    { id: 'ppl', name: 'Push/Pull/Legs', days: 6, weeks: 12, desc: 'Increase volume for more growth', reason: 'Take your gains to the next level' },
+    { id: 'fat_loss_cut', name: 'Cutting Phase', days: 4, weeks: 10, desc: 'Define your physique', reason: 'Reveal the muscle you\'ve built' },
+    { id: 'strength', name: 'Strength Focus', days: 4, weeks: 12, desc: 'Focus on getting stronger', reason: 'Convert your muscle to strength' },
+  ],
+  strength: [
+    { id: 'ppl', name: 'Push/Pull/Legs', days: 6, weeks: 12, desc: 'Add muscle to your frame', reason: 'Build muscle on your strength base' },
+    { id: 'fat_loss_cut', name: 'Cutting Phase', days: 4, weeks: 8, desc: 'Get lean and defined', reason: 'Show off your strength with less body fat' },
+    { id: 'athlete', name: 'Athletic Performance', days: 5, weeks: 12, desc: 'Apply your strength athletically', reason: 'Develop power and explosiveness' },
+  ],
+  full_body: [
+    { id: 'upper_lower', name: 'Upper/Lower', days: 4, weeks: 16, desc: 'Progress to a split routine', reason: 'More volume per muscle group' },
+    { id: 'ppl', name: 'Push/Pull/Legs', days: 6, weeks: 12, desc: 'Maximize your training', reason: 'For serious muscle building' },
+  ],
+  fat_loss: [
+    { id: 'upper_lower', name: 'Upper/Lower', days: 4, weeks: 16, desc: 'Build lean muscle', reason: 'Now focus on building muscle' },
+    { id: 'full_body', name: 'Full Body', days: 3, weeks: 12, desc: 'Maintain with less time', reason: 'Efficient maintenance training' },
+  ],
+  athlete: [
+    { id: 'strength', name: 'Strength Focus', days: 4, weeks: 12, desc: 'Maximize your strength', reason: 'Build a stronger foundation' },
+    { id: 'ppl', name: 'Push/Pull/Legs', days: 6, weeks: 12, desc: 'Add muscle mass', reason: 'Increase your power potential' },
+  ],
+};
+
+// Break duration options between programs
+const BREAK_OPTIONS = [
+  { id: '1week', label: '1 Week', days: 7, desc: 'Quick refresh' },
+  { id: '2weeks', label: '2 Weeks', days: 14, desc: 'Standard deload' },
+  { id: '1month', label: '1 Month', days: 30, desc: 'Full recovery' },
+];
+
+// Exercise instructions - step by step guides for each exercise
+const EXERCISE_INSTRUCTIONS = {
+  // CHEST
+  'Barbell Bench Press': {
+    setup: ['Lie flat on the bench with your eyes under the bar', 'Plant your feet firmly on the floor', 'Grip the bar slightly wider than shoulder width', 'Arch your upper back slightly, squeeze shoulder blades together', 'Unrack the bar with arms fully extended'],
+    execution: ['Lower the bar slowly to your mid-chest', 'Keep elbows at about 45 degrees from your body', 'Touch your chest lightly (don\'t bounce)', 'Press the bar back up in a slight arc toward your face', 'Lock out your arms at the top'],
+    tips: ['Grip width affects emphasis: wider = more chest, narrower = more triceps', 'The bar should touch your chest at nipple line or slightly below', 'If your shoulders hurt, try a slightly narrower grip or reduce arch']
+  },
+  'Dumbbell Bench Press': {
+    setup: ['Sit on the bench with dumbbells on your thighs', 'Lie back and use your knees to help lift dumbbells to chest level', 'Position dumbbells at chest height, palms facing forward', 'Plant feet firmly on the floor'],
+    execution: ['Press dumbbells up until arms are extended', 'Bring dumbbells together at the top (don\'t clang them)', 'Lower slowly with control to chest level', 'Keep elbows at 45 degrees from your body'],
+    tips: ['Dumbbells allow deeper stretch than barbell - use it for more muscle activation', 'Rotate palms inward at top for extra chest squeeze', 'Stabilizer muscles work harder here - expect to lift 15-20% less than barbell']
+  },
+  'Incline Barbell Press': {
+    setup: ['Set bench to 30-45 degree incline', 'Lie back with eyes under the bar', 'Grip slightly wider than shoulder width', 'Unrack with arms fully extended'],
+    execution: ['Lower bar to upper chest (just below collarbone)', 'Keep elbows at 45 degrees', 'Press back up to starting position', 'Lock out at the top'],
+    tips: ['30 degrees targets upper chest best - 45 degrees shifts more to front delts', 'If you feel it more in shoulders, lower the incline angle', 'Touch point should be higher on chest than flat bench']
+  },
+  'Incline Dumbbell Press': {
+    setup: ['Set bench to 30-45 degree incline', 'Sit with dumbbells on thighs, lie back', 'Position dumbbells at upper chest level', 'Feet flat on floor'],
+    execution: ['Press dumbbells up and slightly together', 'Lower with control to upper chest', 'Keep elbows at 45 degrees throughout', 'Full range of motion - stretch at bottom'],
+    tips: ['Angle dumbbells slightly inward to maximize upper chest contraction', 'Go lighter than flat bench - upper chest is a smaller muscle', 'This is arguably the best upper chest builder - prioritize it if lagging']
+  },
+  'Cable Fly': {
+    setup: ['Set pulleys to shoulder height or slightly above', 'Grab handles and step forward into a staggered stance', 'Start with arms out wide, slight bend in elbows', 'Lean slightly forward from the hips'],
+    execution: ['Bring hands together in a hugging motion', 'Squeeze your chest at the center', 'Slowly return to the starting position', 'Maintain the slight bend in elbows throughout'],
+    tips: ['High cables target lower chest, low cables target upper chest', 'Cross hands over each other at the end for extra squeeze', 'This is an isolation move - save it for after your heavy pressing']
+  },
+  'Push Ups': {
+    setup: ['Place hands slightly wider than shoulder width', 'Extend legs back, balance on toes', 'Body should form a straight line from head to heels', 'Engage your core'],
+    execution: ['Lower your body until chest nearly touches floor', 'Keep elbows at 45 degrees from body', 'Push back up to starting position', 'Lock out arms at top'],
+    tips: ['Elevate feet on a bench to make it harder and target upper chest', 'Diamond hand position shifts focus to triceps', 'If too easy, try pause reps or add a weight vest']
+  },
+  'Dips': {
+    setup: ['Grip parallel bars and lift yourself up', 'Arms fully extended, shoulders down', 'Lean slightly forward for chest focus', 'Cross ankles if needed for stability'],
+    execution: ['Lower your body by bending elbows', 'Go down until upper arms are parallel to floor', 'Push back up to starting position', 'Don\'t lock out aggressively at top'],
+    tips: ['More forward lean = chest focus, upright = triceps focus', 'Stop at parallel if you have shoulder issues', 'Add weight with a dip belt once bodyweight becomes easy']
+  },
+  // BACK
+  'Barbell Row': {
+    setup: ['Stand with feet shoulder width apart', 'Hinge at hips, keep back flat', 'Grip bar slightly wider than shoulder width', 'Let bar hang at arm\'s length'],
+    execution: ['Pull bar to lower chest/upper abs', 'Drive elbows back, squeeze shoulder blades', 'Lower bar with control', 'Keep torso angle constant throughout'],
+    tips: ['Pull to lower chest for lats, pull higher for upper back/traps', 'Underhand grip increases bicep involvement and allows more lat stretch', 'Your torso angle determines difficulty - more upright = easier']
+  },
+  'Pull Ups': {
+    setup: ['Grip bar slightly wider than shoulder width', 'Hang with arms fully extended', 'Engage your lats before pulling', 'Cross ankles if desired'],
+    execution: ['Pull yourself up until chin clears the bar', 'Drive elbows down and back', 'Lower yourself with control', 'Full extension at the bottom'],
+    tips: ['Wider grip emphasizes lats, closer grip hits mid-back more', 'Add weight with a belt once you can do 10+ clean reps', 'Can\'t do one? Start with negatives - jump up and lower slowly']
+  },
+  'Lat Pulldown': {
+    setup: ['Sit at the machine, secure thighs under pads', 'Grip bar wider than shoulder width', 'Lean back slightly from the hips', 'Arms fully extended at start'],
+    execution: ['Pull bar down to upper chest', 'Drive elbows down and slightly back', 'Squeeze your lats at the bottom', 'Slowly return to start position'],
+    tips: ['Behind-the-neck pulldowns are not recommended - injury risk for minimal benefit', 'Try different grip attachments - each hits your back differently', 'Imagine pulling with your elbows, not your hands']
+  },
+  'Seated Cable Row': {
+    setup: ['Sit at the machine, feet on footpads', 'Knees slightly bent', 'Grasp the handle with both hands', 'Sit upright with slight forward lean'],
+    execution: ['Pull handle to your lower chest/upper abs', 'Drive elbows straight back', 'Squeeze shoulder blades together at end', 'Slowly extend arms back to start'],
+    tips: ['V-bar grip targets mid-back, wide bar hits lats more', 'Let your shoulders protract forward at the stretch - increases range of motion', 'Don\'t lean back excessively - this becomes a lower back exercise']
+  },
+  'Deadlift': {
+    setup: ['Stand with feet hip-width apart, bar over mid-foot', 'Bend at hips and knees to grip bar', 'Hands just outside knees, mixed or overhand grip', 'Chest up, back flat, shoulders over the bar'],
+    execution: ['Drive through your heels to stand up', 'Keep the bar close to your body', 'Stand tall at the top, squeeze glutes', 'Lower by hinging at hips first, then bend knees'],
+    tips: ['Mixed grip prevents bar rolling but can cause imbalances - switch hands or use straps', 'Wear flat shoes or go barefoot - running shoes are unstable', 'This is the most taxing exercise - save it for when you\'re fresh']
+  },
+  'Dumbbell Row': {
+    setup: ['Place one knee and hand on bench', 'Keep back flat and parallel to floor', 'Hold dumbbell in opposite hand, arm hanging', 'Feet staggered for balance'],
+    execution: ['Pull dumbbell to your hip/lower rib', 'Drive elbow up and back', 'Squeeze your lat at the top', 'Lower with control'],
+    tips: ['Pulling to hip hits lats more, pulling to chest hits upper back', 'Let the dumbbell hang low and stretch your lat between reps', 'You can go heavier here than most back exercises - lats are strong']
+  },
+  'Face Pull': {
+    setup: ['Set cable to face height', 'Use rope attachment', 'Step back to create tension', 'Arms extended in front'],
+    execution: ['Pull the rope toward your face', 'Separate hands and pull to ears', 'Squeeze shoulder blades together', 'Slowly return to start'],
+    tips: ['External rotate at the end - thumbs should point behind you', 'This is a rear delt and rotator cuff exercise - keep it light', 'Do these regularly for shoulder health - especially if you bench a lot']
+  },
+  // SHOULDERS
+  'Overhead Press': {
+    setup: ['Stand with feet shoulder width apart', 'Grip bar just outside shoulder width', 'Bar rests on front delts/upper chest', 'Elbows slightly in front of bar'],
+    execution: ['Press bar straight up overhead', 'Move your head back slightly as bar passes', 'Lock out arms at the top', 'Lower bar with control to starting position'],
+    tips: ['Strict form builds more muscle - save push press for strength goals', 'Narrower grip = more front delt, wider = more side delt', 'If lower back arches excessively, sit down or brace harder']
+  },
+  'Lateral Raises': {
+    setup: ['Stand with feet hip width apart', 'Hold dumbbells at your sides', 'Slight bend in elbows', 'Lean very slightly forward'],
+    execution: ['Raise arms out to the sides', 'Lift until arms are parallel to floor', 'Lead with your elbows, not hands', 'Lower with control'],
+    tips: ['Tilt the dumbbells like you\'re pouring water - pinky higher than thumb', 'Going heavier usually means worse form - this is a finesse exercise', 'Side delts respond well to high volume - 15-20 reps work great']
+  },
+  'Front Raises': {
+    setup: ['Stand with feet shoulder width apart', 'Hold dumbbells in front of thighs', 'Palms facing your body', 'Slight bend in elbows'],
+    execution: ['Raise one or both arms straight in front', 'Lift to shoulder height', 'Lower with control', 'Alternate arms or do both together'],
+    tips: ['Front delts get hit by all pressing movements - you may not need these', 'Thumbs up position is easier on shoulders than palms down', 'If doing these, do them after your pressing work']
+  },
+  'Rear Delt Fly': {
+    setup: ['Bend over at hips until torso is nearly parallel to floor', 'Hold dumbbells hanging below chest', 'Slight bend in elbows', 'Keep back flat'],
+    execution: ['Raise arms out to sides in an arc', 'Squeeze shoulder blades together at top', 'Lower with control', 'Maintain bent-over position'],
+    tips: ['Rear delts are often neglected - train them as much as front/side delts', 'Face pulls and rows also hit rear delts - count those in your volume', 'Try the reverse pec deck machine for a more stable alternative']
+  },
+  // ARMS - BICEPS
+  'Barbell Curl': {
+    setup: ['Stand with feet shoulder width apart', 'Grip barbell at shoulder width', 'Arms fully extended, bar at thighs', 'Elbows close to your sides'],
+    execution: ['Curl the bar up toward your shoulders', 'Keep elbows stationary at your sides', 'Squeeze biceps at the top', 'Lower with control'],
+    tips: ['EZ bar is easier on wrists - straight bar hits biceps slightly differently', 'Strict form with controlled tempo builds more muscle than heavy cheating', 'Narrower grip emphasizes outer bicep (long head), wider grip hits inner']
+  },
+  'Dumbbell Curl': {
+    setup: ['Stand or sit with dumbbells at sides', 'Palms facing forward', 'Arms fully extended', 'Elbows close to body'],
+    execution: ['Curl dumbbells up toward shoulders', 'Can alternate arms or do both together', 'Squeeze at the top', 'Lower with control'],
+    tips: ['Supinating (rotating pinky up) during the curl increases bicep activation', 'Incline bench curls put biceps in stretched position - great for growth', 'Alternating allows you to focus on each arm individually']
+  },
+  'Hammer Curl': {
+    setup: ['Stand with dumbbells at sides', 'Palms facing each other (neutral grip)', 'Arms fully extended', 'Feet shoulder width apart'],
+    execution: ['Curl dumbbells up keeping neutral grip', 'Bring dumbbells to shoulder level', 'Squeeze at the top', 'Lower with control'],
+    tips: ['Builds brachialis (under bicep) which pushes bicep up for better peak', 'Also strengthens forearms significantly', 'Cross-body hammer curls emphasize brachialis even more']
+  },
+  'Preacher Curl': {
+    setup: ['Sit at preacher bench', 'Rest upper arms flat on the pad', 'Grip barbell or dumbbells', 'Arms extended but not locked'],
+    execution: ['Curl weight up toward shoulders', 'Keep upper arms pressed into pad', 'Squeeze biceps at top', 'Lower slowly - this is where growth happens'],
+    tips: ['The stretch at the bottom is what makes this exercise special - control it', 'Don\'t fully lock out at bottom - keeps tension on biceps', 'Great for building the lower part of the bicep near elbow']
+  },
+  'Cable Curl': {
+    setup: ['Set cable to lowest position', 'Stand facing the machine', 'Grip bar or rope attachment', 'Arms extended, slight forward lean'],
+    execution: ['Curl handle up toward shoulders', 'Keep elbows stationary', 'Squeeze at the top', 'Slowly return to start'],
+    tips: ['Cables provide constant tension throughout - dumbbells lose tension at top', 'Try high cable curls facing away for an incredible peak contraction', 'Great finisher after heavy barbell/dumbbell work']
+  },
+  // ARMS - TRICEPS
+  'Tricep Pushdowns': {
+    setup: ['Set cable to high position', 'Grip bar or rope attachment', 'Elbows pinned to sides', 'Start with forearms parallel to floor'],
+    execution: ['Push handle down until arms are straight', 'Squeeze triceps at the bottom', 'Slowly return to starting position', 'Don\'t let elbows flare out'],
+    tips: ['Rope allows you to split at the bottom for extra contraction', 'Straight bar allows more weight - use both in your program', 'Reverse grip (underhand) emphasizes the medial head more']
+  },
+  'Overhead Tricep Extension': {
+    setup: ['Stand or sit with dumbbell or cable overhead', 'Arms extended above head', 'Grip dumbbell with both hands or use rope', 'Elbows pointing forward'],
+    execution: ['Lower weight behind your head by bending elbows', 'Keep upper arms stationary and close to head', 'Extend arms back to starting position', 'Squeeze triceps at the top'],
+    tips: ['This exercise stretches the long head - essential for complete tricep development', 'The long head makes up 2/3 of your tricep - prioritize overhead work', 'Cable version provides constant tension throughout the movement']
+  },
+  'Skull Crushers': {
+    setup: ['Lie on bench with barbell or dumbbells', 'Arms extended straight up', 'Grip shoulder width or narrower', 'Feet flat on floor'],
+    execution: ['Bend elbows to lower weight toward forehead', 'Keep upper arms stationary', 'Extend arms back to start', 'Don\'t lock out aggressively'],
+    tips: ['Lowering behind your head (not to forehead) stretches long head more', 'EZ bar is easier on wrists than straight bar', 'If elbows hurt, switch to cable overhead extensions']
+  },
+  'Close Grip Bench Press': {
+    setup: ['Lie on bench like regular bench press', 'Grip bar with hands shoulder width or narrower', 'Unrack with arms extended', 'Keep elbows close to body'],
+    execution: ['Lower bar to lower chest', 'Keep elbows tucked close to sides', 'Press back up to starting position', 'Lock out at the top'],
+    tips: ['This is the best heavy tricep exercise - you can load it heavy', 'Shoulder width grip is fine - too narrow stresses wrists', 'Great to superset with regular bench press']
+  },
+  // LEGS - QUADS
+  'Squat': {
+    setup: ['Bar on upper back (high bar) or rear delts (low bar)', 'Feet shoulder width apart, toes slightly out', 'Chest up, core braced', 'Take a breath and hold'],
+    execution: ['Push hips back and bend knees', 'Descend until thighs are at least parallel', 'Keep knees tracking over toes', 'Drive up through your heels'],
+    tips: ['High bar is more quad dominant, low bar is more hip/glute dominant', 'Squat shoes with raised heel allow deeper squats and more quad activation', 'Breathing and bracing is crucial - take a big breath before each rep']
+  },
+  'Leg Press': {
+    setup: ['Sit in machine with back flat against pad', 'Feet shoulder width on platform', 'Toes slightly pointed out', 'Release safety handles'],
+    execution: ['Lower platform by bending knees', 'Go until knees are at 90 degrees or more', 'Press through heels to extend legs', 'Don\'t lock out knees completely'],
+    tips: ['High and wide foot placement targets glutes and hamstrings more', 'Low and narrow targets quads more - experiment with positions', 'This is safer than squats for going to failure']
+  },
+  'Leg Extension': {
+    setup: ['Sit in machine with back against pad', 'Adjust pad to sit on lower shins', 'Grip handles for stability', 'Feet slightly flexed'],
+    execution: ['Extend legs until straight', 'Squeeze quads hard at the top', 'Lower with control', 'Don\'t let weight stack touch'],
+    tips: ['Point toes outward to emphasize inner quad (VMO)', 'Point toes inward to emphasize outer quad', 'Great for pre-exhaust before squats or finishing quads after']
+  },
+  'Lunges': {
+    setup: ['Stand with feet hip width apart', 'Hold dumbbells at sides or barbell on back', 'Core engaged', 'Look straight ahead'],
+    execution: ['Step forward with one leg', 'Lower until both knees are at 90 degrees', 'Push through front heel to return', 'Alternate legs or do all reps on one side'],
+    tips: ['Shorter steps emphasize quads, longer steps hit glutes more', 'Walking lunges are more functional, stationary are more quad-focused', 'Reverse lunges are easier on knees than forward lunges']
+  },
+  'Bulgarian Split Squat': {
+    setup: ['Stand about 2 feet in front of a bench', 'Place one foot on bench behind you', 'Hold dumbbells at sides', 'Most of weight on front foot'],
+    execution: ['Lower your body by bending front knee', 'Descend until front thigh is parallel to floor', 'Push through front heel to stand', 'Complete all reps then switch legs'],
+    tips: ['Leaning forward targets glutes more, upright targets quads more', 'This builds single-leg strength and fixes imbalances', 'Start with bodyweight to learn balance before adding weight']
+  },
+  // LEGS - HAMSTRINGS
+  'Romanian Deadlift': {
+    setup: ['Hold barbell or dumbbells in front of thighs', 'Feet hip width apart', 'Slight bend in knees (keep this constant)', 'Shoulders back, chest up'],
+    execution: ['Hinge at hips, pushing them back', 'Lower weight along legs until you feel hamstring stretch', 'Keep back flat throughout', 'Drive hips forward to stand'],
+    tips: ['This is a hip hinge, not a squat - knees barely bend', 'Go only as low as your hamstring flexibility allows with flat back', 'Squeeze glutes at the top but don\'t hyperextend your back']
+  },
+  'Leg Curl': {
+    setup: ['Lie face down on leg curl machine', 'Pad should be on lower calves', 'Grip handles for stability', 'Legs fully extended'],
+    execution: ['Curl your heels toward your glutes', 'Squeeze hamstrings at the top', 'Lower with control', 'Don\'t let weight stack touch'],
+    tips: ['Pointing toes down (plantarflexion) increases hamstring activation', 'Lying curls hit the lateral hamstring more than seated', 'Don\'t let your hips lift - this is cheating']
+  },
+  'Seated Leg Curl': {
+    setup: ['Sit with back against pad', 'Adjust leg pad to sit above your heels', 'Grip handles', 'Legs extended in front'],
+    execution: ['Curl your heels down and back', 'Squeeze hamstrings at the bottom', 'Return with control', 'Don\'t use momentum'],
+    tips: ['Seated position pre-stretches hamstrings at the hip for more range', 'This hits the medial hamstrings more than lying version', 'Great to superset with leg extensions']
+  },
+  // LEGS - GLUTES
+  'Hip Thrust': {
+    setup: ['Sit on floor with upper back against bench', 'Roll barbell over hips (use pad)', 'Feet flat on floor, hip width apart', 'Knees bent at 90 degrees'],
+    execution: ['Drive through heels to lift hips', 'Squeeze glutes hard at the top', 'Lower with control', 'Don\'t hyperextend at the top'],
+    tips: ['This is the king of glute exercises - prioritize it if glute growth is a goal', 'Wider stance hits outer glutes, narrower hits more inner glutes', 'Feet further out targets more hamstring, closer hits more quads']
+  },
+  'Glute Bridge': {
+    setup: ['Lie on back, knees bent', 'Feet flat on floor, hip width apart', 'Arms at sides for stability', 'Weight on heels'],
+    execution: ['Push through heels to lift hips', 'Squeeze glutes at the top', 'Lower with control', 'Don\'t let lower back hyperextend'],
+    tips: ['Great warmup exercise before squats or hip thrusts', 'Single leg version is great for fixing glute imbalances', 'If you feel it in hamstrings, move feet closer to body']
+  },
+  'Cable Kickback': {
+    setup: ['Attach ankle strap to low cable', 'Face the machine, hold for support', 'Stand on one leg', 'Slight bend in standing leg'],
+    execution: ['Kick working leg straight back', 'Squeeze glute at the top', 'Return with control', 'Complete all reps then switch legs'],
+    tips: ['Keep your hips square - don\'t rotate to kick higher', 'Small range of motion with perfect squeeze beats big swinging kicks', 'This isolates glutes - do it after heavy compound movements']
+  },
+  // CORE
+  'Plank': {
+    setup: ['Get in push-up position', 'Lower to forearms', 'Body forms straight line from head to heels', 'Core engaged, glutes squeezed'],
+    execution: ['Hold this position', 'Don\'t let hips sag or pike up', 'Breathe normally', 'Maintain neutral spine'],
+    tips: ['Once you can hold 60 seconds, add difficulty instead of time', 'Try weighted planks, plank reaches, or ab wheel for progression', 'Squeeze your glutes - most people forget this and sag']
+  },
+  'Crunches': {
+    setup: ['Lie on back, knees bent', 'Feet flat on floor', 'Hands behind head or across chest', 'Lower back pressed into floor'],
+    execution: ['Curl shoulders off the floor', 'Squeeze abs at the top', 'Lower with control', 'Don\'t pull on your neck'],
+    tips: ['Think about bringing your ribs to your pelvis, not just sitting up', 'If your neck hurts, place tongue on roof of mouth - sounds weird, works', 'Cable crunches are more progressive - easier to add weight']
+  },
+  'Hanging Leg Raise': {
+    setup: ['Hang from pull-up bar', 'Arms fully extended', 'Legs straight down', 'Core engaged'],
+    execution: ['Raise legs until parallel to floor (or higher)', 'Control the movement, don\'t swing', 'Lower with control', 'Keep legs as straight as possible'],
+    tips: ['Curling pelvis up at top increases lower ab activation significantly', 'If you swing, you\'re using momentum - slow down', 'Bring legs all the way to the bar for the hardest version']
+  },
+  'Russian Twist': {
+    setup: ['Sit on floor with knees bent', 'Lean back slightly, feet can be on floor or elevated', 'Hold weight at chest', 'Keep back straight'],
+    execution: ['Rotate torso to one side', 'Touch weight to floor beside hip', 'Rotate to other side', 'Control the movement'],
+    tips: ['Keep the weight close to your body - extending arms makes it harder', 'Feet elevated increases difficulty significantly', 'This trains rotational core strength - important for sports and daily life']
+  },
+  'Cable Crunch': {
+    setup: ['Kneel facing cable machine', 'Hold rope attachment behind head', 'Start with torso upright', 'Keep hips stationary'],
+    execution: ['Crunch down, bringing elbows toward knees', 'Focus on flexing your spine', 'Squeeze abs at the bottom', 'Return with control'],
+    tips: ['Hips shouldn\'t move - if they do, you\'re just bowing, not crunching', 'This is one of the few ab exercises you can progressively overload', 'Great for building thicker, more visible abs']
+  },
+  // CALVES
+  'Standing Calf Raise': {
+    setup: ['Stand on calf raise machine or step', 'Balls of feet on platform, heels hanging off', 'Legs straight', 'Hold onto supports for balance'],
+    execution: ['Rise up onto toes as high as possible', 'Squeeze calves at the top', 'Lower heels below platform for stretch', 'Control the negative'],
+    tips: ['Straight legs emphasize gastrocnemius (the visible calf muscle)', '2-second pause at top and full stretch at bottom is key', 'Calves respond well to high reps - try sets of 15-20']
+  },
+  'Seated Calf Raise': {
+    setup: ['Sit at seated calf machine', 'Knees under pad', 'Balls of feet on platform', 'Heels hanging off'],
+    execution: ['Push through balls of feet', 'Raise heels as high as possible', 'Lower with control for full stretch', 'Squeeze at the top'],
+    tips: ['Bent knee position targets soleus (under the gastrocnemius)', 'The soleus gives your calf width when viewed from the front', 'Do both seated and standing for complete calf development']
+  },
+  // ADDITIONAL CHEST EXERCISES
+  'Decline Bench Press': {
+    setup: ['Set bench to 15-30 degree decline', 'Secure feet under pads', 'Lie back and grip bar slightly wider than shoulders', 'Unrack with arms extended'],
+    execution: ['Lower bar to lower chest with control', 'Keep elbows at 45 degrees', 'Press back up to starting position', 'Lock out at the top'],
+    tips: ['Targets lower chest fibers that flat bench misses', 'Don\'t go too steep - 15-30 degrees is optimal', 'Blood rushing to head is normal but don\'t stay inverted too long']
+  },
+  'Machine Chest Press': {
+    setup: ['Adjust seat height so handles are at mid-chest', 'Sit with back flat against pad', 'Grip handles with palms facing down', 'Plant feet firmly on floor'],
+    execution: ['Press handles forward until arms extended', 'Squeeze chest at the end', 'Return slowly to starting position', 'Keep shoulder blades retracted'],
+    tips: ['Great for beginners or as a finishing exercise after free weights', 'The fixed path means safer failure - push to true failure here', 'Adjust seat height to change emphasis: lower = lower chest, higher = upper']
+  },
+  'Incline Cable Fly': {
+    setup: ['Set bench to 30-45 degree incline between cable stations', 'Low pulley position', 'Grab handles, lie back on bench', 'Start with arms out wide, slight elbow bend'],
+    execution: ['Bring hands together in arc over upper chest', 'Squeeze and hold at the top', 'Lower with control back to starting position', 'Maintain constant tension'],
+    tips: ['Excellent upper chest isolation with constant cable tension', 'The low-to-high angle maximizes upper chest activation', 'Go lighter than dumbbell flies - the constant tension makes it harder']
+  },
+  'Pec Deck': {
+    setup: ['Adjust seat so handles are at chest height', 'Sit with back flat against pad', 'Place forearms on pads or grip handles', 'Start with arms open wide'],
+    execution: ['Bring arms together in front of chest', 'Squeeze and hold briefly at the center', 'Return slowly to starting position', 'Keep slight bend in elbows'],
+    tips: ['Fixed machine path allows you to focus purely on the squeeze', 'The stretched position is where most chest growth happens - control it', 'Great finisher after heavy pressing movements']
+  },
+  'Dumbbell Fly': {
+    setup: ['Lie flat on bench with dumbbells above chest', 'Arms extended with slight bend in elbows', 'Palms facing each other', 'Feet flat on floor'],
+    execution: ['Lower dumbbells out to sides in wide arc', 'Stop when you feel chest stretch', 'Bring dumbbells back together in hugging motion', 'Squeeze chest at the top'],
+    tips: ['Go lighter than you think - this is a stretch and squeeze exercise', 'Don\'t let dumbbells drop below shoulder level - protects shoulders', 'The stretched position builds muscle - don\'t rush through it']
+  },
+  'Landmine Press': {
+    setup: ['Place barbell in landmine attachment or corner', 'Stand facing the end of the barbell', 'Hold end of bar at shoulder height', 'Stagger stance for stability'],
+    execution: ['Press barbell up and forward', 'Full arm extension at top', 'Lower with control back to shoulder', 'Keep core braced throughout'],
+    tips: ['The arc path is easier on shoulders than straight pressing', 'Can do single arm for more core engagement', 'Great alternative if overhead pressing hurts your shoulders']
+  },
+  'Floor Press': {
+    setup: ['Lie on floor with barbell in rack or have partner hand off', 'Grip shoulder width or slightly wider', 'Legs can be flat or bent at knees', 'Upper back and head on floor'],
+    execution: ['Lower bar until upper arms touch floor', 'Pause briefly on floor', 'Press bar back up explosively', 'Lock out at the top'],
+    tips: ['The floor limits range of motion - protecting shoulders while building lockout strength', 'The pause eliminates stretch reflex - builds pure pressing power', 'Great for triceps development and bench press lockout strength']
+  },
+  // ADDITIONAL BACK EXERCISES
+  'Pendlay Row': {
+    setup: ['Stand over barbell with feet hip-width apart', 'Bend over until torso is parallel to floor', 'Grip bar shoulder width or wider', 'Bar starts on floor each rep'],
+    execution: ['Explosively row bar to lower chest', 'Keep torso parallel to floor throughout', 'Lower bar back to floor with control', 'Reset between each rep'],
+    tips: ['Each rep starts from a dead stop - builds explosive power', 'Stricter than regular rows since torso stays parallel', 'Great for building a thick, powerful back']
+  },
+  'Chest Supported Row': {
+    setup: ['Set incline bench to 30-45 degrees', 'Lie face down with chest on bench', 'Hold dumbbells hanging below', 'Feet on floor for stability'],
+    execution: ['Row dumbbells up to sides', 'Squeeze shoulder blades together', 'Lower with control', 'Keep chest pressed into bench'],
+    tips: ['Eliminates momentum and lower back strain completely', 'You can\'t cheat - whatever weight you use, your back is doing the work', 'Great for feeling the mind-muscle connection with lats']
+  },
+  'T-Bar Row': {
+    setup: ['Stand over T-bar machine or landmine', 'Bend at hips, keep back flat', 'Use close or wide grip handle', 'Slight bend in knees'],
+    execution: ['Pull handle toward lower chest', 'Drive elbows back and squeeze', 'Lower with control', 'Maintain hip hinge throughout'],
+    tips: ['Close grip hits lats more, wide grip emphasizes upper back', 'One of the best exercises for back thickness', 'Don\'t round your lower back - keep it flat throughout']
+  },
+  'Close Grip Pulldown': {
+    setup: ['Attach V-bar or close grip handle', 'Sit with thighs secured under pads', 'Grip handle with palms facing each other', 'Arms fully extended overhead'],
+    execution: ['Pull handle down toward upper chest', 'Lean back slightly as you pull', 'Squeeze lats at the bottom', 'Control the return'],
+    tips: ['Close grip increases range of motion and lat stretch', 'Neutral grip is often easier on shoulders', 'Great for building lat width and lower lat development']
+  },
+  'Wide Grip Pulldown': {
+    setup: ['Grip bar wider than shoulder width', 'Sit with thighs under pads', 'Lean back slightly', 'Arms fully extended'],
+    execution: ['Pull bar down to upper chest', 'Drive elbows down and back', 'Squeeze lats at bottom', 'Control the return to full stretch'],
+    tips: ['Wide grip emphasizes the outer lats for that V-taper', 'Don\'t go behind the neck - injury risk with minimal benefit', 'Think about pulling with your elbows, not your hands']
+  },
+  'Chin Ups': {
+    setup: ['Grip bar with palms facing you, shoulder width', 'Hang with arms fully extended', 'Engage lats before pulling', 'Cross ankles or keep legs straight'],
+    execution: ['Pull yourself up until chin clears bar', 'Lead with your chest', 'Lower with full control', 'Full extension at bottom'],
+    tips: ['Underhand grip recruits more biceps than pull ups', 'Generally easier than pull ups - good progression step', 'If you can do 10+ clean reps, add weight with a belt']
+  },
+  'Neutral Grip Pull Ups': {
+    setup: ['Grip parallel handles with palms facing each other', 'Hang with arms fully extended', 'Engage core and lats', 'Keep body straight'],
+    execution: ['Pull yourself up until chin clears handles', 'Focus on driving elbows down', 'Lower with control', 'Full stretch at bottom'],
+    tips: ['Neutral grip is easiest on shoulders and wrists', 'Great for those with shoulder issues on regular pull ups', 'Hits both lats and mid-back effectively']
+  },
+  'Machine Row': {
+    setup: ['Adjust chest pad height appropriately', 'Sit with chest against pad', 'Grip handles with chosen grip', 'Arms fully extended forward'],
+    execution: ['Pull handles back toward torso', 'Squeeze shoulder blades together', 'Return with control', 'Don\'t let weight stack touch'],
+    tips: ['The chest support eliminates lower back involvement', 'Focus purely on the squeeze - this is a mind-muscle exercise', 'Great for higher reps since form stays consistent']
+  },
+  'Meadows Row': {
+    setup: ['Barbell in landmine setup', 'Stand perpendicular to bar', 'Stagger stance, front foot near bar end', 'Grip end of bar with one hand'],
+    execution: ['Row bar up toward hip', 'Drive elbow back and up', 'Lower with control', 'Complete all reps, then switch sides'],
+    tips: ['The angled pull hits lats differently than other rows', 'Created by John Meadows for complete back development', 'Allows heavier loading with good stretch at bottom']
+  },
+  'Seal Row': {
+    setup: ['Lie face down on elevated bench', 'Dumbbells or barbell hang below', 'Chest on bench, feet off ground', 'Arms fully extended down'],
+    execution: ['Row weight up toward chest', 'Squeeze shoulder blades at top', 'Lower with full control', 'Get full stretch at bottom'],
+    tips: ['Zero momentum possible - extremely strict rowing movement', 'The name comes from looking like a seal on a rock', 'Excellent for building mind-muscle connection with back']
+  },
+  'Straight Arm Pulldown': {
+    setup: ['Stand facing high cable with bar attachment', 'Step back to create tension', 'Arms extended in front, slight bend in elbows', 'Hinge slightly at hips'],
+    execution: ['Pull bar down in arc toward thighs', 'Keep arms straight throughout', 'Squeeze lats at the bottom', 'Return with control to start'],
+    tips: ['Isolates lats without bicep involvement', 'Great as a lat activation exercise before pull ups or rows', 'Can also use rope attachment for different feel']
+  },
+  'Rack Pulls': {
+    setup: ['Set safety pins at knee height or just below', 'Bar rests on pins', 'Stand with feet hip width, bar over mid-foot', 'Grip outside knees, chest up'],
+    execution: ['Drive through heels to stand', 'Lockout with glutes squeezed', 'Lower bar back to pins with control', 'Reset between reps'],
+    tips: ['Allows much heavier loading than full deadlifts', 'Great for building upper back thickness and grip strength', 'Primarily trains lockout portion of deadlift']
+  },
+  'Snatch Grip Deadlift': {
+    setup: ['Very wide grip - hands near collars', 'Feet hip width apart', 'Get into deep hinge position', 'Chest up, back flat'],
+    execution: ['Drive through floor to stand', 'Keep arms straight throughout', 'Stand tall at top', 'Lower with control'],
+    tips: ['Wide grip forces deeper starting position - more quad and upper back', 'Excellent for building upper back width', 'Use straps - grip will be the limiting factor']
+  },
+  'Wide Grip Cable Row': {
+    setup: ['Attach long bar to low cable', 'Sit at cable row station', 'Grip bar wider than shoulder width', 'Arms extended, slight lean forward'],
+    execution: ['Pull bar to lower chest/upper abs', 'Drive elbows out to sides', 'Squeeze upper back and rear delts', 'Return with control'],
+    tips: ['Wide grip shifts focus to upper back and rear delts', 'Different stimulus than close grip rowing', 'Great for building upper back thickness']
+  },
+  'High Cable Row': {
+    setup: ['Set cable at face height or higher', 'Use rope or bar attachment', 'Step back to create tension', 'Arms extended toward cable'],
+    execution: ['Pull toward face/upper chest', 'Drive elbows back and out', 'Squeeze upper back at contraction', 'Return with control'],
+    tips: ['Targets upper back and rear delts simultaneously', 'Great alternative to face pulls with more range of motion', 'Keep the pulling angle high for best results']
+  },
+  'Back Extension': {
+    setup: ['Position hips on pad', 'Anchor feet under lower pads', 'Start bent over at hips', 'Arms crossed over chest or behind head'],
+    execution: ['Extend torso until body is straight', 'Squeeze glutes and lower back at top', 'Don\'t hyperextend beyond neutral', 'Lower with control'],
+    tips: ['Great for building lower back endurance and strength', 'Holding weight adds resistance as you progress', 'Can also emphasize glutes by squeezing them hard at top']
+  },
+  'Hyperextension': {
+    setup: ['Similar to back extension on 45-degree bench', 'Hips on pad, feet anchored', 'Start hanging down', 'Hands across chest or behind head'],
+    execution: ['Raise torso until body is straight', 'Squeeze glutes and lower back', 'Hold briefly at top', 'Lower with control'],
+    tips: ['The 45-degree angle changes the resistance curve', 'Add a plate to chest for increased difficulty', 'Don\'t round your lower back at the bottom']
+  },
+  // ADDITIONAL SHOULDER EXERCISES
+  'Seated Dumbbell Press': {
+    setup: ['Sit on bench with back support', 'Clean dumbbells to shoulder height', 'Palms facing forward', 'Feet flat on floor'],
+    execution: ['Press dumbbells overhead', 'Bring dumbbells together at top', 'Lower with control to shoulder level', 'Keep core tight throughout'],
+    tips: ['Dumbbells allow more natural arm path than barbell', 'Seated position prevents leg drive - stricter shoulder work', 'Don\'t let the dumbbells drift too far forward']
+  },
+  'Arnold Press': {
+    setup: ['Sit with dumbbells at shoulder height', 'Palms start facing you', 'Elbows in front of body', 'Back against bench support'],
+    execution: ['Press up while rotating palms to face forward', 'Full extension at top', 'Reverse the rotation on the way down', 'Control throughout'],
+    tips: ['The rotation hits front delts through longer range of motion', 'Created by Arnold Schwarzenegger himself', 'Go lighter than regular press - the rotation makes it harder']
+  },
+  'Machine Shoulder Press': {
+    setup: ['Adjust seat so handles are at shoulder height', 'Sit with back flat against pad', 'Grip handles with palms forward', 'Feet flat on floor'],
+    execution: ['Press handles overhead', 'Full arm extension at top', 'Lower with control', 'Keep back against pad'],
+    tips: ['Great for going to failure safely', 'The fixed path lets you focus on pushing hard', 'Adjust seat height to change emphasis on different delt heads']
+  },
+  'Push Press': {
+    setup: ['Bar in front rack position on front delts', 'Feet shoulder width apart', 'Elbows slightly in front of bar', 'Core braced'],
+    execution: ['Dip slightly by bending knees', 'Explosively extend legs while pressing bar', 'Lock out overhead', 'Lower with control'],
+    tips: ['The leg drive lets you use heavier weights than strict press', 'Great for building overhead strength and power', 'Dip should be quick - don\'t pause at the bottom']
+  },
+  'Cable Lateral Raises': {
+    setup: ['Set cable at lowest position', 'Stand sideways to machine', 'Grab handle with far hand', 'Arm at side, slight elbow bend'],
+    execution: ['Raise arm out to side until parallel to floor', 'Lead with elbow, not hand', 'Lower with control', 'Complete all reps, then switch sides'],
+    tips: ['Cable provides constant tension unlike dumbbells', 'Resistance curve is different - hardest at top', 'Great for side delt isolation and mind-muscle connection']
+  },
+  'Machine Lateral Raises': {
+    setup: ['Adjust seat so arms are at sides', 'Sit with arms against pads', 'Grip handles lightly', 'Keep elbows slightly bent'],
+    execution: ['Raise arms out to sides', 'Stop when arms are parallel to floor', 'Lower with control', 'Maintain constant tension'],
+    tips: ['The machine path prevents cheating with body swing', 'Great for high reps and burning out side delts', 'Focus on squeezing the side delts, not gripping hard']
+  },
+  'Cable Front Raises': {
+    setup: ['Set cable at lowest position', 'Face away from machine', 'Grab handle between legs', 'Stand with feet shoulder width'],
+    execution: ['Raise arm straight in front to shoulder height', 'Keep slight bend in elbow', 'Lower with control', 'Can do one arm or both'],
+    tips: ['Cables provide constant tension through full range', 'Front delts usually get enough work from pressing', 'Good finisher if front delts are a weak point']
+  },
+  'Face Pulls': {
+    setup: ['Set cable at face height', 'Attach rope handle', 'Step back to create tension', 'Arms extended toward cable'],
+    execution: ['Pull rope toward face', 'Separate hands as you pull to ears', 'Externally rotate at the end', 'Return with control'],
+    tips: ['Essential for shoulder health - do these regularly', 'Thumbs should point behind you at the end', 'Targets rear delts and rotator cuff together']
+  },
+  'Reverse Pec Deck': {
+    setup: ['Sit facing the pad on pec deck machine', 'Adjust handles to be in front of you', 'Grip handles with arms extended forward', 'Chest against pad'],
+    execution: ['Open arms back in reverse fly motion', 'Squeeze rear delts at the end', 'Return with control', 'Don\'t let weight stack touch'],
+    tips: ['Great isolation for rear delts with consistent resistance', 'The machine path ensures strict form', 'Keep the motion controlled - no swinging']
+  },
+  'Cable Rear Delt Fly': {
+    setup: ['Set cables at shoulder height', 'Cross cables - right hand grabs left, left grabs right', 'Step back to create tension', 'Arms in front, slight elbow bend'],
+    execution: ['Pull cables back and out', 'Open arms until in line with shoulders', 'Squeeze rear delts', 'Return with control'],
+    tips: ['The cross pattern provides unique resistance angle', 'Keep elbows slightly bent throughout', 'Great for rear delt isolation with constant tension']
+  },
+  'Upright Rows': {
+    setup: ['Stand with feet shoulder width', 'Grip barbell or dumbbells in front of thighs', 'Hands closer than shoulder width', 'Shoulders back, chest up'],
+    execution: ['Pull weight up along body', 'Lead with elbows going up and out', 'Raise until elbows are at shoulder height', 'Lower with control'],
+    tips: ['Controversial exercise - can impinge shoulders if done wrong', 'Keep hands wider and don\'t raise past shoulder level', 'Dumbbells or cables are safer than barbell']
+  },
+  'Lu Raises': {
+    setup: ['Stand with dumbbells at sides', 'Arms straight, palms facing back', 'Slight lean forward', 'Feet shoulder width'],
+    execution: ['Raise arms up and out at 45-degree angle', 'Thumbs point up throughout', 'Lift to shoulder height', 'Lower with control'],
+    tips: ['Named after Olympic lifter Lu Xiaojun', 'The angle hits both front and side delts', 'Great warmup exercise before pressing']
+  },
+  'Y Raises': {
+    setup: ['Lie face down on incline bench or stand bent over', 'Hold light dumbbells', 'Arms hanging down', 'Thumbs pointing up'],
+    execution: ['Raise arms up and out forming a Y shape', 'Squeeze upper back at top', 'Lower with control', 'Keep thumbs pointing up'],
+    tips: ['Excellent for lower trap and shoulder stability', 'Go very light - this is a small muscle group', 'Great for shoulder health and posture']
+  },
+  // ADDITIONAL TRICEP EXERCISES
+  'Rope Pushdowns': {
+    setup: ['Attach rope to high cable', 'Stand facing machine', 'Grip rope with palms facing each other', 'Elbows pinned to sides'],
+    execution: ['Push rope down until arms straight', 'Spread rope at bottom for extra contraction', 'Return with control', 'Keep elbows stationary'],
+    tips: ['The rope allows you to spread at the bottom for better squeeze', 'Spreading the rope hits the lateral head more', 'Keep elbows pinned - no flaring']
+  },
+  'Dumbbell Skull Crushers': {
+    setup: ['Lie on bench holding dumbbells', 'Arms extended straight up', 'Palms facing each other', 'Feet flat on floor'],
+    execution: ['Bend elbows to lower dumbbells toward head', 'Keep upper arms stationary', 'Extend arms back to start', 'Control the descent'],
+    tips: ['Dumbbells allow more natural wrist position than bar', 'Can rotate palms at different points for variety', 'If elbows hurt, try lowering behind head instead']
+  },
+  'Tricep Dips': {
+    setup: ['Grip parallel bars', 'Lift yourself to full arm extension', 'Keep body as upright as possible', 'Cross ankles behind you'],
+    execution: ['Lower by bending elbows', 'Go down until upper arms parallel to floor', 'Press back up to start', 'Keep body upright for tricep focus'],
+    tips: ['Stay upright to target triceps - leaning forward shifts to chest', 'Go to parallel only - deeper can stress shoulders', 'Add weight when bodyweight becomes easy']
+  },
+  'Diamond Push Ups': {
+    setup: ['Get in push up position', 'Place hands together forming diamond shape', 'Thumbs and index fingers touching', 'Body in straight line'],
+    execution: ['Lower chest toward hands', 'Keep elbows close to body', 'Push back up', 'Squeeze triceps at top'],
+    tips: ['One of the best bodyweight tricep exercises', 'Harder than regular push ups - scale reps accordingly', 'Great for medial head tricep development']
+  },
+  'JM Press': {
+    setup: ['Lie on bench with barbell', 'Grip narrower than shoulder width', 'Start with bar over upper chest', 'Elbows pointed forward'],
+    execution: ['Lower bar toward throat/chin by bending elbows', 'Bar path goes forward as you lower', 'Press back up in reverse arc', 'Lock out over upper chest'],
+    tips: ['A hybrid of close grip bench and skull crushers', 'Named after JM Blakley who popularized it', 'Excellent for building tricep mass and bench lockout']
+  },
+  'Tricep Kickbacks': {
+    setup: ['Bend over with one hand on bench', 'Hold dumbbell in other hand', 'Pin upper arm parallel to floor', 'Elbow bent at 90 degrees'],
+    execution: ['Extend arm straight back', 'Squeeze tricep at full extension', 'Return to 90 degrees', 'Complete all reps, switch sides'],
+    tips: ['Despite reputation, this is effective when done correctly', 'Key is keeping upper arm stationary and parallel', 'Light weight with perfect form beats heavy cheating']
+  },
+  'Single Arm Pushdown': {
+    setup: ['Set cable to high position', 'Stand facing machine', 'Grip handle with one hand', 'Elbow pinned to side'],
+    execution: ['Push handle down until arm straight', 'Squeeze tricep at bottom', 'Return with control', 'Complete all reps, switch sides'],
+    tips: ['Great for fixing tricep imbalances between arms', 'Can rotate body for different angles', 'Focus on the mind-muscle connection']
+  },
+  'V-Bar Pushdown': {
+    setup: ['Attach V-bar to high cable', 'Stand facing machine', 'Grip V-bar with palms facing each other', 'Elbows at sides'],
+    execution: ['Push bar down until arms straight', 'Squeeze triceps at bottom', 'Return with control', 'Keep elbows stationary'],
+    tips: ['V-bar puts wrists in neutral position - easier on joints', 'Allows heavier loading than rope', 'Great for overall tricep development']
+  },
+  'Reverse Grip Pushdown': {
+    setup: ['Attach straight bar to high cable', 'Stand facing machine', 'Grip bar with palms facing up', 'Elbows at sides'],
+    execution: ['Push bar down until arms straight', 'Squeeze triceps', 'Return with control', 'Keep wrists straight'],
+    tips: ['Underhand grip emphasizes the medial head', 'Feels awkward at first but builds well-rounded triceps', 'Go lighter than regular pushdowns']
+  },
+  'French Press': {
+    setup: ['Sit or stand holding EZ bar or barbell overhead', 'Arms fully extended', 'Grip slightly narrower than shoulder width', 'Elbows pointing forward'],
+    execution: ['Lower bar behind head by bending elbows', 'Keep upper arms stationary', 'Extend back to start', 'Full lockout at top'],
+    tips: ['The overhead position stretches the long head fully', 'Essential for complete tricep development', 'Can do seated for more stability']
+  },
+  'Incline Skull Crushers': {
+    setup: ['Set bench to 30-45 degree incline', 'Lie back with barbell or dumbbells', 'Arms extended up', 'Start with weight over face'],
+    execution: ['Lower weight toward forehead/behind head', 'Keep upper arms in fixed position', 'Extend back to start', 'Control throughout'],
+    tips: ['The incline increases long head stretch even more', 'Lower behind head rather than to forehead', 'Great alternative if flat skull crushers bother elbows']
+  },
+  'Overhead Dumbbell Extension': {
+    setup: ['Sit or stand holding dumbbell with both hands', 'Press dumbbell overhead', 'Grip the inside of top weight plate', 'Elbows pointing up'],
+    execution: ['Lower dumbbell behind head', 'Keep upper arms close to head', 'Extend back to start', 'Full lockout at top'],
+    tips: ['Great long head tricep builder', 'Can also do single arm for more isolation', 'Keep elbows from flaring out']
+  },
+  // ADDITIONAL BICEP EXERCISES
+  'EZ Bar Curl': {
+    setup: ['Stand holding EZ bar at angled grips', 'Feet shoulder width apart', 'Arms extended, bar at thighs', 'Elbows at sides'],
+    execution: ['Curl bar up toward shoulders', 'Keep elbows stationary', 'Squeeze at the top', 'Lower with control'],
+    tips: ['The angled grip is easier on wrists than straight bar', 'Inner grip targets outer bicep, outer grip hits inner bicep', 'Just as effective as straight bar with less joint stress']
+  },
+  'Hammer Curls': {
+    setup: ['Stand with dumbbells at sides', 'Neutral grip - palms facing thighs', 'Arms fully extended', 'Feet shoulder width'],
+    execution: ['Curl dumbbells up keeping neutral grip', 'Bring to shoulder level', 'Squeeze at the top', 'Lower with control'],
+    tips: ['Builds the brachialis which pushes the bicep up', 'Also hits forearms significantly', 'Can do across body for more brachialis emphasis']
+  },
+  'Incline Dumbbell Curl': {
+    setup: ['Set bench to 45-60 degree incline', 'Lie back with dumbbells hanging down', 'Arms fully extended behind torso', 'Palms facing forward'],
+    execution: ['Curl dumbbells up toward shoulders', 'Keep upper arms stationary', 'Squeeze at the top', 'Lower to full stretch'],
+    tips: ['The incline puts biceps in stretched position - great for growth', 'You\'ll use less weight but feel it more', 'One of the best bicep exercises for long head']
+  },
+  'Concentration Curl': {
+    setup: ['Sit on bench with legs spread', 'Rest elbow against inner thigh', 'Hold dumbbell with arm extended down', 'Lean slightly forward'],
+    execution: ['Curl dumbbell up toward shoulder', 'Focus on squeezing the bicep', 'Lower with full control', 'Complete all reps, switch arms'],
+    tips: ['The braced position prevents cheating completely', 'Great for building the bicep peak', 'Focus on the squeeze more than the weight']
+  },
+  'Spider Curls': {
+    setup: ['Lie face down on incline bench', 'Let arms hang straight down', 'Hold dumbbells or EZ bar', 'Upper arms perpendicular to floor'],
+    execution: ['Curl weight up without moving upper arms', 'Squeeze hard at top', 'Lower with control', 'Get full extension at bottom'],
+    tips: ['The position eliminates all momentum', 'Great for building the short head (inner bicep)', 'You\'ll use lighter weight but feel every rep']
+  },
+  'Drag Curls': {
+    setup: ['Stand holding barbell at thighs', 'Grip shoulder width', 'Arms extended', 'Elbows will move back during movement'],
+    execution: ['Curl bar up while dragging it along body', 'Drive elbows back as bar rises', 'Bar stays in contact with body', 'Lower while dragging back down'],
+    tips: ['Eliminates front delt involvement completely', 'The movement pattern is unusual but highly effective', 'Great for building bicep peak and long head']
+  },
+  'Reverse Curls': {
+    setup: ['Stand holding barbell with overhand grip', 'Arms extended, bar at thighs', 'Grip shoulder width', 'Elbows at sides'],
+    execution: ['Curl bar up keeping overhand grip', 'Bring bar to shoulder level', 'Lower with control', 'Keep wrists straight'],
+    tips: ['Targets brachioradialis (forearm) and brachialis', 'Great for building forearm size', 'Use lighter weight than regular curls']
+  },
+  'Wrist Curls': {
+    setup: ['Sit with forearms on thighs or bench', 'Wrists hanging over edge', 'Hold barbell or dumbbells', 'Palms facing up'],
+    execution: ['Curl wrists up', 'Squeeze forearms at top', 'Lower with control', 'Full stretch at bottom'],
+    tips: ['Targets the forearm flexors', 'Can also do with palms down for extensors', 'High reps (15-20) work well for forearms']
+  },
+  'Bayesian Cable Curl': {
+    setup: ['Set cable at lowest position', 'Face away from machine', 'Grab handle behind you', 'Step forward, arm behind torso'],
+    execution: ['Curl handle up toward shoulder', 'Keep upper arm behind you throughout', 'Squeeze at the top', 'Lower with control'],
+    tips: ['Puts biceps in maximum stretched position', 'One of the best exercises for long head', 'The stretch at the bottom is what makes this special']
+  },
+  'High Cable Curl': {
+    setup: ['Set cables at head height or above', 'Stand between cable stations', 'Grip handles with palms up', 'Arms extended out to sides'],
+    execution: ['Curl handles toward your head', 'Squeeze biceps at peak contraction', 'Extend arms back to start', 'Maintain tension throughout'],
+    tips: ['The unique angle gives an incredible peak contraction', 'Great for building the bicep peak', 'This is a finishing exercise - do it last']
+  },
+  'Machine Preacher Curl': {
+    setup: ['Sit at preacher machine', 'Adjust pad height for upper arms', 'Grip handles', 'Arms on pad, slightly bent'],
+    execution: ['Curl handles up toward shoulders', 'Squeeze biceps at top', 'Lower with control', 'Don\'t fully lock out at bottom'],
+    tips: ['Machine provides consistent resistance through range', 'Great for mind-muscle connection', 'Safe for going to failure']
+  },
+  'Wide Grip Barbell Curl': {
+    setup: ['Stand holding barbell with grip wider than shoulders', 'Arms extended at thighs', 'Elbows close to body', 'Chest up'],
+    execution: ['Curl bar toward shoulders', 'Keep elbows stationary', 'Squeeze at top', 'Lower with control'],
+    tips: ['Wide grip emphasizes the short head (inner bicep)', 'Good for building bicep width', 'Rotate with narrow grip work for complete development']
+  },
+  'Narrow Grip EZ Curl': {
+    setup: ['Stand holding EZ bar at inner grips', 'Arms extended', 'Elbows at sides', 'Feet shoulder width'],
+    execution: ['Curl bar up toward shoulders', 'Keep elbows pinned', 'Squeeze at top', 'Lower with control'],
+    tips: ['Narrow grip emphasizes the long head (outer bicep)', 'Great for building the bicep peak', 'Part of a complete bicep routine with wide grip work']
+  },
+  // ADDITIONAL QUAD EXERCISES
+  'Barbell Back Squat': {
+    setup: ['Bar on upper traps (high bar) or rear delts (low bar)', 'Feet shoulder width, toes slightly out', 'Chest up, core braced', 'Unrack and step back'],
+    execution: ['Push hips back and bend knees', 'Descend until thighs at least parallel', 'Keep knees over toes', 'Drive up through heels'],
+    tips: ['High bar is more quad dominant, low bar shifts to glutes/hips', 'Squat shoes with raised heels help achieve depth', 'The king of leg exercises - prioritize it']
+  },
+  'Front Squat': {
+    setup: ['Bar rests on front delts, not hands', 'Elbows high, upper arms parallel to floor', 'Feet shoulder width', 'Core very tight'],
+    execution: ['Descend by pushing knees forward and down', 'Stay upright - elbows up', 'Go as deep as mobility allows', 'Drive up keeping chest high'],
+    tips: ['More quad dominant than back squats', 'Requires good thoracic mobility', 'Great for core strength and athletic performance']
+  },
+  'Goblet Squat': {
+    setup: ['Hold dumbbell or kettlebell at chest', 'Elbows pointing down', 'Feet slightly wider than shoulders', 'Toes pointed slightly out'],
+    execution: ['Squat down between your legs', 'Keep chest up and elbows inside knees', 'Go as deep as possible', 'Drive up through heels'],
+    tips: ['The front load forces upright posture', 'Great for learning squat mechanics', 'Excellent warmup before back squats']
+  },
+  'Hack Squat': {
+    setup: ['Stand on platform with back against pad', 'Shoulders under pads', 'Feet shoulder width on platform', 'Release safety handles'],
+    execution: ['Lower by bending knees', 'Go as deep as comfortable', 'Drive back up through heels', 'Don\'t lock out knees completely'],
+    tips: ['The machine path allows focusing purely on quads', 'Low foot position targets quads more, high targets glutes', 'Great for quad hypertrophy without lower back stress']
+  },
+  'Walking Lunges': {
+    setup: ['Stand with dumbbells at sides or barbell on back', 'Feet together', 'Core engaged', 'Look straight ahead'],
+    execution: ['Step forward into lunge position', 'Lower until both knees at 90 degrees', 'Step through to next lunge', 'Continue walking pattern'],
+    tips: ['The continuous motion is more metabolically demanding', 'Great for building functional leg strength', 'Shorter steps target quads, longer steps hit glutes']
+  },
+  'Reverse Lunges': {
+    setup: ['Stand with feet together', 'Hold dumbbells at sides or barbell on back', 'Core engaged', 'Chest up'],
+    execution: ['Step backward into lunge', 'Lower until both knees at 90 degrees', 'Push through front heel to return', 'Alternate legs or do all reps on one side'],
+    tips: ['Easier on knees than forward lunges', 'Great for quad and glute development', 'The step back makes balance easier to maintain']
+  },
+  'Step Ups': {
+    setup: ['Stand facing box or bench', 'Hold dumbbells at sides', 'One foot on box', 'Core engaged'],
+    execution: ['Drive through front foot to step up', 'Bring other foot to box', 'Step down with control', 'Complete all reps then switch legs'],
+    tips: ['Don\'t push off back leg - use the front leg only', 'Higher box increases glute involvement', 'Great unilateral exercise for fixing imbalances']
+  },
+  'Sissy Squat': {
+    setup: ['Stand holding something for balance', 'Feet hip width apart', 'Rise up on toes', 'Lean back from the knees'],
+    execution: ['Bend knees and lean back simultaneously', 'Lower until feeling deep quad stretch', 'Keep hips forward - don\'t sit back', 'Rise back up to start'],
+    tips: ['Extreme quad isolation - prepare for soreness', 'Start with bodyweight only', 'Targets the rectus femoris uniquely']
+  },
+  'Pendulum Squat': {
+    setup: ['Stand on platform with shoulders under pads', 'Feet in the center or slightly forward', 'Grip handles', 'Release safety'],
+    execution: ['Lower by bending knees', 'The machine swings in a pendulum arc', 'Go as deep as comfortable', 'Drive back up'],
+    tips: ['The arc path is easier on the lower back than hack squat', 'Constant tension through the entire range', 'Great machine for quad hypertrophy']
+  },
+  'Belt Squat': {
+    setup: ['Attach belt around hips', 'Stand on elevated platforms', 'Weight hangs from belt between legs', 'Feet shoulder width or wider'],
+    execution: ['Squat down between platforms', 'Keep chest up', 'Go as deep as possible', 'Drive up through heels'],
+    tips: ['Zero spinal loading - amazing for back issues', 'Can go very heavy and very deep safely', 'One of the best leg exercises if your gym has one']
+  },
+  // ADDITIONAL HAMSTRING EXERCISES
+  'Lying Leg Curl': {
+    setup: ['Lie face down on leg curl machine', 'Ankles under pad', 'Grip handles', 'Hips pressed into pad'],
+    execution: ['Curl heels toward glutes', 'Squeeze hamstrings at top', 'Lower with control', 'Don\'t let weight stack touch'],
+    tips: ['Point toes away for more hamstring activation', 'Don\'t let hips rise up - that\'s cheating', 'Great for building hamstring mass']
+  },
+  'Nordic Curls': {
+    setup: ['Kneel on pad with feet anchored', 'Partner holds ankles or use machine', 'Body straight from knees to head', 'Arms ready to catch yourself'],
+    execution: ['Lower body forward with control', 'Resist with hamstrings as long as possible', 'Catch yourself and push back up', 'Use hamstrings to return if possible'],
+    tips: ['One of the most effective hamstring exercises', 'Start with negatives only if too hard', 'Great for preventing hamstring injuries']
+  },
+  'Good Mornings': {
+    setup: ['Bar on upper back like squat position', 'Feet shoulder width', 'Slight bend in knees', 'Core braced'],
+    execution: ['Hinge at hips pushing them back', 'Lower torso until nearly parallel to floor', 'Keep back flat throughout', 'Drive hips forward to stand'],
+    tips: ['Excellent for hamstring and lower back development', 'Keep the weight light and form strict', 'The stretch in hamstrings should be intense']
+  },
+  'Sumo Deadlift': {
+    setup: ['Very wide stance, toes pointed out', 'Grip bar with hands inside knees', 'Chest up, hips low', 'Back flat'],
+    execution: ['Drive through floor spreading knees', 'Keep bar close to body', 'Stand tall at top', 'Lower by pushing hips back'],
+    tips: ['More hip and inner thigh dominant than conventional', 'Better for those with long torsos', 'The wide stance reduces range of motion']
+  },
+  // ADDITIONAL GLUTE EXERCISES
+  'Hip Abduction Machine': {
+    setup: ['Sit in machine with back against pad', 'Legs inside pads', 'Start with legs together', 'Grip handles'],
+    execution: ['Push legs apart against resistance', 'Squeeze glutes at full extension', 'Return with control', 'Don\'t let weight stack touch'],
+    tips: ['Targets gluteus medius and minimus', 'Great for building hip stability', 'Can lean forward for different glute emphasis']
+  },
+  'Cable Pull Through': {
+    setup: ['Set cable at lowest position', 'Face away, straddle the cable', 'Grab rope between legs', 'Step forward to create tension'],
+    execution: ['Hinge at hips pushing them back', 'Let hands go between legs', 'Drive hips forward powerfully', 'Squeeze glutes at top'],
+    tips: ['Great hip hinge teaching exercise', 'Constant tension makes it great for glute activation', 'Keep your back flat throughout']
+  },
+  'Frog Pumps': {
+    setup: ['Lie on back', 'Soles of feet together, knees out', 'Arms at sides for stability', 'Heels close to glutes'],
+    execution: ['Drive hips up by squeezing glutes', 'Hold at top briefly', 'Lower with control', 'Keep feet pressed together'],
+    tips: ['The position isolates glutes from hamstrings', 'Great for glute activation before heavy compounds', 'High reps (20-30) work well here']
+  },
+  'Single Leg Hip Thrust': {
+    setup: ['Upper back on bench', 'One foot on floor, other leg extended', 'Hips starting low', 'Arms out for balance'],
+    execution: ['Drive through planted foot to raise hips', 'Squeeze glute hard at top', 'Lower with control', 'Complete all reps, switch legs'],
+    tips: ['Fixes glute imbalances between sides', 'Much harder than bilateral - use bodyweight first', 'Great for runners and athletes']
+  },
+  'Donkey Kicks': {
+    setup: ['Get on all fours', 'Hands under shoulders, knees under hips', 'Core engaged', 'One knee stays on ground'],
+    execution: ['Kick one leg back and up', 'Drive heel toward ceiling', 'Squeeze glute at top', 'Lower with control, repeat'],
+    tips: ['Keep the motion controlled - no swinging', 'Focus on feeling the glute contract', 'Can add ankle weights for resistance']
+  },
+  'Fire Hydrants': {
+    setup: ['On all fours position', 'Core tight', 'Back flat', 'Head neutral'],
+    execution: ['Lift one knee out to the side', 'Keep 90-degree knee bend', 'Raise until thigh is parallel to floor', 'Lower with control'],
+    tips: ['Great for gluteus medius activation', 'Perfect warmup exercise before squats', 'Can add band for increased resistance']
+  }
+};
+
+// Helper to get exercise instructions (returns default if not found)
+const getExerciseInstructions = (exerciseName) => {
+  return EXERCISE_INSTRUCTIONS[exerciseName] || {
+    setup: ['Position yourself at the equipment', 'Adjust settings for your body size', 'Grip handles or bar with proper hand placement', 'Engage your core before starting'],
+    execution: ['Perform the movement with control', 'Focus on the target muscle', 'Use full range of motion', 'Breathe out during exertion, in during release'],
+    tips: ['Start with lighter weight to learn the movement', 'Focus on form over weight', 'If unsure, ask a trainer for guidance']
+  };
+};
+
+// Exercise Info Modal - shows step-by-step instructions for exercises
+const ExerciseInfoModal = ({ COLORS, exerciseName, onClose }) => {
+  const instructions = getExerciseInstructions(exerciseName);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.8)' }}>
+      <div className="w-full max-w-md rounded-2xl p-6 max-h-[85vh] overflow-auto" style={{ backgroundColor: COLORS.surface }}>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '20' }}>
+              <Info size={20} color={COLORS.primary} />
+            </div>
+            <h3 className="text-lg font-bold" style={{ color: COLORS.text }}>{exerciseName}</h3>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-full" style={{ backgroundColor: COLORS.surfaceLight }}>
+            <X size={20} color={COLORS.textMuted} />
+          </button>
+        </div>
+
+        {/* Setup Section */}
+        <div className="mb-5">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold" style={{ backgroundColor: COLORS.primary, color: COLORS.text }}>1</div>
+            <h4 className="font-semibold" style={{ color: COLORS.text }}>Setup</h4>
+          </div>
+          <div className="space-y-2 pl-8">
+            {instructions.setup.map((step, idx) => (
+              <div key={idx} className="flex items-start gap-2">
+                <span className="text-sm mt-0.5" style={{ color: COLORS.textMuted }}>{idx + 1}.</span>
+                <p className="text-sm" style={{ color: COLORS.textSecondary }}>{step}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Execution Section */}
+        <div className="mb-5">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold" style={{ backgroundColor: COLORS.primary, color: COLORS.text }}>2</div>
+            <h4 className="font-semibold" style={{ color: COLORS.text }}>Execution</h4>
+          </div>
+          <div className="space-y-2 pl-8">
+            {instructions.execution.map((step, idx) => (
+              <div key={idx} className="flex items-start gap-2">
+                <span className="text-sm mt-0.5" style={{ color: COLORS.textMuted }}>{idx + 1}.</span>
+                <p className="text-sm" style={{ color: COLORS.textSecondary }}>{step}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Tips Section */}
+        <div className="mb-4">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.warning + '20' }}>
+              <Zap size={14} color={COLORS.warning} />
+            </div>
+            <h4 className="font-semibold" style={{ color: COLORS.text }}>Pro Tips</h4>
+          </div>
+          <div className="space-y-2 pl-8">
+            {instructions.tips.map((tip, idx) => (
+              <div key={idx} className="flex items-start gap-2">
+                <span className="text-sm" style={{ color: COLORS.warning }}>•</span>
+                <p className="text-sm" style={{ color: COLORS.textSecondary }}>{tip}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <button
+          onClick={onClose}
+          className="w-full py-3 rounded-xl font-semibold mt-2"
+          style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+        >
+          Got It
+        </button>
+      </div>
+    </div>
+  );
 };
 
 // Helper to get program for a goal
@@ -1584,26 +2434,30 @@ const ALL_EXERCISES = [
   { name: 'Floor Press', muscleGroup: 'Chest', equipment: 'Barbell', type: 'compound' },
   { name: 'Close Grip Bench Press', muscleGroup: 'Chest', equipment: 'Barbell', type: 'compound' },
   
-  // BACK
-  { name: 'Barbell Row', muscleGroup: 'Back', equipment: 'Barbell', type: 'compound' },
-  { name: 'Pendlay Row', muscleGroup: 'Back', equipment: 'Barbell', type: 'compound' },
-  { name: 'Dumbbell Row', muscleGroup: 'Back', equipment: 'Dumbbells', type: 'compound' },
-  { name: 'Chest Supported Row', muscleGroup: 'Back', equipment: 'Dumbbells', type: 'compound' },
-  { name: 'T-Bar Row', muscleGroup: 'Back', equipment: 'Barbell', type: 'compound' },
-  { name: 'Seated Cable Row', muscleGroup: 'Back', equipment: 'Cable', type: 'compound' },
+  // BACK - with muscle region targeting
+  { name: 'Barbell Row', muscleGroup: 'Back', equipment: 'Barbell', type: 'compound', targetedHeads: ['Mid Back', 'Upper Back'] },
+  { name: 'Pendlay Row', muscleGroup: 'Back', equipment: 'Barbell', type: 'compound', targetedHeads: ['Mid Back', 'Upper Back'] },
+  { name: 'Dumbbell Row', muscleGroup: 'Back', equipment: 'Dumbbells', type: 'compound', targetedHeads: ['Mid Back'] },
+  { name: 'Chest Supported Row', muscleGroup: 'Back', equipment: 'Dumbbells', type: 'compound', targetedHeads: ['Upper Back', 'Mid Back'] },
+  { name: 'T-Bar Row', muscleGroup: 'Back', equipment: 'Barbell', type: 'compound', targetedHeads: ['Mid Back'] },
+  { name: 'Seated Cable Row', muscleGroup: 'Back', equipment: 'Cable', type: 'compound', targetedHeads: ['Mid Back'] },
   { name: 'Lat Pulldown', muscleGroup: 'Lats', equipment: 'Cable', type: 'compound' },
   { name: 'Close Grip Pulldown', muscleGroup: 'Lats', equipment: 'Cable', type: 'compound' },
   { name: 'Wide Grip Pulldown', muscleGroup: 'Lats', equipment: 'Cable', type: 'compound' },
   { name: 'Pull Ups', muscleGroup: 'Lats', equipment: 'Bodyweight', type: 'compound' },
   { name: 'Chin Ups', muscleGroup: 'Lats', equipment: 'Bodyweight', type: 'compound' },
   { name: 'Neutral Grip Pull Ups', muscleGroup: 'Lats', equipment: 'Bodyweight', type: 'compound' },
-  { name: 'Machine Row', muscleGroup: 'Back', equipment: 'Machine', type: 'compound' },
-  { name: 'Meadows Row', muscleGroup: 'Back', equipment: 'Barbell', type: 'compound' },
-  { name: 'Seal Row', muscleGroup: 'Back', equipment: 'Barbell', type: 'compound' },
+  { name: 'Machine Row', muscleGroup: 'Back', equipment: 'Machine', type: 'compound', targetedHeads: ['Mid Back'] },
+  { name: 'Meadows Row', muscleGroup: 'Back', equipment: 'Barbell', type: 'compound', targetedHeads: ['Mid Back'] },
+  { name: 'Seal Row', muscleGroup: 'Back', equipment: 'Barbell', type: 'compound', targetedHeads: ['Mid Back', 'Upper Back'] },
   { name: 'Straight Arm Pulldown', muscleGroup: 'Lats', equipment: 'Cable', type: 'isolation' },
-  { name: 'Rack Pulls', muscleGroup: 'Back', equipment: 'Barbell', type: 'compound' },
-  { name: 'Deadlift', muscleGroup: 'Back', equipment: 'Barbell', type: 'compound' },
-  { name: 'Snatch Grip Deadlift', muscleGroup: 'Back', equipment: 'Barbell', type: 'compound' },
+  { name: 'Rack Pulls', muscleGroup: 'Back', equipment: 'Barbell', type: 'compound', targetedHeads: ['Lower Back'] },
+  { name: 'Deadlift', muscleGroup: 'Back', equipment: 'Barbell', type: 'compound', targetedHeads: ['Lower Back', 'Mid Back'] },
+  { name: 'Snatch Grip Deadlift', muscleGroup: 'Back', equipment: 'Barbell', type: 'compound', targetedHeads: ['Upper Back', 'Mid Back'] },
+  { name: 'Wide Grip Cable Row', muscleGroup: 'Back', equipment: 'Cable', type: 'compound', targetedHeads: ['Upper Back'] },
+  { name: 'High Cable Row', muscleGroup: 'Back', equipment: 'Cable', type: 'compound', targetedHeads: ['Upper Back'] },
+  { name: 'Back Extension', muscleGroup: 'Back', equipment: 'Equipment', type: 'isolation', targetedHeads: ['Lower Back'] },
+  { name: 'Hyperextension', muscleGroup: 'Back', equipment: 'Equipment', type: 'isolation', targetedHeads: ['Lower Back'] },
   
   // SHOULDERS
   { name: 'Overhead Press', muscleGroup: 'Shoulders', equipment: 'Barbell', type: 'compound' },
@@ -1624,63 +2478,80 @@ const ALL_EXERCISES = [
   { name: 'Lu Raises', muscleGroup: 'Side Delts', equipment: 'Dumbbells', type: 'isolation' },
   { name: 'Y Raises', muscleGroup: 'Shoulders', equipment: 'Dumbbells', type: 'isolation' },
   
-  // TRICEPS
-  { name: 'Tricep Pushdowns', muscleGroup: 'Triceps', equipment: 'Cable', type: 'isolation' },
-  { name: 'Rope Pushdowns', muscleGroup: 'Triceps', equipment: 'Cable', type: 'isolation' },
-  { name: 'Overhead Tricep Extension', muscleGroup: 'Triceps', equipment: 'Cable', type: 'isolation' },
-  { name: 'Skull Crushers', muscleGroup: 'Triceps', equipment: 'Barbell', type: 'isolation' },
-  { name: 'Dumbbell Skull Crushers', muscleGroup: 'Triceps', equipment: 'Dumbbells', type: 'isolation' },
-  { name: 'Tricep Dips', muscleGroup: 'Triceps', equipment: 'Bodyweight', type: 'compound' },
-  { name: 'Diamond Push Ups', muscleGroup: 'Triceps', equipment: 'Bodyweight', type: 'compound' },
-  { name: 'JM Press', muscleGroup: 'Triceps', equipment: 'Barbell', type: 'compound' },
-  { name: 'Tricep Kickbacks', muscleGroup: 'Triceps', equipment: 'Dumbbells', type: 'isolation' },
-  { name: 'Single Arm Pushdown', muscleGroup: 'Triceps', equipment: 'Cable', type: 'isolation' },
+  // TRICEPS - with muscle head targeting
+  { name: 'Tricep Pushdowns', muscleGroup: 'Triceps', equipment: 'Cable', type: 'isolation', targetedHeads: ['Lateral Head Triceps'] },
+  { name: 'Rope Pushdowns', muscleGroup: 'Triceps', equipment: 'Cable', type: 'isolation', targetedHeads: ['Lateral Head Triceps', 'Medial Head Triceps'] },
+  { name: 'Overhead Tricep Extension', muscleGroup: 'Triceps', equipment: 'Cable', type: 'isolation', targetedHeads: ['Long Head Triceps'] },
+  { name: 'Skull Crushers', muscleGroup: 'Triceps', equipment: 'Barbell', type: 'isolation', targetedHeads: ['Long Head Triceps'] },
+  { name: 'Dumbbell Skull Crushers', muscleGroup: 'Triceps', equipment: 'Dumbbells', type: 'isolation', targetedHeads: ['Long Head Triceps'] },
+  { name: 'Tricep Dips', muscleGroup: 'Triceps', equipment: 'Bodyweight', type: 'compound', targetedHeads: ['Lateral Head Triceps', 'Medial Head Triceps'] },
+  { name: 'Diamond Push Ups', muscleGroup: 'Triceps', equipment: 'Bodyweight', type: 'compound', targetedHeads: ['Medial Head Triceps'] },
+  { name: 'JM Press', muscleGroup: 'Triceps', equipment: 'Barbell', type: 'compound', targetedHeads: ['Long Head Triceps', 'Lateral Head Triceps'] },
+  { name: 'Tricep Kickbacks', muscleGroup: 'Triceps', equipment: 'Dumbbells', type: 'isolation', targetedHeads: ['Lateral Head Triceps'] },
+  { name: 'Single Arm Pushdown', muscleGroup: 'Triceps', equipment: 'Cable', type: 'isolation', targetedHeads: ['Lateral Head Triceps'] },
+  { name: 'V-Bar Pushdown', muscleGroup: 'Triceps', equipment: 'Cable', type: 'isolation', targetedHeads: ['Lateral Head Triceps'] },
+  { name: 'Reverse Grip Pushdown', muscleGroup: 'Triceps', equipment: 'Cable', type: 'isolation', targetedHeads: ['Medial Head Triceps'] },
+  { name: 'French Press', muscleGroup: 'Triceps', equipment: 'Barbell', type: 'isolation', targetedHeads: ['Long Head Triceps'] },
+  { name: 'Incline Skull Crushers', muscleGroup: 'Triceps', equipment: 'Barbell', type: 'isolation', targetedHeads: ['Long Head Triceps'] },
+  { name: 'Overhead Dumbbell Extension', muscleGroup: 'Triceps', equipment: 'Dumbbells', type: 'isolation', targetedHeads: ['Long Head Triceps'] },
   
-  // BICEPS
-  { name: 'Barbell Curl', muscleGroup: 'Biceps', equipment: 'Barbell', type: 'isolation' },
-  { name: 'EZ Bar Curl', muscleGroup: 'Biceps', equipment: 'Barbell', type: 'isolation' },
-  { name: 'Dumbbell Curl', muscleGroup: 'Biceps', equipment: 'Dumbbells', type: 'isolation' },
-  { name: 'Hammer Curls', muscleGroup: 'Biceps', equipment: 'Dumbbells', type: 'isolation' },
-  { name: 'Incline Dumbbell Curl', muscleGroup: 'Biceps', equipment: 'Dumbbells', type: 'isolation' },
-  { name: 'Preacher Curl', muscleGroup: 'Biceps', equipment: 'Barbell', type: 'isolation' },
-  { name: 'Cable Curl', muscleGroup: 'Biceps', equipment: 'Cable', type: 'isolation' },
-  { name: 'Concentration Curl', muscleGroup: 'Biceps', equipment: 'Dumbbells', type: 'isolation' },
-  { name: 'Spider Curls', muscleGroup: 'Biceps', equipment: 'Dumbbells', type: 'isolation' },
-  { name: 'Drag Curls', muscleGroup: 'Biceps', equipment: 'Barbell', type: 'isolation' },
+  // BICEPS - with muscle head targeting
+  { name: 'Barbell Curl', muscleGroup: 'Biceps', equipment: 'Barbell', type: 'isolation', targetedHeads: ['Long Head Biceps', 'Short Head Biceps'] },
+  { name: 'EZ Bar Curl', muscleGroup: 'Biceps', equipment: 'Barbell', type: 'isolation', targetedHeads: ['Long Head Biceps', 'Short Head Biceps'] },
+  { name: 'Dumbbell Curl', muscleGroup: 'Biceps', equipment: 'Dumbbells', type: 'isolation', targetedHeads: ['Long Head Biceps', 'Short Head Biceps'] },
+  { name: 'Hammer Curls', muscleGroup: 'Biceps', equipment: 'Dumbbells', type: 'isolation', targetedHeads: ['Long Head Biceps'] },
+  { name: 'Incline Dumbbell Curl', muscleGroup: 'Biceps', equipment: 'Dumbbells', type: 'isolation', targetedHeads: ['Long Head Biceps'] },
+  { name: 'Preacher Curl', muscleGroup: 'Biceps', equipment: 'Barbell', type: 'isolation', targetedHeads: ['Short Head Biceps'] },
+  { name: 'Cable Curl', muscleGroup: 'Biceps', equipment: 'Cable', type: 'isolation', targetedHeads: ['Long Head Biceps', 'Short Head Biceps'] },
+  { name: 'Concentration Curl', muscleGroup: 'Biceps', equipment: 'Dumbbells', type: 'isolation', targetedHeads: ['Short Head Biceps'] },
+  { name: 'Spider Curls', muscleGroup: 'Biceps', equipment: 'Dumbbells', type: 'isolation', targetedHeads: ['Short Head Biceps'] },
+  { name: 'Drag Curls', muscleGroup: 'Biceps', equipment: 'Barbell', type: 'isolation', targetedHeads: ['Long Head Biceps'] },
   { name: 'Reverse Curls', muscleGroup: 'Forearms', equipment: 'Barbell', type: 'isolation' },
   { name: 'Wrist Curls', muscleGroup: 'Forearms', equipment: 'Barbell', type: 'isolation' },
+  { name: 'Bayesian Cable Curl', muscleGroup: 'Biceps', equipment: 'Cable', type: 'isolation', targetedHeads: ['Long Head Biceps'] },
+  { name: 'High Cable Curl', muscleGroup: 'Biceps', equipment: 'Cable', type: 'isolation', targetedHeads: ['Short Head Biceps'] },
+  { name: 'Machine Preacher Curl', muscleGroup: 'Biceps', equipment: 'Machine', type: 'isolation', targetedHeads: ['Short Head Biceps'] },
+  { name: 'Wide Grip Barbell Curl', muscleGroup: 'Biceps', equipment: 'Barbell', type: 'isolation', targetedHeads: ['Short Head Biceps'] },
+  { name: 'Narrow Grip EZ Curl', muscleGroup: 'Biceps', equipment: 'Barbell', type: 'isolation', targetedHeads: ['Long Head Biceps'] },
   
-  // QUADS
-  { name: 'Barbell Back Squat', muscleGroup: 'Quads', equipment: 'Barbell', type: 'compound' },
-  { name: 'Front Squat', muscleGroup: 'Quads', equipment: 'Barbell', type: 'compound' },
-  { name: 'Goblet Squat', muscleGroup: 'Quads', equipment: 'Dumbbells', type: 'compound' },
-  { name: 'Hack Squat', muscleGroup: 'Quads', equipment: 'Machine', type: 'compound' },
-  { name: 'Leg Press', muscleGroup: 'Quads', equipment: 'Machine', type: 'compound' },
-  { name: 'Bulgarian Split Squat', muscleGroup: 'Quads', equipment: 'Dumbbells', type: 'compound' },
-  { name: 'Walking Lunges', muscleGroup: 'Quads', equipment: 'Dumbbells', type: 'compound' },
-  { name: 'Reverse Lunges', muscleGroup: 'Quads', equipment: 'Dumbbells', type: 'compound' },
-  { name: 'Step Ups', muscleGroup: 'Quads', equipment: 'Dumbbells', type: 'compound' },
-  { name: 'Leg Extension', muscleGroup: 'Quads', equipment: 'Machine', type: 'isolation' },
-  { name: 'Sissy Squat', muscleGroup: 'Quads', equipment: 'Bodyweight', type: 'isolation' },
-  { name: 'Pendulum Squat', muscleGroup: 'Quads', equipment: 'Machine', type: 'compound' },
-  { name: 'Belt Squat', muscleGroup: 'Quads', equipment: 'Machine', type: 'compound' },
-  { name: 'Smith Machine Squat', muscleGroup: 'Quads', equipment: 'Machine', type: 'compound' },
-  
-  // HAMSTRINGS & GLUTES
-  { name: 'Romanian Deadlift', muscleGroup: 'Hamstrings', equipment: 'Barbell', type: 'compound' },
-  { name: 'Stiff Leg Deadlift', muscleGroup: 'Hamstrings', equipment: 'Barbell', type: 'compound' },
-  { name: 'Dumbbell RDL', muscleGroup: 'Hamstrings', equipment: 'Dumbbells', type: 'compound' },
-  { name: 'Single Leg RDL', muscleGroup: 'Hamstrings', equipment: 'Dumbbells', type: 'compound' },
-  { name: 'Good Mornings', muscleGroup: 'Hamstrings', equipment: 'Barbell', type: 'compound' },
-  { name: 'Lying Leg Curl', muscleGroup: 'Hamstrings', equipment: 'Machine', type: 'isolation' },
-  { name: 'Seated Leg Curl', muscleGroup: 'Hamstrings', equipment: 'Machine', type: 'isolation' },
-  { name: 'Nordic Curls', muscleGroup: 'Hamstrings', equipment: 'Bodyweight', type: 'isolation' },
-  { name: 'Hip Thrust', muscleGroup: 'Glutes', equipment: 'Barbell', type: 'compound' },
-  { name: 'Glute Bridge', muscleGroup: 'Glutes', equipment: 'Barbell', type: 'compound' },
-  { name: 'Cable Pull Through', muscleGroup: 'Glutes', equipment: 'Cable', type: 'compound' },
-  { name: 'Glute Kickback', muscleGroup: 'Glutes', equipment: 'Cable', type: 'isolation' },
-  { name: 'Hip Abduction', muscleGroup: 'Glutes', equipment: 'Machine', type: 'isolation' },
-  { name: 'Sumo Deadlift', muscleGroup: 'Glutes', equipment: 'Barbell', type: 'compound' },
+  // QUADS - with muscle head targeting
+  { name: 'Barbell Back Squat', muscleGroup: 'Quads', equipment: 'Barbell', type: 'compound', targetedHeads: ['Vastus Lateralis', 'Vastus Medialis', 'Rectus Femoris'] },
+  { name: 'Front Squat', muscleGroup: 'Quads', equipment: 'Barbell', type: 'compound', targetedHeads: ['Rectus Femoris', 'Vastus Medialis'] },
+  { name: 'Goblet Squat', muscleGroup: 'Quads', equipment: 'Dumbbells', type: 'compound', targetedHeads: ['Vastus Medialis', 'Rectus Femoris'] },
+  { name: 'Hack Squat', muscleGroup: 'Quads', equipment: 'Machine', type: 'compound', targetedHeads: ['Rectus Femoris', 'Vastus Lateralis'] },
+  { name: 'Leg Press', muscleGroup: 'Quads', equipment: 'Machine', type: 'compound', targetedHeads: ['Vastus Lateralis', 'Vastus Medialis'] },
+  { name: 'Bulgarian Split Squat', muscleGroup: 'Quads', equipment: 'Dumbbells', type: 'compound', targetedHeads: ['Vastus Medialis', 'Rectus Femoris'] },
+  { name: 'Walking Lunges', muscleGroup: 'Quads', equipment: 'Dumbbells', type: 'compound', targetedHeads: ['Vastus Lateralis', 'Rectus Femoris'] },
+  { name: 'Reverse Lunges', muscleGroup: 'Quads', equipment: 'Dumbbells', type: 'compound', targetedHeads: ['Vastus Medialis', 'Rectus Femoris'] },
+  { name: 'Step Ups', muscleGroup: 'Quads', equipment: 'Dumbbells', type: 'compound', targetedHeads: ['Vastus Medialis', 'Rectus Femoris'] },
+  { name: 'Leg Extension', muscleGroup: 'Quads', equipment: 'Machine', type: 'isolation', targetedHeads: ['Rectus Femoris'] },
+  { name: 'Sissy Squat', muscleGroup: 'Quads', equipment: 'Bodyweight', type: 'isolation', targetedHeads: ['Vastus Medialis', 'Rectus Femoris'] },
+  { name: 'Pendulum Squat', muscleGroup: 'Quads', equipment: 'Machine', type: 'compound', targetedHeads: ['Rectus Femoris'] },
+  { name: 'Belt Squat', muscleGroup: 'Quads', equipment: 'Machine', type: 'compound', targetedHeads: ['Vastus Lateralis', 'Vastus Medialis'] },
+  { name: 'Smith Machine Squat', muscleGroup: 'Quads', equipment: 'Machine', type: 'compound', targetedHeads: ['Vastus Lateralis', 'Vastus Medialis'] },
+  { name: 'Heels Elevated Squat', muscleGroup: 'Quads', equipment: 'Barbell', type: 'compound', targetedHeads: ['Vastus Medialis'] },
+  { name: 'Narrow Stance Leg Press', muscleGroup: 'Quads', equipment: 'Machine', type: 'compound', targetedHeads: ['Vastus Medialis'] },
+  { name: 'Wide Stance Leg Press', muscleGroup: 'Quads', equipment: 'Machine', type: 'compound', targetedHeads: ['Vastus Lateralis'] },
+
+  // HAMSTRINGS & GLUTES - with muscle head targeting
+  { name: 'Romanian Deadlift', muscleGroup: 'Hamstrings', equipment: 'Barbell', type: 'compound', targetedHeads: ['Bicep Femoris'] },
+  { name: 'Stiff Leg Deadlift', muscleGroup: 'Hamstrings', equipment: 'Barbell', type: 'compound', targetedHeads: ['Bicep Femoris'] },
+  { name: 'Dumbbell RDL', muscleGroup: 'Hamstrings', equipment: 'Dumbbells', type: 'compound', targetedHeads: ['Bicep Femoris'] },
+  { name: 'Single Leg RDL', muscleGroup: 'Hamstrings', equipment: 'Dumbbells', type: 'compound', targetedHeads: ['Bicep Femoris'] },
+  { name: 'Good Mornings', muscleGroup: 'Hamstrings', equipment: 'Barbell', type: 'compound', targetedHeads: ['Bicep Femoris'] },
+  { name: 'Lying Leg Curl', muscleGroup: 'Hamstrings', equipment: 'Machine', type: 'isolation', targetedHeads: ['Bicep Femoris'] },
+  { name: 'Seated Leg Curl', muscleGroup: 'Hamstrings', equipment: 'Machine', type: 'isolation', targetedHeads: ['Semitendinosus'] },
+  { name: 'Nordic Curls', muscleGroup: 'Hamstrings', equipment: 'Bodyweight', type: 'isolation', targetedHeads: ['Semitendinosus', 'Bicep Femoris'] },
+  { name: 'Glute Ham Raise', muscleGroup: 'Hamstrings', equipment: 'Equipment', type: 'isolation', targetedHeads: ['Semitendinosus', 'Bicep Femoris'] },
+  { name: 'Hip Thrust', muscleGroup: 'Glutes', equipment: 'Barbell', type: 'compound', targetedHeads: ['Gluteus Maximus'] },
+  { name: 'Glute Bridge', muscleGroup: 'Glutes', equipment: 'Barbell', type: 'compound', targetedHeads: ['Gluteus Maximus'] },
+  { name: 'Cable Pull Through', muscleGroup: 'Glutes', equipment: 'Cable', type: 'compound', targetedHeads: ['Gluteus Maximus'] },
+  { name: 'Glute Kickback', muscleGroup: 'Glutes', equipment: 'Cable', type: 'isolation', targetedHeads: ['Gluteus Maximus', 'Gluteus Medius'] },
+  { name: 'Hip Abduction', muscleGroup: 'Glutes', equipment: 'Machine', type: 'isolation', targetedHeads: ['Gluteus Medius'] },
+  { name: 'Sumo Deadlift', muscleGroup: 'Glutes', equipment: 'Barbell', type: 'compound', targetedHeads: ['Gluteus Maximus'] },
+  { name: 'Single Leg Hip Thrust', muscleGroup: 'Glutes', equipment: 'Bodyweight', type: 'isolation', targetedHeads: ['Gluteus Maximus'] },
+  { name: 'Cable Hip Abduction', muscleGroup: 'Glutes', equipment: 'Cable', type: 'isolation', targetedHeads: ['Gluteus Medius'] },
+  { name: 'Curtsy Lunge', muscleGroup: 'Glutes', equipment: 'Dumbbells', type: 'compound', targetedHeads: ['Gluteus Medius', 'Gluteus Maximus'] },
   
   // CALVES
   { name: 'Standing Calf Raises', muscleGroup: 'Calves', equipment: 'Machine', type: 'isolation' },
@@ -2634,13 +3505,14 @@ const selectExercisesForMuscleGroup = (muscleGroups, count, usedExercises = [], 
 };
 
 // Generate a complete dynamic workout
-const generateDynamicWorkout = (workoutType, userGoal = 'build_muscle', recentlyUsedExercises = []) => {
+const generateDynamicWorkout = (workoutType, userGoal = 'build_muscle', recentlyUsedExercises = [], userExperience = 'beginner') => {
   const structure = WORKOUT_STRUCTURES[workoutType];
   if (!structure) return null;
 
   const params = GOAL_TRAINING_PARAMS[userGoal] || GOAL_TRAINING_PARAMS.build_muscle;
   const usedInThisWorkout = [...recentlyUsedExercises];
   const exercises = [];
+  const isAdvanced = ['experienced', 'expert'].includes(userExperience);
 
   // Generate exercises for primary muscle groups
   const primaryExercises = selectExercisesForMuscleGroup(
@@ -2692,6 +3564,7 @@ const generateDynamicWorkout = (workoutType, userGoal = 'build_muscle', recently
       muscleGroup: ex.muscleGroup,
       equipment: ex.equipment,
       exerciseType: ex.type,
+      targetedHeads: isAdvanced && ex.targetedHeads ? ex.targetedHeads : null, // Show for advanced users
     });
   });
 
@@ -3610,9 +4483,10 @@ const optimizeExercisesForTimeAndCount = (baseExerciseList, fullExercisePool, ta
 };
 
 // ActiveWorkoutScreen as separate component
-function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, userGoal = 'build_muscle', userId = null, workoutName = 'Workout', workoutTemplate = null, injuries = [] }) {
+function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, userGoal = 'build_muscle', userExperience = 'beginner', userId = null, workoutName = 'Workout', workoutTemplate = null, injuries = [] }) {
   // Use passed workout template or fall back to CURRENT_WORKOUT
   const activeWorkout = workoutTemplate || CURRENT_WORKOUT;
+  const isAdvancedUser = ['experienced', 'expert'].includes(userExperience);
   const [sessionId, setSessionId] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [phase, setPhase] = useState('overview'); // 'overview', 'workout', 'workoutOverview', 'complete'
@@ -3642,6 +4516,7 @@ function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, 
   const [editingSet, setEditingSet] = useState(null); // { exerciseId, setIndex }
   const [editSetData, setEditSetData] = useState({ weight: 0, reps: 0, rpe: 5 });
   const [showEndWorkoutConfirm, setShowEndWorkoutConfirm] = useState(false);
+  const [showExerciseInfoModal, setShowExerciseInfoModal] = useState(null); // exercise name to show info for
 
   // Workout media (photos/videos)
   const [workoutMedia, setWorkoutMedia] = useState([]);
@@ -3708,9 +4583,27 @@ function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, 
 
   useEffect(() => {
     if (currentExercise) {
-      setCurrentSetData({ weight: currentExercise.suggestedWeight, reps: currentExercise.targetReps, rpe: 5 });
+      // Get completed sets for this exercise
+      const exerciseCompletedSets = completedSets.filter(s => s.exerciseId === currentExercise.id);
+      const lastCompletedSet = exerciseCompletedSets[exerciseCompletedSets.length - 1];
+
+      // If we have a previous set for this exercise, use that data as suggestion
+      if (lastCompletedSet) {
+        setCurrentSetData({
+          weight: lastCompletedSet.weight,
+          reps: lastCompletedSet.reps,
+          rpe: lastCompletedSet.rpe || 5
+        });
+      } else {
+        // Otherwise use exercise defaults
+        setCurrentSetData({
+          weight: currentExercise.suggestedWeight || currentExercise.lastWeight || 0,
+          reps: currentExercise.targetReps,
+          rpe: 5
+        });
+      }
     }
-  }, [currentExerciseIndex, currentSetIndex]);
+  }, [currentExerciseIndex, currentSetIndex, currentExercise?.id]);
 
   useEffect(() => {
     let interval;
@@ -3810,6 +4703,23 @@ function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, 
     setSwapSearch('');
   };
 
+  // Move exercise up or down in the list
+  const moveExercise = (index, direction) => {
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= exercises.length) return;
+    setExercises(prev => {
+      const updated = [...prev];
+      [updated[index], updated[newIndex]] = [updated[newIndex], updated[index]];
+      return updated;
+    });
+    // Adjust current exercise index if needed
+    if (currentExerciseIndex === index) {
+      setCurrentExerciseIndex(newIndex);
+    } else if (currentExerciseIndex === newIndex) {
+      setCurrentExerciseIndex(index);
+    }
+  };
+
   const addExercise = (exerciseName) => {
     const existingExercise = ALL_EXERCISES.find(e => e.name === exerciseName);
     const newEx = {
@@ -3855,6 +4765,18 @@ function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, 
 
   const addSetToExercise = (exerciseIndex) => {
     setExercises(prev => prev.map((ex, i) => i === exerciseIndex ? { ...ex, sets: ex.sets + 1, lastReps: [...ex.lastReps, ex.targetReps] } : ex));
+  };
+
+  const removeSetFromExercise = (exerciseIndex) => {
+    const exercise = exercises[exerciseIndex];
+    // Don't allow removing if only 1 set left
+    if (exercise.sets <= 1) return;
+    // Remove the last set
+    setExercises(prev => prev.map((ex, i) => i === exerciseIndex ? { ...ex, sets: ex.sets - 1, lastReps: ex.lastReps.slice(0, -1) } : ex));
+    // If we're on the last set of this exercise and removing it, adjust set index
+    if (exerciseIndex === currentExerciseIndex && currentSetIndex >= exercise.sets - 1) {
+      setCurrentSetIndex(Math.max(0, exercise.sets - 2));
+    }
   };
 
   const getCompletedForExercise = (exId) => completedSets.filter(s => s.exerciseId === exId);
@@ -3924,10 +4846,13 @@ function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, 
           <p className="text-sm font-semibold mb-2" style={{ color: COLORS.text }}>Suggested Alternatives</p>
           <div className="space-y-2 mb-4">
             {exercise.alternatives?.map(alt => (
-              <button key={alt} onClick={() => swapExercise(showSwapExercise, alt)} className="w-full p-4 rounded-xl text-left flex justify-between items-center" style={{ backgroundColor: COLORS.surface }}>
-                <span style={{ color: COLORS.text }}>{alt}</span>
-                <ChevronRight size={18} color={COLORS.textMuted} />
-              </button>
+              <div key={alt} className="w-full p-4 rounded-xl flex justify-between items-center" style={{ backgroundColor: COLORS.surface }}>
+                <div className="flex items-center gap-2">
+                  <span style={{ color: COLORS.text }}>{alt}</span>
+                  <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowExerciseInfoModal(alt); }} className="p-1 rounded-full" style={{ backgroundColor: COLORS.primary + '20' }}><Info size={14} color={COLORS.primary} /></button>
+                </div>
+                <button onClick={() => swapExercise(showSwapExercise, alt)} className="px-3 py-1 rounded-lg text-sm font-medium" style={{ backgroundColor: COLORS.primary, color: COLORS.text }}>Select</button>
+              </div>
             ))}
           </div>
           {swapSearch && (
@@ -3935,13 +4860,16 @@ function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, 
               <p className="text-sm font-semibold mb-2" style={{ color: COLORS.text }}>Search Results</p>
               <div className="space-y-2">
                 {filteredSwapExercises.slice(0, 8).map(ex => (
-                  <button key={ex.name} onClick={() => swapExercise(showSwapExercise, ex.name)} className="w-full p-4 rounded-xl text-left flex justify-between items-center" style={{ backgroundColor: COLORS.surface }}>
-                    <div>
-                      <p style={{ color: COLORS.text }}>{ex.name}</p>
-                      <p className="text-xs" style={{ color: COLORS.textMuted }}>{ex.muscleGroup}</p>
+                  <div key={ex.name} className="w-full p-4 rounded-xl flex justify-between items-center" style={{ backgroundColor: COLORS.surface }}>
+                    <div className="flex items-center gap-2">
+                      <div>
+                        <p style={{ color: COLORS.text }}>{ex.name}</p>
+                        <p className="text-xs" style={{ color: COLORS.textMuted }}>{ex.muscleGroup}</p>
+                      </div>
+                      <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowExerciseInfoModal(ex.name); }} className="p-1 rounded-full" style={{ backgroundColor: COLORS.primary + '20' }}><Info size={14} color={COLORS.primary} /></button>
                     </div>
-                    <ChevronRight size={18} color={COLORS.textMuted} />
-                  </button>
+                    <button onClick={() => swapExercise(showSwapExercise, ex.name)} className="px-3 py-1 rounded-lg text-sm font-medium" style={{ backgroundColor: COLORS.primary, color: COLORS.text }}>Select</button>
+                  </div>
                 ))}
               </div>
             </>
@@ -3989,13 +4917,16 @@ function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, 
                 <p className="text-xs font-semibold mb-2 px-1" style={{ color: COLORS.textMuted }}>{muscleGroup.toUpperCase()}</p>
                 <div className="space-y-2">
                   {exs.map(ex => (
-                    <button key={ex.name} onClick={() => addExercise(ex.name)} className="w-full p-4 rounded-xl text-left flex justify-between items-center" style={{ backgroundColor: COLORS.surface }}>
-                      <div>
-                        <p style={{ color: COLORS.text }}>{ex.name}</p>
-                        <p className="text-xs" style={{ color: COLORS.textMuted }}>{ex.equipment} • {ex.type}</p>
+                    <div key={ex.name} className="w-full p-4 rounded-xl flex justify-between items-center" style={{ backgroundColor: COLORS.surface }}>
+                      <div className="flex items-center gap-2">
+                        <div>
+                          <p style={{ color: COLORS.text }}>{ex.name}</p>
+                          <p className="text-xs" style={{ color: COLORS.textMuted }}>{ex.equipment} • {ex.type}</p>
+                        </div>
+                        <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowExerciseInfoModal(ex.name); }} className="p-1 rounded-full" style={{ backgroundColor: COLORS.primary + '20' }}><Info size={14} color={COLORS.primary} /></button>
                       </div>
-                      <Plus size={18} color={COLORS.primary} />
-                    </button>
+                      <button onClick={() => addExercise(ex.name)} className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.primary }}><Plus size={18} color={COLORS.text} /></button>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -4027,11 +4958,24 @@ function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, 
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     {isCompleted ? <Check size={18} color={COLORS.success} /> : isCurrentEx ? <Play size={18} color={COLORS.primary} /> : <div className="w-4.5 h-4.5" />}
-                    <p className="font-semibold" style={{ color: isCompleted ? COLORS.success : COLORS.text }}>{exercise.name}</p>
+                    <div className="flex items-center gap-2">
+                      <div>
+                        <p className="font-semibold" style={{ color: isCompleted ? COLORS.success : COLORS.text }}>{exercise.name}</p>
+                        {isAdvancedUser && exercise.targetedHeads && exercise.targetedHeads.length > 0 && (
+                          <p className="text-xs" style={{ color: COLORS.textMuted }}>{exercise.targetedHeads.join(', ')}</p>
+                        )}
+                      </div>
+                      <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowExerciseInfoModal(exercise.name); }} className="p-1 rounded-full" style={{ backgroundColor: COLORS.primary + '20' }}><Info size={14} color={COLORS.primary} /></button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
+                    {/* Reorder buttons */}
+                    <button onClick={() => moveExercise(exIdx, 'up')} disabled={exIdx === 0} className="p-1 rounded" style={{ backgroundColor: COLORS.surfaceLight, opacity: exIdx === 0 ? 0.4 : 1 }}><ChevronUp size={14} color={COLORS.textMuted} /></button>
+                    <button onClick={() => moveExercise(exIdx, 'down')} disabled={exIdx === exercises.length - 1} className="p-1 rounded" style={{ backgroundColor: COLORS.surfaceLight, opacity: exIdx === exercises.length - 1 ? 0.4 : 1 }}><ChevronDown size={14} color={COLORS.textMuted} /></button>
+                    {/* Add/Remove set buttons */}
+                    <button onClick={() => removeSetFromExercise(exIdx)} disabled={exercise.sets <= 1} className="p-1 rounded" style={{ backgroundColor: COLORS.surfaceLight, opacity: exercise.sets <= 1 ? 0.4 : 1 }}><Minus size={14} color={COLORS.textMuted} /></button>
                     <button onClick={() => addSetToExercise(exIdx)} className="p-1 rounded" style={{ backgroundColor: COLORS.surfaceLight }}><Plus size={14} color={COLORS.textMuted} /></button>
-                    <button onClick={() => setShowSwapExercise(exIdx)} className="p-1 rounded" style={{ backgroundColor: COLORS.surfaceLight }}><Undo2 size={14} color={COLORS.textMuted} /></button>
+                    <button onClick={() => setShowSwapExercise(exIdx)} className="p-1 rounded" style={{ backgroundColor: COLORS.surfaceLight }}><ArrowLeftRight size={14} color={COLORS.textMuted} /></button>
                     {exercises.length > 1 && (
                       <button onClick={() => removeExercise(exIdx)} className="p-1 rounded" style={{ backgroundColor: COLORS.error + '20' }}><X size={14} color={COLORS.error} /></button>
                     )}
@@ -4180,9 +5124,12 @@ function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, 
                                 Rehab
                               </span>
                             )}
+                            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowExerciseInfoModal(exercise.name); }} className="p-1 rounded-full" style={{ backgroundColor: COLORS.primary + '20' }}><Info size={14} color={COLORS.primary} /></button>
                           </div>
                           <p className="text-xs" style={{ color: COLORS.textMuted }}>
-                            {exercise.muscleGroup} • {exercise.isRecoveryExercise ? 'Focus on form' : 'Tap to view history'}
+                            {isAdvancedUser && exercise.targetedHeads && exercise.targetedHeads.length > 0
+                              ? exercise.targetedHeads.join(', ')
+                              : exercise.muscleGroup} • {exercise.isRecoveryExercise ? 'Focus on form' : 'Tap to view history'}
                             {isSuperset && <span style={{ color: COLORS.warning }}> — Paired with {exercise.supersetWith}</span>}
                           </p>
                         </div>
@@ -4192,8 +5139,27 @@ function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, 
                           <p className="font-semibold" style={{ color: COLORS.text }}>{exercise.sets} × {exercise.targetReps}</p>
                           <p className="text-xs" style={{ color: COLORS.textMuted }}>{exercise.suggestedWeight}kg</p>
                         </div>
+                        {/* Reorder buttons */}
+                        <div className="flex flex-col">
+                          <button
+                            onClick={() => moveExercise(i, 'up')}
+                            disabled={i === 0}
+                            className="p-1 rounded-t-lg"
+                            style={{ backgroundColor: COLORS.surfaceLight, opacity: i === 0 ? 0.4 : 1 }}
+                          >
+                            <ChevronUp size={14} color={COLORS.textMuted} />
+                          </button>
+                          <button
+                            onClick={() => moveExercise(i, 'down')}
+                            disabled={i === exercises.length - 1}
+                            className="p-1 rounded-b-lg"
+                            style={{ backgroundColor: COLORS.surfaceLight, opacity: i === exercises.length - 1 ? 0.4 : 1 }}
+                          >
+                            <ChevronDown size={14} color={COLORS.textMuted} />
+                          </button>
+                        </div>
                         <button onClick={() => setShowSwapExercise(i)} className="p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
-                          <Undo2 size={16} color={COLORS.textMuted} />
+                          <ArrowLeftRight size={16} color={COLORS.textMuted} />
                         </button>
                         {exercises.length > 1 && (
                           <button onClick={() => removeExercise(i)} className="p-2 rounded-lg" style={{ backgroundColor: COLORS.error + '20' }}>
@@ -4379,11 +5345,17 @@ function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, 
       }
     });
     
-    // Group sets by exercise for breakdown
+    // Group sets by exercise for breakdown - include actual set data
     const exerciseBreakdown = exercisesForTime.map(exercise => {
       const sets = completedSets.filter(s => s.exerciseId === exercise.id);
       const volume = sets.reduce((acc, s) => acc + (s.weight * s.reps), 0);
-      return { name: exercise.name, sets: sets.length, targetSets: exercise.sets, volume };
+      return {
+        name: exercise.name,
+        sets: sets.length,
+        targetSets: exercise.sets,
+        volume,
+        setDetails: sets.map(s => ({ weight: s.weight, reps: s.reps, rpe: s.rpe }))
+      };
     }).filter(e => e.sets > 0);
     
     return (
@@ -4482,22 +5454,27 @@ function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, 
             <h3 className="font-semibold mb-3 flex items-center gap-2" style={{ color: COLORS.text }}>
               <Dumbbell size={16} /> Exercise Breakdown
             </h3>
-            <div className="space-y-2">
+            <div className="space-y-3">
               {exerciseBreakdown.map((ex, idx) => (
-                <div key={idx} className="flex items-center justify-between py-2 border-b" style={{ borderColor: COLORS.surfaceLight }}>
-                  <div className="flex items-center gap-2">
-                    {ex.sets === ex.targetSets ? (
-                      <Check size={16} color={COLORS.success} />
-                    ) : (
-                      <div className="w-4 h-4 rounded-full" style={{ backgroundColor: COLORS.warning + '40' }} />
-                    )}
-                    <span className="text-sm" style={{ color: COLORS.text }}>{ex.name}</span>
+                <div key={idx} className="pb-3 border-b" style={{ borderColor: COLORS.surfaceLight }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      {ex.sets === ex.targetSets ? (
+                        <Check size={16} color={COLORS.success} />
+                      ) : (
+                        <div className="w-4 h-4 rounded-full" style={{ backgroundColor: COLORS.warning + '40' }} />
+                      )}
+                      <span className="text-sm font-medium" style={{ color: COLORS.text }}>{ex.name}</span>
+                    </div>
+                    <span className="text-xs" style={{ color: COLORS.textMuted }}>{ex.volume}kg vol</span>
                   </div>
-                  <div className="text-right">
-                    <span className="text-sm font-semibold" style={{ color: ex.sets === ex.targetSets ? COLORS.success : COLORS.warning }}>
-                      {ex.sets}/{ex.targetSets} sets
-                    </span>
-                    <span className="text-xs ml-2" style={{ color: COLORS.textMuted }}>{ex.volume}kg</span>
+                  <div className="flex flex-wrap gap-2 pl-6">
+                    {ex.setDetails.map((set, setIdx) => (
+                      <div key={setIdx} className="px-2 py-1 rounded text-xs" style={{ backgroundColor: COLORS.surfaceLight }}>
+                        <span style={{ color: COLORS.text }}>{set.weight}kg × {set.reps}</span>
+                        {set.rpe && <span style={{ color: COLORS.textMuted }}> @{set.rpe}</span>}
+                      </div>
+                    ))}
                   </div>
                 </div>
               ))}
@@ -4631,7 +5608,7 @@ function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, 
             }}
             className="w-full py-4 rounded-xl font-semibold flex items-center justify-center gap-2"
             style={{ backgroundColor: COLORS.success, color: COLORS.text, opacity: isSaving ? 0.7 : 1 }}>
-            {isSaving ? <><Loader2 size={20} className="animate-spin" /> Saving...</> : 'Done'}
+            {isSaving ? <><Loader2 size={20} className="animate-spin" /> Saving...</> : <><Check size={20} /> Return to App</>}
           </button>
         </div>
       </div>
@@ -4644,12 +5621,22 @@ function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, 
       <div className="p-4 border-b flex items-center justify-between" style={{ borderColor: COLORS.surfaceLight }}>
         <div className="flex items-center gap-3">
           <button onClick={onClose}><X size={24} color={COLORS.text} /></button>
-          <div><h2 className="text-lg font-bold" style={{ color: COLORS.text }}>{currentExercise.name}</h2><p className="text-xs" style={{ color: COLORS.textMuted }}>{currentExercise.muscleGroup}</p></div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-bold" style={{ color: COLORS.text }}>{currentExercise.name}</h2>
+              <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowExerciseInfoModal(currentExercise.name); }} className="p-1 rounded-full" style={{ backgroundColor: COLORS.primary + '20' }}><Info size={14} color={COLORS.primary} /></button>
+            </div>
+            <p className="text-xs" style={{ color: COLORS.textMuted }}>{currentExercise.muscleGroup}</p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => setShowSwapExercise(currentExerciseIndex)} className="p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}><Undo2 size={16} color={COLORS.textMuted} /></button>
           <button onClick={() => setPhase('workoutOverview')} className="px-3 py-1 rounded-lg text-sm" style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.textSecondary }}>Overview</button>
-          <span className="px-3 py-1 rounded-full text-sm font-semibold" style={{ backgroundColor: COLORS.primary + '20', color: COLORS.primary }}>Set {currentSetIndex + 1}/{currentExercise.sets}</span>
+          <div className="flex items-center">
+            <button onClick={() => removeSetFromExercise(currentExerciseIndex)} disabled={currentExercise.sets <= 1} className="p-1 rounded-l-lg" style={{ backgroundColor: COLORS.surfaceLight, opacity: currentExercise.sets <= 1 ? 0.4 : 1 }}><Minus size={14} color={COLORS.textMuted} /></button>
+            <span className="px-3 py-1 text-sm font-semibold" style={{ backgroundColor: COLORS.primary + '20', color: COLORS.primary }}>Set {currentSetIndex + 1}/{currentExercise.sets}</span>
+            <button onClick={() => addSetToExercise(currentExerciseIndex)} className="p-1 rounded-r-lg" style={{ backgroundColor: COLORS.surfaceLight }}><Plus size={14} color={COLORS.textMuted} /></button>
+          </div>
         </div>
       </div>
       
@@ -4707,7 +5694,14 @@ function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, 
               <label className="text-xs mb-1 block" style={{ color: COLORS.textMuted }}>Weight (kg)</label>
               <div className="flex items-center gap-2">
                 <button onClick={() => setCurrentSetData(prev => ({...prev, weight: Math.max(0, prev.weight - 2.5)}))} className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: COLORS.surfaceLight }}><Minus size={16} color={COLORS.text} /></button>
-                <input type="number" value={currentSetData.weight} onChange={e => setCurrentSetData(prev => ({...prev, weight: parseFloat(e.target.value) || 0}))} className="flex-1 p-3 rounded-lg text-center text-xl font-bold" style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }} />
+                <input
+                  type="number"
+                  value={currentSetData.weight || ''}
+                  onChange={e => setCurrentSetData(prev => ({...prev, weight: parseFloat(e.target.value) || 0}))}
+                  onBlur={e => setCurrentSetData(prev => ({...prev, weight: Number(prev.weight) || 0}))}
+                  className="flex-1 p-3 rounded-lg text-center text-xl font-bold"
+                  style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+                />
                 <button onClick={() => setCurrentSetData(prev => ({...prev, weight: prev.weight + 2.5}))} className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: COLORS.surfaceLight }}><Plus size={16} color={COLORS.text} /></button>
               </div>
             </div>
@@ -4715,7 +5709,14 @@ function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, 
               <label className="text-xs mb-1 block" style={{ color: COLORS.textMuted }}>Reps</label>
               <div className="flex items-center gap-2">
                 <button onClick={() => setCurrentSetData(prev => ({...prev, reps: Math.max(0, prev.reps - 1)}))} className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: COLORS.surfaceLight }}><Minus size={16} color={COLORS.text} /></button>
-                <input type="number" value={currentSetData.reps} onChange={e => setCurrentSetData(prev => ({...prev, reps: parseInt(e.target.value) || 0}))} className="flex-1 p-3 rounded-lg text-center text-xl font-bold" style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }} />
+                <input
+                  type="number"
+                  value={currentSetData.reps || ''}
+                  onChange={e => setCurrentSetData(prev => ({...prev, reps: parseInt(e.target.value) || 0}))}
+                  onBlur={e => setCurrentSetData(prev => ({...prev, reps: Number(prev.reps) || 0}))}
+                  className="flex-1 p-3 rounded-lg text-center text-xl font-bold"
+                  style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+                />
                 <button onClick={() => setCurrentSetData(prev => ({...prev, reps: prev.reps + 1}))} className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: COLORS.surfaceLight }}><Plus size={16} color={COLORS.text} /></button>
               </div>
             </div>
@@ -4850,6 +5851,7 @@ function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, 
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-bold" style={{ color: isCurrentExercise ? COLORS.primary : COLORS.textMuted }}>{exIndex + 1}.</span>
                       <span className="font-semibold" style={{ color: COLORS.text }}>{ex.name}</span>
+                      <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowExerciseInfoModal(ex.name); }} className="p-1 rounded-full" style={{ backgroundColor: COLORS.primary + '20' }}><Info size={12} color={COLORS.primary} /></button>
                       {isCurrentExercise && <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: COLORS.primary, color: COLORS.text }}>Current</span>}
                     </div>
                     <span className="text-xs" style={{ color: COLORS.textMuted }}>{ex.suggestedWeight}kg</span>
@@ -4993,6 +5995,15 @@ function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, 
             </div>
           </div>
         </div>
+      )}
+
+      {/* Exercise Info Modal */}
+      {showExerciseInfoModal && (
+        <ExerciseInfoModal
+          COLORS={COLORS}
+          exerciseName={showExerciseInfoModal}
+          onClose={() => setShowExerciseInfoModal(null)}
+        />
       )}
     </div>
   );
@@ -5655,6 +6666,7 @@ export default function UpRepDemo() {
   const [workoutTime, setWorkoutTime] = useState(60);
   const [showTimeEditor, setShowTimeEditor] = useState(false);
   const [expandedExerciseId, setExpandedExerciseId] = useState(null);
+  const [exerciseListCollapsed, setExerciseListCollapsed] = useState(true); // Start collapsed by default
   const [customizedExercises, setCustomizedExercises] = useState(null); // null = use default, array = customized
   const [customExerciseCount, setCustomExerciseCount] = useState(null); // null = use default (workoutTime / 12), number = override
   const workoutTabScrollRef = useRef(null);
@@ -5748,6 +6760,7 @@ export default function UpRepDemo() {
   // Supplements - start empty, load from database
   const [supplements, setSupplements] = useState([]);
   const [showAddSupplement, setShowAddSupplement] = useState(false);
+  const [dismissedSuggestions, setDismissedSuggestions] = useState([]); // Track dismissed supplement suggestions
   const supplementNameRef = useRef(null);
   const supplementDosageRef = useRef(null);
   const supplementUnitRef = useRef(null);
@@ -5845,6 +6858,7 @@ export default function UpRepDemo() {
   const [showGoalEditor, setShowGoalEditor] = useState(false);
   const [showAccountModal, setShowAccountModal] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showExerciseInfo, setShowExerciseInfo] = useState(null); // exercise name to show info for
 
   // Achievements - will be calculated/loaded from database
   const [achievements] = useState([
@@ -5989,6 +7003,10 @@ export default function UpRepDemo() {
     }
   }, [userData.goal]);
 
+  // State for next program selection
+  const [selectedBreakDuration, setSelectedBreakDuration] = useState('2weeks');
+  const [showNextProgramModal, setShowNextProgramModal] = useState(false);
+
   // Schedule state - dynamic schedule that can be edited
   const [scheduleWeekOffset, setScheduleWeekOffset] = useState(0);
   const [showScheduleEditor, setShowScheduleEditor] = useState(false);
@@ -6055,6 +7073,41 @@ export default function UpRepDemo() {
     return schedule;
   });
 
+  // Calculate program progress - total workouts completed vs total in program
+  const programProgress = React.useMemo(() => {
+    const totalWorkoutsInProgram = currentProgram.totalWeeks * currentProgram.daysPerWeek;
+    const workoutsCompletedThisWeek = Object.entries(masterSchedule).filter(([dateKey, entry]) => {
+      const date = new Date(dateKey);
+      const weekStart = new Date();
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
+      weekStart.setHours(0, 0, 0, 0);
+      return date >= weekStart && entry.completed;
+    }).length;
+
+    // Calculate completed workouts based on weeks completed
+    const completedWeeks = Math.max(0, currentProgram.currentWeek - 1);
+    const workoutsFromCompletedWeeks = completedWeeks * currentProgram.daysPerWeek;
+    const totalCompletedWorkouts = workoutsFromCompletedWeeks + workoutsCompletedThisWeek;
+    const workoutsRemaining = Math.max(0, totalWorkoutsInProgram - totalCompletedWorkouts);
+    const progressPercent = Math.min(100, (totalCompletedWorkouts / totalWorkoutsInProgram) * 100);
+    const weeksRemaining = Math.max(0, currentProgram.totalWeeks - currentProgram.currentWeek);
+    const isComplete = currentProgram.currentWeek >= currentProgram.totalWeeks && workoutsCompletedThisWeek >= currentProgram.daysPerWeek;
+
+    return {
+      totalWorkouts: totalWorkoutsInProgram,
+      completedWorkouts: totalCompletedWorkouts,
+      workoutsRemaining,
+      progressPercent,
+      weeksRemaining,
+      isComplete,
+      currentWeek: currentProgram.currentWeek,
+      totalWeeks: currentProgram.totalWeeks,
+    };
+  }, [currentProgram, masterSchedule]);
+
+  // Get suggested next programs
+  const suggestedNextPrograms = NEXT_PROGRAM_SUGGESTIONS[currentProgram.id] || NEXT_PROGRAM_SUGGESTIONS.upper_lower;
+
   // Generate or retrieve cached workout for a date
   const getWorkoutForDate = (dateKey) => {
     const scheduleEntry = masterSchedule[dateKey];
@@ -6065,8 +7118,8 @@ export default function UpRepDemo() {
       return generatedWorkoutsCache[dateKey];
     }
 
-    // Generate new workout
-    const workout = generateDynamicWorkout(scheduleEntry.workoutType, userGoal, recentlyUsedExercises);
+    // Generate new workout (pass experience level for advanced users)
+    const workout = generateDynamicWorkout(scheduleEntry.workoutType, userGoal, recentlyUsedExercises, userData.experience);
 
     // Cache it for consistency
     setGeneratedWorkoutsCache(prev => ({ ...prev, [dateKey]: workout }));
@@ -6265,6 +7318,17 @@ export default function UpRepDemo() {
 
     setCustomizedExercises(redistributedExercises);
     setExpandedExerciseId(null);
+  };
+
+  // Move exercise up or down in the list (for Home Tab)
+  const moveExerciseInHome = (exerciseIndex, direction) => {
+    const exercises = getCurrentExercises();
+    const newIndex = direction === 'up' ? exerciseIndex - 1 : exerciseIndex + 1;
+    if (newIndex < 0 || newIndex >= exercises.length) return;
+
+    const newExercises = [...exercises];
+    [newExercises[exerciseIndex], newExercises[newIndex]] = [newExercises[newIndex], newExercises[exerciseIndex]];
+    setCustomizedExercises(newExercises);
   };
 
   // Reset customizations
@@ -6724,19 +7788,29 @@ export default function UpRepDemo() {
         title: "Your experience level?",
         content: (
           <div className="space-y-3">
-            {[
-              { id: 'beginner', label: 'Beginner', desc: 'New to working out' },
-              { id: 'intermediate', label: 'Intermediate', desc: '1-3 years experience' },
-              { id: 'advanced', label: 'Advanced', desc: '3+ years experience' },
-            ].map(level => (
+            {Object.values(EXPERIENCE_LEVELS).map(level => (
               <button key={level.id} onClick={() => setUserData(p => ({...p, experience: level.id}))}
-                className="w-full p-4 rounded-xl text-left"
+                className="w-full p-4 rounded-xl text-left flex items-center gap-3"
                 style={{ backgroundColor: userData.experience === level.id ? COLORS.primary + '20' : COLORS.surface,
                   border: `2px solid ${userData.experience === level.id ? COLORS.primary : COLORS.surfaceLight}` }}>
-                <p className="font-semibold" style={{ color: userData.experience === level.id ? COLORS.primary : COLORS.text }}>{level.label}</p>
-                <p className="text-sm" style={{ color: COLORS.textSecondary }}>{level.desc}</p>
+                <span className="text-2xl">{level.icon}</span>
+                <div className="flex-1">
+                  <p className="font-semibold" style={{ color: userData.experience === level.id ? COLORS.primary : COLORS.text }}>{level.label}</p>
+                  <p className="text-sm" style={{ color: COLORS.textSecondary }}>{level.desc}</p>
+                </div>
+                {userData.experience === level.id && <Check size={20} color={COLORS.primary} />}
               </button>
             ))}
+
+            {/* Info callout for experienced/expert */}
+            {['experienced', 'expert'].includes(userData.experience) && (
+              <div className="mt-4 p-3 rounded-lg flex items-start gap-2" style={{ backgroundColor: COLORS.primary + '10' }}>
+                <Info size={16} color={COLORS.primary} className="mt-0.5 flex-shrink-0" />
+                <p className="text-sm" style={{ color: COLORS.textSecondary }}>
+                  Your workouts will include targeted muscle head selection for optimal development (e.g., long head vs short head biceps).
+                </p>
+              </div>
+            )}
           </div>
         )
       },
@@ -7938,7 +9012,9 @@ export default function UpRepDemo() {
               <TrendingUp size={18} color={COLORS.water} />
             </div>
             <div className="flex-1">
-              <p className="text-xs" style={{ color: COLORS.textMuted }}>Weekly Rate</p>
+              <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                {weeklyWeightData?.actualWeeklyRate !== 0 ? 'Actual Weekly Change' : 'Target Weekly Rate'}
+              </p>
               <div className="flex items-center gap-2">
                 <span className="font-bold" style={{ color: COLORS.text }}>
                   {weeklyWeightData?.actualWeeklyRate !== 0
@@ -7950,7 +9026,15 @@ export default function UpRepDemo() {
                     backgroundColor: COLORS.surfaceLight,
                     color: COLORS.textMuted
                   }}>
-                    target: {overviewStats.weeklyTarget > 0 ? '+' : ''}{overviewStats.weeklyTarget}
+                    goal: {overviewStats.weeklyTarget > 0 ? '+' : ''}{overviewStats.weeklyTarget}
+                  </span>
+                )}
+                {weeklyWeightData?.actualWeeklyRate === 0 && (
+                  <span className="text-xs px-1.5 py-0.5 rounded" style={{
+                    backgroundColor: COLORS.primary + '20',
+                    color: COLORS.primary
+                  }}>
+                    expected
                   </span>
                 )}
               </div>
@@ -9020,37 +10104,55 @@ export default function UpRepDemo() {
                     Rest time evenly distributed between all sets
                   </p>
 
-                  {/* Exercise Overview */}
+                  {/* Exercise Overview - Collapsible */}
                   <div className="border-t pt-3" style={{ borderColor: COLORS.surfaceLight }}>
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-xs font-semibold" style={{ color: COLORS.textMuted }}>
-                        {exercisesForTime.length} EXERCISES • {totalSetsPreview} SETS
-                      </p>
-                      {(customizedExercises || customExerciseCount) && (
-                        <button
-                          onClick={() => {
-                            resetCustomizations();
-                            setCustomExerciseCount(null);
-                          }}
-                          className="text-xs px-2 py-1 rounded-full flex items-center gap-1"
-                          style={{ backgroundColor: COLORS.warning + '20', color: COLORS.warning }}
-                        >
-                          <Undo2 size={10} /> Reset
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Warm-up Preview */}
-                    <div className="p-2 rounded-lg mb-2" style={{ backgroundColor: COLORS.warning + '10', border: `1px solid ${COLORS.warning}20` }}>
+                    <button
+                      onClick={() => setExerciseListCollapsed(!exerciseListCollapsed)}
+                      className="w-full flex items-center justify-between mb-2"
+                    >
                       <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold" style={{ backgroundColor: COLORS.warning + '20', color: COLORS.warning }}>W</span>
-                        <span className="text-xs font-medium" style={{ color: COLORS.warning }}>Warm-up</span>
-                        <span className="text-xs ml-auto" style={{ color: COLORS.textMuted }}>3 min</span>
+                        <ChevronDown
+                          size={16}
+                          color={COLORS.textMuted}
+                          style={{ transform: exerciseListCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}
+                        />
+                        <p className="text-xs font-semibold" style={{ color: COLORS.textMuted }}>
+                          {exercisesForTime.length} EXERCISES • {totalSetsPreview} SETS
+                        </p>
                       </div>
-                    </div>
+                      <div className="flex items-center gap-2">
+                        {(customizedExercises || customExerciseCount) && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              resetCustomizations();
+                              setCustomExerciseCount(null);
+                            }}
+                            className="text-xs px-2 py-1 rounded-full flex items-center gap-1"
+                            style={{ backgroundColor: COLORS.warning + '20', color: COLORS.warning }}
+                          >
+                            <Undo2 size={10} /> Reset
+                          </button>
+                        )}
+                        <span className="text-xs" style={{ color: COLORS.textMuted }}>
+                          {exerciseListCollapsed ? 'Show' : 'Hide'}
+                        </span>
+                      </div>
+                    </button>
 
-                    <div className="space-y-2">
-                      {exercisesForTime.map((exercise, i) => {
+                    {!exerciseListCollapsed && (
+                      <>
+                        {/* Warm-up Preview */}
+                        <div className="p-2 rounded-lg mb-2" style={{ backgroundColor: COLORS.warning + '10', border: `1px solid ${COLORS.warning}20` }}>
+                          <div className="flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold" style={{ backgroundColor: COLORS.warning + '20', color: COLORS.warning }}>W</span>
+                            <span className="text-xs font-medium" style={{ color: COLORS.warning }}>Warm-up</span>
+                            <span className="text-xs ml-auto" style={{ color: COLORS.textMuted }}>3 min</span>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          {exercisesForTime.map((exercise, i) => {
                         const isExpanded = expandedExerciseId === exercise.id;
                         const originalIndex = allExercises.findIndex(ex => ex.id === exercise.id);
                         const isSuperset = exercise.supersetId;
@@ -9089,9 +10191,14 @@ export default function UpRepDemo() {
                                   {i + 1}
                                 </div>
                                 <div className="text-left">
-                                  <p className="text-sm font-medium" style={{ color: COLORS.text }}>{exercise.name}</p>
+                                  <div className="flex items-center gap-1">
+                                    <p className="text-sm font-medium" style={{ color: COLORS.text }}>{exercise.name}</p>
+                                    <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowExerciseInfo(exercise.name); }} className="p-0.5 rounded-full" style={{ backgroundColor: COLORS.primary + '20' }}><Info size={12} color={COLORS.primary} /></button>
+                                  </div>
                                   <p className="text-xs" style={{ color: COLORS.textMuted }}>
-                                    {exercise.muscleGroup}
+                                    {['experienced', 'expert'].includes(userData.experience) && exercise.targetedHeads && exercise.targetedHeads.length > 0
+                                      ? exercise.targetedHeads.join(', ')
+                                      : exercise.muscleGroup}
                                     {isSuperset && <span style={{ color: COLORS.warning }}> — {exercise.supersetWith}</span>}
                                   </p>
                                 </div>
@@ -9123,6 +10230,35 @@ export default function UpRepDemo() {
                             {/* Expanded Options */}
                             {isExpanded && (
                               <div className="px-2 pb-2 pt-1 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+                                {/* Reorder buttons */}
+                                <div className="flex gap-2 mb-2">
+                                  <button
+                                    onClick={() => moveExerciseInHome(originalIndex, 'up')}
+                                    disabled={originalIndex === 0}
+                                    className="flex-1 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
+                                    style={{
+                                      backgroundColor: originalIndex === 0 ? COLORS.surfaceLight : COLORS.surfaceLight,
+                                      color: originalIndex === 0 ? COLORS.textMuted : COLORS.text,
+                                      opacity: originalIndex === 0 ? 0.5 : 1
+                                    }}
+                                  >
+                                    <ChevronUp size={14} />
+                                    Move Up
+                                  </button>
+                                  <button
+                                    onClick={() => moveExerciseInHome(originalIndex, 'down')}
+                                    disabled={originalIndex === allExercises.length - 1}
+                                    className="flex-1 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
+                                    style={{
+                                      backgroundColor: originalIndex === allExercises.length - 1 ? COLORS.surfaceLight : COLORS.surfaceLight,
+                                      color: originalIndex === allExercises.length - 1 ? COLORS.textMuted : COLORS.text,
+                                      opacity: originalIndex === allExercises.length - 1 ? 0.5 : 1
+                                    }}
+                                  >
+                                    <ChevronDown size={14} />
+                                    Move Down
+                                  </button>
+                                </div>
                                 <div className="flex gap-2">
                                   <button
                                     onClick={() => swapExercise(originalIndex)}
@@ -9160,21 +10296,23 @@ export default function UpRepDemo() {
                           </div>
                         );
                       })}
-                    </div>
-                    {allExercises.length > exerciseCount && (
-                      <p className="text-xs text-center mt-2" style={{ color: COLORS.textMuted }}>
-                        +{allExercises.length - exerciseCount} more exercises with more time
-                      </p>
-                    )}
+                        </div>
+                        {allExercises.length > exerciseCount && (
+                          <p className="text-xs text-center mt-2" style={{ color: COLORS.textMuted }}>
+                            +{allExercises.length - exerciseCount} more exercises with more time
+                          </p>
+                        )}
 
-                    {/* Cool-down Preview */}
-                    <div className="p-2 rounded-lg mt-2" style={{ backgroundColor: COLORS.info + '10', border: `1px solid ${COLORS.info}20` }}>
-                      <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold" style={{ backgroundColor: COLORS.info + '20', color: COLORS.info }}>C</span>
-                        <span className="text-xs font-medium" style={{ color: COLORS.info }}>Cool-down</span>
-                        <span className="text-xs ml-auto" style={{ color: COLORS.textMuted }}>2 min</span>
-                      </div>
-                    </div>
+                        {/* Cool-down Preview */}
+                        <div className="p-2 rounded-lg mt-2" style={{ backgroundColor: COLORS.info + '10', border: `1px solid ${COLORS.info}20` }}>
+                          <div className="flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold" style={{ backgroundColor: COLORS.info + '20', color: COLORS.info }}>C</span>
+                            <span className="text-xs font-medium" style={{ color: COLORS.info }}>Cool-down</span>
+                            <span className="text-xs ml-auto" style={{ color: COLORS.textMuted }}>2 min</span>
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               );
@@ -9686,6 +10824,7 @@ export default function UpRepDemo() {
             COLORS={COLORS}
             availableTime={workoutTime}
             userGoal={userData.goal || 'build_muscle'}
+            userExperience={userData.experience || 'beginner'}
             userId={user?.id}
             workoutName={todayWorkout?.name || 'Workout'}
             workoutTemplate={template}
@@ -9813,7 +10952,7 @@ export default function UpRepDemo() {
                 </button>
               )}
               <p className="text-xs text-center mt-2" style={{ color: COLORS.textMuted }}>
-                Tap any day to edit • Swipe weeks with arrows
+                Tap to edit • Drag and drop workouts to reschedule
               </p>
             </div>
 
@@ -10050,43 +11189,61 @@ export default function UpRepDemo() {
                         Rest time evenly distributed between all sets
                       </p>
 
-                      {/* Exercise Overview */}
+                      {/* Exercise Overview - Collapsible */}
                       <div className="border-t pt-3" style={{ borderColor: COLORS.surfaceLight }}>
-                        <div className="flex items-center justify-between mb-2">
-                          <p className="text-xs font-semibold" style={{ color: COLORS.textMuted }}>
-                            {exercisesForTime.length} EXERCISES • {totalSetsPreview} SETS
-                          </p>
-                          {(customizedExercises || customExerciseCount) && (
-                            <button
-                              onClick={() => {
-                                const scrollTop = workoutTabScrollRef.current?.scrollTop;
-                                resetCustomizations();
-                                setCustomExerciseCount(null);
-                                requestAnimationFrame(() => {
-                                  if (workoutTabScrollRef.current && scrollTop !== undefined) {
-                                    workoutTabScrollRef.current.scrollTop = scrollTop;
-                                  }
-                                });
-                              }}
-                              className="text-xs px-2 py-1 rounded-full flex items-center gap-1"
-                              style={{ backgroundColor: COLORS.warning + '20', color: COLORS.warning }}
-                            >
-                              <Undo2 size={10} /> Reset
-                            </button>
-                          )}
-                        </div>
-
-                        {/* Warm-up Preview */}
-                        <div className="p-2 rounded-lg mb-2" style={{ backgroundColor: COLORS.warning + '10', border: `1px solid ${COLORS.warning}20` }}>
+                        <button
+                          onClick={() => setExerciseListCollapsed(!exerciseListCollapsed)}
+                          className="w-full flex items-center justify-between mb-2"
+                        >
                           <div className="flex items-center gap-2">
-                            <span className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold" style={{ backgroundColor: COLORS.warning + '20', color: COLORS.warning }}>W</span>
-                            <span className="text-xs font-medium" style={{ color: COLORS.warning }}>Warm-up</span>
-                            <span className="text-xs ml-auto" style={{ color: COLORS.textMuted }}>3 min</span>
+                            <ChevronDown
+                              size={16}
+                              color={COLORS.textMuted}
+                              style={{ transform: exerciseListCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}
+                            />
+                            <p className="text-xs font-semibold" style={{ color: COLORS.textMuted }}>
+                              {exercisesForTime.length} EXERCISES • {totalSetsPreview} SETS
+                            </p>
                           </div>
-                        </div>
+                          <div className="flex items-center gap-2">
+                            {(customizedExercises || customExerciseCount) && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const scrollTop = workoutTabScrollRef.current?.scrollTop;
+                                  resetCustomizations();
+                                  setCustomExerciseCount(null);
+                                  requestAnimationFrame(() => {
+                                    if (workoutTabScrollRef.current && scrollTop !== undefined) {
+                                      workoutTabScrollRef.current.scrollTop = scrollTop;
+                                    }
+                                  });
+                                }}
+                                className="text-xs px-2 py-1 rounded-full flex items-center gap-1"
+                                style={{ backgroundColor: COLORS.warning + '20', color: COLORS.warning }}
+                              >
+                                <Undo2 size={10} /> Reset
+                              </button>
+                            )}
+                            <span className="text-xs" style={{ color: COLORS.textMuted }}>
+                              {exerciseListCollapsed ? 'Show' : 'Hide'}
+                            </span>
+                          </div>
+                        </button>
 
-                        <div className="space-y-2">
-                          {exercisesForTime.map((exercise, i) => {
+                        {!exerciseListCollapsed && (
+                          <>
+                            {/* Warm-up Preview */}
+                            <div className="p-2 rounded-lg mb-2" style={{ backgroundColor: COLORS.warning + '10', border: `1px solid ${COLORS.warning}20` }}>
+                              <div className="flex items-center gap-2">
+                                <span className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold" style={{ backgroundColor: COLORS.warning + '20', color: COLORS.warning }}>W</span>
+                                <span className="text-xs font-medium" style={{ color: COLORS.warning }}>Warm-up</span>
+                                <span className="text-xs ml-auto" style={{ color: COLORS.textMuted }}>3 min</span>
+                              </div>
+                            </div>
+
+                            <div className="space-y-2">
+                              {exercisesForTime.map((exercise, i) => {
                             const isExpanded = expandedExerciseId === exercise.id;
                             const originalIndex = allExercises.findIndex(ex => ex.id === exercise.id);
                             const isSuperset = exercise.supersetId;
@@ -10125,9 +11282,14 @@ export default function UpRepDemo() {
                                       {i + 1}
                                     </div>
                                     <div className="text-left">
-                                      <p className="text-sm font-medium" style={{ color: COLORS.text }}>{exercise.name}</p>
+                                      <div className="flex items-center gap-1">
+                                        <p className="text-sm font-medium" style={{ color: COLORS.text }}>{exercise.name}</p>
+                                        <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowExerciseInfo(exercise.name); }} className="p-0.5 rounded-full" style={{ backgroundColor: COLORS.primary + '20' }}><Info size={12} color={COLORS.primary} /></button>
+                                      </div>
                                       <p className="text-xs" style={{ color: COLORS.textMuted }}>
-                                        {exercise.muscleGroup}
+                                        {['experienced', 'expert'].includes(userData.experience) && exercise.targetedHeads && exercise.targetedHeads.length > 0
+                                          ? exercise.targetedHeads.join(', ')
+                                          : exercise.muscleGroup}
                                         {isSuperset && <span style={{ color: COLORS.warning }}> — {exercise.supersetWith}</span>}
                                       </p>
                                     </div>
@@ -10159,6 +11321,35 @@ export default function UpRepDemo() {
                                 {/* Expanded Options */}
                                 {isExpanded && (
                                   <div className="px-2 pb-2 pt-1 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+                                    {/* Reorder buttons */}
+                                    <div className="flex gap-2 mb-2">
+                                      <button
+                                        onClick={() => moveExerciseInHome(originalIndex, 'up')}
+                                        disabled={originalIndex === 0}
+                                        className="flex-1 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
+                                        style={{
+                                          backgroundColor: COLORS.surfaceLight,
+                                          color: originalIndex === 0 ? COLORS.textMuted : COLORS.text,
+                                          opacity: originalIndex === 0 ? 0.5 : 1
+                                        }}
+                                      >
+                                        <ChevronUp size={14} />
+                                        Move Up
+                                      </button>
+                                      <button
+                                        onClick={() => moveExerciseInHome(originalIndex, 'down')}
+                                        disabled={originalIndex === allExercises.length - 1}
+                                        className="flex-1 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
+                                        style={{
+                                          backgroundColor: COLORS.surfaceLight,
+                                          color: originalIndex === allExercises.length - 1 ? COLORS.textMuted : COLORS.text,
+                                          opacity: originalIndex === allExercises.length - 1 ? 0.5 : 1
+                                        }}
+                                      >
+                                        <ChevronDown size={14} />
+                                        Move Down
+                                      </button>
+                                    </div>
                                     <div className="flex gap-2">
                                       <button
                                         onClick={() => swapExercise(originalIndex)}
@@ -10196,21 +11387,23 @@ export default function UpRepDemo() {
                               </div>
                             );
                           })}
-                        </div>
-                        {allExercises.length > exerciseCount && (
-                          <p className="text-xs text-center mt-2" style={{ color: COLORS.textMuted }}>
-                            +{allExercises.length - exerciseCount} more exercises with more time
-                          </p>
-                        )}
+                            </div>
+                            {allExercises.length > exerciseCount && (
+                              <p className="text-xs text-center mt-2" style={{ color: COLORS.textMuted }}>
+                                +{allExercises.length - exerciseCount} more exercises with more time
+                              </p>
+                            )}
 
-                        {/* Cool-down Preview */}
-                        <div className="p-2 rounded-lg mt-2" style={{ backgroundColor: COLORS.info + '10', border: `1px solid ${COLORS.info}20` }}>
-                          <div className="flex items-center gap-2">
-                            <span className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold" style={{ backgroundColor: COLORS.info + '20', color: COLORS.info }}>C</span>
-                            <span className="text-xs font-medium" style={{ color: COLORS.info }}>Cool-down</span>
-                            <span className="text-xs ml-auto" style={{ color: COLORS.textMuted }}>2 min</span>
-                          </div>
-                        </div>
+                            {/* Cool-down Preview */}
+                            <div className="p-2 rounded-lg mt-2" style={{ backgroundColor: COLORS.info + '10', border: `1px solid ${COLORS.info}20` }}>
+                              <div className="flex items-center gap-2">
+                                <span className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold" style={{ backgroundColor: COLORS.info + '20', color: COLORS.info }}>C</span>
+                                <span className="text-xs font-medium" style={{ color: COLORS.info }}>Cool-down</span>
+                                <span className="text-xs ml-auto" style={{ color: COLORS.textMuted }}>2 min</span>
+                              </div>
+                            </div>
+                          </>
+                        )}
                       </div>
                     </div>
                   );
@@ -10253,7 +11446,7 @@ export default function UpRepDemo() {
             )}
 
             {/* Current Program - auto-selected based on goal */}
-            <div className="p-4 rounded-xl mb-6" style={{ backgroundColor: COLORS.surface }}>
+            <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
               <div className="mb-3">
                 <div className="flex items-center gap-2 mb-1">
                   <p className="text-xs" style={{ color: COLORS.textMuted }}>CURRENT PROGRAM</p>
@@ -10264,20 +11457,49 @@ export default function UpRepDemo() {
                 <h4 className="font-bold" style={{ color: COLORS.text }}>{currentProgram.name}</h4>
                 <p className="text-xs" style={{ color: COLORS.textSecondary }}>{currentProgram.description}</p>
               </div>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="flex-1 h-2 rounded-full" style={{ backgroundColor: COLORS.surfaceLight }}>
-                  <div 
-                    className="h-full rounded-full"
-                    style={{ backgroundColor: COLORS.primary, width: `${(currentProgram.currentWeek / currentProgram.totalWeeks) * 100}%` }}
+
+              {/* Progress Bar */}
+              <div className="flex items-center gap-3 mb-3">
+                <div className="flex-1 h-3 rounded-full" style={{ backgroundColor: COLORS.surfaceLight }}>
+                  <div
+                    className="h-full rounded-full transition-all duration-500"
+                    style={{ backgroundColor: programProgress.isComplete ? COLORS.success : COLORS.primary, width: `${programProgress.progressPercent}%` }}
                   />
                 </div>
                 <span className="text-sm font-semibold" style={{ color: COLORS.text }}>
-                  Week {currentProgram.currentWeek}/{currentProgram.totalWeeks}
+                  {Math.round(programProgress.progressPercent)}%
                 </span>
               </div>
+
+              {/* Progress Stats */}
+              <div className="grid grid-cols-3 gap-2 mb-3">
+                <div className="p-2 rounded-lg text-center" style={{ backgroundColor: COLORS.surfaceLight }}>
+                  <p className="text-lg font-bold" style={{ color: COLORS.success }}>{programProgress.completedWorkouts}</p>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>Completed</p>
+                </div>
+                <div className="p-2 rounded-lg text-center" style={{ backgroundColor: COLORS.surfaceLight }}>
+                  <p className="text-lg font-bold" style={{ color: COLORS.warning }}>{programProgress.workoutsRemaining}</p>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>Remaining</p>
+                </div>
+                <div className="p-2 rounded-lg text-center" style={{ backgroundColor: COLORS.surfaceLight }}>
+                  <p className="text-lg font-bold" style={{ color: COLORS.primary }}>{programProgress.totalWorkouts}</p>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>Total</p>
+                </div>
+              </div>
+
+              {/* Week Progress */}
+              <div className="flex justify-between items-center text-sm mb-2">
+                <span style={{ color: COLORS.textMuted }}>
+                  Week {programProgress.currentWeek} of {programProgress.totalWeeks}
+                </span>
+                <span style={{ color: COLORS.textSecondary }}>
+                  {programProgress.weeksRemaining} week{programProgress.weeksRemaining !== 1 ? 's' : ''} to go
+                </span>
+              </div>
+
               <div className="flex justify-between text-xs" style={{ color: COLORS.textMuted }}>
                 <span>{currentProgram.daysPerWeek} days/week</span>
-                <button 
+                <button
                   onClick={() => setShowFullSchedule(true)}
                   className="flex items-center gap-1"
                   style={{ color: COLORS.primary }}
@@ -10356,30 +11578,40 @@ export default function UpRepDemo() {
             {/* Recent Activity */}
             <div className="mb-6">
               <h3 className="font-semibold mb-3" style={{ color: COLORS.text }}>Recent Activity</h3>
-              <div className="space-y-2">
-                {workoutHistory.slice(0, 3).map((item) => (
-                  <button 
-                    key={item.id}
-                    onClick={() => setShowWorkoutSummary(item)}
-                    className="w-full p-3 rounded-xl flex items-center justify-between"
-                    style={{ backgroundColor: COLORS.surface }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.success + '20' }}>
-                        <Check size={18} color={COLORS.success} />
+              {workoutHistory.length === 0 ? (
+                <div className="p-6 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
+                  <div className="w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center" style={{ backgroundColor: COLORS.surfaceLight }}>
+                    <Dumbbell size={24} color={COLORS.textMuted} />
+                  </div>
+                  <p className="font-semibold mb-1" style={{ color: COLORS.text }}>No workouts yet</p>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>Complete your first workout to see your activity here</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {workoutHistory.slice(0, 3).map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => setShowWorkoutSummary(item)}
+                      className="w-full p-3 rounded-xl flex items-center justify-between"
+                      style={{ backgroundColor: COLORS.surface }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.success + '20' }}>
+                          <Check size={18} color={COLORS.success} />
+                        </div>
+                        <div className="text-left">
+                          <p className="font-semibold" style={{ color: COLORS.text }}>{item.workout.name}</p>
+                          <p className="text-xs" style={{ color: COLORS.textMuted }}>{item.date} • {item.duration} min</p>
+                        </div>
                       </div>
-                      <div className="text-left">
-                        <p className="font-semibold" style={{ color: COLORS.text }}>{item.workout.name}</p>
-                        <p className="text-xs" style={{ color: COLORS.textMuted }}>{item.date} • {item.duration} min</p>
+                      <div className="text-right">
+                        <p className="text-sm font-semibold" style={{ color: COLORS.text }}>{(item.totalVolume / 1000).toFixed(1)}k kg</p>
+                        <p className="text-xs" style={{ color: COLORS.textMuted }}>volume</p>
                       </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-semibold" style={{ color: COLORS.text }}>{(item.totalVolume / 1000).toFixed(1)}k kg</p>
-                      <p className="text-xs" style={{ color: COLORS.textMuted }}>volume</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Personal Records Preview */}
@@ -10408,6 +11640,82 @@ export default function UpRepDemo() {
                     <p className="text-xs mt-1 truncate" style={{ color: COLORS.textSecondary }}>{pr.exercise.split(' ')[0]}</p>
                   </button>
                 ))}
+              </div>
+            </div>
+
+            {/* What's Next - Program Suggestions */}
+            <div className="p-4 rounded-xl mb-6" style={{ backgroundColor: COLORS.surface }}>
+              <div className="flex items-center gap-2 mb-3">
+                <Target size={18} color={COLORS.accent} />
+                <h4 className="font-semibold" style={{ color: COLORS.text }}>What's Next?</h4>
+              </div>
+
+              {programProgress.isComplete ? (
+                <div className="p-3 rounded-lg mb-3" style={{ backgroundColor: COLORS.success + '15' }}>
+                  <p className="text-sm font-semibold" style={{ color: COLORS.success }}>🎉 Program Complete!</p>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>Choose your next challenge below</p>
+                </div>
+              ) : (
+                <p className="text-xs mb-3" style={{ color: COLORS.textMuted }}>
+                  After completing your current program, we recommend:
+                </p>
+              )}
+
+              {/* Suggested Programs */}
+              <div className="space-y-2 mb-4">
+                {suggestedNextPrograms.map((program, idx) => (
+                  <div
+                    key={program.id}
+                    className="p-3 rounded-lg"
+                    style={{ backgroundColor: idx === 0 ? COLORS.primary + '10' : COLORS.surfaceLight, border: idx === 0 ? `1px solid ${COLORS.primary}30` : 'none' }}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold text-sm" style={{ color: COLORS.text }}>{program.name}</p>
+                          {idx === 0 && <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: COLORS.primary + '20', color: COLORS.primary }}>Recommended</span>}
+                        </div>
+                        <p className="text-xs" style={{ color: COLORS.textMuted }}>{program.days} days/week • {program.weeks} weeks</p>
+                        <p className="text-xs mt-1" style={{ color: COLORS.textSecondary }}>{program.reason}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Break Duration Options */}
+              <div className="mb-3">
+                <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>TAKE A BREAK BETWEEN PROGRAMS</p>
+                <div className="flex gap-2">
+                  {BREAK_OPTIONS.map(option => (
+                    <button
+                      key={option.id}
+                      onClick={() => setSelectedBreakDuration(option.id)}
+                      className="flex-1 py-2 px-3 rounded-lg text-center"
+                      style={{
+                        backgroundColor: selectedBreakDuration === option.id ? COLORS.primary + '20' : COLORS.surfaceLight,
+                        border: selectedBreakDuration === option.id ? `1px solid ${COLORS.primary}` : '1px solid transparent'
+                      }}
+                    >
+                      <p className="text-sm font-semibold" style={{ color: selectedBreakDuration === option.id ? COLORS.primary : COLORS.text }}>{option.label}</p>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>{option.desc}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Level Up Suggestion */}
+              <div className="p-3 rounded-lg mb-3" style={{ backgroundColor: COLORS.accent + '10', border: `1px solid ${COLORS.accent}30` }}>
+                <p className="text-xs" style={{ color: COLORS.textSecondary }}>
+                  🎯 After completing this program, you may be ready to level up your experience! If you feel comfortable, consider moving to the next tier.
+                </p>
+              </div>
+
+              {/* Comeback Message */}
+              <div className="p-3 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
+                <p className="text-xs text-center" style={{ color: COLORS.textSecondary }}>
+                  💪 Remember, you can come back anytime. Rest is part of the journey!
+                </p>
               </div>
             </div>
           </div>
@@ -10843,6 +12151,58 @@ export default function UpRepDemo() {
                     </div>
                   ))}
                 </div>
+
+                {/* Suggested Supplements */}
+                {SUGGESTED_SUPPLEMENTS.filter(suggestion =>
+                  !dismissedSuggestions.includes(suggestion.id) &&
+                  !supplements.some(s => s.name.toLowerCase().includes(suggestion.name.toLowerCase().split(' ')[0]))
+                ).map(suggestion => (
+                  <div key={suggestion.id} className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.primary + '15', border: `1px solid ${COLORS.primary}40` }}>
+                    <div className="flex items-start gap-3 mb-3">
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: COLORS.primary + '30' }}>
+                        <Zap size={20} color={COLORS.primary} />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-xs font-semibold mb-1" style={{ color: COLORS.primary }}>Recommended for you</p>
+                        <p className="font-semibold" style={{ color: COLORS.text }}>{suggestion.name}</p>
+                        <p className="text-sm" style={{ color: COLORS.textMuted }}>{suggestion.dosage} daily</p>
+                      </div>
+                    </div>
+                    <div className="space-y-2 mb-4">
+                      {suggestion.reasons.map((reason, i) => (
+                        <div key={i} className="flex items-start gap-2">
+                          <Check size={14} color={COLORS.success} className="flex-shrink-0 mt-0.5" />
+                          <p className="text-sm" style={{ color: COLORS.textSecondary }}>{reason}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setDismissedSuggestions(prev => [...prev, suggestion.id])}
+                        className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
+                        style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.textMuted }}
+                      >
+                        Dismiss
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (user?.id) {
+                            const { data, error } = await nutritionService.addSupplement(user.id, { name: suggestion.name, dosage: suggestion.dosage });
+                            if (!error && data) {
+                              setSupplements(prev => [...prev, { id: data.id, name: data.name, dosage: data.dosage, taken: false, time: '' }]);
+                            } else {
+                              setSupplements(prev => [...prev, { id: Date.now().toString(), name: suggestion.name, dosage: suggestion.dosage, taken: false, time: '' }]);
+                            }
+                          }
+                        }}
+                        className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
+                        style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+                      >
+                        Add to My Supps
+                      </button>
+                    </div>
+                  </div>
+                ))}
 
                 {/* Add Supplement */}
                 {showAddSupplement ? (
@@ -12046,6 +13406,15 @@ export default function UpRepDemo() {
           />
         )}
 
+        {/* Exercise Info Modal */}
+        {showExerciseInfo && (
+          <ExerciseInfoModal
+            COLORS={COLORS}
+            exerciseName={showExerciseInfo}
+            onClose={() => setShowExerciseInfo(null)}
+          />
+        )}
+
         {/* Units Modal */}
         {showUnitsModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.8)' }}>
@@ -13079,6 +14448,60 @@ export default function UpRepDemo() {
               </div>
             </div>
 
+            {/* Program Progress */}
+            <div className="p-4 rounded-xl mb-6" style={{ backgroundColor: COLORS.surface }}>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Dumbbell size={18} color={COLORS.primary} />
+                  <h4 className="font-semibold" style={{ color: COLORS.text }}>Program Progress</h4>
+                </div>
+                <span className="text-xs px-2 py-1 rounded-full" style={{ backgroundColor: programProgress.isComplete ? COLORS.success + '20' : COLORS.primary + '20', color: programProgress.isComplete ? COLORS.success : COLORS.primary }}>
+                  {programProgress.isComplete ? 'Complete!' : `${Math.round(programProgress.progressPercent)}%`}
+                </span>
+              </div>
+
+              <div className="mb-3">
+                <p className="font-medium mb-1" style={{ color: COLORS.text }}>{currentProgram.name}</p>
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 h-2 rounded-full" style={{ backgroundColor: COLORS.surfaceLight }}>
+                    <div
+                      className="h-full rounded-full"
+                      style={{ backgroundColor: programProgress.isComplete ? COLORS.success : COLORS.primary, width: `${programProgress.progressPercent}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-4 gap-2">
+                <div className="text-center">
+                  <p className="text-lg font-bold" style={{ color: COLORS.success }}>{programProgress.completedWorkouts}</p>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>Done</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-lg font-bold" style={{ color: COLORS.warning }}>{programProgress.workoutsRemaining}</p>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>Left</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-lg font-bold" style={{ color: COLORS.primary }}>
+                    {programProgress.currentWeek}/{programProgress.totalWeeks}
+                  </p>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>Week</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-lg font-bold" style={{ color: COLORS.accent }}>{programProgress.weeksRemaining}</p>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>Wks left</p>
+                </div>
+              </div>
+
+              {programProgress.isComplete && (
+                <div className="mt-3 p-2 rounded-lg" style={{ backgroundColor: COLORS.success + '10' }}>
+                  <p className="text-xs text-center" style={{ color: COLORS.success }}>
+                    🎉 Congratulations! Check the Workouts tab to choose your next program.
+                  </p>
+                </div>
+              )}
+            </div>
+
             {/* Weight Chart */}
             <div className="p-4 rounded-xl mb-6" style={{ backgroundColor: COLORS.surface }}>
               <div className="flex items-center justify-between mb-3">
@@ -13272,7 +14695,7 @@ export default function UpRepDemo() {
                       <div>
                         <p className="font-semibold" style={{ color: COLORS.text }}>{GOAL_INFO[userData.goal].title}</p>
                         <p className="text-xs" style={{ color: COLORS.textMuted }}>
-                          {userData.experience === 'beginner' ? 'Beginner' : userData.experience === 'intermediate' ? 'Intermediate' : 'Advanced'}
+                          {EXPERIENCE_LEVELS[userData.experience]?.label || 'Unknown'}
                         </p>
                       </div>
                     </div>
@@ -13323,6 +14746,28 @@ export default function UpRepDemo() {
                     <p style={{ color: COLORS.textMuted }}>Set your fitness goal</p>
                   </button>
                 )}
+              </div>
+
+              {/* Experience Level */}
+              <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style={{ backgroundColor: COLORS.accent + '20' }}>
+                      {EXPERIENCE_LEVELS[userData.experience]?.icon || '🏋️'}
+                    </div>
+                    <div>
+                      <p className="font-semibold" style={{ color: COLORS.text }}>
+                        {EXPERIENCE_LEVELS[userData.experience]?.label || 'Not Set'}
+                      </p>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                        {EXPERIENCE_LEVELS[userData.experience]?.desc || 'Set your experience level'}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-xs px-2 py-1 rounded-full" style={{ backgroundColor: COLORS.accent + '15', color: COLORS.accent }}>
+                    Gym Level
+                  </span>
+                </div>
               </div>
 
               {/* Current Program - auto-selected based on goal */}
@@ -13499,6 +14944,38 @@ export default function UpRepDemo() {
                     </div>
                     <span className="text-sm" style={{ color: COLORS.textMuted }}>v5.0.0</span>
                   </button>
+                </div>
+              </div>
+
+              {/* Rate Us */}
+              <div className="mb-4">
+                <h3 className="font-semibold mb-3" style={{ color: COLORS.text }}>Enjoying UpRep?</h3>
+                <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.primary + '10', border: `1px solid ${COLORS.primary}30` }}>
+                  <div className="flex items-center gap-4">
+                    <div className="text-4xl">⭐</div>
+                    <div className="flex-1">
+                      <p className="font-semibold mb-1" style={{ color: COLORS.text }}>Rate us on the App Store</p>
+                      <p className="text-xs mb-3" style={{ color: COLORS.textMuted }}>
+                        Your feedback helps us improve and reach more fitness enthusiasts!
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => window.open('https://apps.apple.com', '_blank')}
+                          className="flex-1 py-2 px-3 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
+                          style={{ backgroundColor: COLORS.surface, color: COLORS.text }}
+                        >
+                          <span>🍎</span> App Store
+                        </button>
+                        <button
+                          onClick={() => window.open('https://play.google.com', '_blank')}
+                          className="flex-1 py-2 px-3 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
+                          style={{ backgroundColor: COLORS.surface, color: COLORS.text }}
+                        >
+                          <span>🤖</span> Google Play
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -14023,18 +15500,42 @@ export default function UpRepDemo() {
               <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>{isPastDate ? 'WORKOUT' : 'CURRENT WORKOUT'}</p>
               <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
                 {editingScheduleDay.workout ? (
-                  <div className="flex items-center gap-3">
-                    <div 
-                      className="w-12 h-12 rounded-xl flex items-center justify-center"
-                      style={{ backgroundColor: getWorkoutColor(editingScheduleDay.workout.name, COLORS) + '20' }}
-                    >
-                      <Dumbbell size={24} color={getWorkoutColor(editingScheduleDay.workout.name, COLORS)} />
+                  <>
+                    <div className="flex items-center gap-3 mb-4">
+                      <div
+                        className="w-12 h-12 rounded-xl flex items-center justify-center"
+                        style={{ backgroundColor: getWorkoutColor(editingScheduleDay.workout.name, COLORS) + '20' }}
+                      >
+                        <Dumbbell size={24} color={getWorkoutColor(editingScheduleDay.workout.name, COLORS)} />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-semibold" style={{ color: COLORS.text }}>{editingScheduleDay.workout.name}</p>
+                        <p className="text-xs" style={{ color: COLORS.textMuted }}>{editingScheduleDay.workout.focus} • {editingScheduleDay.workout.exercises?.length || 0} exercises</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-semibold" style={{ color: COLORS.text }}>{editingScheduleDay.workout.name}</p>
-                      <p className="text-xs" style={{ color: COLORS.textMuted }}>{editingScheduleDay.workout.focus}</p>
-                    </div>
-                  </div>
+                    {/* Exercise List */}
+                    {editingScheduleDay.workout.exercises && editingScheduleDay.workout.exercises.length > 0 && (
+                      <div className="space-y-2 pt-3 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+                        {editingScheduleDay.workout.exercises.slice(0, 6).map((exercise, idx) => (
+                          <div key={exercise.id || idx} className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="w-5 h-5 rounded-full flex items-center justify-center text-xs" style={{ backgroundColor: getWorkoutColor(editingScheduleDay.workout.name, COLORS) + '20', color: getWorkoutColor(editingScheduleDay.workout.name, COLORS) }}>{idx + 1}</span>
+                              <div>
+                                <p className="text-sm" style={{ color: COLORS.text }}>{exercise.name}</p>
+                                <p className="text-xs" style={{ color: COLORS.textMuted }}>{exercise.muscleGroup}</p>
+                              </div>
+                            </div>
+                            <span className="text-xs" style={{ color: COLORS.textMuted }}>{exercise.sets}×{exercise.targetReps}</span>
+                          </div>
+                        ))}
+                        {editingScheduleDay.workout.exercises.length > 6 && (
+                          <p className="text-xs text-center pt-2" style={{ color: COLORS.textMuted }}>
+                            +{editingScheduleDay.workout.exercises.length - 6} more exercises
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: COLORS.surfaceLight }}>
@@ -14048,6 +15549,37 @@ export default function UpRepDemo() {
                 )}
               </div>
             </div>
+
+            {/* Quick Actions - only for future/today with workout */}
+            {!isPastDate && editingScheduleDay.workout && (
+              <div className="mb-6">
+                <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>QUICK ACTIONS</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => {
+                      setShowWorkoutPreview(editingScheduleDay.workout);
+                      setEditingScheduleDay(null);
+                    }}
+                    className="p-3 rounded-xl flex items-center gap-2"
+                    style={{ backgroundColor: COLORS.surface }}
+                  >
+                    <Eye size={16} color={COLORS.primary} />
+                    <span className="text-sm" style={{ color: COLORS.text }}>Preview</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setWorkoutForDay(editingScheduleDay.dateKey, null);
+                      setEditingScheduleDay({ ...editingScheduleDay, workout: null, workoutType: null });
+                    }}
+                    className="p-3 rounded-xl flex items-center gap-2"
+                    style={{ backgroundColor: COLORS.surface }}
+                  >
+                    <X size={16} color={COLORS.error} />
+                    <span className="text-sm" style={{ color: COLORS.text }}>Skip Day</span>
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Change Workout - only for future/today */}
             {!isPastDate && (
@@ -14073,7 +15605,7 @@ export default function UpRepDemo() {
                       key={typeId}
                       onClick={() => {
                         setWorkoutForDay(editingScheduleDay.dateKey, typeId);
-                        const newWorkout = generateDynamicWorkout(typeId, userGoal, recentlyUsedExercises);
+                        const newWorkout = generateDynamicWorkout(typeId, userGoal, recentlyUsedExercises, userData.experience);
                         setEditingScheduleDay({ ...editingScheduleDay, workout: newWorkout, workoutType: typeId });
                       }}
                       className="w-full p-3 rounded-xl flex items-center gap-3"
@@ -14321,6 +15853,7 @@ export default function UpRepDemo() {
             COLORS={COLORS}
             availableTime={workoutTime}
             userGoal={userData.goal || 'build_muscle'}
+            userExperience={userData.experience || 'beginner'}
             userId={user?.id}
             workoutName={todayWorkout?.name || 'Workout'}
             workoutTemplate={template}
