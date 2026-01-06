@@ -172,6 +172,23 @@ const GOAL_INFO = {
   },
 };
 
+// Map goals to recommended programs - program is auto-selected based on user's goal
+const GOAL_TO_PROGRAM = {
+  bulk: { id: 'ppl', name: 'Push/Pull/Legs', days: 6, weeks: 12, desc: 'High volume split for maximum muscle growth' },
+  build_muscle: { id: 'upper_lower', name: 'Upper/Lower', days: 4, weeks: 16, desc: 'Balanced approach with optimal recovery' },
+  strength: { id: 'strength', name: 'Strength Focus', days: 4, weeks: 12, desc: 'Powerlifting-style for max strength' },
+  recomp: { id: 'upper_lower', name: 'Upper/Lower', days: 4, weeks: 16, desc: 'Balanced approach for body recomposition' },
+  fitness: { id: 'full_body', name: 'Full Body', days: 3, weeks: 12, desc: 'Efficient training for overall fitness' },
+  athletic: { id: 'athlete', name: 'Athletic Performance', days: 5, weeks: 12, desc: 'Speed, agility, and power focus' },
+  lean: { id: 'fat_loss', name: 'Fat Loss Circuit', days: 4, weeks: 8, desc: 'High intensity with cardio elements' },
+  lose_fat: { id: 'fat_loss', name: 'Fat Loss Circuit', days: 4, weeks: 8, desc: 'High intensity with cardio elements' },
+};
+
+// Helper to get program for a goal
+const getProgramForGoal = (goal) => {
+  return GOAL_TO_PROGRAM[goal] || GOAL_TO_PROGRAM.fitness;
+};
+
 // Weight Goal Step Component - defined outside main component to prevent recreation
 const WeightGoalStep = ({ userData, setUserData, COLORS }) => {
   const currentWeightRef = React.useRef(null);
@@ -5317,24 +5334,34 @@ export default function UpRepDemo() {
         const { data: sleepData, error: sleepError } = await sleepService.getRecentSleep(user.id, 84); // 12 weeks
         if (sleepError) console.warn('Sleep history error:', sleepError?.message);
 
-        // Group sleep by week
+        // Group sleep by week - Week 1 = start of program (current), Week 12 = end (future)
+        // Calculate weeks since program start based on current program week
         const sleepByWeek = {};
+        const now = new Date();
         if (sleepData && sleepData.length > 0) {
           sleepData.forEach(entry => {
             if (!entry?.log_date || entry?.hours_slept == null) return;
-            const weekNum = Math.ceil(
-              (new Date() - new Date(entry.log_date)) / (7 * 24 * 60 * 60 * 1000)
-            );
-            const displayWeek = Math.min(12, Math.max(1, 12 - weekNum + 1));
-            if (!sleepByWeek[displayWeek]) {
-              sleepByWeek[displayWeek] = { total: 0, count: 0 };
+            const entryDate = new Date(entry.log_date);
+            const daysDiff = Math.floor((now - entryDate) / (24 * 60 * 60 * 1000));
+            const weeksAgo = Math.floor(daysDiff / 7); // 0 = current week
+            // Week 1 = current week, Week 2 = next week (future), etc.
+            // But we can only have data for past/current weeks
+            const displayWeek = 1 - weeksAgo; // This gives us: current=1, 1 week ago=0, etc.
+            // We want: current week = Week 1, last week would be before program started
+            // So only current week (weeksAgo=0) maps to Week 1
+            const programWeek = 1 - weeksAgo;
+
+            if (programWeek >= 1 && programWeek <= 12) {
+              if (!sleepByWeek[programWeek]) {
+                sleepByWeek[programWeek] = { total: 0, count: 0 };
+              }
+              sleepByWeek[programWeek].total += entry.hours_slept;
+              sleepByWeek[programWeek].count++;
             }
-            sleepByWeek[displayWeek].total += entry.hours_slept;
-            sleepByWeek[displayWeek].count++;
           });
         }
 
-        // Generate sleep chart data
+        // Generate sleep chart data - Week 1 (current/start) on left, Week 12 (future/end) on right
         const sleepChartDataNew = [];
         for (let week = 1; week <= 12; week++) {
           const weekData = sleepByWeek[week];
@@ -5342,6 +5369,149 @@ export default function UpRepDemo() {
             week: week.toString(),
             value: weekData ? parseFloat((weekData.total / weekData.count).toFixed(1)) : null,
             goal: 8,
+          });
+        }
+
+        // Generate volume chart data (total weight lifted per week)
+        const volumeByWeek = {};
+        if (workoutData && workoutData.length > 0) {
+          workoutData.forEach(session => {
+            if (!session?.started_at) return;
+            const sessionDate = new Date(session.started_at);
+            const weekNum = Math.ceil((now - sessionDate) / (7 * 24 * 60 * 60 * 1000));
+            const displayWeek = Math.min(16, Math.max(1, 16 - weekNum + 1));
+
+            // Sum volume from all sets in this session
+            let sessionVolume = 0;
+            if (session.workout_sets) {
+              session.workout_sets.forEach(set => {
+                if (!set.is_warmup && set.weight && set.reps) {
+                  sessionVolume += set.weight * set.reps;
+                }
+              });
+            }
+            volumeByWeek[displayWeek] = (volumeByWeek[displayWeek] || 0) + sessionVolume;
+          });
+        }
+        const volumeChartData = [];
+        for (let week = 1; week <= 16; week++) {
+          volumeChartData.push({
+            week: week.toString(),
+            value: volumeByWeek[week] ? Math.round(volumeByWeek[week]) : null,
+            expected: null,
+          });
+        }
+
+        // Generate lift PR charts (bench, squat, deadlift, ohp)
+        const liftPRsByWeek = { bench: {}, squat: {}, deadlift: {}, ohp: {} };
+        const liftPatterns = {
+          bench: /bench press/i,
+          squat: /squat/i,
+          deadlift: /deadlift/i,
+          ohp: /overhead press|ohp|shoulder press/i,
+        };
+
+        if (workoutData && workoutData.length > 0) {
+          workoutData.forEach(session => {
+            if (!session?.started_at || !session.workout_sets) return;
+            const sessionDate = new Date(session.started_at);
+            const weekNum = Math.ceil((now - sessionDate) / (7 * 24 * 60 * 60 * 1000));
+            const displayWeek = Math.min(16, Math.max(1, 16 - weekNum + 1));
+
+            session.workout_sets.forEach(set => {
+              if (set.is_warmup || !set.weight || !set.reps) return;
+              const e1rm = set.weight * (1 + set.reps / 30); // Epley formula
+
+              Object.entries(liftPatterns).forEach(([lift, pattern]) => {
+                if (pattern.test(set.exercise_name)) {
+                  if (!liftPRsByWeek[lift][displayWeek] || e1rm > liftPRsByWeek[lift][displayWeek]) {
+                    liftPRsByWeek[lift][displayWeek] = Math.round(e1rm);
+                  }
+                }
+              });
+            });
+          });
+        }
+
+        const liftChartData = {};
+        ['bench', 'squat', 'deadlift', 'ohp'].forEach(lift => {
+          liftChartData[lift] = [];
+          for (let week = 1; week <= 16; week++) {
+            liftChartData[lift].push({
+              week: week.toString(),
+              value: liftPRsByWeek[lift][week] || null,
+              expected: null,
+            });
+          }
+        });
+
+        // Load nutrition data for calories/protein charts
+        let caloriesChartData = [];
+        let proteinChartData = [];
+        try {
+          const endDate = new Date();
+          const startDate = new Date();
+          startDate.setDate(startDate.getDate() - 112); // 16 weeks
+
+          const { data: nutritionData } = await nutritionService.getNutritionHistory(
+            user.id,
+            startDate.toISOString().split('T')[0],
+            endDate.toISOString().split('T')[0]
+          );
+
+          if (nutritionData && nutritionData.length > 0) {
+            const caloriesByWeek = {};
+            const proteinByWeek = {};
+
+            nutritionData.forEach(entry => {
+              if (!entry?.log_date) return;
+              const entryDate = new Date(entry.log_date);
+              const weekNum = Math.ceil((now - entryDate) / (7 * 24 * 60 * 60 * 1000));
+              const displayWeek = Math.min(16, Math.max(1, 16 - weekNum + 1));
+
+              if (!caloriesByWeek[displayWeek]) {
+                caloriesByWeek[displayWeek] = { total: 0, count: 0 };
+                proteinByWeek[displayWeek] = { total: 0, count: 0 };
+              }
+              if (entry.total_calories) {
+                caloriesByWeek[displayWeek].total += entry.total_calories;
+                caloriesByWeek[displayWeek].count++;
+              }
+              if (entry.total_protein) {
+                proteinByWeek[displayWeek].total += entry.total_protein;
+                proteinByWeek[displayWeek].count++;
+              }
+            });
+
+            for (let week = 1; week <= 16; week++) {
+              const calData = caloriesByWeek[week];
+              const proData = proteinByWeek[week];
+              caloriesChartData.push({
+                week: week.toString(),
+                value: calData ? Math.round(calData.total / calData.count) : null,
+                expected: 2500, // Default target
+              });
+              proteinChartData.push({
+                week: week.toString(),
+                value: proData ? Math.round(proData.total / proData.count) : null,
+                expected: 150, // Default target
+              });
+            }
+          }
+        } catch (err) {
+          console.warn('Error loading nutrition chart data:', err);
+        }
+
+        // Generate sleep chart for main chart selector (different format)
+        const sleepMainChartData = [];
+        for (let week = 1; week <= 16; week++) {
+          // Map from 12-week sleep data to 16-week display
+          const sleepWeek = Math.min(12, week);
+          const weekData = sleepByWeek[sleepWeek];
+          sleepMainChartData.push({
+            week: week.toString(),
+            value: weekData ? parseFloat((weekData.total / weekData.count).toFixed(1)) : null,
+            expected: 8,
           });
         }
 
@@ -5357,6 +5527,14 @@ export default function UpRepDemo() {
             ...prev,
             weight: weightChartData,
             workouts: workoutChartData,
+            volume: volumeChartData,
+            bench: liftChartData.bench,
+            squat: liftChartData.squat,
+            deadlift: liftChartData.deadlift,
+            ohp: liftChartData.ohp,
+            sleep: sleepMainChartData,
+            calories: caloriesChartData.length > 0 ? caloriesChartData : [],
+            protein: proteinChartData.length > 0 ? proteinChartData : [],
           }));
           setSleepChartData(sleepChartDataNew);
         }
@@ -5397,6 +5575,81 @@ export default function UpRepDemo() {
 
     return () => { isMounted = false; };
   }, [user?.id, isAuthenticated]);
+
+  // Load yesterday's sleep entry to check if already logged
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadYesterdaySleep = async () => {
+      if (!user?.id || !isAuthenticated) return;
+
+      try {
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+        const { data: sleepEntry } = await sleepService.getSleepLog(user.id, yesterdayStr);
+
+        if (isMounted && sleepEntry) {
+          setLastNightConfirmed(true);
+          if (sleepEntry.bed_time) setLastNightBedTime(sleepEntry.bed_time);
+          if (sleepEntry.wake_time) setLastNightWakeTime(sleepEntry.wake_time);
+        }
+      } catch (err) {
+        console.warn('Error loading yesterday sleep:', err?.message || err);
+      }
+    };
+
+    loadYesterdaySleep();
+
+    return () => { isMounted = false; };
+  }, [user?.id, isAuthenticated]);
+
+  // Function to refresh sleep chart data (called after saving sleep)
+  const refreshSleepChartData = async () => {
+    if (!user?.id) return;
+
+    try {
+      const { data: sleepData } = await sleepService.getRecentSleep(user.id, 84);
+
+      if (!sleepData) return;
+
+      // Group sleep by week - Week 1 = start of program (current), Week 12 = end (future)
+      const sleepByWeek = {};
+      const now = new Date();
+
+      sleepData.forEach(entry => {
+        if (!entry?.log_date || entry?.hours_slept == null) return;
+        const entryDate = new Date(entry.log_date);
+        const daysDiff = Math.floor((now - entryDate) / (24 * 60 * 60 * 1000));
+        const weeksAgo = Math.floor(daysDiff / 7); // 0 = current week
+        const programWeek = 1 - weeksAgo; // Week 1 = current, data before program start is ignored
+
+        if (programWeek >= 1 && programWeek <= 12) {
+          if (!sleepByWeek[programWeek]) {
+            sleepByWeek[programWeek] = { total: 0, count: 0 };
+          }
+          sleepByWeek[programWeek].total += entry.hours_slept;
+          sleepByWeek[programWeek].count++;
+        }
+      });
+
+      // Generate chart data - Week 1 (current/start) on left, Week 12 (future/end) on right
+      const newSleepChartData = [];
+      for (let week = 1; week <= 12; week++) {
+        const weekData = sleepByWeek[week];
+        newSleepChartData.push({
+          week: week.toString(),
+          value: weekData ? parseFloat((weekData.total / weekData.count).toFixed(1)) : null,
+          goal: 8,
+        });
+      }
+
+      setSleepChartData(newSleepChartData);
+    } catch (err) {
+      console.warn('Error refreshing sleep chart:', err);
+    }
+  };
 
   const [showActiveWorkout, setShowActiveWorkout] = useState(false);
   const [workoutTime, setWorkoutTime] = useState(60);
@@ -5495,8 +5748,10 @@ export default function UpRepDemo() {
   // Supplements - start empty, load from database
   const [supplements, setSupplements] = useState([]);
   const [showAddSupplement, setShowAddSupplement] = useState(false);
-  const [newSupplementName, setNewSupplementName] = useState('');
-  const [newSupplementDosage, setNewSupplementDosage] = useState('');
+  const supplementNameRef = useRef(null);
+  const supplementDosageRef = useRef(null);
+  const supplementUnitRef = useRef(null);
+  const SUPPLEMENT_UNITS = ['mg', 'g', 'mcg', 'IU', 'ml', 'capsule(s)', 'tablet(s)', 'scoop(s)', 'drop(s)'];
 
   // Extended Nutrition State - start at 0, load from database
   const [carbsIntake, setCarbsIntake] = useState(0);
@@ -5660,8 +5915,25 @@ export default function UpRepDemo() {
     workouts: [],
     bench: [],
     squat: [],
+    deadlift: [],
+    ohp: [],
+    volume: [],
+    sleep: [],
+    calories: [],
+    protein: [],
   });
-  const chartLabels = { weight: 'kg', workouts: 'sessions', bench: 'kg', squat: 'kg' };
+  const chartLabels = {
+    weight: 'kg',
+    workouts: 'sessions',
+    bench: 'kg',
+    squat: 'kg',
+    deadlift: 'kg',
+    ohp: 'kg',
+    volume: 'kg',
+    sleep: 'hrs',
+    calories: 'kcal',
+    protein: 'g',
+  };
 
   // Sleep chart data
   const [sleepChartData, setSleepChartData] = useState([]);
@@ -5681,7 +5953,6 @@ export default function UpRepDemo() {
   const [showWorkoutHistory, setShowWorkoutHistory] = useState(false);
   const [showPersonalRecords, setShowPersonalRecords] = useState(false);
   const [showCustomWorkout, setShowCustomWorkout] = useState(false);
-  const [showProgramSelector, setShowProgramSelector] = useState(false);
   const [showFullSchedule, setShowFullSchedule] = useState(false);
   const [fullScheduleMonth, setFullScheduleMonth] = useState(currentMonth);
   const [fullScheduleYear, setFullScheduleYear] = useState(currentYear);
@@ -5690,16 +5961,34 @@ export default function UpRepDemo() {
   const [exerciseSearchQuery, setExerciseSearchQuery] = useState('');
   const [exerciseFilterGroup, setExerciseFilterGroup] = useState('All');
   
-  // Current program state - will be updated from database
-  const [currentProgram, setCurrentProgram] = useState({
-    id: 'ppl',
-    name: 'Push/Pull/Legs',
-    description: '6-day split for maximum muscle growth',
-    daysPerWeek: 6,
-    currentWeek: 1, // Will be calculated from program start date
-    totalWeeks: 16,
+  // Current program state - auto-set based on user's goal
+  const [currentProgram, setCurrentProgram] = useState(() => {
+    const program = getProgramForGoal(userData.goal);
+    return {
+      id: program.id,
+      name: program.name,
+      description: program.desc,
+      daysPerWeek: program.days,
+      currentWeek: 1,
+      totalWeeks: program.weeks,
+    };
   });
-  
+
+  // Auto-update program when goal changes
+  useEffect(() => {
+    if (userData.goal) {
+      const program = getProgramForGoal(userData.goal);
+      setCurrentProgram(prev => ({
+        ...prev,
+        id: program.id,
+        name: program.name,
+        description: program.desc,
+        daysPerWeek: program.days,
+        totalWeeks: program.weeks,
+      }));
+    }
+  }, [userData.goal]);
+
   // Schedule state - dynamic schedule that can be edited
   const [scheduleWeekOffset, setScheduleWeekOffset] = useState(0);
   const [showScheduleEditor, setShowScheduleEditor] = useState(false);
@@ -6106,11 +6395,136 @@ export default function UpRepDemo() {
     return upcoming;
   })();
   
-  // Completed workouts history - will be loaded from database
+  // Completed workouts history - loaded from database
   const [workoutHistory, setWorkoutHistory] = useState([]);
 
-  // Personal records - will be loaded from database
+  // Personal records - loaded from database
   const [personalRecords, setPersonalRecords] = useState([]);
+
+  // Load workout history and personal records from database
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadWorkoutData = async () => {
+      if (!user?.id || !isAuthenticated) return;
+
+      try {
+        // Load workout history (all completed workouts across all programs)
+        const { data: historyData, error: historyError } = await workoutService.getWorkoutHistory(user.id, 100);
+        if (historyError) console.warn('Error loading workout history:', historyError?.message);
+
+        if (isMounted && historyData) {
+          setWorkoutHistory(historyData);
+        }
+
+        // Load personal records
+        const { data: prData, error: prError } = await workoutService.getPersonalRecords(user.id);
+        if (prError) console.warn('Error loading PRs:', prError?.message);
+
+        if (isMounted && prData) {
+          setPersonalRecords(prData);
+        }
+      } catch (err) {
+        console.warn('Error loading workout data:', err?.message || err);
+      }
+    };
+
+    loadWorkoutData();
+
+    return () => { isMounted = false; };
+  }, [user?.id, isAuthenticated]);
+
+  // Sync completed workouts from history into masterSchedule
+  useEffect(() => {
+    if (!workoutHistory || workoutHistory.length === 0) return;
+
+    // Build a map of completed dates from workout history
+    const completedDates = {};
+    workoutHistory.forEach(session => {
+      if (session.started_at) {
+        const dateKey = session.started_at.split('T')[0];
+        completedDates[dateKey] = {
+          sessionId: session.id,
+          workoutName: session.workout_name,
+          duration: session.duration_minutes,
+          volume: session.total_volume,
+        };
+      }
+    });
+
+    // Update masterSchedule with completed status
+    setMasterSchedule(prev => {
+      const updated = { ...prev };
+      let hasChanges = false;
+
+      Object.keys(completedDates).forEach(dateKey => {
+        if (updated[dateKey] && !updated[dateKey].completed) {
+          updated[dateKey] = {
+            ...updated[dateKey],
+            completed: true,
+            sessionData: completedDates[dateKey],
+          };
+          hasChanges = true;
+        }
+      });
+
+      return hasChanges ? updated : prev;
+    });
+  }, [workoutHistory]);
+
+  // Helper to get last weight/reps used for an exercise from history
+  const getLastPerformance = (exerciseName) => {
+    if (!workoutHistory || workoutHistory.length === 0) return null;
+
+    // Search through workout history for this exercise
+    for (const session of workoutHistory) {
+      if (session.workout_sets) {
+        const exerciseSets = session.workout_sets
+          .filter(set => set.exercise_name === exerciseName && !set.is_warmup)
+          .sort((a, b) => b.set_number - a.set_number);
+
+        if (exerciseSets.length > 0) {
+          // Return the heaviest set from this session
+          const bestSet = exerciseSets.reduce((best, current) =>
+            (current.weight > best.weight) ? current : best
+          , exerciseSets[0]);
+
+          return {
+            weight: bestSet.weight,
+            reps: bestSet.reps,
+            date: session.started_at,
+          };
+        }
+      }
+    }
+    return null;
+  };
+
+  // Helper to get PR for an exercise
+  const getExercisePR = (exerciseName) => {
+    if (!personalRecords || personalRecords.length === 0) return null;
+
+    const exercisePRs = personalRecords
+      .filter(pr => pr.exercise_name === exerciseName)
+      .sort((a, b) => b.e1rm - a.e1rm);
+
+    return exercisePRs.length > 0 ? exercisePRs[0] : null;
+  };
+
+  // Function to refresh workout data (call after completing workout)
+  const refreshWorkoutData = async () => {
+    if (!user?.id) return;
+
+    try {
+      const { data: historyData } = await workoutService.getWorkoutHistory(user.id, 100);
+      if (historyData) setWorkoutHistory(historyData);
+
+      const { data: prData } = await workoutService.getPersonalRecords(user.id);
+      if (prData) setPersonalRecords(prData);
+    } catch (err) {
+      console.warn('Error refreshing workout data:', err);
+    }
+  };
 
   // Welcome Screen
   const WelcomeScreen = () => (
@@ -7793,12 +8207,13 @@ export default function UpRepDemo() {
 
       {/* Progress Chart */}
       <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
-        <div className="flex gap-2 mb-3 overflow-x-auto">
+        <div className="flex gap-2 mb-3">
           {[
             { id: 'weight', label: 'Weight' },
             { id: 'workouts', label: 'Workouts' },
-            { id: 'bench', label: 'Bench 1RM' },
-            { id: 'squat', label: 'Squat 1RM' },
+            { id: 'volume', label: 'Volume' },
+            { id: 'sleep', label: 'Sleep' },
+            { id: 'protein', label: 'Protein' },
           ].map(tab => (
             <button
               key={tab.id}
@@ -7813,10 +8228,35 @@ export default function UpRepDemo() {
             </button>
           ))}
         </div>
-        <div style={{ height: 100 }}>
-          {chartData[selectedChart]?.length > 0 ? (
+        <div style={{ height: 125 }}>
+          {(() => {
+            // Generate placeholder data if no real data exists
+            const defaults = { weight: 100, workouts: 7, volume: 25000, sleep: 10, protein: 200 };
+            const hasRealData = chartData[selectedChart]?.length > 0 && chartData[selectedChart].some(d => d.value !== null);
+            const hasExpectedData = chartData[selectedChart]?.length > 0 && chartData[selectedChart].some(d => d.expected !== null);
+
+            // For weight chart, generate expected trajectory if not present
+            let data;
+            if (hasRealData || hasExpectedData) {
+              data = chartData[selectedChart];
+            } else if (selectedChart === 'weight' && userData.currentWeight && userData.goalWeight) {
+              // Generate expected weight trajectory based on user goals
+              const startWeight = parseFloat(userData.currentWeight);
+              const goalWeight = parseFloat(userData.goalWeight);
+              const weeks = currentProgram?.totalWeeks || 12;
+              const weeklyChange = (goalWeight - startWeight) / weeks;
+              data = Array.from({ length: weeks }, (_, i) => ({
+                week: (i + 1).toString(),
+                value: null,
+                expected: parseFloat((startWeight + (weeklyChange * (i + 1))).toFixed(1)),
+              }));
+            } else {
+              data = Array.from({ length: 12 }, (_, i) => ({ week: (i + 1).toString(), value: 0, expected: null }));
+            }
+
+            return (
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData[selectedChart]}>
+              <LineChart data={data}>
                 <XAxis
                   dataKey="week"
                   tick={{ fill: COLORS.textMuted, fontSize: 9 }}
@@ -7825,10 +8265,22 @@ export default function UpRepDemo() {
                   interval={2}
                   tickFormatter={(val) => `W${val}`}
                 />
-                <YAxis tick={{ fill: COLORS.textMuted, fontSize: 9 }} axisLine={false} tickLine={false} width={30} domain={['dataMin - 5', 'dataMax + 5']} />
+                <YAxis
+                  tick={{ fill: COLORS.textMuted, fontSize: 9 }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={35}
+                  domain={selectedChart === 'weight'
+                    ? [(dataMin) => Math.floor((dataMin || userData.currentWeight || 60) * 0.95),
+                       (dataMax) => Math.ceil((dataMax || userData.goalWeight || 80) * 1.05)]
+                    : hasRealData ? [0, 'auto'] : [0, defaults[selectedChart] || 100]}
+                  tickFormatter={(val) => selectedChart === 'volume' ? `${Math.round(val/1000)}k` : Math.round(val)}
+                />
                 <Tooltip
                   content={({ active, payload, label }) => {
                     if (active && payload && payload.length) {
+                      const actualVal = payload.find(p => p.dataKey === 'value')?.value;
+                      const expectedVal = payload.find(p => p.dataKey === 'expected')?.value;
                       return (
                         <div style={{
                           backgroundColor: COLORS.surface,
@@ -7837,37 +8289,44 @@ export default function UpRepDemo() {
                           padding: '8px 12px',
                         }}>
                           <p style={{ color: COLORS.textMuted, fontSize: 11, marginBottom: 4 }}>Week {label}</p>
-                          <p style={{ color: COLORS.text, fontSize: 14, fontWeight: 'bold' }}>{payload[0].value} {chartLabels[selectedChart]}</p>
-                          <p style={{ color: COLORS.textMuted, fontSize: 11 }}>Expected: {payload[1]?.value} {chartLabels[selectedChart]}</p>
+                          {actualVal !== null && actualVal !== undefined && (
+                            <p style={{ color: COLORS.text, fontSize: 14, fontWeight: 'bold' }}>{actualVal} {chartLabels[selectedChart]}</p>
+                          )}
+                          {expectedVal !== null && expectedVal !== undefined && (
+                            <p style={{ color: COLORS.textMuted, fontSize: 11 }}>Target: {expectedVal} {chartLabels[selectedChart]}</p>
+                          )}
                         </div>
                       );
                     }
                     return null;
                   }}
                 />
-                <Line
-                  type="monotone"
-                  dataKey="value"
-                  stroke={COLORS.primary}
-                  strokeWidth={2}
-                  dot={{ fill: COLORS.primary, r: 3, strokeWidth: 0 }}
-                  activeDot={{ fill: COLORS.primary, r: 5, stroke: COLORS.text, strokeWidth: 2 }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="expected"
-                  stroke={COLORS.textMuted}
-                  strokeWidth={1}
-                  strokeDasharray="4 4"
-                  dot={false}
-                />
+                {hasRealData && (
+                  <Line
+                    type="monotone"
+                    dataKey="value"
+                    stroke={COLORS.primary}
+                    strokeWidth={2}
+                    dot={{ fill: COLORS.primary, r: 3, strokeWidth: 0 }}
+                    activeDot={{ fill: COLORS.primary, r: 5, stroke: COLORS.text, strokeWidth: 2 }}
+                    connectNulls
+                  />
+                )}
+                {(hasExpectedData || (selectedChart === 'weight' && userData.currentWeight && userData.goalWeight)) && (
+                  <Line
+                    type="monotone"
+                    dataKey="expected"
+                    stroke={COLORS.textMuted}
+                    strokeWidth={1}
+                    strokeDasharray="4 4"
+                    dot={false}
+                    connectNulls
+                  />
+                )}
               </LineChart>
             </ResponsiveContainer>
-          ) : (
-            <div className="h-full flex items-center justify-center">
-              <p className="text-sm" style={{ color: COLORS.textMuted }}>No data yet - start tracking to see progress!</p>
-            </div>
-          )}
+            );
+          })()}
         </div>
         <div className="flex justify-between items-center mt-2">
           <div className="flex items-center gap-3">
@@ -8865,6 +9324,8 @@ export default function UpRepDemo() {
                       wakeTime: lastNightWakeTime,
                       hoursSlept: parseFloat(totalHours.toFixed(2)),
                     });
+                    // Refresh sleep chart to show new data
+                    refreshSleepChartData();
                   } catch (err) {
                     console.error('Error logging sleep:', err);
                   }
@@ -9130,21 +9591,60 @@ export default function UpRepDemo() {
           ))}
         </div>
         {showAddSupplement ? (
-          <div className="p-3 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
-            <div className="flex gap-2 mb-2">
-              <input type="text" placeholder="Supplement name" value={newSupplementName} onChange={e => setNewSupplementName(e.target.value)}
-                className="flex-1 p-2 rounded text-sm" style={{ backgroundColor: COLORS.surface, color: COLORS.text, border: 'none' }} />
-              <input type="text" placeholder="Dosage" value={newSupplementDosage} onChange={e => setNewSupplementDosage(e.target.value)}
-                className="w-24 p-2 rounded text-sm" style={{ backgroundColor: COLORS.surface, color: COLORS.text, border: 'none' }} />
+          <div className="p-3 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }} onMouseDown={e => e.stopPropagation()}>
+            <div className="mb-2">
+              <input
+                type="text"
+                placeholder="Supplement name"
+                ref={supplementNameRef}
+                autoFocus
+                onMouseDown={e => e.stopPropagation()}
+                className="w-full p-2 rounded text-sm mb-2"
+                style={{ backgroundColor: COLORS.surface, color: COLORS.text, border: 'none', outline: 'none' }}
+              />
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  placeholder="Amount"
+                  ref={supplementDosageRef}
+                  onMouseDown={e => e.stopPropagation()}
+                  className="flex-1 p-2 rounded text-sm"
+                  style={{ backgroundColor: COLORS.surface, color: COLORS.text, border: 'none', outline: 'none' }}
+                />
+                <select
+                  ref={supplementUnitRef}
+                  defaultValue="mg"
+                  onMouseDown={e => e.stopPropagation()}
+                  className="p-2 rounded text-sm"
+                  style={{ backgroundColor: COLORS.surface, color: COLORS.text, border: 'none', outline: 'none' }}
+                >
+                  {SUPPLEMENT_UNITS.map(unit => (
+                    <option key={unit} value={unit}>{unit}</option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div className="flex gap-2">
-              <button type="button" onClick={(e) => { e.preventDefault(); setShowAddSupplement(false); setNewSupplementName(''); setNewSupplementDosage(''); }}
+              <button type="button" onClick={(e) => {
+                e.preventDefault();
+                setShowAddSupplement(false);
+                if (supplementNameRef.current) supplementNameRef.current.value = '';
+                if (supplementDosageRef.current) supplementDosageRef.current.value = '';
+                if (supplementUnitRef.current) supplementUnitRef.current.value = 'mg';
+              }}
                 className="flex-1 py-2 rounded text-sm" style={{ backgroundColor: COLORS.surface, color: COLORS.textMuted }}>Cancel</button>
               <button type="button" onClick={(e) => {
                 e.preventDefault();
-                if (newSupplementName) {
-                  setSupplements(prev => [...prev, { id: Date.now().toString(), name: newSupplementName, dosage: newSupplementDosage || 'As needed', taken: false }]);
-                  setShowAddSupplement(false); setNewSupplementName(''); setNewSupplementDosage('');
+                const name = supplementNameRef.current?.value?.trim();
+                const amount = supplementDosageRef.current?.value?.trim();
+                const unit = supplementUnitRef.current?.value || 'mg';
+                const dosage = amount ? `${amount} ${unit}` : 'As needed';
+                if (name) {
+                  setSupplements(prev => [...prev, { id: Date.now().toString(), name, dosage, taken: false }]);
+                  setShowAddSupplement(false);
+                  if (supplementNameRef.current) supplementNameRef.current.value = '';
+                  if (supplementDosageRef.current) supplementDosageRef.current.value = '';
+                  if (supplementUnitRef.current) supplementUnitRef.current.value = 'mg';
                 }
               }} className="flex-1 py-2 rounded text-sm font-semibold" style={{ backgroundColor: COLORS.primary, color: COLORS.text }}>Add</button>
             </div>
@@ -9743,21 +10243,17 @@ export default function UpRepDemo() {
               </>
             )}
 
-            {/* Current Program */}
+            {/* Current Program - auto-selected based on goal */}
             <div className="p-4 rounded-xl mb-6" style={{ backgroundColor: COLORS.surface }}>
-              <div className="flex justify-between items-start mb-3">
-                <div>
+              <div className="mb-3">
+                <div className="flex items-center gap-2 mb-1">
                   <p className="text-xs" style={{ color: COLORS.textMuted }}>CURRENT PROGRAM</p>
-                  <h4 className="font-bold" style={{ color: COLORS.text }}>{currentProgram.name}</h4>
-                  <p className="text-xs" style={{ color: COLORS.textSecondary }}>{currentProgram.description}</p>
+                  <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: COLORS.primary + '15', color: COLORS.primary }}>
+                    Based on your goal
+                  </span>
                 </div>
-                <button 
-                  onClick={() => setShowProgramSelector(true)}
-                  className="text-xs px-2 py-1 rounded"
-                  style={{ backgroundColor: COLORS.primary + '20', color: COLORS.primary }}
-                >
-                  Change
-                </button>
+                <h4 className="font-bold" style={{ color: COLORS.text }}>{currentProgram.name}</h4>
+                <p className="text-xs" style={{ color: COLORS.textSecondary }}>{currentProgram.description}</p>
               </div>
               <div className="flex items-center gap-3 mb-2">
                 <div className="flex-1 h-2 rounded-full" style={{ backgroundColor: COLORS.surfaceLight }}>
@@ -9910,17 +10406,18 @@ export default function UpRepDemo() {
         {activeTab === 'nutrition' && (
           <div className="p-4 h-full overflow-auto">
             {/* Tab Navigation */}
-            <div className="flex gap-2 mb-6">
+            <div className="flex gap-1 mb-6">
               {[
                 { id: 'overview', label: 'Overview' },
                 { id: 'meals', label: 'Meals' },
-                { id: 'supplements', label: 'Supplements' },
+                { id: 'supplements', label: 'Supps' },
+                { id: 'sleep', label: 'Sleep' },
               ].map(tab => (
                 <button
                   key={tab.id}
                   onClick={() => setNutritionTab(tab.id)}
-                  className="flex-1 py-2 rounded-xl text-sm font-semibold"
-                  style={{ 
+                  className="flex-1 py-2 rounded-xl text-xs font-semibold"
+                  style={{
                     backgroundColor: nutritionTab === tab.id ? COLORS.primary : COLORS.surface,
                     color: nutritionTab === tab.id ? COLORS.text : COLORS.textMuted
                   }}
@@ -10338,47 +10835,71 @@ export default function UpRepDemo() {
 
                 {/* Add Supplement */}
                 {showAddSupplement ? (
-                  <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
+                  <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }} onMouseDown={e => e.stopPropagation()}>
                     <p className="font-semibold mb-3" style={{ color: COLORS.text }}>Add New Supplement</p>
                     <div className="space-y-3 mb-3">
-                      <input 
-                        type="text" 
-                        placeholder="Supplement name" 
-                        value={newSupplementName} 
-                        onChange={e => setNewSupplementName(e.target.value)}
+                      <input
+                        type="text"
+                        placeholder="Supplement name"
+                        ref={supplementNameRef}
+                        autoFocus
+                        onMouseDown={e => e.stopPropagation()}
                         className="w-full p-3 rounded-xl text-sm"
-                        style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+                        style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none', outline: 'none' }}
                       />
-                      <input 
-                        type="text" 
-                        placeholder="Dosage (e.g., 5g, 1000mg)" 
-                        value={newSupplementDosage} 
-                        onChange={e => setNewSupplementDosage(e.target.value)}
-                        className="w-full p-3 rounded-xl text-sm"
-                        style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
-                      />
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          placeholder="Amount"
+                          ref={supplementDosageRef}
+                          onMouseDown={e => e.stopPropagation()}
+                          className="flex-1 p-3 rounded-xl text-sm"
+                          style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none', outline: 'none' }}
+                        />
+                        <select
+                          ref={supplementUnitRef}
+                          defaultValue="mg"
+                          onMouseDown={e => e.stopPropagation()}
+                          className="p-3 rounded-xl text-sm"
+                          style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none', outline: 'none' }}
+                        >
+                          {SUPPLEMENT_UNITS.map(unit => (
+                            <option key={unit} value={unit}>{unit}</option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
                     <div className="flex gap-2">
-                      <button 
-                        onClick={() => { setShowAddSupplement(false); setNewSupplementName(''); setNewSupplementDosage(''); }}
+                      <button
+                        onClick={() => {
+                          setShowAddSupplement(false);
+                          if (supplementNameRef.current) supplementNameRef.current.value = '';
+                          if (supplementDosageRef.current) supplementDosageRef.current.value = '';
+                          if (supplementUnitRef.current) supplementUnitRef.current.value = 'mg';
+                        }}
                         className="flex-1 py-3 rounded-xl font-semibold"
                         style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.textMuted }}
                       >
                         Cancel
                       </button>
-                      <button 
+                      <button
                         onClick={() => {
-                          if (newSupplementName) {
-                            setSupplements(prev => [...prev, { 
-                              id: Date.now().toString(), 
-                              name: newSupplementName, 
-                              dosage: newSupplementDosage || 'As needed', 
+                          const name = supplementNameRef.current?.value?.trim();
+                          const amount = supplementDosageRef.current?.value?.trim();
+                          const unit = supplementUnitRef.current?.value || 'mg';
+                          const dosage = amount ? `${amount} ${unit}` : 'As needed';
+                          if (name) {
+                            setSupplements(prev => [...prev, {
+                              id: Date.now().toString(),
+                              name,
+                              dosage,
                               taken: false,
                               time: ''
                             }]);
-                            setShowAddSupplement(false); 
-                            setNewSupplementName(''); 
-                            setNewSupplementDosage('');
+                            setShowAddSupplement(false);
+                            if (supplementNameRef.current) supplementNameRef.current.value = '';
+                            if (supplementDosageRef.current) supplementDosageRef.current.value = '';
+                            if (supplementUnitRef.current) supplementUnitRef.current.value = 'mg';
                           }
                         }}
                         className="flex-1 py-3 rounded-xl font-semibold"
@@ -10389,7 +10910,7 @@ export default function UpRepDemo() {
                     </div>
                   </div>
                 ) : (
-                  <button 
+                  <button
                     onClick={() => setShowAddSupplement(true)}
                     className="w-full p-4 rounded-xl flex items-center justify-center gap-2 mb-4"
                     style={{ backgroundColor: COLORS.surface, border: `1px dashed ${COLORS.textMuted}` }}
@@ -10434,6 +10955,208 @@ export default function UpRepDemo() {
                       <p className="text-sm font-semibold mb-1" style={{ color: COLORS.text }}>Supplement Tip</p>
                       <p className="text-xs" style={{ color: COLORS.textSecondary }}>
                         Take creatine daily at the same time for best results. Vitamin D is best absorbed with a meal containing fats.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* SLEEP TAB */}
+            {nutritionTab === 'sleep' && (
+              <>
+                {/* Last Night's Sleep */}
+                <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-semibold" style={{ color: COLORS.text }}>Last Night</h4>
+                    <div className="flex items-center gap-1">
+                      <Moon size={16} color={COLORS.sleep} />
+                      <span className="font-bold" style={{ color: COLORS.sleep }}>
+                        {(() => {
+                          const [bedH, bedM] = lastNightBedTime.split(':').map(Number);
+                          const [wakeH, wakeM] = lastNightWakeTime.split(':').map(Number);
+                          let hours = wakeH - bedH + (wakeM - bedM) / 60;
+                          if (hours < 0) hours += 24;
+                          return hours.toFixed(1);
+                        })()} hrs
+                      </span>
+                    </div>
+                  </div>
+
+                  {!lastNightConfirmed ? (
+                    <div className="space-y-4">
+                      <div>
+                        <p className="text-xs mb-2" style={{ color: COLORS.textMuted }}>Bed Time</p>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            min="0"
+                            max="23"
+                            defaultValue={lastNightBedTime.split(':')[0]}
+                            onBlur={(e) => {
+                              const h = e.target.value.padStart(2, '0');
+                              setLastNightBedTime(prev => `${h}:${prev.split(':')[1]}`);
+                            }}
+                            className="w-16 p-3 rounded-xl text-center text-lg font-bold"
+                            style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+                          />
+                          <span style={{ color: COLORS.textMuted, fontSize: 20 }}>:</span>
+                          <input
+                            type="number"
+                            min="0"
+                            max="59"
+                            step="5"
+                            defaultValue={lastNightBedTime.split(':')[1]}
+                            onBlur={(e) => {
+                              const m = e.target.value.padStart(2, '0');
+                              setLastNightBedTime(prev => `${prev.split(':')[0]}:${m}`);
+                            }}
+                            className="w-16 p-3 rounded-xl text-center text-lg font-bold"
+                            style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-xs mb-2" style={{ color: COLORS.textMuted }}>Wake Time</p>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            min="0"
+                            max="23"
+                            defaultValue={lastNightWakeTime.split(':')[0]}
+                            onBlur={(e) => {
+                              const h = e.target.value.padStart(2, '0');
+                              setLastNightWakeTime(prev => `${h}:${prev.split(':')[1]}`);
+                            }}
+                            className="w-16 p-3 rounded-xl text-center text-lg font-bold"
+                            style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+                          />
+                          <span style={{ color: COLORS.textMuted, fontSize: 20 }}>:</span>
+                          <input
+                            type="number"
+                            min="0"
+                            max="59"
+                            step="5"
+                            defaultValue={lastNightWakeTime.split(':')[1]}
+                            onBlur={(e) => {
+                              const m = e.target.value.padStart(2, '0');
+                              setLastNightWakeTime(prev => `${prev.split(':')[0]}:${m}`);
+                            }}
+                            className="w-16 p-3 rounded-xl text-center text-lg font-bold"
+                            style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+                          />
+                        </div>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          const [bedH, bedM] = lastNightBedTime.split(':').map(Number);
+                          const [wakeH, wakeM] = lastNightWakeTime.split(':').map(Number);
+                          let hours = wakeH - bedH + (wakeM - bedM) / 60;
+                          if (hours < 0) hours += 24;
+                          const yesterday = new Date();
+                          yesterday.setDate(yesterday.getDate() - 1);
+                          const yesterdayStr = yesterday.toISOString().split('T')[0];
+                          await sleepService.logSleep(user.id, yesterdayStr, hours, 3, lastNightBedTime, lastNightWakeTime);
+                          setLastNightConfirmed(true);
+                        }}
+                        className="w-full py-3 rounded-xl font-semibold"
+                        style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+                      >
+                        Log Sleep
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="text-center py-4">
+                      <Check size={32} color={COLORS.success} className="mx-auto mb-2" />
+                      <p className="font-semibold" style={{ color: COLORS.text }}>Sleep Logged!</p>
+                      <p className="text-sm" style={{ color: COLORS.textMuted }}>{lastNightBedTime} → {lastNightWakeTime}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Sleep Goal */}
+                <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-semibold" style={{ color: COLORS.text }}>Sleep Goal</h4>
+                    <span className="text-sm" style={{ color: COLORS.textMuted }}>{sleepHours} hrs / night</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setSleepHours(prev => Math.max(5, prev - 0.5))}
+                      className="w-10 h-10 rounded-full flex items-center justify-center"
+                      style={{ backgroundColor: COLORS.surfaceLight }}
+                    >
+                      <Minus size={18} color={COLORS.text} />
+                    </button>
+                    <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: COLORS.surfaceLight }}>
+                      <div
+                        className="h-full rounded-full"
+                        style={{ backgroundColor: COLORS.sleep, width: `${((sleepHours - 5) / 5) * 100}%` }}
+                      />
+                    </div>
+                    <button
+                      onClick={() => setSleepHours(prev => Math.min(10, prev + 0.5))}
+                      className="w-10 h-10 rounded-full flex items-center justify-center"
+                      style={{ backgroundColor: COLORS.surfaceLight }}
+                    >
+                      <Plus size={18} color={COLORS.text} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Sleep Streak */}
+                <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-semibold" style={{ color: COLORS.text }}>Sleep Streak</h4>
+                    <div className="flex items-center gap-1">
+                      <Flame size={16} color={COLORS.warning} />
+                      <span className="font-bold" style={{ color: COLORS.warning }}>{streaks.sleep.daysInRow} days</span>
+                    </div>
+                  </div>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                    Hit your sleep goal {streaks.sleep.daysInRow} nights in a row!
+                  </p>
+                </div>
+
+                {/* Weekly Chart */}
+                <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
+                  <h4 className="font-semibold mb-3" style={{ color: COLORS.text }}>This Week</h4>
+                  <div style={{ height: 120 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={sleepChartData.slice(-7)}>
+                        <XAxis
+                          dataKey="day"
+                          tick={{ fill: COLORS.textMuted, fontSize: 10 }}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+                        <YAxis
+                          tick={{ fill: COLORS.textMuted, fontSize: 10 }}
+                          axisLine={false}
+                          tickLine={false}
+                          width={25}
+                          domain={[0, 12]}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="hours"
+                          stroke={COLORS.sleep}
+                          strokeWidth={2}
+                          dot={{ fill: COLORS.sleep, r: 4 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* Sleep Tips */}
+                <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surfaceLight }}>
+                  <div className="flex items-start gap-3">
+                    <Info size={18} color={COLORS.sleep} className="flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-semibold mb-1" style={{ color: COLORS.text }}>Sleep Tip</p>
+                      <p className="text-xs" style={{ color: COLORS.textSecondary }}>
+                        Maintain a consistent sleep schedule, even on weekends. This helps regulate your body's internal clock.
                       </p>
                     </div>
                   </div>
@@ -12592,7 +13315,7 @@ export default function UpRepDemo() {
                 )}
               </div>
 
-              {/* Current Program */}
+              {/* Current Program - auto-selected based on goal */}
               <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
@@ -12604,6 +13327,9 @@ export default function UpRepDemo() {
                       <p className="text-xs" style={{ color: COLORS.textMuted }}>{currentProgram.daysPerWeek} days/week</p>
                     </div>
                   </div>
+                  <span className="text-xs px-2 py-1 rounded-full" style={{ backgroundColor: COLORS.primary + '15', color: COLORS.primary }}>
+                    Auto
+                  </span>
                 </div>
                 <div className="flex justify-between text-xs mb-1">
                   <span style={{ color: COLORS.textMuted }}>Week {currentProgram.currentWeek} of {currentProgram.totalWeeks}</span>
@@ -13121,107 +13847,6 @@ export default function UpRepDemo() {
           </div>
         </div>
       )}
-
-      {/* Program Selector Modal */}
-      {showProgramSelector && (() => {
-        // Calculate program end date
-        const programStartDate = new Date(); // Would come from database in production
-        const programEndDate = new Date(programStartDate);
-        programEndDate.setDate(programEndDate.getDate() + (overviewStats.programLength * 7));
-        const endDateStr = programEndDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-        const weeksRemaining = Math.max(0, overviewStats.programLength - overviewStats.programWeek);
-
-        return (
-        <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
-          <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
-            <button onClick={() => setShowProgramSelector(false)}><X size={24} color={COLORS.text} /></button>
-            <h2 className="text-lg font-bold" style={{ color: COLORS.text }}>Training Programs</h2>
-          </div>
-          <div className="flex-1 overflow-auto p-4">
-            {/* Current Program Info */}
-            <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.primary + '15', border: `1px solid ${COLORS.primary}40` }}>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold" style={{ color: COLORS.primary }}>CURRENT PROGRAM</span>
-                <span className="text-xs px-2 py-1 rounded" style={{ backgroundColor: COLORS.primary + '20', color: COLORS.primary }}>
-                  Week {overviewStats.programWeek} of {overviewStats.programLength}
-                </span>
-              </div>
-              <h3 className="font-bold mb-1" style={{ color: COLORS.text }}>{currentProgram.name || 'No Program'}</h3>
-              <div className="flex items-center gap-4 text-xs" style={{ color: COLORS.textMuted }}>
-                <span>Ends: {endDateStr}</span>
-                <span>{weeksRemaining} weeks remaining</span>
-              </div>
-            </div>
-
-            {/* Next Program (for program cycling) */}
-            <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
-              <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>QUEUE NEXT PROGRAM</p>
-              <p className="text-sm mb-3" style={{ color: COLORS.textSecondary }}>
-                Set up your next program to automatically start when your current one ends.
-              </p>
-              <button
-                className="w-full py-2 rounded-lg text-sm font-semibold"
-                style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text }}
-              >
-                + Add Next Program
-              </button>
-            </div>
-
-            <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>AVAILABLE PROGRAMS</p>
-            <div className="space-y-3">
-              {[
-                { id: 'ppl', name: 'Push/Pull/Legs', days: 6, weeks: 12, desc: 'High volume split for maximum muscle growth', level: 'Intermediate', goal: 'build_muscle' },
-                { id: 'upper_lower', name: 'Upper/Lower', days: 4, weeks: 16, desc: 'Balanced approach with optimal recovery', level: 'All Levels', goal: 'build_muscle' },
-                { id: 'full_body', name: 'Full Body', days: 3, weeks: 12, desc: 'Efficient training for busy schedules', level: 'Beginner', goal: 'fitness' },
-                { id: 'bro_split', name: 'Body Part Split', days: 5, weeks: 16, desc: 'One muscle group per day focus', level: 'Advanced', goal: 'build_muscle' },
-                { id: 'strength', name: 'Strength Focus', days: 4, weeks: 12, desc: 'Powerlifting-style for max strength', level: 'Intermediate', goal: 'strength' },
-                { id: 'fat_loss', name: 'Fat Loss Circuit', days: 4, weeks: 8, desc: 'High intensity with cardio elements', level: 'All Levels', goal: 'lose_fat' },
-                { id: 'athlete', name: 'Athletic Performance', days: 5, weeks: 12, desc: 'Speed, agility, and power focus', level: 'Intermediate', goal: 'athletic' },
-              ].map(program => {
-                const endDate = new Date();
-                endDate.setDate(endDate.getDate() + (program.weeks * 7));
-                const progEndStr = endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-
-                return (
-                <button
-                  key={program.id}
-                  onClick={() => {
-                    setCurrentProgram({ ...currentProgram, id: program.id, name: program.name, description: program.desc, daysPerWeek: program.days });
-                    setShowProgramSelector(false);
-                  }}
-                  className="w-full p-4 rounded-xl text-left"
-                  style={{
-                    backgroundColor: COLORS.surface,
-                    border: currentProgram.id === program.id ? `2px solid ${COLORS.primary}` : '2px solid transparent'
-                  }}
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    <h4 className="font-semibold" style={{ color: COLORS.text }}>{program.name}</h4>
-                    <span className="text-xs px-2 py-1 rounded" style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.textMuted }}>
-                      {program.weeks} weeks
-                    </span>
-                  </div>
-                  <p className="text-sm mb-2" style={{ color: COLORS.textSecondary }}>{program.desc}</p>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs" style={{ color: COLORS.primary }}>{program.level}</span>
-                      <span className="text-xs" style={{ color: COLORS.textMuted }}>• {program.days} days/week</span>
-                    </div>
-                    <span className="text-xs" style={{ color: COLORS.textMuted }}>Ends {progEndStr}</span>
-                  </div>
-                  {currentProgram.id === program.id && (
-                    <div className="mt-2 flex items-center gap-1" style={{ color: COLORS.success }}>
-                      <Check size={14} /> <span className="text-xs">Current Program</span>
-                    </div>
-                  )}
-                </button>
-              );
-              })}
-            </div>
-          </div>
-        </div>
-        );
-      })()}
 
       {/* Full Schedule Modal */}
       {showFullSchedule && (() => {
@@ -13885,7 +14510,7 @@ export default function UpRepDemo() {
           { id: 'home', icon: Home, label: 'Home' },
           { id: 'workouts', icon: Dumbbell, label: 'Workouts' },
           { id: 'friends', icon: Users, label: 'Friends' },
-          { id: 'nutrition', icon: Apple, label: 'Nutrition' },
+          { id: 'nutrition', icon: Heart, label: 'Health' },
           { id: 'progress', icon: BarChart3, label: 'Progress' },
           { id: 'profile', icon: User, label: 'Profile' },
         ].map(tab => (
