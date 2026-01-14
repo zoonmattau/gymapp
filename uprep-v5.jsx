@@ -1,6 +1,41 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
-import { ChevronRight, ChevronLeft, Check, Plus, Minus, Play, X, Droplets, Moon, TrendingUp, TrendingDown, User, Home, Dumbbell, Apple, BarChart3, Trophy, Flame, Clock, Target, Info, Calendar, AlertCircle, Zap, Coffee, Utensils, ChevronDown, ChevronUp, Eye, Undo2, Search, Book, History, Award, Edit3, Filter, ArrowLeftRight, GripVertical, Users, Heart, MessageCircle, Share2, Crown, Medal, Loader2, Settings } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Check, Plus, Minus, Play, X, Droplets, Moon, TrendingUp, TrendingDown, User, Home, Dumbbell, Apple, BarChart3, Trophy, Flame, Clock, Target, Info, Calendar, AlertCircle, Zap, Coffee, Utensils, ChevronDown, ChevronUp, Eye, Undo2, Search, Book, History, Award, Edit3, Filter, ArrowLeftRight, GripVertical, Users, Heart, MessageCircle, Share2, Crown, Medal, Loader2, Settings, Sprout, RefreshCw, Scale, Scissors, Wind, Timer, Activity, Star, Sparkles, PartyPopper } from 'lucide-react';
+
+// Icon mapping helper - converts icon names to Lucide components
+const IconMap = ({ name, size = 24, color, className }) => {
+  const icons = {
+    dumbbell: Dumbbell,
+    target: Target,
+    'refresh-cw': RefreshCw,
+    heart: Heart,
+    zap: Zap,
+    scissors: Scissors,
+    flame: Flame,
+    utensils: Utensils,
+    moon: Moon,
+    calendar: Calendar,
+    'trending-up': TrendingUp,
+    clock: Clock,
+    scale: Scale,
+    wind: Wind,
+    sprout: Sprout,
+    crown: Crown,
+    trophy: Trophy,
+    activity: Activity,
+    star: Star,
+    sparkles: Sparkles,
+    apple: Apple,
+    droplets: Droplets,
+    timer: Timer,
+    'party-popper': PartyPopper,
+    user: User,
+    award: Award,
+    users: Users,
+  };
+  const Icon = icons[name] || Target;
+  return <Icon size={size} color={color} className={className} />;
+};
 import { useAuth } from './src/contexts/AuthContext';
 import { workoutService } from './src/services/workoutService';
 import { sleepService } from './src/services/sleepService';
@@ -86,7 +121,7 @@ const EXPERIENCE_LEVELS = {
     id: 'beginner',
     label: 'Beginner',
     desc: 'New to lifting (0-6 months)',
-    icon: '🌱',
+    icon: 'sprout',
     showHeadSpecificity: false,
     workoutComplexity: 'basic',
   },
@@ -94,7 +129,7 @@ const EXPERIENCE_LEVELS = {
     id: 'novice',
     label: 'Novice',
     desc: 'Learning the basics (6-18 months)',
-    icon: '📈',
+    icon: 'trending-up',
     showHeadSpecificity: false,
     workoutComplexity: 'basic',
   },
@@ -102,7 +137,7 @@ const EXPERIENCE_LEVELS = {
     id: 'experienced',
     label: 'Experienced',
     desc: 'Consistent training (1.5-4 years)',
-    icon: '💪',
+    icon: 'dumbbell',
     showHeadSpecificity: true,
     workoutComplexity: 'advanced',
   },
@@ -110,7 +145,7 @@ const EXPERIENCE_LEVELS = {
     id: 'expert',
     label: 'Expert',
     desc: 'Advanced lifter (4+ years)',
-    icon: '🏆',
+    icon: 'crown',
     showHeadSpecificity: true,
     workoutComplexity: 'advanced',
   },
@@ -133,13 +168,13 @@ const MUSCLE_HEAD_MAPPINGS = {
 const GOAL_INFO = {
   bulk: {
     title: 'Mass Building (Bulk)',
-    icon: '🦍',
+    icon: 'dumbbell',
     overview: "Maximize muscle and size gains with a calorie surplus.",
     requirements: [
-      { icon: '🍽️', title: 'Calorie Surplus', desc: 'Eat 300-500 calories above maintenance.' },
-      { icon: '🏋️', title: 'Heavy Training', desc: 'Focus on compound lifts with progressive overload.' },
-      { icon: '🍗', title: 'High Protein', desc: 'Aim for 1.8-2.2g protein per kg bodyweight.' },
-      { icon: '😴', title: 'Recovery', desc: 'Sleep 7-9 hours for optimal muscle growth.' },
+      { icon: 'utensils', title: 'Calorie Surplus', desc: 'Eat 300-500 calories above maintenance.' },
+      { icon: 'dumbbell', title: 'Heavy Training', desc: 'Focus on compound lifts with progressive overload.' },
+      { icon: 'apple', title: 'High Protein', desc: 'Aim for 1.8-2.2g protein per kg bodyweight.' },
+      { icon: 'moon', title: 'Recovery', desc: 'Sleep 7-9 hours for optimal muscle growth.' },
     ],
     minDays: 4,
     idealDays: '4-6',
@@ -147,13 +182,13 @@ const GOAL_INFO = {
   },
   build_muscle: {
     title: 'Lean Muscle Building',
-    icon: '💪',
+    icon: 'target',
     overview: "Build muscle while minimizing fat gain with a slight surplus.",
     requirements: [
-      { icon: '🏋️', title: 'Progressive Overload', desc: 'Gradually increase weight, reps, or sets.' },
-      { icon: '📅', title: 'Consistency', desc: 'Results come from stacking sessions week after week.' },
-      { icon: '🍗', title: 'Protein-Rich Diet', desc: 'Aim for 1.6-2.2g protein per kg bodyweight.' },
-      { icon: '😴', title: 'Quality Sleep', desc: '7-9 hours per night for muscle repair.' },
+      { icon: 'dumbbell', title: 'Progressive Overload', desc: 'Gradually increase weight, reps, or sets.' },
+      { icon: 'calendar', title: 'Consistency', desc: 'Results come from stacking sessions week after week.' },
+      { icon: 'apple', title: 'Protein-Rich Diet', desc: 'Aim for 1.6-2.2g protein per kg bodyweight.' },
+      { icon: 'moon', title: 'Quality Sleep', desc: '7-9 hours per night for muscle repair.' },
     ],
     minDays: 3,
     idealDays: '4-5',
@@ -161,12 +196,12 @@ const GOAL_INFO = {
   },
   strength: {
     title: 'Strength & Power',
-    icon: '🏋️',
+    icon: 'dumbbell',
     overview: "Maximize strength through heavy compound lifts.",
     requirements: [
-      { icon: '🎯', title: 'Heavy Compounds', desc: 'Focus on squat, bench, deadlift, overhead press.' },
-      { icon: '📈', title: 'Low Reps, High Weight', desc: '1-6 rep range with heavy loads.' },
-      { icon: '⏰', title: 'Rest Periods', desc: 'Take 3-5 minutes rest between heavy sets.' },
+      { icon: 'target', title: 'Heavy Compounds', desc: 'Focus on squat, bench, deadlift, overhead press.' },
+      { icon: 'trending-up', title: 'Low Reps, High Weight', desc: '1-6 rep range with heavy loads.' },
+      { icon: 'clock', title: 'Rest Periods', desc: 'Take 3-5 minutes rest between heavy sets.' },
     ],
     minDays: 3,
     idealDays: '3-4',
@@ -174,13 +209,13 @@ const GOAL_INFO = {
   },
   recomp: {
     title: 'Body Recomposition',
-    icon: '🔄',
+    icon: 'refresh-cw',
     overview: "Build muscle and lose fat simultaneously at maintenance calories.",
     requirements: [
-      { icon: '⚖️', title: 'Maintenance Calories', desc: 'Eat at or slightly below TDEE.' },
-      { icon: '🍗', title: 'Very High Protein', desc: 'Aim for 2.0-2.4g protein per kg bodyweight.' },
-      { icon: '🏋️', title: 'Heavy Training', desc: 'Prioritize strength training to preserve muscle.' },
-      { icon: '⏱️', title: 'Patience', desc: 'This approach is slower but sustainable.' },
+      { icon: 'scale', title: 'Maintenance Calories', desc: 'Eat at or slightly below TDEE.' },
+      { icon: 'apple', title: 'Very High Protein', desc: 'Aim for 2.0-2.4g protein per kg bodyweight.' },
+      { icon: 'dumbbell', title: 'Heavy Training', desc: 'Prioritize strength training to preserve muscle.' },
+      { icon: 'timer', title: 'Patience', desc: 'This approach is slower but sustainable.' },
     ],
     minDays: 3,
     idealDays: '4-5',
@@ -188,12 +223,12 @@ const GOAL_INFO = {
   },
   fitness: {
     title: 'General Fitness',
-    icon: '❤️',
+    icon: 'heart',
     overview: "Overall fitness combining strength, cardio, and mobility.",
     requirements: [
-      { icon: '🔄', title: 'Variety', desc: 'Mix resistance training, cardio, and flexibility.' },
-      { icon: '❤️', title: 'Heart Health', desc: '150 mins moderate cardio per week minimum.' },
-      { icon: '🧘', title: 'Mobility', desc: 'Include stretching and mobility work.' },
+      { icon: 'refresh-cw', title: 'Variety', desc: 'Mix resistance training, cardio, and flexibility.' },
+      { icon: 'heart', title: 'Heart Health', desc: '150 mins moderate cardio per week minimum.' },
+      { icon: 'activity', title: 'Mobility', desc: 'Include stretching and mobility work.' },
     ],
     minDays: 2,
     idealDays: '3-5',
@@ -201,12 +236,12 @@ const GOAL_INFO = {
   },
   athletic: {
     title: 'Athletic Performance',
-    icon: '⚡',
+    icon: 'zap',
     overview: "Optimize for sports performance, speed, and agility.",
     requirements: [
-      { icon: '🏃', title: 'Conditioning', desc: 'Mix strength with sport-specific cardio.' },
-      { icon: '💨', title: 'Speed & Power', desc: 'Include plyometrics and explosive movements.' },
-      { icon: '🔄', title: 'Mobility', desc: 'Prioritize flexibility and injury prevention.' },
+      { icon: 'activity', title: 'Conditioning', desc: 'Mix strength with sport-specific cardio.' },
+      { icon: 'wind', title: 'Speed & Power', desc: 'Include plyometrics and explosive movements.' },
+      { icon: 'refresh-cw', title: 'Mobility', desc: 'Prioritize flexibility and injury prevention.' },
     ],
     minDays: 3,
     idealDays: '4-5',
@@ -214,12 +249,12 @@ const GOAL_INFO = {
   },
   lean: {
     title: 'Getting Lean (Cut)',
-    icon: '✂️',
+    icon: 'scissors',
     overview: "Shed fat while preserving muscle with a moderate deficit.",
     requirements: [
-      { icon: '🍽️', title: 'Moderate Deficit', desc: 'Eat 300-400 calories below maintenance.' },
-      { icon: '🍗', title: 'High Protein', desc: 'Keep protein at 2.0g+ per kg to preserve muscle.' },
-      { icon: '🏋️', title: 'Maintain Intensity', desc: 'Keep lifting heavy to signal muscle retention.' },
+      { icon: 'utensils', title: 'Moderate Deficit', desc: 'Eat 300-400 calories below maintenance.' },
+      { icon: 'apple', title: 'High Protein', desc: 'Keep protein at 2.0g+ per kg to preserve muscle.' },
+      { icon: 'dumbbell', title: 'Maintain Intensity', desc: 'Keep lifting heavy to signal muscle retention.' },
     ],
     minDays: 3,
     idealDays: '4-5',
@@ -227,12 +262,12 @@ const GOAL_INFO = {
   },
   lose_fat: {
     title: 'Fat Loss',
-    icon: '🔥',
+    icon: 'flame',
     overview: "Aggressive fat loss with a larger calorie deficit.",
     requirements: [
-      { icon: '🍽️', title: 'Calorie Deficit', desc: 'Eat 500-750 calories below maintenance.' },
-      { icon: '🏃', title: 'Cardio + Weights', desc: 'Combine resistance training with cardio.' },
-      { icon: '🍗', title: 'Very High Protein', desc: 'Maximize protein to preserve muscle mass.' },
+      { icon: 'utensils', title: 'Calorie Deficit', desc: 'Eat 500-750 calories below maintenance.' },
+      { icon: 'activity', title: 'Cardio + Weights', desc: 'Combine resistance training with cardio.' },
+      { icon: 'apple', title: 'Very High Protein', desc: 'Maximize protein to preserve muscle mass.' },
     ],
     minDays: 3,
     idealDays: '4-6',
@@ -1740,7 +1775,7 @@ const ProfileSetupStep = ({ userData, setUserData, COLORS }) => {
       </div>
       <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.primary + '10' }}>
         <p className="text-sm" style={{ color: COLORS.primary }}>
-          💡 Your username will be visible to friends and in challenges. You can change it anytime.
+          Your username will be visible to friends and in challenges. You can change it anytime.
         </p>
       </div>
     </div>
@@ -2042,6 +2077,244 @@ const WaterEntryModal = ({ COLORS, onClose, onSave }) => {
   );
 };
 
+// ============================================
+// NEW SLEEK HOME SCREEN COMPONENTS
+// ============================================
+
+// Streak Hero Ring - Large animated progress ring showing primary streak
+const StreakHeroRing = ({ COLORS, streaks, settings, onTap }) => {
+  // Calculate primary streak (workout weeks is the main one)
+  const primaryStreak = streaks?.weeklyWorkouts?.weeksCompleted || 0;
+  const maxStreak = 52; // 1 year cap for ring visualization
+  const progress = Math.min(primaryStreak / maxStreak, 1);
+
+  // Secondary streaks for mini indicators with labels (with safety checks)
+  const tracking = settings?.tracking || {};
+  const secondaryStreaks = [
+    tracking.calories && { icon: '🍎', label: 'Cal', value: streaks?.calories?.daysInRow || 0, color: COLORS.accent },
+    tracking.water && { icon: '💧', label: 'Water', value: streaks?.water?.daysInRow || 0, color: COLORS.water },
+    tracking.sleep && { icon: '😴', label: 'Sleep', value: streaks?.sleep?.daysInRow || 0, color: COLORS.sleep },
+  ].filter(Boolean);
+
+  return (
+    <button
+      onClick={onTap}
+      className="w-full flex flex-col items-center py-4"
+      style={{ background: `linear-gradient(180deg, ${COLORS.surface}50 0%, transparent 100%)` }}
+    >
+      {/* Main Ring */}
+      <div className="relative w-32 h-32 mb-2">
+        <svg className="w-full h-full transform -rotate-90">
+          <circle
+            cx="64" cy="64" r="56"
+            stroke={COLORS.surfaceLight}
+            strokeWidth="8"
+            fill="none"
+          />
+          <circle
+            cx="64" cy="64" r="56"
+            stroke={COLORS.warning}
+            strokeWidth="8"
+            fill="none"
+            strokeLinecap="round"
+            strokeDasharray={`${progress * 352} 352`}
+            style={{ transition: 'stroke-dasharray 1s ease-out' }}
+          />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-xl">🔥</span>
+          <span className="text-2xl font-bold" style={{ color: COLORS.text }}>{primaryStreak}</span>
+          <span className="text-xs" style={{ color: COLORS.textMuted }}>weeks</span>
+        </div>
+      </div>
+
+      {/* Secondary streaks row with labels */}
+      {secondaryStreaks.length > 0 && (
+        <div className="flex items-center gap-3 mt-1">
+          {secondaryStreaks.map((streak, i) => (
+            <div key={i} className="flex flex-col items-center px-3 py-2 rounded-xl" style={{ backgroundColor: COLORS.surfaceLight }}>
+              <div className="flex items-center gap-1">
+                <span className="text-sm">{streak.icon}</span>
+                <span className="text-sm font-bold" style={{ color: streak.color }}>{streak.value}</span>
+              </div>
+              <span className="text-xs mt-0.5" style={{ color: COLORS.textMuted }}>{streak.label}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </button>
+  );
+};
+
+// Quick Stats Row - Compact circular progress indicators
+const QuickStatsRow = ({ COLORS, stats, onStatTap }) => {
+  return (
+    <div className="flex justify-around py-4 px-2">
+      {stats.filter(s => s.enabled).map((stat, i) => {
+        const progress = Math.min(stat.current / stat.target, 1);
+        const displayValue = stat.displayValue || Math.round(progress * 100) + '%';
+
+        return (
+          <button
+            key={stat.id}
+            onClick={() => onStatTap(stat.id)}
+            className="flex flex-col items-center"
+          >
+            <div className="relative w-14 h-14 mb-1">
+              <svg className="w-full h-full transform -rotate-90">
+                <circle cx="28" cy="28" r="24" stroke={COLORS.surfaceLight} strokeWidth="4" fill="none" />
+                <circle
+                  cx="28" cy="28" r="24"
+                  stroke={stat.color}
+                  strokeWidth="4"
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeDasharray={`${progress * 151} 151`}
+                />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-xs font-bold" style={{ color: stat.color }}>{displayValue}</span>
+              </div>
+            </div>
+            <span className="text-xs" style={{ color: COLORS.textMuted }}>{stat.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+};
+
+// Today's Action Card - Clean, focused workout/rest card
+const TodayActionCard = ({ COLORS, workout, isCompleted, isPaused, onStart, onResume, getWorkoutColor }) => {
+  // Safety check for workout
+  if (!workout) {
+    return (
+      <div className="mx-4 p-5 rounded-2xl" style={{ backgroundColor: COLORS.surface }}>
+        <p style={{ color: COLORS.textMuted }}>Loading workout...</p>
+      </div>
+    );
+  }
+
+  const isRest = workout.type === 'Rest';
+  const isSkipped = workout.type === 'Skipped';
+
+  // Safe color with fallback
+  let cardColor = COLORS.primary;
+  try {
+    cardColor = isRest ? COLORS.sleep : (getWorkoutColor ? getWorkoutColor(workout.type, COLORS) : COLORS.primary);
+  } catch (e) {
+    cardColor = COLORS.primary;
+  }
+
+  if (isPaused) {
+    return (
+      <div className="mx-4 p-5 rounded-2xl" style={{ backgroundColor: COLORS.surface, borderLeft: `4px solid ${COLORS.warning}` }}>
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl" style={{ backgroundColor: COLORS.warning + '20' }}>
+            🏖️
+          </div>
+          <div className="flex-1">
+            <p className="text-xs font-semibold mb-1" style={{ color: COLORS.warning }}>PAUSED</p>
+            <p className="font-semibold" style={{ color: COLORS.text }}>Enjoying your break</p>
+          </div>
+        </div>
+        <button
+          onClick={onResume}
+          className="w-full mt-4 py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
+          style={{ backgroundColor: COLORS.warning, color: COLORS.background }}
+        >
+          Resume Plan
+        </button>
+      </div>
+    );
+  }
+
+  if (isCompleted) {
+    return (
+      <div className="mx-4 p-5 rounded-2xl" style={{ backgroundColor: COLORS.surface, borderLeft: `4px solid ${COLORS.success}` }}>
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl" style={{ backgroundColor: COLORS.success + '20' }}>
+            ✓
+          </div>
+          <div className="flex-1">
+            <p className="text-xs font-semibold mb-1" style={{ color: COLORS.success }}>COMPLETED</p>
+            <p className="font-semibold" style={{ color: COLORS.text }}>{workout.name}</p>
+            <p className="text-sm" style={{ color: COLORS.textMuted }}>Great work today!</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isRest) {
+    return (
+      <div className="mx-4 p-5 rounded-2xl" style={{ backgroundColor: COLORS.surface, borderLeft: `4px solid ${COLORS.sleep}` }}>
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl" style={{ backgroundColor: COLORS.sleep + '20' }}>
+            😴
+          </div>
+          <div className="flex-1">
+            <p className="text-xs font-semibold mb-1" style={{ color: COLORS.sleep }}>REST DAY</p>
+            <p className="font-semibold" style={{ color: COLORS.text }}>Recovery Time</p>
+            <p className="text-sm" style={{ color: COLORS.textMuted }}>Your muscles grow while you rest</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isSkipped) {
+    return (
+      <div className="mx-4 p-5 rounded-2xl" style={{ backgroundColor: COLORS.surface, borderLeft: `4px solid ${COLORS.textMuted}` }}>
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl" style={{ backgroundColor: COLORS.surfaceLight }}>
+            ⏭️
+          </div>
+          <div className="flex-1">
+            <p className="text-xs font-semibold mb-1" style={{ color: COLORS.textMuted }}>SKIPPED</p>
+            <p className="font-semibold" style={{ color: COLORS.text }}>Workout Skipped</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Active workout card
+  return (
+    <div className="mx-4 p-5 rounded-2xl" style={{ backgroundColor: COLORS.surface, borderLeft: `4px solid ${cardColor}` }}>
+      <div className="flex items-center gap-4 mb-4">
+        <div className="w-14 h-14 rounded-xl flex items-center justify-center" style={{ backgroundColor: cardColor + '20' }}>
+          <span className="text-2xl">💪</span>
+        </div>
+        <div className="flex-1">
+          <p className="text-xs font-semibold mb-1" style={{ color: cardColor }}>TODAY</p>
+          <p className="font-bold text-lg" style={{ color: COLORS.text }}>{workout.name}</p>
+          <p className="text-sm" style={{ color: COLORS.textMuted }}>{workout.focus}</p>
+        </div>
+      </div>
+      <div className="flex items-center gap-3 mb-4">
+        <span className="px-2.5 py-1 rounded-lg text-xs font-medium" style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.textSecondary }}>
+          {workout.exercises} exercises
+        </span>
+        <span className="px-2.5 py-1 rounded-lg text-xs font-medium" style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.textSecondary }}>
+          ~{workout.duration} min
+        </span>
+      </div>
+      <button
+        onClick={onStart}
+        className="w-full py-3.5 rounded-xl font-semibold text-base flex items-center justify-center gap-2"
+        style={{ backgroundColor: cardColor, color: COLORS.text }}
+      >
+        Start Workout
+      </button>
+    </div>
+  );
+};
+
+// ============================================
+// END NEW SLEEK HOME SCREEN COMPONENTS
+// ============================================
+
 // Weigh-In Modal - separate component to prevent input focus loss
 const WeighInModal = ({ COLORS, onClose, onSave, initialWeight, currentWeight, userGoal }) => {
   const [weight, setWeight] = React.useState(initialWeight.toString());
@@ -2193,7 +2466,7 @@ const WeighInModal = ({ COLORS, onClose, onSave, initialWeight, currentWeight, u
               </div>
             </div>
             <p className="text-xs text-center mt-3" style={{ color: COLORS.textMuted }}>
-              💡 Measure with a smart scale or body composition analyzer
+              Measure with a smart scale or body composition analyzer
             </p>
           </div>
         )}
@@ -4820,7 +5093,8 @@ const getWorkoutTimeBreakdown = (exerciseList) => {
 // Optimize exercises for a specific time AND exercise count
 // This allows users to have more or fewer exercises while keeping the same total time
 // workoutType is optional - if provided, ensures all target muscle groups are covered
-const optimizeExercisesForTimeAndCount = (baseExerciseList, fullExercisePool, targetMinutes, targetExerciseCount, workoutType = null) => {
+// corePosition is optional - 'first' or 'last' - where to place core exercises
+const optimizeExercisesForTimeAndCount = (baseExerciseList, fullExercisePool, targetMinutes, targetExerciseCount, workoutType = null, corePosition = 'last') => {
   if (!baseExerciseList || baseExerciseList.length === 0) return baseExerciseList;
   const targetSeconds = targetMinutes * 60;
 
@@ -4947,7 +5221,19 @@ const optimizeExercisesForTimeAndCount = (baseExerciseList, fullExercisePool, ta
   if (timeOverTarget > 2) { // Only superset if we're more than 2 minutes over
     const supersetResult = createSupersets(optimized, timeOverTarget);
     if (supersetResult.supersets.length > 0) {
-      return supersetResult.exercises;
+      optimized = supersetResult.exercises;
+    }
+  }
+
+  // Reorder core exercises based on user preference
+  if (corePosition && optimized.length > 1) {
+    const coreExercises = optimized.filter(ex => ex.muscleGroup === 'Core' || ex.muscleGroup?.toLowerCase()?.includes('core'));
+    const nonCoreExercises = optimized.filter(ex => ex.muscleGroup !== 'Core' && !ex.muscleGroup?.toLowerCase()?.includes('core'));
+
+    if (coreExercises.length > 0 && nonCoreExercises.length > 0) {
+      optimized = corePosition === 'first'
+        ? [...coreExercises, ...nonCoreExercises]
+        : [...nonCoreExercises, ...coreExercises];
     }
   }
 
@@ -4961,7 +5247,7 @@ function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, 
   const isAdvancedUser = ['experienced', 'expert'].includes(userExperience);
   const [sessionId, setSessionId] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [phase, setPhase] = useState('overview'); // 'overview', 'workout', 'workoutOverview', 'complete'
+  const [phase, setPhase] = useState('workout'); // 'overview', 'workout', 'workoutOverview', 'complete' - start directly in workout
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
   const [currentSetIndex, setCurrentSetIndex] = useState(0);
   const [isResting, setIsResting] = useState(false);
@@ -4971,16 +5257,15 @@ function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, 
   const [showExerciseHistory, setShowExerciseHistory] = useState(null);
   const [showSwapExercise, setShowSwapExercise] = useState(null);
   const [swapSearch, setSwapSearch] = useState('');
-  // Initialize exercises from workout template, optimized for available time
+  // Use exercises exactly as passed from the workout template (already optimized)
   const [exercises, setExercises] = useState(() => {
     const baseExercises = activeWorkout?.exercises || WORKOUT_EXERCISES;
-    const exerciseCount = Math.max(2, Math.floor(availableTime / 12));
-    const selectedExercises = baseExercises.slice(0, exerciseCount).map(ex => ({
+    // Use exercises directly as passed - they're already optimized for time/count
+    return baseExercises.map(ex => ({
       ...ex,
       history: [],
       alternatives: ALL_EXERCISES.filter(e => e.muscleGroup === ex.muscleGroup).slice(0, 5).map(e => e.name)
     }));
-    return optimizeExercisesForTime(selectedExercises, availableTime);
   });
   const [showAddExercise, setShowAddExercise] = useState(false);
   const [addExerciseSearch, setAddExerciseSearch] = useState('');
@@ -4994,10 +5279,10 @@ function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, 
   const [workoutMedia, setWorkoutMedia] = useState([]);
   const fileInputRef = React.useRef(null);
   
-  // Time tracking
-  const [workoutStartTime, setWorkoutStartTime] = useState(null);
+  // Time tracking - initialize start time immediately since we start in workout phase
+  const [workoutStartTime, setWorkoutStartTime] = useState(() => Date.now());
   const [workoutEndTime, setWorkoutEndTime] = useState(null);
-  const [setStartTime, setSetStartTime] = useState(null);
+  const [setStartTime, setSetStartTime] = useState(() => Date.now());
   const [totalWorkingTime, setTotalWorkingTime] = useState(0); // Time actually doing sets (in seconds)
   const [totalRestTime, setTotalRestTime] = useState(0); // Time spent resting (in seconds)
 
@@ -5088,8 +5373,25 @@ function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, 
     return () => clearInterval(interval);
   }, [isResting, restTimeLeft]);
 
+  // Start workout session in Supabase when component mounts
+  useEffect(() => {
+    const startSession = async () => {
+      if (userId && !sessionId) {
+        try {
+          const { data: session } = await workoutService.startWorkout(userId, null, null, workoutName);
+          if (session) {
+            setSessionId(session.id);
+          }
+        } catch (err) {
+          console.error('Error starting workout session:', err);
+        }
+      }
+    };
+    startSession();
+  }, [userId, workoutName]);
+
   const formatTime = (seconds) => `${Math.floor(seconds / 60)}:${(seconds % 60).toString().padStart(2, '0')}`;
-  
+
   const formatDuration = (ms) => {
     const totalSeconds = Math.round(ms / 1000);
     const mins = Math.floor(totalSeconds / 60);
@@ -5368,7 +5670,7 @@ function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, 
         </div>
         <div className="p-4 pb-2" style={{ backgroundColor: COLORS.primary + '10' }}>
           <p className="text-xs" style={{ color: COLORS.primary }}>
-            💡 Exercises will be automatically reordered to optimize for your {userGoal === 'build_muscle' ? 'muscle building' : userGoal === 'strength' ? 'strength' : userGoal === 'lose_fat' ? 'fat loss' : 'fitness'} goal
+            Exercises will be automatically reordered to optimize for your {userGoal === 'build_muscle' ? 'muscle building' : userGoal === 'strength' ? 'strength' : userGoal === 'lose_fat' ? 'fat loss' : 'fitness'} goal
           </p>
         </div>
         <div className="p-4 pt-2">
@@ -5442,8 +5744,8 @@ function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, 
                   </div>
                   <div className="flex items-center gap-1">
                     {/* Reorder buttons */}
-                    <button onClick={() => moveExercise(exIdx, 'up')} disabled={exIdx === 0} className="p-1 rounded" style={{ backgroundColor: COLORS.surfaceLight, opacity: exIdx === 0 ? 0.4 : 1 }}><ChevronUp size={14} color={COLORS.textMuted} /></button>
-                    <button onClick={() => moveExercise(exIdx, 'down')} disabled={exIdx === exercises.length - 1} className="p-1 rounded" style={{ backgroundColor: COLORS.surfaceLight, opacity: exIdx === exercises.length - 1 ? 0.4 : 1 }}><ChevronDown size={14} color={COLORS.textMuted} /></button>
+                    <button onClick={(e) => { e.stopPropagation(); moveExercise(exIdx, 'up'); }} disabled={exIdx === 0} className="p-1 rounded" style={{ backgroundColor: COLORS.surfaceLight, opacity: exIdx === 0 ? 0.4 : 1 }}><ChevronUp size={14} color={COLORS.textMuted} /></button>
+                    <button onClick={(e) => { e.stopPropagation(); moveExercise(exIdx, 'down'); }} disabled={exIdx === exercises.length - 1} className="p-1 rounded" style={{ backgroundColor: COLORS.surfaceLight, opacity: exIdx === exercises.length - 1 ? 0.4 : 1 }}><ChevronDown size={14} color={COLORS.textMuted} /></button>
                     {/* Add/Remove set buttons */}
                     <button onClick={() => removeSetFromExercise(exIdx)} disabled={exercise.sets <= 1} className="p-1 rounded" style={{ backgroundColor: COLORS.surfaceLight, opacity: exercise.sets <= 1 ? 0.4 : 1 }}><Minus size={14} color={COLORS.textMuted} /></button>
                     <button onClick={() => addSetToExercise(exIdx)} className="p-1 rounded" style={{ backgroundColor: COLORS.surfaceLight }}><Plus size={14} color={COLORS.textMuted} /></button>
@@ -5504,7 +5806,9 @@ function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, 
         </div>
         <div className="flex-1 overflow-auto p-4">
           <div className="text-center mb-4">
-            <span className="text-5xl">💪</span>
+            <div className="w-20 h-20 rounded-full mx-auto flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '20' }}>
+              <Dumbbell size={40} color={COLORS.primary} />
+            </div>
             <h3 className="text-2xl font-bold mt-3" style={{ color: COLORS.text }}>Today's Workout</h3>
             <p style={{ color: COLORS.textSecondary }}>{exercisesForTime.length} exercises • ~{availableTime} mins</p>
           </div>
@@ -5614,7 +5918,7 @@ function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, 
                         {/* Reorder buttons */}
                         <div className="flex flex-col">
                           <button
-                            onClick={() => moveExercise(i, 'up')}
+                            onClick={(e) => { e.stopPropagation(); moveExercise(i, 'up'); }}
                             disabled={i === 0}
                             className="p-1 rounded-t-lg"
                             style={{ backgroundColor: COLORS.surfaceLight, opacity: i === 0 ? 0.4 : 1 }}
@@ -5622,7 +5926,7 @@ function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, 
                             <ChevronUp size={14} color={COLORS.textMuted} />
                           </button>
                           <button
-                            onClick={() => moveExercise(i, 'down')}
+                            onClick={(e) => { e.stopPropagation(); moveExercise(i, 'down'); }}
                             disabled={i === exercises.length - 1}
                             className="p-1 rounded-b-lg"
                             style={{ backgroundColor: COLORS.surfaceLight, opacity: i === exercises.length - 1 ? 0.4 : 1 }}
@@ -5717,7 +6021,7 @@ function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, 
           </div>
 
           <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surfaceLight }}>
-            <p className="text-sm" style={{ color: COLORS.textSecondary }}>💡 <strong style={{ color: COLORS.text }}>Tip:</strong> Exercises are auto-ordered for your goal. Rest times and sets have been adjusted to fit your {availableTime} min target.</p>
+            <p className="text-sm" style={{ color: COLORS.textSecondary }}><strong style={{ color: COLORS.text }}>Tip:</strong> Exercises are auto-ordered for your goal. Rest times and sets have been adjusted to fit your {availableTime} min target.</p>
           </div>
         </div>
         <div className="p-4 border-t" style={{ borderColor: COLORS.surfaceLight }}>
@@ -5840,7 +6144,9 @@ function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, 
         <div className="flex-1 overflow-auto p-4">
           {/* Hero Section */}
           <div className="text-center mb-6">
-            <span className="text-6xl mb-2 block">🎉</span>
+            <div className="w-20 h-20 rounded-full mx-auto mb-3 flex items-center justify-center" style={{ backgroundColor: COLORS.success + '20' }}>
+              <Check size={40} color={COLORS.success} />
+            </div>
             <h2 className="text-2xl font-bold" style={{ color: COLORS.text }}>Workout Complete!</h2>
             <p className="text-sm" style={{ color: COLORS.textSecondary }}>{activeWorkout.name} • {totalDurationMins} mins</p>
           </div>
@@ -5873,7 +6179,10 @@ function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, 
           {/* Key Stats Grid */}
           <div className="grid grid-cols-2 gap-3 mb-4">
             <div className="p-4 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
-              <p className="text-3xl font-bold" style={{ color: COLORS.accent }}>🔥 {caloriesBurned}</p>
+              <div className="flex items-center justify-center gap-2">
+                <Flame size={24} color={COLORS.accent} />
+                <p className="text-3xl font-bold" style={{ color: COLORS.accent }}>{caloriesBurned}</p>
+              </div>
               <p className="text-xs" style={{ color: COLORS.textMuted }}>Calories Burned</p>
             </div>
             <div className="p-4 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
@@ -5901,7 +6210,7 @@ function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, 
           {prsAchieved.length > 0 && (
             <div className="mb-4 p-4 rounded-xl" style={{ backgroundColor: COLORS.warning + '15', border: `1px solid ${COLORS.warning}40` }}>
               <div className="flex items-center gap-2 mb-3">
-                <span className="text-xl">🏆</span>
+                <Trophy size={20} color={COLORS.warning} />
                 <h3 className="font-bold" style={{ color: COLORS.warning }}>Personal Records!</h3>
               </div>
               <div className="space-y-2">
@@ -7299,6 +7608,17 @@ export default function UpRepDemo() {
     });
   };
 
+  // Restore scroll position when switching back to workouts tab
+  useEffect(() => {
+    if (activeTab === 'workouts' && workoutTabScrollRef.current && workoutTabScrollPos.current > 0) {
+      requestAnimationFrame(() => {
+        if (workoutTabScrollRef.current) {
+          workoutTabScrollRef.current.scrollTop = workoutTabScrollPos.current;
+        }
+      });
+    }
+  }, [activeTab]);
+
   const [showReschedule, setShowReschedule] = useState(false);
   const [showPausePlan, setShowPausePlan] = useState(false);
   const [rescheduleOption, setRescheduleOption] = useState(null);
@@ -7401,8 +7721,13 @@ export default function UpRepDemo() {
   // Supplement History - loaded from database
   const [supplementHistory, setSupplementHistory] = useState([]);
   
-  // Following & Social
-  const [socialEnabled, setSocialEnabled] = useState(true);
+  // Following & Social - persist to localStorage
+  const [socialEnabled, setSocialEnabled] = useState(() => {
+    try {
+      const saved = localStorage.getItem('uprep_social_enabled');
+      return saved !== null ? JSON.parse(saved) : true;
+    } catch { return true; }
+  });
   const [friendsTab, setFriendsTab] = useState('feed'); // feed, following, discover, challenges
   const [showShareModal, setShowShareModal] = useState(false);
   const [showAddFriendModal, setShowAddFriendModal] = useState(false);
@@ -7426,6 +7751,13 @@ export default function UpRepDemo() {
 
   // IDs of users the current user is following (for quick lookup)
   const [followingIds, setFollowingIds] = useState(new Set());
+
+  // Persist socialEnabled to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('uprep_social_enabled', JSON.stringify(socialEnabled));
+    } catch { /* ignore */ }
+  }, [socialEnabled]);
 
   // Load top followed users when period changes
   useEffect(() => {
@@ -7626,7 +7958,7 @@ export default function UpRepDemo() {
             id: user.id,
             name: profile?.first_name ? `${profile.first_name} ${profile.last_name || ''}`.trim() : profile?.username || 'You',
             username: profile?.username || 'user',
-            avatar: profile?.avatar_url || '💪',
+            avatar: profile?.avatar_url || null,
           }
         }, ...prev]);
         setShowPublishModal(false);
@@ -7702,6 +8034,9 @@ export default function UpRepDemo() {
     social: {
       allowSubscribers: false, // false = friend requests only, true = anyone can subscribe
     },
+    workout: {
+      corePosition: 'last', // 'first' or 'last' - where to place core exercises
+    },
   });
   const [showUnitsModal, setShowUnitsModal] = useState(false);
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
@@ -7716,36 +8051,36 @@ export default function UpRepDemo() {
   // Achievements - will be calculated/loaded from database
   const [achievements] = useState([
     // Workout Milestones
-    { id: 'first_workout', name: 'First Steps', desc: 'Complete your first workout', icon: '🎯', unlocked: false },
-    { id: 'ten_workouts', name: 'Getting Serious', desc: 'Complete 10 workouts', icon: '💪', unlocked: false },
-    { id: 'fifty_workouts', name: 'Dedicated', desc: 'Complete 50 workouts', icon: '🏅', unlocked: false },
-    { id: 'hundred_workouts', name: 'Centurion', desc: 'Complete 100 workouts', icon: '💯', unlocked: false },
+    { id: 'first_workout', name: 'First Steps', desc: 'Complete your first workout', icon: 'target', unlocked: false },
+    { id: 'ten_workouts', name: 'Getting Serious', desc: 'Complete 10 workouts', icon: 'dumbbell', unlocked: false },
+    { id: 'fifty_workouts', name: 'Dedicated', desc: 'Complete 50 workouts', icon: 'award', unlocked: false },
+    { id: 'hundred_workouts', name: 'Centurion', desc: 'Complete 100 workouts', icon: 'trophy', unlocked: false },
     // Streak Achievements
-    { id: 'week_streak', name: 'Week Warrior', desc: '7-day workout streak', icon: '🔥', unlocked: false },
-    { id: 'month_streak', name: 'Monthly Master', desc: '30-day workout streak', icon: '⚡', unlocked: false },
-    { id: 'quarter_streak', name: 'Unstoppable', desc: '90-day workout streak', icon: '🌟', unlocked: false },
+    { id: 'week_streak', name: 'Week Warrior', desc: '7-day workout streak', icon: 'flame', unlocked: false },
+    { id: 'month_streak', name: 'Monthly Master', desc: '30-day workout streak', icon: 'zap', unlocked: false },
+    { id: 'quarter_streak', name: 'Unstoppable', desc: '90-day workout streak', icon: 'star', unlocked: false },
     // Personal Records
-    { id: 'first_pr', name: 'Personal Best', desc: 'Set your first PR', icon: '🏆', unlocked: false },
-    { id: 'five_prs', name: 'PR Collector', desc: 'Set 5 personal records', icon: '🥇', unlocked: false },
-    { id: 'twenty_prs', name: 'Record Breaker', desc: 'Set 20 personal records', icon: '🎖️', unlocked: false },
+    { id: 'first_pr', name: 'Personal Best', desc: 'Set your first PR', icon: 'trophy', unlocked: false },
+    { id: 'five_prs', name: 'PR Collector', desc: 'Set 5 personal records', icon: 'award', unlocked: false },
+    { id: 'twenty_prs', name: 'Record Breaker', desc: 'Set 20 personal records', icon: 'crown', unlocked: false },
     // Time-based
-    { id: 'early_bird', name: 'Early Bird', desc: 'Workout before 7am', icon: '🌅', unlocked: false },
-    { id: 'night_owl', name: 'Night Owl', desc: 'Workout after 9pm', icon: '🌙', unlocked: false },
-    { id: 'weekend_warrior', name: 'Weekend Warrior', desc: 'Complete 10 weekend workouts', icon: '📅', unlocked: false },
+    { id: 'early_bird', name: 'Early Bird', desc: 'Workout before 7am', icon: 'activity', unlocked: false },
+    { id: 'night_owl', name: 'Night Owl', desc: 'Workout after 9pm', icon: 'moon', unlocked: false },
+    { id: 'weekend_warrior', name: 'Weekend Warrior', desc: 'Complete 10 weekend workouts', icon: 'calendar', unlocked: false },
     // Volume & Strength
-    { id: 'volume_king', name: 'Volume King', desc: 'Lift 100,000kg total', icon: '👑', unlocked: false },
-    { id: 'iron_pumper', name: 'Iron Pumper', desc: 'Lift 500,000kg total', icon: '🔩', unlocked: false },
-    { id: 'bodyweight_bench', name: 'Bodyweight Bench', desc: 'Bench press your bodyweight', icon: '🏋️', unlocked: false },
+    { id: 'volume_king', name: 'Volume King', desc: 'Lift 100,000kg total', icon: 'crown', unlocked: false },
+    { id: 'iron_pumper', name: 'Iron Pumper', desc: 'Lift 500,000kg total', icon: 'dumbbell', unlocked: false },
+    { id: 'bodyweight_bench', name: 'Bodyweight Bench', desc: 'Bench press your bodyweight', icon: 'dumbbell', unlocked: false },
     // Nutrition
-    { id: 'consistency', name: 'Calorie Counter', desc: 'Hit calorie goal 7 days straight', icon: '📊', unlocked: false },
-    { id: 'protein_pro', name: 'Protein Pro', desc: 'Hit protein goal 14 days straight', icon: '🥩', unlocked: false },
-    { id: 'hydrated', name: 'Hydration Hero', desc: 'Hit water goal 7 days straight', icon: '💧', unlocked: false },
-    { id: 'meal_tracker', name: 'Meal Logger', desc: 'Log 100 meals', icon: '🍽️', unlocked: false },
+    { id: 'consistency', name: 'Calorie Counter', desc: 'Hit calorie goal 7 days straight', icon: 'flame', unlocked: false },
+    { id: 'protein_pro', name: 'Protein Pro', desc: 'Hit protein goal 14 days straight', icon: 'apple', unlocked: false },
+    { id: 'hydrated', name: 'Hydration Hero', desc: 'Hit water goal 7 days straight', icon: 'droplets', unlocked: false },
+    { id: 'meal_tracker', name: 'Meal Logger', desc: 'Log 100 meals', icon: 'utensils', unlocked: false },
     // Special
-    { id: 'comeback_kid', name: 'Comeback Kid', desc: 'Return after 2+ weeks off', icon: '🔄', unlocked: false },
-    { id: 'perfectionist', name: 'Perfectionist', desc: 'Complete a workout with all sets at target reps', icon: '✨', unlocked: false },
-    { id: 'social_butterfly', name: 'Social Butterfly', desc: 'Follow 5 users', icon: '🦋', unlocked: false },
-    { id: 'goal_crusher', name: 'Goal Crusher', desc: 'Reach your goal weight', icon: '🎯', unlocked: false },
+    { id: 'comeback_kid', name: 'Comeback Kid', desc: 'Return after 2+ weeks off', icon: 'refresh-cw', unlocked: false },
+    { id: 'perfectionist', name: 'Perfectionist', desc: 'Complete a workout with all sets at target reps', icon: 'sparkles', unlocked: false },
+    { id: 'social_butterfly', name: 'Social Butterfly', desc: 'Follow 5 users', icon: 'users', unlocked: false },
+    { id: 'goal_crusher', name: 'Goal Crusher', desc: 'Reach your goal weight', icon: 'target', unlocked: false },
   ]);
   const [selectedAchievement, setSelectedAchievement] = useState(null);
   const [showAllAchievements, setShowAllAchievements] = useState(false);
@@ -7797,6 +8132,8 @@ export default function UpRepDemo() {
   // Meal and water tracking modals
   const [showMealEntry, setShowMealEntry] = useState(false);
   const [showWaterEntry, setShowWaterEntry] = useState(false);
+  const [showWeightLogModal, setShowWeightLogModal] = useState(false);
+  const [weightLogValue, setWeightLogValue] = useState('');
 
   const [selectedChart, setSelectedChart] = useState('weight');
   const [chartData, setChartData] = useState({
@@ -8839,13 +9176,17 @@ export default function UpRepDemo() {
           </div>
           <div className="text-center mb-6">
             <p className="text-lg mb-1" style={{ color: COLORS.textSecondary }}>Welcome back,</p>
-            <h1 className="text-3xl font-bold" style={{ color: COLORS.text }}>{userName}! 👋</h1>
+            <h1 className="text-3xl font-bold" style={{ color: COLORS.text }}>{userName}!</h1>
           </div>
-          
+
           {!hasProgress && (
             <>
               <div className="p-6 rounded-2xl mb-4" style={{ backgroundColor: COLORS.surface }}>
-                <div className="text-center mb-4"><span className="text-4xl">🚀</span></div>
+                <div className="text-center mb-4">
+                  <div className="w-16 h-16 rounded-full mx-auto flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '20' }}>
+                    <Zap size={32} color={COLORS.primary} />
+                  </div>
+                </div>
                 <h2 className="text-xl font-bold mb-2 text-center" style={{ color: COLORS.text }}>
                   Ready to Transform with UpRep?
                 </h2>
@@ -8898,14 +9239,18 @@ export default function UpRepDemo() {
         </div>
         <div className="flex-1 overflow-auto p-4">
           <div className="text-center mb-6">
-            <span className="text-6xl">{info.icon}</span>
+            <div className="w-20 h-20 rounded-full mx-auto flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '20' }}>
+              <IconMap name={info.icon} size={40} color={COLORS.primary} />
+            </div>
             <p className="mt-4" style={{ color: COLORS.textSecondary }}>{info.overview}</p>
           </div>
           <div className="space-y-3">
             {info.requirements.map((req, i) => (
               <div key={i} className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
                 <div className="flex items-start gap-3">
-                  <span className="text-2xl">{req.icon}</span>
+                  <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: COLORS.primary + '15' }}>
+                    <IconMap name={req.icon} size={20} color={COLORS.primary} />
+                  </div>
                   <div>
                     <p className="font-semibold" style={{ color: COLORS.text }}>{req.title}</p>
                     <p className="text-sm" style={{ color: COLORS.textSecondary }}>{req.desc}</p>
@@ -8947,12 +9292,14 @@ export default function UpRepDemo() {
                     borderRadius: hoveredGoal === id ? '12px 12px 0 0' : '12px' }}
                   onClick={() => { setUserData(p => ({...p, goal: id})); setHoveredGoal(id); }}
                 >
-                  <span className="text-3xl">{goal.icon}</span>
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: userData.goal === id ? COLORS.primary + '30' : COLORS.surfaceLight }}>
+                    <IconMap name={goal.icon} size={24} color={userData.goal === id ? COLORS.primary : COLORS.textMuted} />
+                  </div>
                   <div className="flex-1">
                     <p className="font-semibold" style={{ color: userData.goal === id ? COLORS.primary : COLORS.text }}>{goal.title}</p>
                   </div>
                   {userData.goal === id && <Check size={20} color={COLORS.primary} />}
-                  <button 
+                  <button
                     onClick={(e) => { e.stopPropagation(); setHoveredGoal(hoveredGoal === id ? null : id); }}
                     className="p-2 rounded-full"
                     style={{ backgroundColor: hoveredGoal === id ? COLORS.primary : COLORS.surfaceLight }}
@@ -8960,10 +9307,10 @@ export default function UpRepDemo() {
                     <Info size={18} color={hoveredGoal === id ? COLORS.text : COLORS.textMuted} />
                   </button>
                 </div>
-                
+
                 {/* Info Panel - Inline, pushes content down */}
                 {hoveredGoal === id && (
-                  <div 
+                  <div
                     className="p-4 rounded-b-xl"
                     style={{ backgroundColor: COLORS.surfaceLight, borderTop: `1px solid ${COLORS.surface}` }}
                   >
@@ -8971,7 +9318,7 @@ export default function UpRepDemo() {
                     <div className="space-y-2">
                       {goal.requirements.map((req, i) => (
                         <div key={i} className="flex items-start gap-2">
-                          <span className="text-sm">{req.icon}</span>
+                          <IconMap name={req.icon} size={16} color={COLORS.textMuted} />
                           <div>
                             <p className="text-sm font-semibold" style={{ color: COLORS.text }}>{req.title}</p>
                             <p className="text-xs" style={{ color: COLORS.textMuted }}>{req.desc}</p>
@@ -9004,7 +9351,9 @@ export default function UpRepDemo() {
                 className="w-full p-4 rounded-xl text-left flex items-center gap-3"
                 style={{ backgroundColor: userData.experience === level.id ? COLORS.primary + '20' : COLORS.surface,
                   border: `2px solid ${userData.experience === level.id ? COLORS.primary : COLORS.surfaceLight}` }}>
-                <span className="text-2xl">{level.icon}</span>
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: userData.experience === level.id ? COLORS.primary + '30' : COLORS.surfaceLight }}>
+                  <IconMap name={level.icon} size={20} color={userData.experience === level.id ? COLORS.primary : COLORS.textMuted} />
+                </div>
                 <div className="flex-1">
                   <p className="font-semibold" style={{ color: userData.experience === level.id ? COLORS.primary : COLORS.text }}>{level.label}</p>
                   <p className="text-sm" style={{ color: COLORS.textSecondary }}>{level.desc}</p>
@@ -10025,1403 +10374,264 @@ export default function UpRepDemo() {
   const homeScrollRef = React.useRef(null);
   const homeScrollPos = React.useRef(0);
 
-  // Home Tab
+  // Home Tab - SLEEK REDESIGN
   const HomeTab = () => {
     React.useEffect(() => {
       if (homeScrollRef.current) {
         homeScrollRef.current.scrollTop = homeScrollPos.current;
       }
     }, []);
-    
+
     const handleScroll = (e) => {
       homeScrollPos.current = e.target.scrollTop;
     };
-    
+
+    // Get time-based greeting
+    const getGreeting = () => {
+      const hour = new Date().getHours();
+      if (hour < 12) return 'Good morning';
+      if (hour < 17) return 'Good afternoon';
+      return 'Good evening';
+    };
+
+    // Calculate sleep hours from last night (with safety)
+    const getSleepHours = () => {
+      try {
+        const bedTime = lastNightBedTime || '23:00';
+        const wakeTime = lastNightWakeTime || '07:00';
+        const [bedH, bedM] = bedTime.split(':').map(Number);
+        const [wakeH, wakeM] = wakeTime.split(':').map(Number);
+        let hours = wakeH - bedH + (wakeM - bedM) / 60;
+        if (hours < 0) hours += 24;
+        return hours.toFixed(1);
+      } catch (e) {
+        return '7.0';
+      }
+    };
+
+    // Quick stats for the compact circles (with safety checks)
+    const tracking = settings?.tracking || {};
+    const adjGoals = adjustedNutritionGoals || {};
+    const nutGoals = nutritionGoals || {};
+
+    const supplementsTaken = supplements?.filter(s => s.taken)?.length || 0;
+    const supplementsTotal = supplements?.length || 0;
+
+    const quickStats = [
+      {
+        id: 'calories',
+        label: 'Cal',
+        current: caloriesIntake || 0,
+        target: adjGoals.calories || nutGoals.calories || 2200,
+        color: COLORS.accent,
+        enabled: tracking.calories
+      },
+      {
+        id: 'protein',
+        label: 'Protein',
+        current: proteinIntake || 0,
+        target: adjGoals.protein || nutGoals.protein || 150,
+        color: COLORS.protein || COLORS.primary,
+        enabled: tracking.macros
+      },
+      {
+        id: 'water',
+        label: 'Water',
+        current: waterIntake || 0,
+        target: adjGoals.water || nutGoals.water || 2500,
+        color: COLORS.water,
+        enabled: tracking.water
+      },
+      {
+        id: 'supplements',
+        label: 'Supps',
+        current: supplementsTaken,
+        target: Math.max(supplementsTotal, 1),
+        displayValue: `${supplementsTaken}/${supplementsTotal}`,
+        color: COLORS.supplements,
+        enabled: tracking.supplements
+      },
+      {
+        id: 'sleep',
+        label: 'Sleep',
+        current: parseFloat(getSleepHours()) || 0,
+        target: 8,
+        displayValue: getSleepHours() + 'h',
+        color: COLORS.sleep,
+        enabled: tracking.sleep
+      }
+    ];
+
+    // Handle quick stat taps
+    const handleStatTap = (statId) => {
+      if (statId === 'calories' || statId === 'protein') {
+        setShowMealEntry(true);
+      } else if (statId === 'water') {
+        setShowWaterEntry(true);
+      } else if (statId === 'supplements') {
+        setActiveTab('nutrition');
+        setNutritionTab('supplements');
+      } else if (statId === 'sleep') {
+        setActiveTab('nutrition');
+        setNutritionTab('sleep');
+      }
+    };
+
+    // Resume plan handler
+    const handleResume = () => {
+      setIsPaused(false);
+      setPauseReturnDate(null);
+      setTodayWorkout({
+        type: todayWorkoutTemplate?.name?.replace(' Day ', ' ').replace('Day ', '') || 'Workout',
+        name: todayWorkoutTemplate?.name || 'Workout',
+        focus: todayWorkoutTemplate?.focus || '',
+        exercises: todayWorkoutTemplate?.exercises?.length || 5,
+        duration: 60
+      });
+    };
+
+    // Chart selection state
+    const [selectedChart, setSelectedChart] = React.useState('weight');
+
     return (
-    <div ref={homeScrollRef} onScroll={handleScroll} className="p-4 overflow-auto h-full">
-      <div className="flex justify-between items-center mb-4">
-        <div>
-          <p style={{ color: COLORS.textSecondary }}>Good evening,</p>
-          <h2 className="text-2xl font-bold" style={{ color: COLORS.text }}>{userData.firstName || 'Matt'}</h2>
+    <div ref={homeScrollRef} onScroll={handleScroll} className="overflow-auto pb-20" style={{ backgroundColor: COLORS.background, height: '100%' }}>
+      {/* User Header with Stats */}
+      <div className="flex justify-between items-center px-4 pt-4 pb-3">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setActiveTab('profile')}
+            className="w-11 h-11 rounded-full flex items-center justify-center"
+            style={{ backgroundColor: COLORS.primary }}
+          >
+            <span className="text-base font-bold" style={{ color: COLORS.text }}>
+              {userData.firstName ? userData.firstName[0].toUpperCase() : 'U'}
+            </span>
+          </button>
+          <div>
+            <p className="font-bold text-lg" style={{ color: COLORS.text }}>
+              {userData.firstName || 'User'} {userData.lastName?.[0] ? userData.lastName[0] + '.' : ''}
+            </p>
+            <div className="flex items-center gap-2">
+              {userData.weight && (
+                <span className="text-xs" style={{ color: COLORS.textMuted }}>{userData.weight}kg</span>
+              )}
+              {userData.goal && (
+                <span className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: COLORS.primary + '20', color: COLORS.primary }}>
+                  {userData.goal === 'build_muscle' ? 'Building' : userData.goal === 'lose_fat' ? 'Cutting' : userData.goal === 'strength' ? 'Strength' : 'Fitness'}
+                </span>
+              )}
+              {(streaks?.weeklyWorkouts?.weeksCompleted > 0) && (
+                <span className="text-xs flex items-center gap-1" style={{ color: COLORS.warning }}>
+                  <Flame size={12} /> {streaks.weeklyWorkouts.weeksCompleted}w
+                </span>
+              )}
+            </div>
+          </div>
         </div>
         <button
           onClick={() => setActiveTab('profile')}
-          className="w-10 h-10 rounded-full flex items-center justify-center"
-          style={{ backgroundColor: COLORS.primary }}
+          className="p-2 rounded-lg"
+          style={{ backgroundColor: COLORS.surface }}
         >
-          <span className="font-bold" style={{ color: COLORS.text }}>
-            {userData.firstName ? userData.firstName[0].toUpperCase() : 'M'}
-          </span>
+          <Settings size={18} color={COLORS.textMuted} />
         </button>
       </div>
 
-      {/* Paused Banner */}
-      {isPaused && pauseReturnDate && (
-        <div className="p-4 rounded-xl mb-4 flex items-center justify-between" style={{ backgroundColor: COLORS.warning + '20', border: `1px solid ${COLORS.warning}40` }}>
-          <div className="flex items-center gap-3">
-            <Moon size={20} color={COLORS.warning} />
-            <div>
-              <p className="font-semibold" style={{ color: COLORS.warning }}>Plan Paused</p>
-              <p className="text-xs" style={{ color: COLORS.textSecondary }}>
-                Returning {new Date(pauseReturnDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-              </p>
-            </div>
-          </div>
-          <button onClick={() => { setIsPaused(false); setPauseReturnDate(null); setTodayWorkout({ type: todayWorkoutTemplate?.name?.replace(' Day ', ' ').replace('Day ', '') || 'Workout', name: todayWorkoutTemplate?.name || 'Workout', focus: todayWorkoutTemplate?.focus || '', exercises: todayWorkoutTemplate?.exercises?.length || 5, duration: 60 }); }}
-            className="px-4 py-2 rounded-lg font-semibold text-sm"
-            style={{ backgroundColor: COLORS.warning, color: COLORS.background }}>
-            Resume Now
-          </button>
-        </div>
-      )}
-
-      {/* Rescheduled Banner */}
-      {isRescheduled && originalWorkout && (
-        <div className="p-4 rounded-xl mb-4 flex items-center justify-between" style={{ backgroundColor: COLORS.accent + '20', border: `1px solid ${COLORS.accent}40` }}>
-          <div className="flex items-center gap-3">
-            <Calendar size={20} color={COLORS.accent} />
-            <div>
-              <p className="font-semibold" style={{ color: COLORS.accent }}>Schedule Modified</p>
-              <p className="text-xs" style={{ color: COLORS.textSecondary }}>Originally: {originalWorkout.type}</p>
-            </div>
-          </div>
-          <button onClick={() => { setIsRescheduled(false); setTodayWorkout(originalWorkout); setOriginalWorkout(null); }}
-            className="px-4 py-2 rounded-lg font-semibold text-sm"
-            style={{ backgroundColor: COLORS.accent, color: COLORS.background }}>
-            Undo
-          </button>
-        </div>
-      )}
-
-      {/* Active Injuries Banner */}
-      {injuries.length > 0 && (
-        <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface, border: `1px solid ${INJURY_SEVERITY[injuries[0].severity].color}40` }}>
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <span className="text-xl">🩹</span>
-              <h3 className="font-bold" style={{ color: COLORS.text }}>Recovery in Progress</h3>
-            </div>
-            <button
-              onClick={() => setShowReportInjury(true)}
-              className="text-xs px-3 py-1 rounded-full"
-              style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.textSecondary }}
-            >
-              + Add
-            </button>
-          </div>
-          <div className="space-y-2">
-            {injuries.map(injury => {
-              const currentPhase = getCurrentRecoveryPhase(injury);
-              const phaseInfo = RECOVERY_PHASES[currentPhase];
-              const daysLeft = Math.ceil((new Date(injury.timeline.return.end) - new Date()) / (1000 * 60 * 60 * 24));
-
-              return (
-                <button
-                  key={injury.id}
-                  onClick={() => setShowInjuryRecovery(injury)}
-                  className="w-full p-3 rounded-lg flex items-center gap-3 text-left"
-                  style={{ backgroundColor: COLORS.surfaceLight }}
-                >
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: INJURY_SEVERITY[injury.severity].color + '20' }}>
-                    <span>{phaseInfo.icon}</span>
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-semibold text-sm" style={{ color: COLORS.text }}>{injury.muscleGroup}</p>
-                    <p className="text-xs" style={{ color: COLORS.textMuted }}>{phaseInfo.name} • {daysLeft > 0 ? `~${daysLeft} days left` : 'Ready to heal'}</p>
-                  </div>
-                  <ChevronRight size={18} color={COLORS.textMuted} />
-                </button>
-              );
-            })}
-          </div>
-          <p className="text-xs mt-3" style={{ color: COLORS.textSecondary }}>
-            {getCoachingMessage(getCurrentRecoveryPhase(injuries[0]), injuries[0].muscleGroup)}
-          </p>
-        </div>
-      )}
-
-      {/* Goal Overview Section */}
-      <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '20' }}>
-              <Target size={24} color={COLORS.primary} />
-            </div>
-            <div>
-              <p className="text-xs" style={{ color: COLORS.textMuted }}>Your Goal</p>
-              <p className="font-bold text-lg" style={{ color: COLORS.text }}>
-                {userData.goal === 'lose_fat' ? 'Lose Weight' : userData.goal === 'build_muscle' ? 'Build Muscle' : userData.goal === 'strength' ? 'Get Stronger' : userData.goal === 'fitness' ? 'General Fitness' : 'Set a Goal'}
-              </p>
-            </div>
-          </div>
-          <div className="text-right">
-            <p className="text-xs" style={{ color: COLORS.textMuted }}>Week {overviewStats.programWeek}/{overviewStats.programLength}</p>
-            <div className="w-20 h-2 rounded-full overflow-hidden mt-1" style={{ backgroundColor: COLORS.surfaceLight }}>
-              <div className="h-full rounded-full" style={{ backgroundColor: COLORS.primary, width: `${(overviewStats.programWeek / overviewStats.programLength) * 100}%` }} />
-            </div>
-          </div>
-        </div>
-        
-        <div className="grid grid-cols-3 gap-3 mb-3">
-          <div className="p-3 rounded-lg text-center" style={{ backgroundColor: COLORS.surfaceLight }}>
-            <p className="text-xs" style={{ color: COLORS.textMuted }}>Starting</p>
-            <p className="text-lg font-bold" style={{ color: COLORS.text }}>{overviewStats.startingWeight}kg</p>
-          </div>
-          <div className="p-3 rounded-lg text-center" style={{ backgroundColor: COLORS.primary + '20' }}>
-            <p className="text-xs" style={{ color: COLORS.textMuted }}>Current</p>
-            <p className="text-lg font-bold" style={{ color: COLORS.primary }}>{overviewStats.currentWeight}kg</p>
-          </div>
-          <div className="p-3 rounded-lg text-center" style={{ backgroundColor: COLORS.surfaceLight }}>
-            <p className="text-xs" style={{ color: COLORS.textMuted }}>Target</p>
-            <p className="text-lg font-bold" style={{ color: COLORS.success }}>{overviewStats.targetWeight}kg</p>
-          </div>
-        </div>
-
-        {(() => {
-          const weightChange = overviewStats.currentWeight - overviewStats.startingWeight;
-          const isLoss = weightChange < 0;
-          const isGain = weightChange > 0;
-          const isGoodProgress = 
-            (userData.goal === 'lose_fat' && isLoss) || 
-            ((userData.goal === 'build_muscle' || userData.goal === 'strength') && isGain) ||
-            (userData.goal === 'fitness');
-          const progressColor = isGoodProgress ? COLORS.success : COLORS.warning;
-          return (
-            <div className="flex items-center justify-between p-3 rounded-lg mb-3" style={{ backgroundColor: progressColor + '15' }}>
-              <div className="flex items-center gap-2">
-                <TrendingUp size={18} color={progressColor} />
-                <span className="text-sm" style={{ color: COLORS.textSecondary }}>Total Progress</span>
+      {/* Today's Action Card - FIRST */}
+      <div className="mx-4 mb-2">
+        <p className="text-xs font-semibold" style={{ color: COLORS.textMuted }}>TODAY'S WORKOUT</p>
+      </div>
+      <div className="mx-4 p-5 rounded-2xl" style={{ backgroundColor: COLORS.surface, borderLeft: `4px solid ${COLORS.primary}` }}>
+        {isPaused ? (
+          <>
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl" style={{ backgroundColor: COLORS.warning + '20' }}>🏖️</div>
+              <div className="flex-1">
+                <p className="text-xs font-semibold mb-1" style={{ color: COLORS.warning }}>PAUSED</p>
+                <p className="font-semibold" style={{ color: COLORS.text }}>Enjoying your break</p>
               </div>
-              <span className="font-bold" style={{ color: progressColor }}>
-                {isLoss ? '↓' : isGain ? '↑' : '→'} {Math.abs(weightChange).toFixed(1)}kg
-              </span>
             </div>
-          );
-        })()}
-
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            onClick={() => setShowWorkoutStats(true)}
-            className="p-3 rounded-lg flex items-center gap-3 text-left"
-            style={{ backgroundColor: COLORS.surfaceLight }}
-          >
-            <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.warning + '20' }}>
-              <Dumbbell size={18} color={COLORS.warning} />
-            </div>
+            <button onClick={handleResume} className="w-full mt-4 py-3 rounded-xl font-semibold" style={{ backgroundColor: COLORS.warning, color: COLORS.background }}>
+              Resume Plan
+            </button>
+          </>
+        ) : todayWorkoutCompleted ? (
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl" style={{ backgroundColor: COLORS.success + '20' }}>✓</div>
             <div className="flex-1">
-              <p className="text-xs" style={{ color: COLORS.textMuted }}>Workouts</p>
-              <p className="font-bold" style={{ color: COLORS.text }}>{overviewStats.totalWorkouts}</p>
+              <p className="text-xs font-semibold mb-1" style={{ color: COLORS.success }}>COMPLETED</p>
+              <p className="font-semibold" style={{ color: COLORS.text }}>{todayWorkout?.name || 'Workout'}</p>
+              <p className="text-sm" style={{ color: COLORS.textMuted }}>Great work today!</p>
             </div>
-            <ChevronRight size={16} color={COLORS.textMuted} />
-          </button>
-          <button
-            onClick={() => setShowWeightDetails(true)}
-            className="p-3 rounded-lg flex items-center gap-3 text-left"
-            style={{ backgroundColor: COLORS.surfaceLight }}
-          >
-            <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.water + '20' }}>
-              <TrendingUp size={18} color={COLORS.water} />
-            </div>
+          </div>
+        ) : todayWorkout?.type === 'Rest' ? (
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl" style={{ backgroundColor: COLORS.sleep + '20' }}>😴</div>
             <div className="flex-1">
-              <p className="text-xs" style={{ color: COLORS.textMuted }}>
-                {weeklyWeightData?.actualWeeklyRate !== 0 ? 'Actual Weekly Change' : 'Target Weekly Rate'}
-              </p>
-              <div className="flex items-center gap-2">
-                <span className="font-bold" style={{ color: COLORS.text }}>
-                  {weeklyWeightData?.actualWeeklyRate !== 0
-                    ? `${weeklyWeightData?.actualWeeklyRate > 0 ? '+' : ''}${weeklyWeightData?.actualWeeklyRate || 0}kg`
-                    : `${overviewStats.weeklyTarget > 0 ? '+' : ''}${overviewStats.weeklyTarget}kg`}
-                </span>
-                {weeklyWeightData?.actualWeeklyRate !== 0 && (
-                  <span className="text-xs px-1.5 py-0.5 rounded" style={{
-                    backgroundColor: COLORS.surfaceLight,
-                    color: COLORS.textMuted
-                  }}>
-                    goal: {overviewStats.weeklyTarget > 0 ? '+' : ''}{overviewStats.weeklyTarget}
-                  </span>
-                )}
-                {weeklyWeightData?.actualWeeklyRate === 0 && (
-                  <span className="text-xs px-1.5 py-0.5 rounded" style={{
-                    backgroundColor: COLORS.primary + '20',
-                    color: COLORS.primary
-                  }}>
-                    expected
-                  </span>
-                )}
-              </div>
+              <p className="text-xs font-semibold mb-1" style={{ color: COLORS.sleep }}>REST DAY</p>
+              <p className="font-semibold" style={{ color: COLORS.text }}>Recovery Time</p>
+              <p className="text-sm" style={{ color: COLORS.textMuted }}>Your muscles grow while you rest</p>
             </div>
-            <ChevronRight size={16} color={COLORS.textMuted} />
-          </button>
-        </div>
-        
-        <button 
-          onClick={() => setShowWeighIn(true)}
-          className="w-full mt-3 py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
-          style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
-        >
-          <Plus size={18} /> Log Weigh-In
-        </button>
-      </div>
-
-      {/* Weigh-In Modal */}
-      {showWeighIn && (
-        <WeighInModal
-          COLORS={COLORS}
-          onClose={() => setShowWeighIn(false)}
-          onSave={async (data) => {
-            const { weight: val, date } = data;
-            // Save to Supabase
-            if (user?.id) {
-              try {
-                await profileService.logWeight(user.id, val, date);
-
-                // Recalculate nutrition targets with new weight
-                const nutritionTargets = generateNutritionTargets({
-                  weight: val,
-                  height: profile?.height || 175,
-                  age: profile?.age || 25,
-                  gender: userData.gender || 'other',
-                  goal: userData.goal || 'fitness',
-                  workoutsPerWeek: userData.daysPerWeek || 4,
-                  goalWeight: parseFloat(userData.goalWeight) || val,
-                });
-
-                setNutritionGoals({
-                  calories: nutritionTargets.calories,
-                  protein: nutritionTargets.protein,
-                  carbs: nutritionTargets.carbs,
-                  fats: nutritionTargets.fat,
-                  water: nutritionTargets.water,
-                  tdee: nutritionTargets.tdee,
-                  weeklyWeightChange: nutritionTargets.weeklyWeightChange,
-                });
-              } catch (err) {
-                console.error('Error saving weight:', err);
-              }
-            }
-            setOverviewStats(prev => ({ ...prev, currentWeight: val }));
-            setShowWeighIn(false);
-          }}
-          initialWeight={overviewStats.currentWeight}
-          currentWeight={overviewStats.currentWeight}
-          userGoal={userData.goal}
-        />
-      )}
-
-      {/* Weight Details Modal */}
-      {showWeightDetails && (
-        <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
-          <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
-            <button onClick={() => setShowWeightDetails(false)}><X size={24} color={COLORS.text} /></button>
-            <h3 className="text-lg font-bold" style={{ color: COLORS.text }}>Weight Progress</h3>
           </div>
-          <div className="flex-1 overflow-auto p-4">
-            {/* Summary Cards */}
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
-                <p className="text-xs mb-1" style={{ color: COLORS.textMuted }}>Starting Weight</p>
-                <p className="text-2xl font-bold" style={{ color: COLORS.text }}>{overviewStats.startingWeight}kg</p>
-              </div>
-              <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
-                <p className="text-xs mb-1" style={{ color: COLORS.textMuted }}>Current Weight</p>
-                <p className="text-2xl font-bold" style={{ color: COLORS.primary }}>{overviewStats.currentWeight}kg</p>
-              </div>
-              <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
-                <p className="text-xs mb-1" style={{ color: COLORS.textMuted }}>Target Weight</p>
-                <p className="text-2xl font-bold" style={{ color: COLORS.success }}>{overviewStats.targetWeight}kg</p>
-              </div>
-              <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
-                <p className="text-xs mb-1" style={{ color: COLORS.textMuted }}>Remaining</p>
-                <p className="text-2xl font-bold" style={{ color: COLORS.warning }}>
-                  {Math.abs(overviewStats.targetWeight - overviewStats.currentWeight).toFixed(1)}kg
-                </p>
-              </div>
-            </div>
-
-            {/* Weekly Change Comparison - Dynamic Based on Weekly Averages */}
-            <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
-              <p className="text-sm font-semibold mb-3" style={{ color: COLORS.text }}>Weekly Rate (Based on Averages)</p>
-              <div className="flex gap-3 mb-3">
-                <div className="flex-1 p-3 rounded-lg text-center" style={{ backgroundColor: COLORS.surfaceLight }}>
-                  <p className="text-xs mb-1" style={{ color: COLORS.textMuted }}>Target Rate</p>
-                  <p className="text-lg font-bold" style={{ color: COLORS.textSecondary }}>
-                    {overviewStats.weeklyTarget > 0 ? '+' : ''}{overviewStats.weeklyTarget}kg/wk
-                  </p>
+        ) : (
+          <>
+            <div className="flex justify-between items-start mb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '20' }}>
+                  <Dumbbell size={24} color={COLORS.primary} />
                 </div>
-                <div className="flex-1 p-3 rounded-lg text-center" style={{ backgroundColor: COLORS.primary + '20' }}>
-                  <p className="text-xs mb-1" style={{ color: COLORS.textMuted }}>Actual Rate</p>
-                  <p className="text-lg font-bold" style={{ color: COLORS.primary }}>
-                    {(weeklyWeightData?.actualWeeklyRate || 0) > 0 ? '+' : ''}{weeklyWeightData?.actualWeeklyRate || 0}kg/wk
-                  </p>
+                <div>
+                  <p className="text-xs font-semibold mb-0.5" style={{ color: COLORS.primary }}>TODAY</p>
+                  <p className="font-bold" style={{ color: COLORS.text }}>{todayWorkout?.name || 'Workout'}</p>
+                  <p className="text-sm" style={{ color: COLORS.textMuted }}>{todayWorkout?.focus || ''}</p>
                 </div>
               </div>
-
-              {/* Progress Status */}
-              {(() => {
-                const targetRate = overviewStats.weeklyTarget;
-                const actualRate = weeklyWeightData?.actualWeeklyRate || 0;
-                const isOnTrack =
-                  (targetRate >= 0 && actualRate >= targetRate * 0.8) ||
-                  (targetRate < 0 && actualRate <= targetRate * 0.8);
-                const isClose =
-                  (targetRate >= 0 && actualRate >= targetRate * 0.5 && actualRate < targetRate * 0.8) ||
-                  (targetRate < 0 && actualRate <= targetRate * 0.5 && actualRate > targetRate * 0.8);
-
-                const statusColor = isOnTrack ? COLORS.success : isClose ? COLORS.warning : COLORS.error;
-                const statusText = isOnTrack ? 'On Track' : isClose ? 'Slightly Behind' : 'Needs Adjustment';
-                const statusIcon = isOnTrack ? '✓' : isClose ? '↗' : '!';
-
-                return (weeklyWeightData?.weeklyAverages?.length || 0) >= 2 ? (
-                  <div className="p-3 rounded-lg flex items-center justify-between" style={{ backgroundColor: statusColor + '15' }}>
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">{statusIcon}</span>
-                      <span className="text-sm font-medium" style={{ color: statusColor }}>{statusText}</span>
-                    </div>
-                    <span className="text-xs" style={{ color: COLORS.textMuted }}>
-                      Based on {weeklyWeightData?.weeklyAverages?.length || 0} weeks
-                    </span>
-                  </div>
-                ) : (
-                  <div className="p-3 rounded-lg text-center" style={{ backgroundColor: COLORS.surfaceLight }}>
-                    <p className="text-xs" style={{ color: COLORS.textMuted }}>
-                      Log weights for 2+ weeks to see your actual rate
-                    </p>
-                  </div>
-                );
-              })()}
-            </div>
-
-            {/* Weekly Averages Chart */}
-            {(weeklyWeightData?.weeklyAverages?.length || 0) > 0 && (
-              <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
-                <p className="text-sm font-semibold mb-3" style={{ color: COLORS.text }}>Weekly Averages</p>
-                <div className="space-y-2">
-                  {(weeklyWeightData?.weeklyAverages || []).slice(-4).map((week, index, arr) => (
-                    <div key={week.week} className="flex items-center justify-between p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
-                      <span className="text-xs" style={{ color: COLORS.textMuted }}>
-                        Week of {new Date(week.week).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                      </span>
-                      <span className="font-bold" style={{ color: index === arr.length - 1 ? COLORS.primary : COLORS.text }}>
-                        {week.average}kg
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Weight Chart */}
-            <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
-              <p className="text-sm font-semibold mb-3" style={{ color: COLORS.text }}>Weight Trend</p>
-              <div style={{ height: 200 }}>
-                {chartData.weight?.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData.weight}>
-                      <XAxis
-                        dataKey="week"
-                        tick={{ fill: COLORS.textMuted, fontSize: 10 }}
-                        axisLine={false}
-                        tickLine={false}
-                        tickFormatter={(val) => `W${val}`}
-                      />
-                      <YAxis
-                        tick={{ fill: COLORS.textMuted, fontSize: 10 }}
-                        axisLine={false}
-                        tickLine={false}
-                        width={35}
-                        domain={['dataMin - 2', 'dataMax + 2']}
-                        tickFormatter={(val) => `${val}kg`}
-                      />
-                      <Tooltip
-                        content={({ active, payload, label }) => {
-                          if (active && payload && payload.length) {
-                            const actualVal = payload.find(p => p.dataKey === 'value')?.value;
-                            const expectedVal = payload.find(p => p.dataKey === 'expected')?.value;
-                            return (
-                              <div style={{
-                                backgroundColor: COLORS.surface,
-                                border: `1px solid ${COLORS.surfaceLight}`,
-                                borderRadius: 8,
-                                padding: '8px 12px',
-                              }}>
-                                <p style={{ color: COLORS.textMuted, fontSize: 11 }}>Week {label}</p>
-                                {actualVal !== undefined && (
-                                  <p style={{ color: COLORS.primary, fontSize: 14, fontWeight: 'bold' }}>You: {actualVal}kg</p>
-                                )}
-                                {expectedVal !== undefined && (
-                                  <p style={{ color: COLORS.textMuted, fontSize: 12 }}>Target: {expectedVal}kg</p>
-                                )}
-                              </div>
-                            );
-                          }
-                          return null;
-                        }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="value"
-                        stroke={COLORS.primary}
-                        strokeWidth={2}
-                        dot={{ fill: COLORS.primary, r: 3 }}
-                        name="Actual"
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="expected"
-                        stroke={COLORS.textMuted}
-                        strokeWidth={1}
-                        strokeDasharray="5 5"
-                        dot={false}
-                        name="Expected"
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="h-full flex items-center justify-center">
-                    <p className="text-sm" style={{ color: COLORS.textMuted }}>Log weigh-ins to see your trend</p>
-                  </div>
-                )}
-              </div>
-              <div className="flex gap-4 justify-center mt-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-0.5" style={{ backgroundColor: COLORS.primary }}></div>
-                  <span className="text-xs" style={{ color: COLORS.textMuted }}>Actual</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-0.5" style={{ backgroundColor: COLORS.textMuted, borderStyle: 'dashed' }}></div>
-                  <span className="text-xs" style={{ color: COLORS.textMuted }}>Projected</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="p-4 border-t" style={{ borderColor: COLORS.surfaceLight }}>
-            <button
-              onClick={() => { setShowWeightDetails(false); setShowWeighIn(true); }}
-              className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
-              style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
-            >
-              <Plus size={18} /> Log Weigh-In
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Workout Stats Modal */}
-      {showWorkoutStats && (
-        <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
-          <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
-            <button onClick={() => setShowWorkoutStats(false)}><X size={24} color={COLORS.text} /></button>
-            <h3 className="text-lg font-bold" style={{ color: COLORS.text }}>Workout History</h3>
-          </div>
-          <div className="flex-1 overflow-auto p-4">
-            {/* Summary Stats */}
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
-                <p className="text-xs mb-1" style={{ color: COLORS.textMuted }}>Total Workouts</p>
-                <p className="text-2xl font-bold" style={{ color: COLORS.warning }}>{overviewStats.totalWorkouts}</p>
-              </div>
-              <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
-                <p className="text-xs mb-1" style={{ color: COLORS.textMuted }}>This Week</p>
-                <p className="text-2xl font-bold" style={{ color: COLORS.primary }}>
-                  {Object.entries(masterSchedule).filter(([dateKey, entry]) => {
-                    const date = new Date(dateKey);
-                    const weekStart = new Date();
-                    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-                    weekStart.setHours(0, 0, 0, 0);
-                    return date >= weekStart && entry.completed;
-                  }).length}
-                </p>
-              </div>
-              <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
-                <p className="text-xs mb-1" style={{ color: COLORS.textMuted }}>Current Streak</p>
-                <p className="text-2xl font-bold" style={{ color: COLORS.success }}>{streaks.current} days</p>
-              </div>
-              <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
-                <p className="text-xs mb-1" style={{ color: COLORS.textMuted }}>Best Streak</p>
-                <p className="text-2xl font-bold" style={{ color: COLORS.accent }}>{streaks.longest} days</p>
-              </div>
-            </div>
-
-            {/* Workout Type Breakdown */}
-            <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
-              <h4 className="font-semibold mb-3" style={{ color: COLORS.text }}>Workout Types</h4>
-              <div className="space-y-2">
-                {(() => {
-                  // Count workouts by type from masterSchedule
-                  const workoutCounts = {};
-                  Object.values(masterSchedule).forEach(entry => {
-                    if (entry.completed && entry.workoutType && !entry.isRestDay) {
-                      const type = entry.workoutType;
-                      workoutCounts[type] = (workoutCounts[type] || 0) + 1;
-                    }
-                  });
-                  const sortedTypes = Object.entries(workoutCounts).sort((a, b) => b[1] - a[1]);
-                  const totalCompleted = sortedTypes.reduce((sum, [, count]) => sum + count, 0) || 1;
-
-                  if (sortedTypes.length === 0) {
-                    return (
-                      <p className="text-sm text-center py-4" style={{ color: COLORS.textMuted }}>
-                        Complete workouts to see breakdown
-                      </p>
-                    );
-                  }
-
-                  return sortedTypes.map(([type, count]) => (
-                    <div key={type} className="flex items-center gap-3">
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-sm" style={{ color: COLORS.text }}>{type}</span>
-                          <span className="text-xs" style={{ color: COLORS.textMuted }}>{count} workouts</span>
-                        </div>
-                        <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: COLORS.surfaceLight }}>
-                          <div
-                            className="h-full rounded-full"
-                            style={{
-                              backgroundColor: getWorkoutColor(type, COLORS),
-                              width: `${(count / totalCompleted) * 100}%`
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  ));
-                })()}
-              </div>
-            </div>
-
-            {/* Recent Completed Workouts */}
-            <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
-              <h4 className="font-semibold mb-3" style={{ color: COLORS.text }}>Recent Workouts</h4>
-              <div className="space-y-2">
-                {(() => {
-                  const completedWorkouts = Object.entries(masterSchedule)
-                    .filter(([, entry]) => entry.completed && !entry.isRestDay)
-                    .sort((a, b) => new Date(b[0]) - new Date(a[0]))
-                    .slice(0, 10);
-
-                  if (completedWorkouts.length === 0) {
-                    return (
-                      <p className="text-sm text-center py-4" style={{ color: COLORS.textMuted }}>
-                        No completed workouts yet
-                      </p>
-                    );
-                  }
-
-                  return completedWorkouts.map(([dateKey, entry]) => {
-                    const date = new Date(dateKey);
-                    const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
-                    const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                    return (
-                      <div
-                        key={dateKey}
-                        className="flex items-center gap-3 p-3 rounded-lg"
-                        style={{ backgroundColor: COLORS.surfaceLight }}
-                      >
-                        <div
-                          className="w-1 h-10 rounded-full"
-                          style={{ backgroundColor: getWorkoutColor(entry.workoutType || 'Workout', COLORS) }}
-                        />
-                        <div className="flex-1">
-                          <p className="font-medium text-sm" style={{ color: COLORS.text }}>
-                            {entry.workoutType || 'Workout'}
-                          </p>
-                          <p className="text-xs" style={{ color: COLORS.textMuted }}>
-                            {dayName}, {dateStr}
-                          </p>
-                        </div>
-                        <Check size={18} color={COLORS.success} />
-                      </div>
-                    );
-                  });
-                })()}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Progress Chart */}
-      <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
-        <div className="flex gap-2 mb-3">
-          {[
-            { id: 'weight', label: 'Weight' },
-            { id: 'workouts', label: 'Workouts' },
-            { id: 'volume', label: 'Volume' },
-            { id: 'sleep', label: 'Sleep' },
-            { id: 'protein', label: 'Protein' },
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setSelectedChart(tab.id)}
-              className="px-3 py-1 rounded-full text-xs whitespace-nowrap"
-              style={{
-                backgroundColor: selectedChart === tab.id ? COLORS.primary : COLORS.surfaceLight,
-                color: selectedChart === tab.id ? COLORS.text : COLORS.textMuted
-              }}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-        <div style={{ height: 125 }}>
-          {(() => {
-            // Generate placeholder data if no real data exists
-            const defaults = { weight: 100, workouts: 7, volume: 25000, sleep: 10, protein: 200 };
-            const hasRealData = chartData[selectedChart]?.length > 0 && chartData[selectedChart].some(d => d.value !== null);
-            const hasExpectedData = chartData[selectedChart]?.length > 0 && chartData[selectedChart].some(d => d.expected !== null);
-
-            // For weight chart, generate expected trajectory if not present
-            let data;
-            if (hasRealData || hasExpectedData) {
-              data = chartData[selectedChart];
-            } else if (selectedChart === 'weight' && userData.currentWeight && userData.goalWeight) {
-              // Generate expected weight trajectory based on user goals
-              const startWeight = parseFloat(userData.currentWeight);
-              const goalWeight = parseFloat(userData.goalWeight);
-              const weeks = currentProgram?.totalWeeks || 12;
-              const weeklyChange = (goalWeight - startWeight) / weeks;
-              data = Array.from({ length: weeks }, (_, i) => ({
-                week: (i + 1).toString(),
-                value: null,
-                expected: parseFloat((startWeight + (weeklyChange * (i + 1))).toFixed(1)),
-              }));
-            } else {
-              data = Array.from({ length: 12 }, (_, i) => ({ week: (i + 1).toString(), value: 0, expected: null }));
-            }
-
-            return (
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data}>
-                <XAxis
-                  dataKey="week"
-                  tick={{ fill: COLORS.textMuted, fontSize: 9 }}
-                  axisLine={false}
-                  tickLine={false}
-                  interval={2}
-                  tickFormatter={(val) => `W${val}`}
-                />
-                <YAxis
-                  tick={{ fill: COLORS.textMuted, fontSize: 9 }}
-                  axisLine={false}
-                  tickLine={false}
-                  width={35}
-                  domain={selectedChart === 'weight'
-                    ? [(dataMin) => Math.floor((dataMin || userData.currentWeight || 60) * 0.95),
-                       (dataMax) => Math.ceil((dataMax || userData.goalWeight || 80) * 1.05)]
-                    : hasRealData ? [0, 'auto'] : [0, defaults[selectedChart] || 100]}
-                  tickFormatter={(val) => selectedChart === 'volume' ? `${Math.round(val/1000)}k` : Math.round(val)}
-                />
-                <Tooltip
-                  content={({ active, payload, label }) => {
-                    if (active && payload && payload.length) {
-                      const actualVal = payload.find(p => p.dataKey === 'value')?.value;
-                      const expectedVal = payload.find(p => p.dataKey === 'expected')?.value;
-                      return (
-                        <div style={{
-                          backgroundColor: COLORS.surface,
-                          border: `1px solid ${COLORS.surfaceLight}`,
-                          borderRadius: 8,
-                          padding: '8px 12px',
-                        }}>
-                          <p style={{ color: COLORS.textMuted, fontSize: 11, marginBottom: 4 }}>Week {label}</p>
-                          {actualVal !== null && actualVal !== undefined && (
-                            <p style={{ color: COLORS.primary, fontSize: 14, fontWeight: 'bold' }}>You: {actualVal} {chartLabels[selectedChart]}</p>
-                          )}
-                          {expectedVal !== null && expectedVal !== undefined && (
-                            <p style={{ color: COLORS.textMuted, fontSize: 11 }}>Target: {expectedVal} {chartLabels[selectedChart]}</p>
-                          )}
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-                {hasRealData && (
-                  <Line
-                    type="monotone"
-                    dataKey="value"
-                    stroke={COLORS.primary}
-                    strokeWidth={2}
-                    dot={{ fill: COLORS.primary, r: 3, strokeWidth: 0 }}
-                    activeDot={{ fill: COLORS.primary, r: 5, stroke: COLORS.text, strokeWidth: 2 }}
-                    connectNulls
-                  />
-                )}
-                {(hasExpectedData || (selectedChart === 'weight' && userData.currentWeight && userData.goalWeight)) && (
-                  <Line
-                    type="monotone"
-                    dataKey="expected"
-                    stroke={COLORS.textMuted}
-                    strokeWidth={1}
-                    strokeDasharray="4 4"
-                    dot={false}
-                    connectNulls
-                  />
-                )}
-              </LineChart>
-            </ResponsiveContainer>
-            );
-          })()}
-        </div>
-        <div className="flex justify-between items-center mt-2">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-0.5" style={{ backgroundColor: COLORS.primary }}></div>
-              <span className="text-xs" style={{ color: COLORS.textMuted }}>Actual</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-0.5" style={{ backgroundColor: COLORS.textMuted, borderStyle: 'dashed' }}></div>
-              <span className="text-xs" style={{ color: COLORS.textMuted }}>Expected</span>
-            </div>
-          </div>
-          <span className="text-xs font-semibold" style={{ color: COLORS.primary }}>
-            {chartData[selectedChart]?.length > 0
-              ? `${chartData[selectedChart][chartData[selectedChart].length - 1]?.value || '-'} ${chartLabels[selectedChart]}`
-              : `- ${chartLabels[selectedChart]}`}
-          </span>
-        </div>
-      </div>
-
-      <div className="mb-4">
-        <h3 className="font-semibold mb-3" style={{ color: COLORS.text }}>Streaks</h3>
-        {(() => {
-          // Build streak items based on tracking settings
-          const allStreakItems = [
-            { id: 'workouts', icon: Dumbbell, value: streaks.weeklyWorkouts.weeksCompleted, label: 'weeks', color: COLORS.warning, title: 'Workout Streak', unit: 'workouts', target: 4, enabled: true },
-            settings.tracking.calories && { id: 'calories', icon: Flame, value: streaks.calories.daysInRow, label: 'calories', color: COLORS.accent, title: 'Calorie Goal', unit: 'kcal', target: nutritionGoals.calories || 2200, enabled: true },
-            settings.tracking.macros && { id: 'protein', icon: Target, value: streaks.protein.daysInRow, label: 'protein', color: COLORS.protein, title: 'Protein Goal', unit: 'g', target: nutritionGoals.protein || 150, enabled: true },
-            settings.tracking.water && { id: 'water', icon: Droplets, value: streaks.water.daysInRow, label: 'water', color: COLORS.water, title: 'Water Goal', unit: 'ml', target: nutritionGoals.water || 2500, enabled: true },
-            settings.tracking.sleep && { id: 'sleep', icon: Moon, value: streaks.sleep.daysInRow, label: 'sleep', color: COLORS.sleep, title: 'Sleep Goal', unit: 'hrs', target: 8, enabled: true },
-            settings.tracking.supplements && { id: 'supplements', icon: Zap, value: streaks.supplements.daysInRow, label: 'supps', color: COLORS.supplements, title: 'Supplements', unit: 'taken', target: 4, enabled: true },
-          ].filter(Boolean);
-
-          // Split into rows of 3
-          const firstRow = allStreakItems.slice(0, 3);
-          const secondRow = allStreakItems.slice(3, 6);
-
-          return (
-            <>
-              <div className="grid grid-cols-3 gap-2 mb-2">
-                {firstRow.map((s, i) => (
-                  <button key={s.id} onClick={() => setShowStreakCalendar(s)} className="p-3 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
-                    <s.icon size={20} color={s.color} className="mx-auto mb-1" />
-                    <p className="text-lg font-bold" style={{ color: COLORS.text }}>{s.value}</p>
-                    <p className="text-xs" style={{ color: COLORS.textMuted }}>{s.label}</p>
-                  </button>
-                ))}
-              </div>
-              {secondRow.length > 0 && (
-                <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(secondRow.length, 3)}, 1fr)` }}>
-                  {secondRow.map((s, i) => (
-                    <button key={s.id} onClick={() => setShowStreakCalendar(s)} className="p-3 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
-                      <s.icon size={20} color={s.color} className="mx-auto mb-1" />
-                      <p className="text-lg font-bold" style={{ color: COLORS.text }}>{s.value}</p>
-                      <p className="text-xs" style={{ color: COLORS.textMuted }}>{s.label}</p>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </>
-          );
-        })()}
-      </div>
-
-      {/* Following Activity Preview - only if social enabled */}
-      {socialEnabled && (
-        <>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold" style={{ color: COLORS.text }}>Following Activity</h3>
-            {friends.length > 0 && (
-              <button
-                onClick={() => setActiveTab('friends')}
-                className="text-xs flex items-center gap-1"
-                style={{ color: COLORS.primary }}
-              >
-                See All <ChevronRight size={14} />
-              </button>
-            )}
-          </div>
-          {friends.length === 0 ? (
-            <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
-              <div className="flex flex-col items-center justify-center py-4">
-                <Users size={40} color={COLORS.textMuted} style={{ opacity: 0.5 }} />
-                <p className="text-sm mt-3 font-medium" style={{ color: COLORS.text }}>Not following anyone yet</p>
-                <p className="text-xs text-center mt-1 mb-4" style={{ color: COLORS.textMuted }}>
-                  Follow users to see their workouts and stay motivated together
-                </p>
-                <button
-                  onClick={() => setActiveTab('friends')}
-                  className="px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2"
-                  style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
-                >
-                  <Search size={16} />
-                  Find Users
+              <div className="flex items-center gap-1">
+                <button onClick={() => setShowPausePlan(true)} className="p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }} title="Pause Plan">
+                  <Moon size={16} color={COLORS.textMuted} />
+                </button>
+                <button onClick={() => setShowReschedule(true)} className="p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }} title="Reschedule">
+                  <Calendar size={16} color={COLORS.textMuted} />
                 </button>
               </div>
             </div>
-          ) : (
-            <div className="space-y-2 mb-4">
-              {friends.slice(0, 3).map(friend => (
-                <button
-                  key={friend.id}
-                  onClick={() => setActiveTab('friends')}
-                  className="w-full p-3 rounded-xl flex items-center gap-3 text-left"
-                  style={{ backgroundColor: COLORS.surface }}
-                >
-                  <div
-                    className="w-10 h-10 rounded-full flex items-center justify-center text-lg flex-shrink-0"
-                    style={{ backgroundColor: COLORS.surfaceLight }}
-                  >
-                    {friend.avatar}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm" style={{ color: COLORS.text }}>{friend.name}</p>
-                    <p className="text-xs" style={{ color: COLORS.textMuted }}>
-                      {friend.streak > 0 ? `🔥 ${friend.streak} day streak` : 'No recent activity'}
-                    </p>
-                  </div>
-                  {friend.isOnline && (
-                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS.success }} />
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
-        </>
-      )}
 
-      {/* Streak Calendar Modal with detailed data */}
-      {showStreakCalendar && (() => {
-        const streak = showStreakCalendar;
-        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-        const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-        const getDaysInMonth = (month, year) => new Date(year, month + 1, 0).getDate();
-        const getFirstDayOfMonth = (month, year) => {
-          const day = new Date(year, month, 1).getDay();
-          return (day + 6) % 7; // Convert to Monday=0 based
-        };
-        const daysInMonth = getDaysInMonth(streakCalendarMonth, streakCalendarYear);
-        const firstDay = getFirstDayOfMonth(streakCalendarMonth, streakCalendarYear);
-        
-        // Streak data - empty until user logs data
-        const streakData = {};
-        const [selectedDay, setSelectedDay] = [selectedStreakDay, setSelectedStreakDay];
-        const isToday = (day) => day === today.getDate() && streakCalendarMonth === today.getMonth() && streakCalendarYear === today.getFullYear();
-        const isFuture = (day) => new Date(streakCalendarYear, streakCalendarMonth, day) > today;
-        const changeMonth = (delta) => {
-          let newMonth = streakCalendarMonth + delta;
-          let newYear = streakCalendarYear;
-          if (newMonth > 11) { newMonth = 0; newYear++; }
-          if (newMonth < 0) { newMonth = 11; newYear--; }
-          setStreakCalendarMonth(newMonth);
-          setStreakCalendarYear(newYear);
-        };
-        
-        const calendarDays = [];
-        for (let i = 0; i < firstDay; i++) calendarDays.push(null);
-        for (let i = 1; i <= daysInMonth; i++) calendarDays.push(i);
-        
-        const achievedCount = Object.values(streakData).filter(v => v.achieved).length;
-        const missedCount = Object.values(streakData).filter(v => v.achieved === false).length;
-        const avgPercent = Object.values(streakData).length > 0 
-          ? Math.round(Object.values(streakData).reduce((acc, v) => acc + (v.actual / v.target) * 100, 0) / Object.values(streakData).length)
-          : 0;
-
-        return (
-          <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
-            <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
-              <button onClick={() => { setShowStreakCalendar(null); setStreakCalendarMonth(currentMonth); setStreakCalendarYear(currentYear); setSelectedStreakDay(null); }}><ChevronLeft size={24} color={COLORS.text} /></button>
-              <streak.icon size={24} color={streak.color} />
-              <h2 className="text-lg font-bold" style={{ color: COLORS.text }}>{streak.title}</h2>
-            </div>
-            <div className="flex-1 overflow-auto p-4">
-              <div className="p-4 rounded-xl mb-4 text-center" style={{ backgroundColor: streak.color + '20' }}>
-                <p className="text-4xl font-bold mb-1" style={{ color: streak.color }}>{streak.value}</p>
-                <p style={{ color: COLORS.textSecondary }}>{streak.id === 'workouts' ? 'weeks in a row' : 'days in a row'}</p>
-              </div>
-              
-              {/* Calendar */}
-              <div className="rounded-xl p-4 mb-4" style={{ backgroundColor: COLORS.surface }}>
-                <div className="flex items-center justify-between mb-4">
-                  <button onClick={() => changeMonth(-1)} className="p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}><ChevronLeft size={20} color={COLORS.text} /></button>
-                  <h4 className="font-bold" style={{ color: COLORS.text }}>{monthNames[streakCalendarMonth]} {streakCalendarYear}</h4>
-                  <button onClick={() => changeMonth(1)} className="p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}><ChevronRight size={20} color={COLORS.text} /></button>
-                </div>
-                <div className="grid grid-cols-7 gap-1 mb-2">
-                  {dayNames.map(day => (<div key={day} className="text-center text-xs font-semibold py-1" style={{ color: COLORS.textMuted }}>{day}</div>))}
-                </div>
-                <div className="grid grid-cols-7 gap-1">
-                  {calendarDays.map((day, i) => {
-                    const dayData = streakData[day];
-                    const future = day && isFuture(day);
-                    const todayDate = isToday(day);
-                    const percent = dayData ? Math.round((dayData.actual / dayData.target) * 100) : 0;
-                    
-                    // Format display values with units
-                    const formatValue = (val, unit) => {
-                      if (unit === 'ml') return (val / 1000).toFixed(1) + 'L';
-                      if (unit === 'kcal') return (val / 1000).toFixed(1) + 'k';
-                      if (unit === 'g') return val + 'g';
-                      if (unit === 'hrs') return (typeof val === 'number' && val % 1 !== 0 ? val.toFixed(1) : val) + 'h';
-                      if (unit === 'taken' || unit === 'workouts') return val;
-                      return val;
-                    };
-                    
-                    const actualDisplay = dayData ? formatValue(dayData.actual, streak.unit) : '';
-                    const targetDisplay = dayData ? formatValue(dayData.target, streak.unit) : '';
-                    
-                    return (
-                      <button key={i} onClick={() => day && dayData && setSelectedDay(selectedDay === day ? null : day)} disabled={!day || future || !dayData}
-                        className="rounded-lg flex flex-col items-center justify-center font-medium relative p-1"
-                        style={{ 
-                          backgroundColor: !day ? 'transparent' : future ? 'transparent' : dayData?.achieved ? COLORS.success + '30' : dayData ? COLORS.error + '20' : 'transparent',
-                          border: todayDate ? `2px solid ${streak.color}` : selectedDay === day ? `2px solid ${COLORS.accent}` : '2px solid transparent',
-                          color: !day ? 'transparent' : future ? COLORS.textMuted : COLORS.text,
-                          opacity: !day ? 0 : future ? 0.4 : 1,
-                          minHeight: '70px'
-                        }}>
-                        <span className="text-xs" style={{ color: COLORS.textMuted }}>{day || ''}</span>
-                        {day && !future && dayData && (
-                          <>
-                            <span className="text-xs font-bold leading-tight" style={{ color: COLORS.text }}>{actualDisplay}/{targetDisplay}</span>
-                            <span className="text-xs" style={{ color: dayData.achieved ? COLORS.success : COLORS.error, fontSize: '9px' }}>{percent}% of goal</span>
-                          </>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-                <div className="flex items-center justify-center gap-4 mt-4 pt-3 border-t" style={{ borderColor: COLORS.surfaceLight }}>
-                  <div className="flex items-center gap-2"><div className="w-4 h-4 rounded" style={{ backgroundColor: COLORS.success + '30' }} /><span className="text-xs" style={{ color: COLORS.textMuted }}>≥100%</span></div>
-                  <div className="flex items-center gap-2"><div className="w-4 h-4 rounded" style={{ backgroundColor: COLORS.error + '20' }} /><span className="text-xs" style={{ color: COLORS.textMuted }}>&lt;100%</span></div>
-                </div>
-
-                {/* Empty state message */}
-                {Object.keys(streakData).length === 0 && (
-                  <div className="mt-4 p-3 rounded-lg text-center" style={{ backgroundColor: COLORS.surfaceLight }}>
-                    <p className="text-sm" style={{ color: COLORS.textMuted }}>
-                      No tracking data for this month yet.
-                    </p>
-                    <p className="text-xs mt-1" style={{ color: COLORS.textMuted }}>
-                      Data will appear here as you log your progress.
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Selected Day Detail */}
-              {selectedDay && streakData[selectedDay] && (
-                <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.accent + '15', border: `1px solid ${COLORS.accent}40` }}>
-                  <p className="text-sm font-semibold mb-2" style={{ color: COLORS.text }}>{monthNames[streakCalendarMonth]} {selectedDay}, {streakCalendarYear}</p>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs" style={{ color: COLORS.textMuted }}>Actual</p>
-                      <p className="text-xl font-bold" style={{ color: COLORS.text }}>{typeof streakData[selectedDay].actual === 'number' && streakData[selectedDay].actual % 1 !== 0 ? streakData[selectedDay].actual.toFixed(1) : streakData[selectedDay].actual} {streak.unit}</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-xs" style={{ color: COLORS.textMuted }}>Target</p>
-                      <p className="text-xl font-bold" style={{ color: COLORS.textMuted }}>{streakData[selectedDay].target} {streak.unit}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs" style={{ color: COLORS.textMuted }}>Achieved</p>
-                      <p className="text-xl font-bold" style={{ color: streakData[selectedDay].achieved ? COLORS.success : COLORS.error }}>
-                        {Math.round((streakData[selectedDay].actual / streakData[selectedDay].target) * 100)}%
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-              
-              {/* Stats Summary */}
-              <div className="grid grid-cols-3 gap-3">
-                <div className="p-4 rounded-xl text-center" style={{ backgroundColor: COLORS.success + '15' }}>
-                  <p className="text-2xl font-bold" style={{ color: COLORS.success }}>{achievedCount}</p>
-                  <p className="text-xs" style={{ color: COLORS.textSecondary }}>Days Hit</p>
-                </div>
-                <div className="p-4 rounded-xl text-center" style={{ backgroundColor: COLORS.error + '15' }}>
-                  <p className="text-2xl font-bold" style={{ color: COLORS.error }}>{missedCount}</p>
-                  <p className="text-xs" style={{ color: COLORS.textSecondary }}>Days Missed</p>
-                </div>
-                <div className="p-4 rounded-xl text-center" style={{ backgroundColor: streak.color + '15' }}>
-                  <p className="text-2xl font-bold" style={{ color: streak.color }}>{avgPercent}%</p>
-                  <p className="text-xs" style={{ color: COLORS.textSecondary }}>Avg</p>
-                </div>
-              </div>
-            </div>
-            <div className="p-4 border-t" style={{ borderColor: COLORS.surfaceLight }}>
-              <button onClick={() => { setShowStreakCalendar(null); setStreakCalendarMonth(currentMonth); setStreakCalendarYear(currentYear); setSelectedStreakDay(null); }} className="w-full py-4 rounded-xl font-semibold" style={{ backgroundColor: streak.color, color: COLORS.text }}>Close</button>
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* Today's Progress - only show if any nutrition tracking is enabled */}
-      {(settings.tracking.calories || settings.tracking.macros || settings.tracking.water) && (
-      <>
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="font-semibold" style={{ color: COLORS.text }}>Today's Progress</h3>
-        {adjustedNutritionGoals.isAdjusted && (
-          <span className="text-xs px-2 py-1 rounded-full" style={{ backgroundColor: COLORS.primary + '20', color: COLORS.primary }}>
-            Adjusted for deficits
-          </span>
-        )}
-      </div>
-      <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
-        {[
-          settings.tracking.calories && {
-            label: 'Calories',
-            current: caloriesIntake,
-            target: adjustedNutritionGoals.calories,
-            baseTarget: adjustedNutritionGoals.baseGoals?.calories || nutritionGoals.calories || 2200,
-            adjustment: adjustedNutritionGoals.adjustments?.calories || 0,
-            color: COLORS.accent,
-            type: 'meal',
-            trackingKey: 'calories'
-          },
-          settings.tracking.macros && {
-            label: 'Protein',
-            current: proteinIntake,
-            target: adjustedNutritionGoals.protein,
-            baseTarget: adjustedNutritionGoals.baseGoals?.protein || nutritionGoals.protein || 150,
-            adjustment: adjustedNutritionGoals.adjustments?.protein || 0,
-            unit: 'g',
-            color: COLORS.protein,
-            type: 'meal',
-            trackingKey: 'macros'
-          },
-          settings.tracking.water && {
-            label: 'Water',
-            current: waterIntake,
-            target: adjustedNutritionGoals.water,
-            baseTarget: adjustedNutritionGoals.baseGoals?.water || nutritionGoals.water || 2500,
-            adjustment: adjustedNutritionGoals.adjustments?.water || 0,
-            unit: 'ml',
-            color: COLORS.water,
-            type: 'water',
-            trackingKey: 'water'
-          },
-        ].filter(Boolean).map(item => {
-          const remaining = item.target - item.current;
-          const isComplete = item.current >= item.target;
-          return (
-            <div key={item.label} className="mb-4 last:mb-0">
-              <div 
-                className="flex justify-between mb-1 cursor-pointer"
-                onClick={() => item.type === 'water' ? setShowWaterEntry(true) : setShowMealEntry(true)}
-              >
-                <span className="flex items-center gap-1" style={{ color: COLORS.textSecondary }}>
-                  {item.label} <Plus size={12} />
-                </span>
-                <span style={{ color: isComplete ? COLORS.success : COLORS.text }}>
-                  {item.current}{item.unit || ''} / {item.target}{item.unit || ''}
-                </span>
-              </div>
-              <div 
-                className="h-3 rounded-full overflow-hidden mb-1 cursor-pointer" 
-                style={{ backgroundColor: COLORS.surfaceLight }}
-                onClick={() => item.type === 'water' ? setShowWaterEntry(true) : setShowMealEntry(true)}
-              >
-                <div className="h-full rounded-full" style={{ backgroundColor: item.color, width: `${Math.min((item.current / item.target) * 100, 100)}%` }} />
-              </div>
-              <div className="flex justify-between items-center">
-                <p className="text-xs" style={{ color: isComplete ? COLORS.success : item.color }}>
-                  {isComplete ? '✓ Goal reached!' : `${remaining}${item.unit || ''} to go`}
-                </p>
-                {item.adjustment > 0 && (
-                  <p className="text-xs" style={{ color: COLORS.primary }}>
-                    +{item.adjustment}{item.unit || ''} catch-up
-                  </p>
-                )}
-              </div>
-              {item.type === 'water' && (
-                <div className="flex gap-2 mt-2">
-                  {[
-                    { label: '1 Cup', amount: 250 },
-                    { label: '500ml', amount: 500 },
-                    { label: '1L', amount: 1000 },
-                  ].map(btn => (
-                    <button
-                      key={btn.label}
-                      onClick={() => setWaterIntake(prev => Math.min(prev + btn.amount, 5000))}
-                      className="flex-1 py-2 rounded-lg text-xs font-semibold"
-                      style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.water }}
-                    >
-                      + {btn.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-      </>
-      )}
-
-      {/* Meal Entry Modal */}
-      {showMealEntry && (
-        <MealEntryModal 
-          COLORS={COLORS}
-          onClose={() => setShowMealEntry(false)}
-          onSave={(calories, protein) => {
-            setCaloriesIntake(prev => prev + calories);
-            setProteinIntake(prev => prev + protein);
-            setShowMealEntry(false);
-          }}
-        />
-      )}
-
-      {/* Water Entry Modal */}
-      {showWaterEntry && (
-        <WaterEntryModal 
-          COLORS={COLORS}
-          onClose={() => setShowWaterEntry(false)}
-          onSave={(amount) => {
-            setWaterIntake(prev => Math.min(prev + amount, 10000));
-            setShowWaterEntry(false);
-          }}
-        />
-      )}
-
-      <div className="mb-4">
-        <div className="flex justify-between items-center mb-3">
-          <h3 className="font-semibold" style={{ color: COLORS.text }}>Today's Workout</h3>
-          <div className="flex gap-2">
-            {!isPaused ? (
-              <button onClick={() => setShowPausePlan(true)} className="text-sm px-2 py-1 rounded flex items-center gap-1"
-                style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.textSecondary }}>
-                <Moon size={14} /> Pause
-              </button>
-            ) : (
-              <button onClick={() => { setIsPaused(false); setPauseReturnDate(null); setTodayWorkout({ type: todayWorkoutTemplate?.name?.replace(' Day ', ' ').replace('Day ', '') || 'Workout', name: todayWorkoutTemplate?.name || 'Workout', focus: todayWorkoutTemplate?.focus || '', exercises: todayWorkoutTemplate?.exercises?.length || 5, duration: 60 }); }}
-                className="text-sm px-2 py-1 rounded flex items-center gap-1"
-                style={{ backgroundColor: COLORS.warning, color: COLORS.background }}>
-                <Play size={14} /> Resume
-              </button>
-            )}
-            {todayWorkout.type !== 'Rest' && todayWorkout.type !== 'Skipped' && !isPaused && (
-              <button onClick={() => setShowReschedule(true)} className="text-sm px-2 py-1 rounded flex items-center gap-1"
-                style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.textSecondary }}>
-                <Calendar size={14} /> Reschedule
-              </button>
-            )}
-            <button onClick={() => setShowReportInjury(true)} className="text-sm px-2 py-1 rounded flex items-center gap-1"
-              style={{ backgroundColor: injuries.length > 0 ? COLORS.warning + '20' : COLORS.surfaceLight, color: injuries.length > 0 ? COLORS.warning : COLORS.textSecondary }}>
-              <Heart size={14} /> {injuries.length > 0 ? `${injuries.length} Injury` : 'Injury'}
-            </button>
-          </div>
-        </div>
-        
-        {/* Paused Card */}
-        {isPaused && (
-          <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface, borderLeft: `4px solid ${COLORS.warning}` }}>
-            <div className="flex justify-between items-center mb-2">
-              <span className="px-2 py-1 rounded text-xs font-semibold" style={{ backgroundColor: COLORS.warning + '20', color: COLORS.warning }}>PAUSED</span>
-            </div>
-            <div className="flex items-center gap-3 mb-3">
-              <span className="text-4xl">🏖️</span>
-              <div>
-                <h4 className="text-lg font-bold" style={{ color: COLORS.text }}>Enjoying Your Break</h4>
-                <p className="text-sm" style={{ color: COLORS.textSecondary }}>
-                  Plan resumes {pauseReturnDate ? new Date(pauseReturnDate).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }) : 'soon'}
-                </p>
-              </div>
-            </div>
-            <button onClick={() => { setIsPaused(false); setPauseReturnDate(null); setTodayWorkout({ type: todayWorkoutTemplate?.name?.replace(' Day ', ' ').replace('Day ', '') || 'Workout', name: todayWorkoutTemplate?.name || 'Workout', focus: todayWorkoutTemplate?.focus || '', exercises: todayWorkoutTemplate?.exercises?.length || 5, duration: 60 }); }}
-              className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
-              style={{ backgroundColor: COLORS.warning, color: COLORS.background }}>
-              Resume Plan Early <Play size={16} />
-            </button>
-          </div>
-        )}
-        
-        {/* Rest Day Card */}
-        {!isPaused && todayWorkout.type === 'Rest' && (
-          <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface, borderLeft: `4px solid ${COLORS.textMuted}` }}>
-            <div className="flex justify-between items-center mb-2">
-              <span className="px-2 py-1 rounded text-xs font-semibold" style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.textMuted }}>REST DAY</span>
-            </div>
-            <div className="flex items-center gap-3 mb-3">
-              <span className="text-4xl">😴</span>
-              <div>
-                <h4 className="text-lg font-bold" style={{ color: COLORS.text }}>Rest Day</h4>
-                <p className="text-sm" style={{ color: COLORS.textSecondary }}>Recovery is part of progress</p>
-              </div>
-            </div>
-            <div className="p-3 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
-              <p className="text-sm" style={{ color: COLORS.textSecondary }}>
-                💡 <strong style={{ color: COLORS.text }}>Tip:</strong> Focus on stretching, mobility work, or light walking today. Your muscles grow during rest!
-              </p>
-            </div>
-          </div>
-        )}
-        
-        {/* Skipped Workout Card */}
-        {!isPaused && todayWorkout.type === 'Skipped' && (
-          <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface, borderLeft: `4px solid ${COLORS.error}` }}>
-            <div className="flex justify-between items-center mb-2">
-              <span className="px-2 py-1 rounded text-xs font-semibold" style={{ backgroundColor: COLORS.error + '20', color: COLORS.error }}>SKIPPED</span>
-            </div>
-            <div className="flex items-center gap-3 mb-3">
-              <span className="text-4xl">⏭️</span>
-              <div>
-                <h4 className="text-lg font-bold" style={{ color: COLORS.text }}>Workout Skipped</h4>
-                <p className="text-sm" style={{ color: COLORS.textSecondary }}>No workout scheduled for today</p>
-              </div>
-            </div>
-            <button onClick={() => { setTodayWorkout({ type: todayWorkoutTemplate?.name?.replace(' Day ', ' ').replace('Day ', '') || 'Workout', name: todayWorkoutTemplate?.name || 'Workout', focus: todayWorkoutTemplate?.focus || '', exercises: todayWorkoutTemplate?.exercises?.length || 5, duration: 60 }); setIsRescheduled(false); setOriginalWorkout(null); }} 
-              className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
-              style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text }}>
-              Undo Skip
-            </button>
-          </div>
-        )}
-        
-        {/* Workout Day Card - Completed State */}
-        {!isPaused && todayWorkout.type !== 'Rest' && todayWorkout.type !== 'Skipped' && todayWorkoutCompleted && (
-          <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface, borderLeft: `4px solid ${COLORS.success}` }}>
-            <div className="flex justify-between items-start mb-3">
-              <div>
-                <span className="text-xs px-2 py-1 rounded font-semibold flex items-center gap-1"
-                  style={{ backgroundColor: COLORS.success + '20', color: COLORS.success }}>
-                  <Check size={12} /> COMPLETED
-                </span>
-                <h4 className="text-xl font-bold mt-2" style={{ color: COLORS.text }}>{todayWorkout.name}</h4>
-                <p className="text-sm" style={{ color: COLORS.success }}>Great work today!</p>
-              </div>
-              <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.success + '20' }}>
-                <Check size={24} color={COLORS.success} />
-              </div>
-            </div>
-            <div className="p-3 rounded-lg" style={{ backgroundColor: COLORS.success + '10' }}>
-              <p className="text-sm text-center" style={{ color: COLORS.success }}>
-                You've crushed your workout for today. Rest up and come back stronger tomorrow!
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Workout Day Card - Not Completed */}
-        {!isPaused && todayWorkout.type !== 'Rest' && todayWorkout.type !== 'Skipped' && !todayWorkoutCompleted && (
-          <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface, borderLeft: `4px solid ${getWorkoutColor(todayWorkout.type, COLORS)}` }}>
-            <div className="flex justify-between items-start mb-3">
-              <div>
-                <span className="text-xs px-2 py-1 rounded font-semibold"
-                  style={{ backgroundColor: getWorkoutColor(todayWorkout.type, COLORS) + '20', color: getWorkoutColor(todayWorkout.type, COLORS) }}>
-                  TODAY
-                </span>
-                <h4 className="text-xl font-bold mt-2" style={{ color: COLORS.text }}>{todayWorkout.name}</h4>
-                <p className="text-sm" style={{ color: getWorkoutColor(todayWorkout.type, COLORS) }}>{todayWorkout.focus}</p>
-              </div>
-              <button
-                onClick={() => todayWorkoutTemplate && setShowWorkoutPreview(todayWorkoutTemplate)}
-                className="p-2 rounded-lg"
-                style={{ backgroundColor: COLORS.surfaceLight }}
-              >
-                <Eye size={18} color={COLORS.textMuted} />
-              </button>
-            </div>
-
-            {/* Workout Explanation */}
-            {todayWorkoutTemplate?.description && (
-              <div className="mb-3 p-3 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
-                <p className="text-xs leading-relaxed" style={{ color: COLORS.textSecondary }}>
-                  {todayWorkoutTemplate.description}
-                </p>
-                {todayWorkoutTemplate.hasCardio && (
-                  <p className="text-xs mt-1 font-medium" style={{ color: COLORS.primary }}>
-                    Includes cardio finisher for your weight loss goal
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Injury Adaptation Notice */}
-            {injuries.length > 0 && (() => {
-              const affectedMuscles = injuries.map(i => i.muscleGroup);
-              const recoveryExercises = getInjuryRecoveryExercisesToAdd();
-              return (
-                <div className="mb-3 p-3 rounded-lg" style={{ backgroundColor: COLORS.warning + '15', border: `1px solid ${COLORS.warning}30` }}>
-                  <div className="flex items-start gap-2">
-                    <span className="text-lg">🩹</span>
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold mb-1" style={{ color: COLORS.text }}>Workout Adapted for Recovery</p>
-                      <p className="text-xs mb-2" style={{ color: COLORS.textSecondary }}>
-                        Exercises targeting {affectedMuscles.join(', ')} will be skipped. {recoveryExercises.length > 0 ? `${recoveryExercises.length} rehab exercise${recoveryExercises.length > 1 ? 's' : ''} added.` : ''}
-                      </p>
-                      {recoveryExercises.length > 0 && (
-                        <div className="flex flex-wrap gap-1">
-                          {recoveryExercises.map((ex, i) => (
-                            <span key={i} className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: COLORS.success + '20', color: COLORS.success }}>
-                              + {ex.name}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => setShowInjuryRecovery(injuries[0])}
-                      className="text-xs underline"
-                      style={{ color: COLORS.warning }}
-                    >
-                      View Plan
-                    </button>
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* Time Editor */}
+            {/* Time Editor Toggle */}
             <button
-              onClick={() => setShowTimeEditor(!showTimeEditor)}
+              onClick={() => setShowWorkoutTimeEditor(!showWorkoutTimeEditor)}
               className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg w-full justify-between"
               style={{ backgroundColor: COLORS.surfaceLight }}
             >
               <div className="flex items-center gap-2">
-                <Clock size={16} color={COLORS.textSecondary} />
+                <Clock size={14} color={COLORS.textSecondary} />
                 <span className="text-sm" style={{ color: COLORS.textSecondary }}>
                   {workoutTime} min • {customExerciseCount || Math.max(2, Math.floor(workoutTime / 12))} exercises
                 </span>
               </div>
-              <ChevronDown size={16} color={COLORS.textMuted} style={{ transform: showTimeEditor ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+              <ChevronDown size={14} color={COLORS.textMuted} style={{ transform: showWorkoutTimeEditor ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
             </button>
 
-            {showTimeEditor && (() => {
+            {/* Expanded Time Editor */}
+            {showWorkoutTimeEditor && (() => {
               const defaultExerciseCount = Math.max(2, Math.floor(workoutTime / 12));
               const exerciseCount = customExerciseCount || defaultExerciseCount;
               const allExercises = getCurrentExercises();
               const fullPool = todayWorkoutTemplate?.exercises || allExercises;
-              // Min: 2 exercises, Max: pool size or time-based max (allowing more exercises with less rest)
               const minExercises = 2;
-              const maxExercises = Math.min(fullPool.length, Math.floor(workoutTime / 5)); // ~5min minimum per exercise
-              // Optimize exercises for the selected time AND count
+              const maxExercises = Math.min(fullPool.length, Math.floor(workoutTime / 5));
               const workoutTypeForCoverage = todayWorkoutTemplate?.workoutType || todayWorkout?.type || null;
-              const exercisesForTime = optimizeExercisesForTimeAndCount(allExercises, fullPool, workoutTime, exerciseCount, workoutTypeForCoverage);
+              const exercisesForTime = optimizeExercisesForTimeAndCount(allExercises, fullPool, workoutTime, exerciseCount, workoutTypeForCoverage, settings.workout.corePosition);
               const timeBreakdown = getWorkoutTimeBreakdown(exercisesForTime);
-              const totalSetsPreview = exercisesForTime.reduce((acc, ex) => acc + (ex.sets || 3), 0);
-
-              const handleDecreaseExercises = () => {
-                const newCount = Math.max(minExercises, exerciseCount - 1);
-                setCustomExerciseCount(newCount === defaultExerciseCount ? null : newCount);
-              };
-
-              const handleIncreaseExercises = () => {
-                const newCount = Math.min(maxExercises, exerciseCount + 1);
-                setCustomExerciseCount(newCount === defaultExerciseCount ? null : newCount);
-              };
 
               return (
-                <div className="mb-4 p-3 rounded-lg" style={{ backgroundColor: COLORS.background }}>
+                <div className="mb-3 p-3 rounded-lg" style={{ backgroundColor: COLORS.background }}>
                   <p className="text-xs mb-2" style={{ color: COLORS.textMuted }}>How much time do you have?</p>
-                  <div className="grid grid-cols-6 gap-2 mb-3">
+                  <div className="grid grid-cols-6 gap-1.5 mb-3">
                     {[20, 30, 45, 60, 75, 90].map(time => (
                       <button
                         key={time}
-                        onClick={() => {
-                          setWorkoutTime(time);
-                          setCustomExerciseCount(null); // Reset to default when time changes
-                        }}
-                        className="py-2 rounded-lg text-sm font-semibold"
+                        onClick={() => setWorkoutTime(time)}
+                        className="py-1.5 rounded-lg text-xs font-semibold"
                         style={{
                           backgroundColor: workoutTime === time ? COLORS.primary : COLORS.surface,
                           color: workoutTime === time ? COLORS.text : COLORS.textMuted
@@ -11432,86 +10642,72 @@ export default function UpRepDemo() {
                     ))}
                   </div>
 
-                  {/* Exercise Count Adjuster */}
+                  {/* Exercise Count */}
                   <div className="flex items-center justify-between mb-3 p-2 rounded-lg" style={{ backgroundColor: COLORS.surface }}>
-                    <span className="text-sm" style={{ color: COLORS.textSecondary }}>Number of exercises</span>
+                    <span className="text-xs" style={{ color: COLORS.textSecondary }}>Exercises</span>
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={handleDecreaseExercises}
+                        onClick={() => {
+                          const newCount = Math.max(minExercises, exerciseCount - 1);
+                          setCustomExerciseCount(newCount === defaultExerciseCount ? null : newCount);
+                        }}
                         disabled={exerciseCount <= minExercises}
-                        className="w-8 h-8 rounded-full flex items-center justify-center"
+                        className="w-7 h-7 rounded-full flex items-center justify-center"
                         style={{
                           backgroundColor: exerciseCount <= minExercises ? COLORS.surfaceLight : COLORS.primary + '20',
-                          color: exerciseCount <= minExercises ? COLORS.textMuted : COLORS.primary,
                           opacity: exerciseCount <= minExercises ? 0.5 : 1
                         }}
                       >
-                        <Minus size={16} />
+                        <Minus size={14} color={exerciseCount <= minExercises ? COLORS.textMuted : COLORS.primary} />
                       </button>
-                      <span className="text-lg font-bold w-8 text-center" style={{ color: COLORS.text }}>
-                        {exerciseCount}
-                      </span>
+                      <span className="text-sm font-bold w-6 text-center" style={{ color: COLORS.text }}>{exerciseCount}</span>
                       <button
-                        onClick={handleIncreaseExercises}
+                        onClick={() => {
+                          const newCount = Math.min(maxExercises, exerciseCount + 1);
+                          setCustomExerciseCount(newCount === defaultExerciseCount ? null : newCount);
+                        }}
                         disabled={exerciseCount >= maxExercises}
-                        className="w-8 h-8 rounded-full flex items-center justify-center"
+                        className="w-7 h-7 rounded-full flex items-center justify-center"
                         style={{
                           backgroundColor: exerciseCount >= maxExercises ? COLORS.surfaceLight : COLORS.primary + '20',
-                          color: exerciseCount >= maxExercises ? COLORS.textMuted : COLORS.primary,
                           opacity: exerciseCount >= maxExercises ? 0.5 : 1
                         }}
                       >
-                        <Plus size={16} />
+                        <Plus size={14} color={exerciseCount >= maxExercises ? COLORS.textMuted : COLORS.primary} />
                       </button>
                     </div>
                   </div>
-                  {customExerciseCount && customExerciseCount !== defaultExerciseCount && (
-                    <p className="text-xs text-center mb-2" style={{ color: COLORS.warning }}>
-                      {customExerciseCount > defaultExerciseCount
-                        ? 'More exercises = shorter rest periods'
-                        : 'Fewer exercises = longer rest periods & more sets'}
-                    </p>
-                  )}
 
-                  {/* Time Breakdown Summary */}
-                  <div className="grid grid-cols-3 gap-2 mb-2">
+                  {/* Time Breakdown */}
+                  <div className="grid grid-cols-3 gap-2 mb-3">
                     <div className="p-2 rounded-lg text-center" style={{ backgroundColor: COLORS.primary + '15' }}>
-                      <p className="text-sm font-bold" style={{ color: COLORS.primary }}>
-                        {Math.floor(timeBreakdown.workingTime / 60)}m
-                      </p>
-                      <p className="text-xs" style={{ color: COLORS.textMuted }}>Working</p>
+                      <p className="text-xs font-bold" style={{ color: COLORS.primary }}>{Math.floor(timeBreakdown.workingTime / 60)}m</p>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>Work</p>
                     </div>
                     <div className="p-2 rounded-lg text-center" style={{ backgroundColor: COLORS.warning + '15' }}>
-                      <p className="text-sm font-bold" style={{ color: COLORS.warning }}>
-                        {Math.floor(timeBreakdown.restTime / 60)}m
-                      </p>
+                      <p className="text-xs font-bold" style={{ color: COLORS.warning }}>{Math.floor(timeBreakdown.restTime / 60)}m</p>
                       <p className="text-xs" style={{ color: COLORS.textMuted }}>Rest</p>
                     </div>
                     <div className="p-2 rounded-lg text-center" style={{ backgroundColor: COLORS.success + '15' }}>
-                      <p className="text-sm font-bold" style={{ color: COLORS.success }}>
-                        ~{Math.round(timeBreakdown.totalTime / 60)}m
-                      </p>
+                      <p className="text-xs font-bold" style={{ color: COLORS.success }}>~{Math.round(timeBreakdown.totalTime / 60)}m</p>
                       <p className="text-xs" style={{ color: COLORS.textMuted }}>Total</p>
                     </div>
                   </div>
-                  <p className="text-xs text-center mb-3" style={{ color: COLORS.textMuted }}>
-                    Rest time evenly distributed between all sets
-                  </p>
 
-                  {/* Exercise Overview - Collapsible */}
+                  {/* Exercise List Toggle */}
                   <div className="border-t pt-3" style={{ borderColor: COLORS.surfaceLight }}>
                     <button
-                      onClick={toggleExerciseListWithScroll}
+                      onClick={() => setExerciseListCollapsed(!exerciseListCollapsed)}
                       className="w-full flex items-center justify-between mb-2"
                     >
                       <div className="flex items-center gap-2">
                         <ChevronDown
-                          size={16}
+                          size={14}
                           color={COLORS.textMuted}
                           style={{ transform: exerciseListCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}
                         />
                         <p className="text-xs font-semibold" style={{ color: COLORS.textMuted }}>
-                          {exercisesForTime.length} EXERCISES • {totalSetsPreview} SETS
+                          {exercisesForTime.length} EXERCISES • {exercisesForTime.reduce((acc, ex) => acc + (ex.sets || 3), 0)} SETS
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
@@ -11535,694 +10731,515 @@ export default function UpRepDemo() {
                     </button>
 
                     {!exerciseListCollapsed && (
-                      <>
-                        {/* Warm-up Preview */}
-                        <div className="p-2 rounded-lg mb-2" style={{ backgroundColor: COLORS.warning + '10', border: `1px solid ${COLORS.warning}20` }}>
-                          <div className="flex items-center gap-2">
-                            <span className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold" style={{ backgroundColor: COLORS.warning + '20', color: COLORS.warning }}>W</span>
-                            <span className="text-xs font-medium" style={{ color: COLORS.warning }}>Warm-up</span>
-                            <span className="text-xs ml-auto" style={{ color: COLORS.textMuted }}>3 min</span>
-                          </div>
-                        </div>
+                      <div className="space-y-1.5">
+                        {exercisesForTime.map((exercise, i) => {
+                          const isExpanded = expandedExerciseId === exercise.id;
+                          const originalIndex = allExercises.findIndex(ex => ex.id === exercise.id);
 
-                        <div className="space-y-2">
-                          {exercisesForTime.map((exercise, i) => {
-                        const isExpanded = expandedExerciseId === exercise.id;
-                        const originalIndex = allExercises.findIndex(ex => ex.id === exercise.id);
-                        const isSuperset = exercise.supersetId;
-                        const isFirstInSuperset = isSuperset && exercise.supersetOrder === 1;
-                        const isSecondInSuperset = isSuperset && exercise.supersetOrder === 2;
-
-                        return (
-                          <div key={exercise.id}>
-                            {/* Superset header - show before first exercise in superset */}
-                            {isFirstInSuperset && (
-                              <div className="flex items-center gap-2 mb-1 px-1">
-                                <Zap size={12} color={COLORS.warning} />
-                                <span className="text-xs font-semibold" style={{ color: COLORS.warning }}>SUPERSET</span>
-                              </div>
-                            )}
-                            <div
-                              className="rounded-lg overflow-hidden"
-                              style={{
-                                backgroundColor: COLORS.surface,
-                                ...(isSuperset && {
-                                  borderLeft: `3px solid ${COLORS.warning}`,
-                                  borderRadius: isFirstInSuperset ? '8px 8px 0 0' : isSecondInSuperset ? '0 0 8px 8px' : '8px',
-                                  marginTop: isSecondInSuperset ? '-2px' : 0
-                                })
-                              }}
-                            >
-                            <button
-                              onClick={() => toggleExpandedExercise(exercise.id)}
-                              className="w-full flex items-center justify-between p-2"
-                            >
-                              <div className="flex items-center gap-2">
-                                <div
-                                  className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
-                                  style={{ backgroundColor: getWorkoutColor(todayWorkout.type, COLORS) + '20', color: getWorkoutColor(todayWorkout.type, COLORS) }}
-                                >
-                                  {i + 1}
-                                </div>
-                                <div className="text-left">
-                                  <div className="flex items-center gap-1">
-                                    <p className="text-sm font-medium" style={{ color: COLORS.text }}>{exercise.name}</p>
-                                    <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); showExerciseInfoWithScroll(exercise.name); }} className="p-0.5 rounded-full" style={{ backgroundColor: COLORS.primary + '20' }}><Info size={12} color={COLORS.primary} /></button>
-                                  </div>
-                                  <p className="text-xs" style={{ color: COLORS.textMuted }}>
-                                    {['experienced', 'expert'].includes(userData.experience) && exercise.targetedHeads && exercise.targetedHeads.length > 0
-                                      ? exercise.targetedHeads.join(', ')
-                                      : exercise.muscleGroup}
-                                    {isSuperset && <span style={{ color: COLORS.warning }}> — {exercise.supersetWith}</span>}
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <div className="text-right">
-                                  <p className="text-sm font-semibold" style={{ color: COLORS.text }}>{exercise.sets}×{exercise.targetReps}</p>
-                                  <div className="flex items-center gap-1">
-                                    {exerciseHistory[exercise.name] ? (
-                                      <span className="text-xs" style={{ color: COLORS.primary }}>
-                                        Last: {exerciseHistory[exercise.name].lastWeight}kg × {exerciseHistory[exercise.name].lastReps}
-                                      </span>
-                                    ) : (
-                                      <span className="text-xs" style={{ color: COLORS.textMuted }}>{exercise.suggestedWeight || 0}kg</span>
-                                    )}
-                                    {isSuperset && exercise.restTime === 0 ? (
-                                      <span className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: COLORS.warning + '15', color: COLORS.warning }}>
-                                        No rest
-                                      </span>
-                                    ) : (
-                                      <span className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: COLORS.warning + '15', color: COLORS.warning }}>
-                                        {Math.floor((exercise.restTime || 90) / 60)}:{((exercise.restTime || 90) % 60).toString().padStart(2, '0')} rest
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                                <ChevronDown
-                                  size={16}
-                                  color={COLORS.textMuted}
-                                  style={{ transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
-                                />
-                              </div>
-                            </button>
-
-                            {/* Expanded Options */}
-                            {isExpanded && (
-                              <div className="px-2 pb-2 pt-1 border-t" style={{ borderColor: COLORS.surfaceLight }}>
-                                {/* Reorder buttons */}
-                                <div className="flex gap-2 mb-2">
-                                  <button
-                                    onClick={() => moveExerciseInHome(exercise.id, 'up')}
-                                    disabled={i === 0}
-                                    className="flex-1 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
-                                    style={{
-                                      backgroundColor: COLORS.surfaceLight,
-                                      color: i === 0 ? COLORS.textMuted : COLORS.text,
-                                      opacity: i === 0 ? 0.5 : 1
-                                    }}
-                                  >
-                                    <ChevronUp size={14} />
-                                    Move Up
-                                  </button>
-                                  <button
-                                    onClick={() => moveExerciseInHome(exercise.id, 'down')}
-                                    disabled={i === exercisesForTime.length - 1}
-                                    className="flex-1 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
-                                    style={{
-                                      backgroundColor: COLORS.surfaceLight,
-                                      color: i === exercisesForTime.length - 1 ? COLORS.textMuted : COLORS.text,
-                                      opacity: i === exercisesForTime.length - 1 ? 0.5 : 1
-                                    }}
-                                  >
-                                    <ChevronDown size={14} />
-                                    Move Down
-                                  </button>
-                                </div>
-                                <div className="flex gap-2">
-                                  <button
-                                    onClick={() => swapExercise(originalIndex)}
-                                    className="flex-1 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
+                          return (
+                            <div key={exercise.id} className="rounded-lg overflow-hidden" style={{ backgroundColor: COLORS.surface }}>
+                              <button
+                                onClick={() => setExpandedExerciseId(isExpanded ? null : exercise.id)}
+                                className="w-full flex items-center justify-between p-2"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <div
+                                    className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold"
                                     style={{ backgroundColor: COLORS.primary + '20', color: COLORS.primary }}
                                   >
-                                    <ArrowLeftRight size={14} />
-                                    Swap Exercise
-                                  </button>
-                                  <button
-                                    onClick={() => removeExercise(originalIndex)}
-                                    disabled={allExercises.length <= 2}
-                                    className="flex-1 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
-                                    style={{
-                                      backgroundColor: allExercises.length <= 2 ? COLORS.surfaceLight : COLORS.error + '20',
-                                      color: allExercises.length <= 2 ? COLORS.textMuted : COLORS.error,
-                                      opacity: allExercises.length <= 2 ? 0.5 : 1
-                                    }}
-                                  >
-                                    <X size={14} />
-                                    Remove
-                                  </button>
+                                    {i + 1}
+                                  </div>
+                                  <div className="text-left">
+                                    <div className="flex items-center gap-1">
+                                      <p className="text-xs font-medium" style={{ color: COLORS.text }}>{exercise.name}</p>
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); setShowExerciseInfo(exercise.name); }}
+                                        className="p-0.5 rounded-full"
+                                        style={{ backgroundColor: COLORS.primary + '20' }}
+                                      >
+                                        <Info size={10} color={COLORS.primary} />
+                                      </button>
+                                    </div>
+                                    <p className="text-xs" style={{ color: COLORS.textMuted }}>{exercise.muscleGroup}</p>
+                                  </div>
                                 </div>
-                                {allExercises.length <= 2 && (
-                                  <p className="text-xs text-center mt-2" style={{ color: COLORS.textMuted }}>
-                                    Minimum 2 exercises required
-                                  </p>
-                                )}
-                                <p className="text-xs text-center mt-2" style={{ color: COLORS.textMuted }}>
-                                  Removing adds sets to remaining exercises
-                                </p>
-                              </div>
-                            )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                        </div>
-                        {allExercises.length > exerciseCount && (
-                          <p className="text-xs text-center mt-2" style={{ color: COLORS.textMuted }}>
-                            +{allExercises.length - exerciseCount} more exercises with more time
-                          </p>
-                        )}
+                                <div className="flex items-center gap-2">
+                                  <div className="text-right">
+                                    <p className="text-xs font-semibold" style={{ color: COLORS.text }}>{exercise.sets}×{exercise.targetReps}</p>
+                                    <div className="flex items-center gap-1">
+                                      <p className="text-xs" style={{ color: COLORS.textMuted }}>{exercise.suggestedWeight}kg</p>
+                                      <span className="text-xs px-1 py-0.5 rounded" style={{ backgroundColor: COLORS.warning + '15', color: COLORS.warning }}>
+                                        {Math.floor((exercise.restTime || 90) / 60)}:{((exercise.restTime || 90) % 60).toString().padStart(2, '0')}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <ChevronDown
+                                    size={14}
+                                    color={COLORS.textMuted}
+                                    style={{ transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
+                                  />
+                                </div>
+                              </button>
 
-                        {/* Cool-down Preview */}
-                        <div className="p-2 rounded-lg mt-2" style={{ backgroundColor: COLORS.info + '10', border: `1px solid ${COLORS.info}20` }}>
-                          <div className="flex items-center gap-2">
-                            <span className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold" style={{ backgroundColor: COLORS.info + '20', color: COLORS.info }}>C</span>
-                            <span className="text-xs font-medium" style={{ color: COLORS.info }}>Cool-down</span>
-                            <span className="text-xs ml-auto" style={{ color: COLORS.textMuted }}>2 min</span>
-                          </div>
-                        </div>
-                      </>
+                              {/* Expanded Options */}
+                              {isExpanded && (
+                                <div className="px-2 pb-2 pt-1 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+                                  <div className="flex gap-2 mb-2">
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); moveExerciseInHome(exercise.id, 'up'); }}
+                                      disabled={i === 0}
+                                      className="flex-1 py-1.5 rounded-lg text-xs font-medium flex items-center justify-center gap-1"
+                                      style={{
+                                        backgroundColor: COLORS.surfaceLight,
+                                        color: i === 0 ? COLORS.textMuted : COLORS.text,
+                                        opacity: i === 0 ? 0.5 : 1
+                                      }}
+                                    >
+                                      <ChevronUp size={12} /> Up
+                                    </button>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); moveExerciseInHome(exercise.id, 'down'); }}
+                                      disabled={i === exercisesForTime.length - 1}
+                                      className="flex-1 py-1.5 rounded-lg text-xs font-medium flex items-center justify-center gap-1"
+                                      style={{
+                                        backgroundColor: COLORS.surfaceLight,
+                                        color: i === exercisesForTime.length - 1 ? COLORS.textMuted : COLORS.text,
+                                        opacity: i === exercisesForTime.length - 1 ? 0.5 : 1
+                                      }}
+                                    >
+                                      <ChevronDown size={12} /> Down
+                                    </button>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={() => swapExercise(originalIndex)}
+                                      className="flex-1 py-1.5 rounded-lg text-xs font-medium flex items-center justify-center gap-1"
+                                      style={{ backgroundColor: COLORS.primary + '20', color: COLORS.primary }}
+                                    >
+                                      <ArrowLeftRight size={12} /> Swap
+                                    </button>
+                                    <button
+                                      onClick={() => removeExercise(originalIndex)}
+                                      disabled={allExercises.length <= 2}
+                                      className="flex-1 py-1.5 rounded-lg text-xs font-medium flex items-center justify-center gap-1"
+                                      style={{
+                                        backgroundColor: allExercises.length <= 2 ? COLORS.surfaceLight : COLORS.error + '20',
+                                        color: allExercises.length <= 2 ? COLORS.textMuted : COLORS.error,
+                                        opacity: allExercises.length <= 2 ? 0.5 : 1
+                                      }}
+                                    >
+                                      <X size={12} /> Remove
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                     )}
                   </div>
                 </div>
               );
             })()}
 
-            <button onClick={() => setShowActiveWorkout(true)} className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
-              style={{ backgroundColor: getWorkoutColor(todayWorkout.type, COLORS), color: COLORS.text }}>
-              Start Workout <Play size={16} />
+            <button onClick={() => setShowActiveWorkout(true)} className="w-full py-3 rounded-xl font-semibold" style={{ backgroundColor: COLORS.primary, color: COLORS.text }}>
+              Start Workout
             </button>
-          </div>
+          </>
         )}
       </div>
 
-      {/* Sleep Section */}
-      {settings.tracking.sleep && (
-      <>
-      <h3 className="font-semibold mb-3" style={{ color: COLORS.text }}>Sleep</h3>
-      <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
-        {/* Last Night */}
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-xs font-semibold" style={{ color: COLORS.textMuted }}>LAST NIGHT</p>
-          {lastNightConfirmed && (
-            <span className="text-xs px-2 py-1 rounded-full flex items-center gap-1" style={{ backgroundColor: COLORS.success + '20', color: COLORS.success }}>
-              <Check size={12} /> Confirmed
-            </span>
-          )}
-        </div>
-        
-        {!lastNightConfirmed ? (
-          <>
-            <div className="grid grid-cols-2 gap-3 mb-3">
-              <div className="p-3 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.sleep }}>
-                    <Clock size={12} color="#fff" />
-                  </div>
-                  <p className="text-xs font-medium" style={{ color: COLORS.textMuted }}>Went to bed</p>
-                </div>
-                <div className="flex items-center gap-1">
-                  <input 
-                    ref={sleepEditRefs.lastBedH}
-                    type="text" 
-                    inputMode="numeric"
-                    defaultValue={lastNightBedTime.split(':')[0]}
-                    onBlur={e => {
-                      const val = e.target.value.replace(/\D/g, '').slice(0, 2);
-                      const h = Math.min(23, parseInt(val) || 0);
-                      e.target.value = h.toString().padStart(2, '0');
-                      setLastNightBedTime(prev => `${h.toString().padStart(2, '0')}:${prev.split(':')[1]}`);
-                    }}
-                    className="w-14 text-2xl font-bold text-center rounded-lg"
-                    style={{ color: COLORS.text, backgroundColor: COLORS.surface, border: 'none', padding: '8px 4px' }}
-                  />
-                  <span className="text-2xl font-bold" style={{ color: COLORS.text }}>:</span>
-                  <input 
-                    ref={sleepEditRefs.lastBedM}
-                    type="text"
-                    inputMode="numeric"
-                    defaultValue={lastNightBedTime.split(':')[1]}
-                    onBlur={e => {
-                      const val = e.target.value.replace(/\D/g, '').slice(0, 2);
-                      const m = Math.min(59, parseInt(val) || 0);
-                      e.target.value = m.toString().padStart(2, '0');
-                      setLastNightBedTime(prev => `${prev.split(':')[0]}:${m.toString().padStart(2, '0')}`);
-                    }}
-                    className="w-14 text-2xl font-bold text-center rounded-lg"
-                    style={{ color: COLORS.text, backgroundColor: COLORS.surface, border: 'none', padding: '8px 4px' }}
-                  />
-                </div>
-              </div>
-              <div className="p-3 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.sleep }}>
-                    <Clock size={12} color="#fff" />
-                  </div>
-                  <p className="text-xs font-medium" style={{ color: COLORS.textMuted }}>Woke up</p>
-                </div>
-                <div className="flex items-center gap-1">
-                  <input 
-                    ref={sleepEditRefs.lastWakeH}
-                    type="text" 
-                    inputMode="numeric"
-                    defaultValue={lastNightWakeTime.split(':')[0]}
-                    onBlur={e => {
-                      const val = e.target.value.replace(/\D/g, '').slice(0, 2);
-                      const h = Math.min(23, parseInt(val) || 0);
-                      e.target.value = h.toString().padStart(2, '0');
-                      setLastNightWakeTime(prev => `${h.toString().padStart(2, '0')}:${prev.split(':')[1]}`);
-                    }}
-                    className="w-14 text-2xl font-bold text-center rounded-lg"
-                    style={{ color: COLORS.text, backgroundColor: COLORS.surface, border: 'none', padding: '8px 4px' }}
-                  />
-                  <span className="text-2xl font-bold" style={{ color: COLORS.text }}>:</span>
-                  <input 
-                    ref={sleepEditRefs.lastWakeM}
-                    type="text"
-                    inputMode="numeric"
-                    defaultValue={lastNightWakeTime.split(':')[1]}
-                    onBlur={e => {
-                      const val = e.target.value.replace(/\D/g, '').slice(0, 2);
-                      const m = Math.min(59, parseInt(val) || 0);
-                      e.target.value = m.toString().padStart(2, '0');
-                      setLastNightWakeTime(prev => `${prev.split(':')[0]}:${m.toString().padStart(2, '0')}`);
-                    }}
-                    className="w-14 text-2xl font-bold text-center rounded-lg"
-                    style={{ color: COLORS.text, backgroundColor: COLORS.surface, border: 'none', padding: '8px 4px' }}
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="p-3 rounded-lg mb-3 flex items-center justify-between" style={{ backgroundColor: COLORS.sleep + '15' }}>
-              <span className="text-sm" style={{ color: COLORS.textMuted }}>Total sleep</span>
-              {(() => {
-                const [bedH, bedM] = lastNightBedTime.split(':').map(Number);
-                const [wakeH, wakeM] = lastNightWakeTime.split(':').map(Number);
-                let hours = wakeH - bedH;
-                let mins = wakeM - bedM;
-                if (hours < 0) hours += 24;
-                if (mins < 0) { mins += 60; hours--; }
-                const total = hours + mins / 60;
-                return (
-                  <span className="font-bold text-lg" style={{ color: total >= 8 ? COLORS.success : total >= 6 ? COLORS.warning : COLORS.error }}>
-                    {hours}h {mins}m {total >= 8 ? '✓' : total < 6 ? '⚠️' : ''}
-                  </span>
-                );
-              })()}
-            </div>
-            <button
-              onClick={async () => {
-                // Calculate sleep hours
-                const [bedH, bedM] = lastNightBedTime.split(':').map(Number);
-                const [wakeH, wakeM] = lastNightWakeTime.split(':').map(Number);
-                let hours = wakeH - bedH;
-                let mins = wakeM - bedM;
-                if (hours < 0) hours += 24;
-                if (mins < 0) { mins += 60; hours--; }
-                const totalHours = hours + mins / 60;
-
-                // Save to Supabase
-                if (user?.id) {
-                  try {
-                    const yesterday = new Date();
-                    yesterday.setDate(yesterday.getDate() - 1);
-                    await sleepService.logSleep(user.id, {
-                      date: yesterday.toISOString().split('T')[0],
-                      bedTime: lastNightBedTime,
-                      wakeTime: lastNightWakeTime,
-                      hoursSlept: parseFloat(totalHours.toFixed(2)),
-                    });
-                    // Refresh sleep chart to show new data
-                    refreshSleepChartData();
-                  } catch (err) {
-                    console.error('Error logging sleep:', err);
-                  }
-                }
-
-                setLastNightConfirmed(true);
-              }}
-              className="w-full py-3 rounded-xl font-semibold mb-3"
-              style={{ backgroundColor: COLORS.sleep, color: '#fff' }}
-            >
-              Confirm Last Night's Sleep
-            </button>
-          </>
-        ) : (
-          <div className="p-3 rounded-lg mb-3 flex items-center justify-between" style={{ backgroundColor: COLORS.sleep + '15' }}>
-            <div>
-              <p className="text-sm" style={{ color: COLORS.textMuted }}>Slept {lastNightBedTime} → {lastNightWakeTime}</p>
-              {(() => {
-                const [bedH, bedM] = lastNightBedTime.split(':').map(Number);
-                const [wakeH, wakeM] = lastNightWakeTime.split(':').map(Number);
-                let hours = wakeH - bedH;
-                let mins = wakeM - bedM;
-                if (hours < 0) hours += 24;
-                if (mins < 0) { mins += 60; hours--; }
-                const total = hours + mins / 60;
-                return (
-                  <p className="font-bold text-lg" style={{ color: total >= 8 ? COLORS.success : total >= 6 ? COLORS.warning : COLORS.error }}>
-                    {hours}h {mins}m {total >= 8 ? '✓ Goal!' : ''}
-                  </p>
-                );
-              })()}
-            </div>
-            <button 
-              onClick={() => setLastNightConfirmed(false)}
-              className="px-3 py-1 rounded-lg text-sm"
-              style={{ backgroundColor: COLORS.surface, color: COLORS.textMuted }}
-            >
-              Edit
-            </button>
-          </div>
-        )}
-
-        {/* Tonight */}
-        <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>TONIGHT'S PLAN</p>
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.sleep + '20' }}>
-            <Moon size={20} color={COLORS.sleep} />
-          </div>
-          <div className="flex-1">
-            <p className="text-xs" style={{ color: COLORS.textMuted }}>Recommended</p>
-            <p className="text-xl font-bold" style={{ color: COLORS.text }}>8 hours</p>
-          </div>
-        </div>
-        
-        <div className="grid grid-cols-2 gap-3">
-          <div className="p-3 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.sleep }}>
-                <Clock size={12} color="#fff" />
-              </div>
-              <p className="text-xs font-medium" style={{ color: COLORS.textMuted }}>Bed Time</p>
-            </div>
-            <div className="flex items-center gap-1">
-              <input 
-                ref={sleepEditRefs.bedH}
-                type="text" 
-                inputMode="numeric"
-                defaultValue={bedTime.split(':')[0]}
-                onBlur={e => {
-                  const val = e.target.value.replace(/\D/g, '').slice(0, 2);
-                  const h = Math.min(23, parseInt(val) || 0);
-                  e.target.value = h.toString().padStart(2, '0');
-                  setBedTime(prev => `${h.toString().padStart(2, '0')}:${prev.split(':')[1]}`);
-                }}
-                className="w-14 text-2xl font-bold text-center rounded-lg"
-                style={{ color: COLORS.text, backgroundColor: COLORS.surface, border: 'none', padding: '8px 4px' }}
-              />
-              <span className="text-2xl font-bold" style={{ color: COLORS.text }}>:</span>
-              <input 
-                ref={sleepEditRefs.bedM}
-                type="text"
-                inputMode="numeric"
-                defaultValue={bedTime.split(':')[1]}
-                onBlur={e => {
-                  const val = e.target.value.replace(/\D/g, '').slice(0, 2);
-                  const m = Math.min(59, parseInt(val) || 0);
-                  e.target.value = m.toString().padStart(2, '0');
-                  setBedTime(prev => `${prev.split(':')[0]}:${m.toString().padStart(2, '0')}`);
-                }}
-                className="w-14 text-2xl font-bold text-center rounded-lg"
-                style={{ color: COLORS.text, backgroundColor: COLORS.surface, border: 'none', padding: '8px 4px' }}
-              />
-            </div>
-          </div>
-          <div className="p-3 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.sleep }}>
-                <Clock size={12} color="#fff" />
-              </div>
-              <p className="text-xs font-medium" style={{ color: COLORS.textMuted }}>Wake Time</p>
-            </div>
-            <div className="flex items-center gap-1">
-              <input 
-                ref={sleepEditRefs.wakeH}
-                type="text" 
-                inputMode="numeric"
-                defaultValue={wakeTime.split(':')[0]}
-                onBlur={e => {
-                  const val = e.target.value.replace(/\D/g, '').slice(0, 2);
-                  const h = Math.min(23, parseInt(val) || 0);
-                  e.target.value = h.toString().padStart(2, '0');
-                  setWakeTime(prev => `${h.toString().padStart(2, '0')}:${prev.split(':')[1]}`);
-                }}
-                className="w-14 text-2xl font-bold text-center rounded-lg"
-                style={{ color: COLORS.text, backgroundColor: COLORS.surface, border: 'none', padding: '8px 4px' }}
-              />
-              <span className="text-2xl font-bold" style={{ color: COLORS.text }}>:</span>
-              <input 
-                ref={sleepEditRefs.wakeM}
-                type="text"
-                inputMode="numeric"
-                defaultValue={wakeTime.split(':')[1]}
-                onBlur={e => {
-                  const val = e.target.value.replace(/\D/g, '').slice(0, 2);
-                  const m = Math.min(59, parseInt(val) || 0);
-                  e.target.value = m.toString().padStart(2, '0');
-                  setWakeTime(prev => `${prev.split(':')[0]}:${m.toString().padStart(2, '0')}`);
-                }}
-                className="w-14 text-2xl font-bold text-center rounded-lg"
-                style={{ color: COLORS.text, backgroundColor: COLORS.surface, border: 'none', padding: '8px 4px' }}
-              />
-            </div>
-          </div>
-        </div>
-        
-        <div className="mt-3 pt-3 border-t flex items-center justify-between" style={{ borderColor: COLORS.surfaceLight }}>
-          <span className="text-sm" style={{ color: COLORS.textMuted }}>Planned sleep</span>
-          {(() => {
-            const [bedH, bedM] = bedTime.split(':').map(Number);
-            const [wakeH, wakeM] = wakeTime.split(':').map(Number);
-            let hours = wakeH - bedH;
-            let mins = wakeM - bedM;
-            if (hours < 0) hours += 24;
-            if (mins < 0) { mins += 60; hours--; }
-            const total = hours + mins / 60;
+      {/* Quick Stats Row - SECOND */}
+      <div className="px-4 mt-4">
+        <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>TODAY'S PROGRESS</p>
+        <div className="flex justify-around py-3 px-2 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+          {quickStats.map((stat) => {
+            const progress = Math.min((stat.current || 0) / (stat.target || 1), 1);
+            const displayVal = stat.displayValue || Math.round(progress * 100) + '%';
             return (
-              <span className="font-semibold" style={{ color: total >= 7 ? COLORS.success : total >= 6 ? COLORS.warning : COLORS.error }}>
-                {hours}h {mins}m {total >= 8 ? '✓' : total < 6 ? '⚠️' : ''}
-              </span>
+              <button
+                key={stat.id}
+                onClick={() => handleStatTap(stat.id)}
+                className="flex flex-col items-center"
+              >
+                <div className="relative w-11 h-11 mb-1">
+                  <svg className="w-full h-full transform -rotate-90">
+                    <circle cx="22" cy="22" r="18" stroke={COLORS.surfaceLight} strokeWidth="3" fill="none" />
+                    <circle
+                      cx="22" cy="22" r="18"
+                      stroke={stat.color || COLORS.primary}
+                      strokeWidth="3"
+                      fill="none"
+                      strokeLinecap="round"
+                      strokeDasharray={`${progress * 113} 113`}
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-xs font-bold" style={{ color: stat.color || COLORS.primary, fontSize: 9 }}>{displayVal}</span>
+                  </div>
+                </div>
+                <span className="text-xs" style={{ color: COLORS.textMuted, fontSize: 9 }}>{stat.label}</span>
+              </button>
             );
-          })()}
+          })}
         </div>
-        
-        {/* Sleep Weekly Chart */}
-        <div className="mt-4 pt-4 border-t" style={{ borderColor: COLORS.surfaceLight }}>
-          <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>WEEKLY AVERAGE</p>
-          <div style={{ height: 80 }}>
-            {sleepChartData?.length > 0 ? (
+      </div>
+
+      {/* Streak Section - THIRD */}
+      <div className="mx-4 mt-4">
+        <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>STREAKS</p>
+      </div>
+      <div className="mx-4 flex gap-2">
+        <button onClick={() => setActiveTab('workouts')} className="flex-1 flex flex-col items-center p-3 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+          <Dumbbell size={20} color={COLORS.warning} className="mb-1" />
+          <span className="text-xs" style={{ color: COLORS.textMuted }}>Workouts</span>
+          <span className="text-lg font-bold" style={{ color: COLORS.warning }}>{streaks?.weeklyWorkouts?.weeksCompleted || 0}</span>
+        </button>
+        <button onClick={() => { setActiveTab('nutrition'); setNutritionTab('overview'); }} className="flex-1 flex flex-col items-center p-3 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+          <Flame size={20} color={COLORS.accent} className="mb-1" />
+          <span className="text-xs" style={{ color: COLORS.textMuted }}>Calories</span>
+          <span className="text-lg font-bold" style={{ color: COLORS.accent }}>{streaks?.calories?.daysInRow || 0}</span>
+        </button>
+        <button onClick={() => { setActiveTab('nutrition'); setNutritionTab('overview'); }} className="flex-1 flex flex-col items-center p-3 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+          <Droplets size={20} color={COLORS.water} className="mb-1" />
+          <span className="text-xs" style={{ color: COLORS.textMuted }}>Water</span>
+          <span className="text-lg font-bold" style={{ color: COLORS.water }}>{streaks?.water?.daysInRow || 0}</span>
+        </button>
+        <button onClick={() => { setActiveTab('nutrition'); setNutritionTab('sleep'); }} className="flex-1 flex flex-col items-center p-3 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+          <Moon size={20} color={COLORS.sleep} className="mb-1" />
+          <span className="text-xs" style={{ color: COLORS.textMuted }}>Sleep</span>
+          <span className="text-lg font-bold" style={{ color: COLORS.sleep }}>{streaks?.sleep?.daysInRow || 0}</span>
+        </button>
+      </div>
+
+      {/* Progress Charts with Tabs */}
+      <div className="mx-4 mt-4">
+        <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>TRENDS</p>
+      </div>
+      <div className="mx-4 p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+        {/* Chart Selector Tabs */}
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          {[
+            { id: 'weight', label: 'Weight', color: COLORS.primary },
+            { id: 'calories', label: 'Cals', color: COLORS.accent },
+            { id: 'protein', label: 'Protein', color: COLORS.protein || COLORS.primary },
+            { id: 'water', label: 'Water', color: COLORS.water },
+            { id: 'sleep', label: 'Sleep', color: COLORS.sleep },
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setSelectedChart(tab.id)}
+              className="px-2.5 py-1 rounded-lg text-xs font-semibold transition-all"
+              style={{
+                backgroundColor: selectedChart === tab.id ? tab.color + '20' : 'transparent',
+                color: selectedChart === tab.id ? tab.color : COLORS.textMuted,
+                border: `1px solid ${selectedChart === tab.id ? tab.color : 'transparent'}`
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Weight Chart */}
+        {selectedChart === 'weight' && (
+          <div style={{ height: 110 }}>
+            {chartData?.weight?.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={sleepChartData}>
-                  <XAxis
-                    dataKey="week"
-                    tick={{ fill: COLORS.textMuted, fontSize: 9 }}
-                    axisLine={false}
-                    tickLine={false}
-                    interval={2}
-                    tickFormatter={(val) => `W${val}`}
-                  />
-                  <YAxis tick={{ fill: COLORS.textMuted, fontSize: 9 }} axisLine={false} tickLine={false} width={25} domain={[5, 10]} tickFormatter={(val) => `${val}h`} />
+                <LineChart data={chartData.weight.map(d => ({ date: `W${d.week}`, actual: d.value, goal: d.expected }))}>
+                  <XAxis dataKey="date" tick={{ fill: COLORS.textMuted, fontSize: 9 }} axisLine={false} tickLine={false} interval={Math.ceil(chartData.weight.length / 6)} />
+                  <YAxis tick={{ fill: COLORS.textMuted, fontSize: 9 }} axisLine={false} tickLine={false} width={32} domain={['dataMin - 2', 'dataMax + 2']} tickFormatter={(v) => Math.round(v)} allowDecimals={false} />
                   <Tooltip
-                    content={({ active, payload, label }) => {
-                      if (active && payload && payload.length) {
-                        const userVal = payload.find(p => p.dataKey === 'value')?.value;
-                        const goalVal = payload.find(p => p.dataKey === 'goal')?.value;
-                        return (
-                          <div style={{
-                            backgroundColor: COLORS.surface,
-                            border: `1px solid ${COLORS.surfaceLight}`,
-                            borderRadius: 8,
-                            padding: '8px 12px',
-                          }}>
-                            <p style={{ color: COLORS.textMuted, fontSize: 11, marginBottom: 4 }}>Week {label}</p>
-                            {userVal !== undefined && (
-                              <p style={{ color: COLORS.sleep, fontSize: 14, fontWeight: 'bold' }}>You: {userVal} hrs avg</p>
-                            )}
-                            {goalVal !== undefined && (
-                              <p style={{ color: COLORS.textMuted, fontSize: 11 }}>Goal: {goalVal} hrs</p>
-                            )}
-                          </div>
-                        );
-                      }
-                      return null;
-                    }}
+                    contentStyle={{ backgroundColor: COLORS.surface, border: `1px solid ${COLORS.surfaceLight}`, borderRadius: 8, padding: '6px 10px' }}
+                    labelStyle={{ color: COLORS.text, fontSize: 11 }}
+                    formatter={(value, name) => [value ? `${value}kg` : '-', name === 'actual' ? 'You' : 'Goal']}
                   />
-                  <Line
-                    type="monotone"
-                    dataKey="value"
-                    stroke={COLORS.sleep}
-                    strokeWidth={2}
-                    dot={{ fill: COLORS.sleep, r: 2, strokeWidth: 0 }}
-                    activeDot={{ fill: COLORS.sleep, r: 4, stroke: COLORS.text, strokeWidth: 2 }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="goal"
-                    stroke={COLORS.textMuted}
-                    strokeWidth={1}
-                    strokeDasharray="4 4"
-                    dot={false}
-                  />
+                  <Line type="monotone" dataKey="actual" stroke={COLORS.primary} strokeWidth={2} dot={{ fill: COLORS.primary, r: 2 }} connectNulls />
+                  <Line type="monotone" dataKey="goal" stroke={COLORS.textMuted} strokeWidth={1} strokeDasharray="4 4" dot={false} />
                 </LineChart>
               </ResponsiveContainer>
             ) : (
+              <div className="h-full flex items-center justify-center">
+                <p className="text-xs" style={{ color: COLORS.textMuted }}>Log weight to see progress</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Calories Chart */}
+        {selectedChart === 'calories' && (
+          <div style={{ height: 110 }}>
+            {weeklyNutrition?.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={weeklyNutrition.map((d, i) => ({ ...d, week: `W${i + 1}`, actual: d.calories }))}>
+                  <XAxis dataKey="week" tick={{ fill: COLORS.textMuted, fontSize: 9 }} axisLine={false} tickLine={false} interval={Math.ceil(weeklyNutrition.length / 6)} />
+                  <YAxis tick={{ fill: COLORS.textMuted, fontSize: 9 }} axisLine={false} tickLine={false} width={32} domain={['dataMin - 200', 'dataMax + 200']} tickFormatter={(v) => Math.round(v)} allowDecimals={false} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: COLORS.surface, border: `1px solid ${COLORS.surfaceLight}`, borderRadius: 8, padding: '6px 10px' }}
+                    labelStyle={{ color: COLORS.text, fontSize: 11 }}
+                    formatter={(value, name) => [value ? `${value}` : '-', name === 'actual' ? 'You' : 'Goal']}
+                  />
+                  <Line type="monotone" dataKey="actual" stroke={COLORS.accent} strokeWidth={2} dot={{ fill: COLORS.accent, r: 2 }} />
+                  <Line type="monotone" dataKey="goal" stroke={COLORS.textMuted} strokeWidth={1} strokeDasharray="4 4" dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center">
+                <p className="text-xs" style={{ color: COLORS.textMuted }}>Log meals to see trends</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Protein Chart */}
+        {selectedChart === 'protein' && (
+          <div style={{ height: 110 }}>
+            {weeklyNutrition?.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={weeklyNutrition.map((d, i) => ({ week: `W${i + 1}`, actual: d.protein || 0, goal: d.proteinGoal || 150 }))}>
+                  <XAxis dataKey="week" tick={{ fill: COLORS.textMuted, fontSize: 9 }} axisLine={false} tickLine={false} interval={Math.ceil(weeklyNutrition.length / 6)} />
+                  <YAxis tick={{ fill: COLORS.textMuted, fontSize: 9 }} axisLine={false} tickLine={false} width={32} domain={['dataMin - 20', 'dataMax + 20']} tickFormatter={(v) => Math.round(v)} allowDecimals={false} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: COLORS.surface, border: `1px solid ${COLORS.surfaceLight}`, borderRadius: 8, padding: '6px 10px' }}
+                    labelStyle={{ color: COLORS.text, fontSize: 11 }}
+                    formatter={(value, name) => [value ? `${value}g` : '-', name === 'actual' ? 'You' : 'Goal']}
+                  />
+                  <Line type="monotone" dataKey="actual" stroke={COLORS.protein || COLORS.primary} strokeWidth={2} dot={{ fill: COLORS.protein || COLORS.primary, r: 2 }} />
+                  <Line type="monotone" dataKey="goal" stroke={COLORS.textMuted} strokeWidth={1} strokeDasharray="4 4" dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center">
+                <p className="text-xs" style={{ color: COLORS.textMuted }}>Log meals to see protein trends</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Water Chart */}
+        {selectedChart === 'water' && (
+          <div style={{ height: 110 }}>
+            {weeklyNutrition?.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={weeklyNutrition.map((d, i) => ({ week: `W${i + 1}`, actual: d.water, goal: d.waterGoal }))}>
+                  <XAxis dataKey="week" tick={{ fill: COLORS.textMuted, fontSize: 9 }} axisLine={false} tickLine={false} interval={Math.ceil(weeklyNutrition.length / 6)} />
+                  <YAxis tick={{ fill: COLORS.textMuted, fontSize: 9 }} axisLine={false} tickLine={false} width={32} domain={['dataMin - 500', 'dataMax + 500']} tickFormatter={(v) => `${(v/1000).toFixed(1)}`} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: COLORS.surface, border: `1px solid ${COLORS.surfaceLight}`, borderRadius: 8, padding: '6px 10px' }}
+                    labelStyle={{ color: COLORS.text, fontSize: 11 }}
+                    formatter={(value, name) => [value ? `${(value/1000).toFixed(1)}L` : '-', name === 'actual' ? 'You' : 'Goal']}
+                  />
+                  <Line type="monotone" dataKey="actual" stroke={COLORS.water} strokeWidth={2} dot={{ fill: COLORS.water, r: 2 }} />
+                  <Line type="monotone" dataKey="goal" stroke={COLORS.textMuted} strokeWidth={1} strokeDasharray="4 4" dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center">
+                <p className="text-xs" style={{ color: COLORS.textMuted }}>Log water to see trends</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Sleep Chart */}
+        {selectedChart === 'sleep' && (
+          <div style={{ height: 110 }}>
+            {sleepChartData?.length > 0 ? (() => {
+              // Group sleep data by week and calculate weekly averages
+              const weeklySleepData = [];
+              const data = sleepChartData.slice(-28); // Last 4 weeks
+              for (let i = 0; i < data.length; i += 7) {
+                const weekData = data.slice(i, i + 7);
+                const avgHours = weekData.reduce((sum, d) => sum + (d.hours || 0), 0) / weekData.length;
+                weeklySleepData.push({ week: `W${weeklySleepData.length + 1}`, actual: parseFloat(avgHours.toFixed(1)), goal: 8 });
+              }
+              return (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={weeklySleepData}>
+                    <XAxis dataKey="week" tick={{ fill: COLORS.textMuted, fontSize: 9 }} axisLine={false} tickLine={false} interval={Math.ceil(weeklySleepData.length / 6)} />
+                    <YAxis tick={{ fill: COLORS.textMuted, fontSize: 9 }} axisLine={false} tickLine={false} width={24} domain={[4, 10]} tickFormatter={(v) => Math.round(v)} allowDecimals={false} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: COLORS.surface, border: `1px solid ${COLORS.surfaceLight}`, borderRadius: 8, padding: '6px 10px' }}
+                      labelStyle={{ color: COLORS.text, fontSize: 11 }}
+                      formatter={(value, name) => [value ? `${value}h` : '-', name === 'actual' ? 'You' : 'Goal']}
+                    />
+                    <Line type="monotone" dataKey="actual" stroke={COLORS.sleep} strokeWidth={2} dot={{ fill: COLORS.sleep, r: 2 }} />
+                    <Line type="monotone" dataKey="goal" stroke={COLORS.textMuted} strokeWidth={1} strokeDasharray="4 4" dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              );
+            })() : (
               <div className="h-full flex items-center justify-center">
                 <p className="text-xs" style={{ color: COLORS.textMuted }}>Log sleep to see trends</p>
               </div>
             )}
           </div>
-          <div className="flex items-center justify-center gap-4 mt-2">
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-0.5" style={{ backgroundColor: COLORS.sleep }}></div>
-              <span className="text-xs" style={{ color: COLORS.textMuted }}>Avg Sleep</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-0.5" style={{ backgroundColor: COLORS.success, borderStyle: 'dashed' }}></div>
-              <span className="text-xs" style={{ color: COLORS.textMuted }}>Goal (8h)</span>
-            </div>
+        )}
+
+        {/* Chart Legend */}
+        <div className="flex justify-center gap-4 mt-3 pt-2" style={{ borderTop: `1px solid ${COLORS.surfaceLight}` }}>
+          <div className="flex items-center gap-1">
+            <div className="w-3 h-0.5" style={{ backgroundColor: selectedChart === 'weight' ? COLORS.primary : selectedChart === 'calories' ? COLORS.accent : COLORS.water }} />
+            <span className="text-xs" style={{ color: COLORS.textMuted }}>Actual</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="w-3 h-0.5" style={{ backgroundColor: COLORS.textMuted, borderStyle: 'dashed' }} />
+            <span className="text-xs" style={{ color: COLORS.textMuted }}>Goal</span>
           </div>
         </div>
       </div>
-      </>
-      )}
 
-      {/* Supplements Tracker */}
-      {settings.tracking.supplements && (
-      <>
-      <h3 className="font-semibold mb-3" style={{ color: COLORS.text }}>Supplements</h3>
-      <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
-        <div className="space-y-2 mb-3">
-          {supplements.map(supp => (
-            <div 
-              key={supp.id} 
-              className="w-full p-3 rounded-lg flex items-center justify-between"
-              style={{ backgroundColor: supp.taken ? COLORS.supplements + '15' : COLORS.surfaceLight }}>
-              <div 
-                className="flex items-center gap-3 flex-1 cursor-pointer"
-                onClick={(e) => { e.preventDefault(); setSupplements(prev => prev.map(s => s.id === supp.id ? {...s, taken: !s.taken} : s)); }}
-              >
-                <div className="w-6 h-6 rounded-full flex items-center justify-center"
-                  style={{ backgroundColor: supp.taken ? COLORS.supplements : COLORS.surfaceLight, border: supp.taken ? 'none' : `2px solid ${COLORS.textMuted}` }}>
-                  {supp.taken && <Check size={14} color={COLORS.background} />}
-                </div>
-                <div className="text-left">
-                  <p className="font-medium" style={{ color: COLORS.text }}>{supp.name}</p>
-                  <p className="text-xs" style={{ color: COLORS.textMuted }}>{supp.dosage}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {supp.taken && <span className="text-xs" style={{ color: COLORS.supplements }}>Taken</span>}
-                <button 
-                  onClick={(e) => { e.stopPropagation(); setSupplements(prev => prev.filter(s => s.id !== supp.id)); }}
-                  className="p-1 rounded-full"
-                  style={{ backgroundColor: COLORS.surface }}
-                >
-                  <X size={14} color={COLORS.textMuted} />
-                </button>
-              </div>
-            </div>
-          ))}
+      {/* Community / Following */}
+      <div className="mx-4 mt-4">
+        <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>COMMUNITY</p>
+      </div>
+      <div className="mx-4 p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+        <div className="flex justify-between items-center mb-3">
+          <p className="text-sm font-semibold" style={{ color: COLORS.text }}>Following</p>
+          <button onClick={() => setActiveTab('friends')} className="text-xs" style={{ color: COLORS.primary }}>
+            {friends.length > 0 ? 'See All' : 'Find Friends'}
+          </button>
         </div>
-        {showAddSupplement ? (
-          <div className="p-3 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }} onMouseDown={e => e.stopPropagation()}>
-            <div className="mb-2">
-              <input
-                type="text"
-                placeholder="Supplement name"
-                ref={supplementNameRef}
-                autoFocus
-                onMouseDown={e => e.stopPropagation()}
-                className="w-full p-2 rounded text-sm mb-2"
-                style={{ backgroundColor: COLORS.surface, color: COLORS.text, border: 'none', outline: 'none' }}
-              />
-              <div className="flex gap-2">
-                <input
-                  type="number"
-                  placeholder="Amount"
-                  ref={supplementDosageRef}
-                  onMouseDown={e => e.stopPropagation()}
-                  className="flex-1 p-2 rounded text-sm"
-                  style={{ backgroundColor: COLORS.surface, color: COLORS.text, border: 'none', outline: 'none' }}
-                />
-                <select
-                  ref={supplementUnitRef}
-                  defaultValue="mg"
-                  onMouseDown={e => e.stopPropagation()}
-                  className="p-2 rounded text-sm"
-                  style={{ backgroundColor: COLORS.surface, color: COLORS.text, border: 'none', outline: 'none' }}
-                >
-                  {SUPPLEMENT_UNITS.map(unit => (
-                    <option key={unit} value={unit}>{unit}</option>
-                  ))}
-                </select>
+        {friends.length > 0 ? (
+          <div className="flex gap-3">
+            {friends.slice(0, 4).map(friend => (
+              <div key={friend.id} className="flex flex-col items-center">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center mb-1" style={{ backgroundColor: COLORS.primary + '30' }}>
+                  <span className="text-xs font-bold" style={{ color: COLORS.primary }}>
+                    {friend.name?.[0]?.toUpperCase() || '?'}
+                  </span>
+                </div>
+                <span className="text-xs" style={{ color: COLORS.textMuted }}>
+                  {friend.name?.split(' ')[0] || 'User'}
+                </span>
               </div>
-            </div>
-            <div className="flex gap-2">
-              <button type="button" onClick={(e) => {
-                e.preventDefault();
-                setShowAddSupplement(false);
-                if (supplementNameRef.current) supplementNameRef.current.value = '';
-                if (supplementDosageRef.current) supplementDosageRef.current.value = '';
-                if (supplementUnitRef.current) supplementUnitRef.current.value = 'mg';
-              }}
-                className="flex-1 py-2 rounded text-sm" style={{ backgroundColor: COLORS.surface, color: COLORS.textMuted }}>Cancel</button>
-              <button type="button" onClick={async (e) => {
-                e.preventDefault();
-                const name = supplementNameRef.current?.value?.trim();
-                const amount = supplementDosageRef.current?.value?.trim();
-                const unit = supplementUnitRef.current?.value || 'mg';
-                const dosage = amount ? `${amount} ${unit}` : 'As needed';
-                if (name && user?.id) {
-                  const { data, error } = await nutritionService.addSupplement(user.id, { name, dosage });
-                  if (!error && data) {
-                    setSupplements(prev => [...prev, { id: data.id, name: data.name, dosage: data.dosage, taken: false }]);
-                  } else {
-                    setSupplements(prev => [...prev, { id: Date.now().toString(), name, dosage, taken: false }]);
-                  }
-                  setShowAddSupplement(false);
-                  if (supplementNameRef.current) supplementNameRef.current.value = '';
-                  if (supplementDosageRef.current) supplementDosageRef.current.value = '';
-                  if (supplementUnitRef.current) supplementUnitRef.current.value = 'mg';
-                }
-              }} className="flex-1 py-2 rounded text-sm font-semibold" style={{ backgroundColor: COLORS.primary, color: COLORS.text }}>Add</button>
-            </div>
+            ))}
           </div>
         ) : (
-          <div onClick={(e) => { e.preventDefault(); setShowAddSupplement(true); }} className="w-full p-3 rounded-lg flex items-center justify-center gap-2 cursor-pointer"
-            style={{ backgroundColor: COLORS.surfaceLight, border: `1px dashed ${COLORS.textMuted}` }}>
-            <Plus size={16} color={COLORS.textMuted} /><span style={{ color: COLORS.textMuted }}>Add Supplement</span>
+          <div className="flex items-center gap-3 py-2">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.surfaceLight }}>
+              <Users size={18} color={COLORS.textMuted} />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm" style={{ color: COLORS.textMuted }}>Connect with friends to share your progress</p>
+            </div>
           </div>
         )}
-        <div className="mt-3 pt-3 border-t flex justify-between items-center" style={{ borderColor: COLORS.surfaceLight }}>
-          <span className="text-sm" style={{ color: COLORS.textMuted }}>
-            {supplements.length === 0 ? 'No supplements added' : `${supplements.filter(s => s.taken).length}/${supplements.length} taken`}
-          </span>
-          {supplements.length > 0 && (
-            <div className="h-2 w-24 rounded-full overflow-hidden" style={{ backgroundColor: COLORS.surfaceLight }}>
-              <div className="h-full rounded-full" style={{ backgroundColor: COLORS.supplements, width: `${(supplements.filter(s => s.taken).length / supplements.length) * 100}%` }} />
-            </div>
-          )}
+      </div>
+
+      {/* Weight Tracking */}
+      <div className="mx-4 mt-4">
+        <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>WEIGHT TRACKING</p>
+      </div>
+      <div className="mx-4 p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '20' }}>
+            <Scale size={24} color={COLORS.primary} />
+          </div>
+          <div className="flex-1">
+            <p className="font-semibold" style={{ color: COLORS.text }}>Log Today's Weight</p>
+            <p className="text-xs" style={{ color: COLORS.textMuted }}>Track your progress over time</p>
+          </div>
+          <button
+            onClick={() => {
+              setWeightLogValue(userData.currentWeight?.toString() || '');
+              setShowWeightLogModal(true);
+            }}
+            className="px-4 py-2 rounded-lg font-medium"
+            style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+          >
+            Log
+          </button>
         </div>
       </div>
-      </>
+
+      {/* Bottom padding */}
+      <div className="h-8" />
+
+      {/* Modals */}
+      {showMealEntry && (
+        <MealEntryModal
+          COLORS={COLORS}
+          onClose={() => setShowMealEntry(false)}
+          onSave={(calories, protein) => {
+            setCaloriesIntake(prev => prev + calories);
+            setProteinIntake(prev => prev + protein);
+            setShowMealEntry(false);
+          }}
+        />
       )}
 
+      {showWaterEntry && (
+        <WaterEntryModal
+          COLORS={COLORS}
+          onClose={() => setShowWaterEntry(false)}
+          onSave={(amount) => {
+            setWaterIntake(prev => Math.min(prev + amount, 10000));
+            setShowWaterEntry(false);
+          }}
+        />
+      )}
+
+      {/* Weight Log Modal */}
+      {showWeightLogModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}>
+          <div className="w-80 rounded-2xl p-6" style={{ backgroundColor: COLORS.surface }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold" style={{ color: COLORS.text }}>Log Weight</h3>
+              <button onClick={() => setShowWeightLogModal(false)}>
+                <X size={24} color={COLORS.textMuted} />
+              </button>
+            </div>
+            <div className="mb-4">
+              <label className="text-sm mb-2 block" style={{ color: COLORS.textMuted }}>Weight (kg)</label>
+              <input
+                type="number"
+                value={weightLogValue}
+                onChange={(e) => setWeightLogValue(e.target.value)}
+                placeholder="Enter weight"
+                className="w-full p-4 rounded-xl text-lg text-center"
+                style={{ backgroundColor: COLORS.background, color: COLORS.text, border: `1px solid ${COLORS.surfaceLight}` }}
+                autoFocus
+              />
+            </div>
+            <button
+              onClick={async () => {
+                const weight = parseFloat(weightLogValue);
+                if (weight > 0 && user?.id) {
+                  await profileService.logWeight(user.id, weight);
+                  setUserData(prev => ({ ...prev, currentWeight: weight }));
+                  setShowWeightLogModal(false);
+                }
+              }}
+              disabled={!weightLogValue || parseFloat(weightLogValue) <= 0}
+              className="w-full py-4 rounded-xl font-semibold"
+              style={{
+                backgroundColor: weightLogValue && parseFloat(weightLogValue) > 0 ? COLORS.primary : COLORS.surfaceLight,
+                color: weightLogValue && parseFloat(weightLogValue) > 0 ? COLORS.text : COLORS.textMuted
+              }}
+            >
+              Save
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Active Workout Screen */}
       {showActiveWorkout && (() => {
+        // Get exercises exactly as shown in the workout card
         const filteredExercises = getCurrentExercises();
         const recoveryExercises = getInjuryRecoveryExercisesToAdd();
-        const allExercises = [...filteredExercises, ...recoveryExercises];
-        const template = { ...todayWorkoutTemplate, exercises: allExercises };
+        const baseExercises = [...filteredExercises, ...recoveryExercises];
+        const fullPool = todayWorkoutTemplate?.exercises || baseExercises;
+
+        // Apply same time/count optimization as displayed
+        const defaultExerciseCount = Math.max(2, Math.floor(workoutTime / 12));
+        const exerciseCount = customExerciseCount || defaultExerciseCount;
+        const workoutTypeForCoverage = todayWorkoutTemplate?.workoutType || todayWorkout?.type || null;
+        const optimizedExercises = optimizeExercisesForTimeAndCount(baseExercises, fullPool, workoutTime, exerciseCount, workoutTypeForCoverage, settings.workout.corePosition);
+
+        const template = { ...todayWorkoutTemplate, exercises: optimizedExercises };
         return (
           <ActiveWorkoutScreen
             onClose={() => setShowActiveWorkout(false)}
@@ -12245,11 +11262,12 @@ export default function UpRepDemo() {
   // Main Screen with tabs
   const MainScreen = () => (
     <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-auto">
         {activeTab === 'home' && <HomeTab />}
         {activeTab === 'workouts' && (
           <div ref={workoutTabScrollRef} onScroll={handleWorkoutTabScroll} className="p-4 h-full overflow-auto">
             {/* Scrollable Week Schedule */}
+            <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>THIS WEEK</p>
             <div className="mb-6">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-1">
@@ -12365,6 +11383,7 @@ export default function UpRepDemo() {
             {/* Today's Workout Card */}
             {scheduleWeekOffset === 0 && (
               <>
+                <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>TODAY'S WORKOUT</p>
                 {/* Paused Card */}
                 {isPaused && (
                   <div className="p-4 rounded-xl mb-6" style={{ backgroundColor: COLORS.surface, borderLeft: `4px solid ${COLORS.warning}` }}>
@@ -12372,7 +11391,9 @@ export default function UpRepDemo() {
                       <span className="px-2 py-1 rounded text-xs font-semibold" style={{ backgroundColor: COLORS.warning + '20', color: COLORS.warning }}>PAUSED</span>
                     </div>
                     <div className="flex items-center gap-3 mb-3">
-                      <span className="text-4xl">🏖️</span>
+                      <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: COLORS.warning + '20' }}>
+                        <Coffee size={24} color={COLORS.warning} />
+                      </div>
                       <div>
                         <h4 className="text-lg font-bold" style={{ color: COLORS.text }}>Enjoying Your Break</h4>
                         <p className="text-sm" style={{ color: COLORS.textSecondary }}>
@@ -12469,19 +11490,6 @@ export default function UpRepDemo() {
                       </div>
                     </div>
 
-                    {/* Workout Explanation */}
-                    {todayWorkoutTemplate?.description && (
-                      <div className="mb-3 p-3 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
-                        <p className="text-xs leading-relaxed" style={{ color: COLORS.textSecondary }}>
-                          {todayWorkoutTemplate.description}
-                        </p>
-                        {todayWorkoutTemplate.hasCardio && (
-                          <p className="text-xs mt-1 font-medium" style={{ color: COLORS.primary }}>
-                            Includes cardio finisher for your weight loss goal
-                          </p>
-                        )}
-                      </div>
-                    )}
 
                 {/* Time Editor */}
                 <button
@@ -12508,7 +11516,7 @@ export default function UpRepDemo() {
                   const maxExercises = Math.min(fullPool.length, Math.floor(workoutTime / 5)); // ~5min minimum per exercise
                   // Optimize exercises for the selected time AND count
                   const workoutTypeForCoverage = todayWorkoutTemplate?.workoutType || todayWorkout?.type || null;
-                  const exercisesForTime = optimizeExercisesForTimeAndCount(allExercises, fullPool, workoutTime, exerciseCount, workoutTypeForCoverage);
+                  const exercisesForTime = optimizeExercisesForTimeAndCount(allExercises, fullPool, workoutTime, exerciseCount, workoutTypeForCoverage, settings.workout.corePosition);
                   const timeBreakdown = getWorkoutTimeBreakdown(exercisesForTime);
                   const totalSetsPreview = exercisesForTime.reduce((acc, ex) => acc + (ex.sets || 3), 0);
 
@@ -12647,15 +11655,6 @@ export default function UpRepDemo() {
 
                         {!exerciseListCollapsed && (
                           <>
-                            {/* Warm-up Preview */}
-                            <div className="p-2 rounded-lg mb-2" style={{ backgroundColor: COLORS.warning + '10', border: `1px solid ${COLORS.warning}20` }}>
-                              <div className="flex items-center gap-2">
-                                <span className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold" style={{ backgroundColor: COLORS.warning + '20', color: COLORS.warning }}>W</span>
-                                <span className="text-xs font-medium" style={{ color: COLORS.warning }}>Warm-up</span>
-                                <span className="text-xs ml-auto" style={{ color: COLORS.textMuted }}>3 min</span>
-                              </div>
-                            </div>
-
                             <div className="space-y-2">
                               {exercisesForTime.map((exercise, i) => {
                             const isExpanded = expandedExerciseId === exercise.id;
@@ -12738,7 +11737,7 @@ export default function UpRepDemo() {
                                     {/* Reorder buttons */}
                                     <div className="flex gap-2 mb-2">
                                       <button
-                                        onClick={() => moveExerciseInHome(exercise.id, 'up')}
+                                        onClick={(e) => { e.stopPropagation(); moveExerciseInHome(exercise.id, 'up'); }}
                                         disabled={i === 0}
                                         className="flex-1 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
                                         style={{
@@ -12751,7 +11750,7 @@ export default function UpRepDemo() {
                                         Move Up
                                       </button>
                                       <button
-                                        onClick={() => moveExerciseInHome(exercise.id, 'down')}
+                                        onClick={(e) => { e.stopPropagation(); moveExerciseInHome(exercise.id, 'down'); }}
                                         disabled={i === exercisesForTime.length - 1}
                                         className="flex-1 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
                                         style={{
@@ -12845,92 +11844,25 @@ export default function UpRepDemo() {
                       </div>
                     </div>
                     <div className="flex items-center gap-3 mb-3">
-                      <span className="text-4xl">😴</span>
+                      <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: COLORS.sleep + '20' }}>
+                        <Moon size={24} color={COLORS.sleep} />
+                      </div>
                       <div>
                         <h4 className="text-lg font-bold" style={{ color: COLORS.text }}>Recovery Day</h4>
                         <p className="text-sm" style={{ color: COLORS.textSecondary }}>Rest is essential for muscle growth</p>
                       </div>
                     </div>
                     <div className="p-3 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
-                      <p className="text-xs" style={{ color: COLORS.textMuted }}>💡 <strong style={{ color: COLORS.text }}>Tip:</strong> Stay active with light stretching or a walk. Stay hydrated!</p>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}><strong style={{ color: COLORS.text }}>Tip:</strong> Stay active with light stretching or a walk. Stay hydrated!</p>
                     </div>
                   </div>
                 )}
               </>
             )}
 
-            {/* Current Program - opens modal */}
-            <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
-              <div className="mb-3">
-                <p className="text-xs mb-2" style={{ color: COLORS.textMuted }}>TRAINING SPLIT</p>
-                <button
-                  type="button"
-                  onClick={() => setShowProgramSelector(true)}
-                  className="w-full p-3 rounded-xl flex items-center justify-between"
-                  style={{ backgroundColor: COLORS.surfaceLight, border: `1px solid ${COLORS.primary}40` }}
-                >
-                  <div className="text-left">
-                    <h4 className="font-bold" style={{ color: COLORS.text }}>{currentProgram.name}</h4>
-                    <p className="text-xs" style={{ color: COLORS.textSecondary }}>{currentProgram.daysPerWeek} days/week • {currentProgram.totalWeeks} weeks</p>
-                  </div>
-                  <ChevronRight size={20} color={COLORS.primary} />
-                </button>
-              </div>
-
-              {/* Progress Bar */}
-              <div className="flex items-center gap-3 mb-3">
-                <div className="flex-1 h-3 rounded-full" style={{ backgroundColor: COLORS.surfaceLight }}>
-                  <div
-                    className="h-full rounded-full transition-all duration-500"
-                    style={{ backgroundColor: programProgress.isComplete ? COLORS.success : COLORS.primary, width: `${programProgress.progressPercent}%` }}
-                  />
-                </div>
-                <span className="text-sm font-semibold" style={{ color: COLORS.text }}>
-                  {Math.round(programProgress.progressPercent)}%
-                </span>
-              </div>
-
-              {/* Progress Stats */}
-              <div className="grid grid-cols-3 gap-2 mb-3">
-                <div className="p-2 rounded-lg text-center" style={{ backgroundColor: COLORS.surfaceLight }}>
-                  <p className="text-lg font-bold" style={{ color: COLORS.success }}>{programProgress.completedWorkouts}</p>
-                  <p className="text-xs" style={{ color: COLORS.textMuted }}>Completed</p>
-                </div>
-                <div className="p-2 rounded-lg text-center" style={{ backgroundColor: COLORS.surfaceLight }}>
-                  <p className="text-lg font-bold" style={{ color: COLORS.warning }}>{programProgress.workoutsRemaining}</p>
-                  <p className="text-xs" style={{ color: COLORS.textMuted }}>Remaining</p>
-                </div>
-                <div className="p-2 rounded-lg text-center" style={{ backgroundColor: COLORS.surfaceLight }}>
-                  <p className="text-lg font-bold" style={{ color: COLORS.primary }}>{programProgress.totalWorkouts}</p>
-                  <p className="text-xs" style={{ color: COLORS.textMuted }}>Total</p>
-                </div>
-              </div>
-
-              {/* Week Progress */}
-              <div className="flex justify-between items-center text-sm mb-2">
-                <span style={{ color: COLORS.textMuted }}>
-                  Week {programProgress.currentWeek} of {programProgress.totalWeeks}
-                </span>
-                <span style={{ color: COLORS.textSecondary }}>
-                  {programProgress.weeksRemaining} week{programProgress.weeksRemaining !== 1 ? 's' : ''} to go
-                </span>
-              </div>
-
-              <div className="flex justify-between text-xs" style={{ color: COLORS.textMuted }}>
-                <span>{currentProgram.daysPerWeek} days/week</span>
-                <button
-                  onClick={() => setShowFullSchedule(true)}
-                  className="flex items-center gap-1"
-                  style={{ color: COLORS.primary }}
-                >
-                  <Calendar size={12} /> View Full Schedule
-                </button>
-              </div>
-            </div>
-
             {/* Upcoming Workouts */}
+            <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>UPCOMING</p>
             <div className="mb-6">
-              <h3 className="font-semibold mb-3" style={{ color: COLORS.text }}>Upcoming</h3>
               <div className="space-y-2">
                 {upcomingWorkouts.map((item, i) => {
                   const workoutTime = Math.round(getWorkoutTimeBreakdown(item.workout.exercises).totalTime / 60);
@@ -12959,44 +11891,45 @@ export default function UpRepDemo() {
             </div>
 
             {/* Quick Actions */}
-            <div className="grid grid-cols-2 gap-3 mb-6">
+            <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>QUICK ACTIONS</p>
+            <div className="grid grid-cols-4 gap-2 mb-6">
               <button
                 onClick={() => setShowExerciseLibrary(true)}
-                className="p-4 rounded-xl flex flex-col items-center gap-2"
+                className="p-3 rounded-xl flex flex-col items-center gap-1"
                 style={{ backgroundColor: COLORS.surface }}
               >
-                <Book size={24} color={COLORS.accent} />
-                <span className="text-sm font-semibold" style={{ color: COLORS.text }}>Exercise Library</span>
+                <Book size={20} color={COLORS.accent} />
+                <span className="text-xs font-semibold text-center" style={{ color: COLORS.text }}>Library</span>
               </button>
               <button
                 onClick={() => setShowWorkoutHistory(true)}
-                className="p-4 rounded-xl flex flex-col items-center gap-2"
+                className="p-3 rounded-xl flex flex-col items-center gap-1"
                 style={{ backgroundColor: COLORS.surface }}
               >
-                <History size={24} color={COLORS.warning} />
-                <span className="text-sm font-semibold" style={{ color: COLORS.text }}>Workout History</span>
+                <History size={20} color={COLORS.warning} />
+                <span className="text-xs font-semibold text-center" style={{ color: COLORS.text }}>History</span>
               </button>
               <button
                 onClick={() => setShowPersonalRecords(true)}
-                className="p-4 rounded-xl flex flex-col items-center gap-2"
+                className="p-3 rounded-xl flex flex-col items-center gap-1"
                 style={{ backgroundColor: COLORS.surface }}
               >
-                <Trophy size={24} color={COLORS.success} />
-                <span className="text-sm font-semibold" style={{ color: COLORS.text }}>Personal Records</span>
+                <Trophy size={20} color={COLORS.success} />
+                <span className="text-xs font-semibold text-center" style={{ color: COLORS.text }}>PRs</span>
               </button>
               <button
                 onClick={() => setShowCustomWorkout(true)}
-                className="p-4 rounded-xl flex flex-col items-center gap-2"
+                className="p-3 rounded-xl flex flex-col items-center gap-1"
                 style={{ backgroundColor: COLORS.surface }}
               >
-                <Edit3 size={24} color={COLORS.primary} />
-                <span className="text-sm font-semibold" style={{ color: COLORS.text }}>Custom Workout</span>
+                <Edit3 size={20} color={COLORS.primary} />
+                <span className="text-xs font-semibold text-center" style={{ color: COLORS.text }}>Custom</span>
               </button>
             </div>
 
             {/* Recent Activity */}
+            <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>RECENT ACTIVITY</p>
             <div className="mb-6">
-              <h3 className="font-semibold mb-3" style={{ color: COLORS.text }}>Recent Activity</h3>
               {workoutHistory.length === 0 ? (
                 <div className="p-6 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
                   <div className="w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center" style={{ backgroundColor: COLORS.surfaceLight }}>
@@ -13034,44 +11967,72 @@ export default function UpRepDemo() {
             </div>
 
             {/* Personal Records Preview */}
-            <div className="mb-6">
-              <div className="flex justify-between items-center mb-3">
-                <h3 className="font-semibold" style={{ color: COLORS.text }}>Personal Records</h3>
-                <button 
+            <div className="flex justify-between items-center mb-3">
+              <p className="text-xs font-semibold" style={{ color: COLORS.textMuted }}>PERSONAL RECORDS</p>
+              {personalRecords.length > 0 && (
+                <button
                   onClick={() => setShowPersonalRecords(true)}
                   className="text-xs"
                   style={{ color: COLORS.primary }}
                 >
                   View All
                 </button>
-              </div>
-              <div className="flex gap-2 overflow-x-auto pb-2">
-                {personalRecords.slice(0, 4).map((pr, i) => (
-                  <button 
-                    key={i}
-                    onClick={() => setShowExerciseDetail(pr.exercise)}
-                    className="flex-shrink-0 p-3 rounded-xl text-center"
-                    style={{ backgroundColor: COLORS.surface, minWidth: '120px' }}
-                  >
-                    <Trophy size={16} color={COLORS.warning} className="mx-auto mb-1" />
-                    <p className="text-lg font-bold" style={{ color: COLORS.text }}>{pr.weight}kg</p>
-                    <p className="text-xs" style={{ color: COLORS.textMuted }}>× {pr.reps}</p>
-                    <p className="text-xs mt-1 truncate" style={{ color: COLORS.textSecondary }}>{pr.exercise.split(' ')[0]}</p>
-                  </button>
-                ))}
-              </div>
+              )}
+            </div>
+            <div className="mb-6">
+              {personalRecords.length === 0 ? (
+                <div className="p-6 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
+                  <div className="w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center" style={{ backgroundColor: COLORS.surfaceLight }}>
+                    <Trophy size={24} color={COLORS.textMuted} />
+                  </div>
+                  <p className="font-semibold mb-1" style={{ color: COLORS.text }}>No PRs yet</p>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>Complete a workout to start tracking your personal records</p>
+                </div>
+              ) : (
+                <div className="flex gap-2 overflow-x-auto pb-2">
+                  {personalRecords.slice(0, 4).map((pr, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setShowExerciseDetail(pr.exercise)}
+                      className="flex-shrink-0 p-3 rounded-xl text-center"
+                      style={{ backgroundColor: COLORS.surface, minWidth: '120px' }}
+                    >
+                      <Trophy size={16} color={COLORS.warning} className="mx-auto mb-1" />
+                      <p className="text-lg font-bold" style={{ color: COLORS.text }}>{pr.weight}kg</p>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>× {pr.reps}</p>
+                      <p className="text-xs mt-1 truncate" style={{ color: COLORS.textSecondary }}>{pr.exercise.split(' ')[0]}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Training Split */}
+            <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>TRAINING SPLIT</p>
+            <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
+              <button
+                type="button"
+                onClick={() => setShowProgramSelector(true)}
+                className="w-full p-3 rounded-xl flex items-center justify-between"
+                style={{ backgroundColor: COLORS.surfaceLight, border: `1px solid ${COLORS.primary}40` }}
+              >
+                <div className="text-left">
+                  <h4 className="font-bold" style={{ color: COLORS.text }}>{currentProgram.name}</h4>
+                  <p className="text-xs" style={{ color: COLORS.textSecondary }}>{currentProgram.daysPerWeek} days/week • Week {programProgress.currentWeek} of {programProgress.totalWeeks}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold" style={{ color: COLORS.primary }}>{Math.round(programProgress.progressPercent)}%</span>
+                  <ChevronRight size={20} color={COLORS.primary} />
+                </div>
+              </button>
             </div>
 
             {/* What's Next - Program Suggestions */}
+            <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>WHAT'S NEXT</p>
             <div className="p-4 rounded-xl mb-6" style={{ backgroundColor: COLORS.surface }}>
-              <div className="flex items-center gap-2 mb-3">
-                <Target size={18} color={COLORS.accent} />
-                <h4 className="font-semibold" style={{ color: COLORS.text }}>What's Next?</h4>
-              </div>
-
               {programProgress.isComplete ? (
                 <div className="p-3 rounded-lg mb-3" style={{ backgroundColor: COLORS.success + '15' }}>
-                  <p className="text-sm font-semibold" style={{ color: COLORS.success }}>🎉 Program Complete!</p>
+                  <p className="text-sm font-semibold" style={{ color: COLORS.success }}>Program Complete!</p>
                   <p className="text-xs" style={{ color: COLORS.textMuted }}>Choose your next challenge below</p>
                 </div>
               ) : (
@@ -13227,13 +12188,15 @@ export default function UpRepDemo() {
               {/* Comeback Message */}
               <div className="p-3 rounded-lg mt-3" style={{ backgroundColor: COLORS.surfaceLight }}>
                 <p className="text-xs text-center" style={{ color: COLORS.textSecondary }}>
-                  💪 Remember, you can come back anytime. Rest is part of the journey!
+                  Remember, you can come back anytime. Rest is part of the journey!
                 </p>
               </div>
             </div>
+
           </div>
         )}
         {activeTab === 'nutrition' && (
+          <>
           <div className="p-4 h-full overflow-auto">
             {/* Tab Navigation */}
             <div className="flex gap-1 mb-6">
@@ -13270,14 +12233,15 @@ export default function UpRepDemo() {
                                        userData.goal === 'strength' ? COLORS.primary + '40' : COLORS.accent + '40'}`
                 }}>
                   <div className="flex items-center gap-3 mb-2">
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-xl" style={{ 
-                      backgroundColor: userData.goal === 'lose_fat' ? COLORS.error + '30' : 
-                                       userData.goal === 'build_muscle' ? COLORS.success + '30' : 
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{
+                      backgroundColor: userData.goal === 'lose_fat' ? COLORS.error + '30' :
+                                       userData.goal === 'build_muscle' ? COLORS.success + '30' :
                                        userData.goal === 'strength' ? COLORS.primary + '30' : COLORS.accent + '30'
                     }}>
-                      {userData.goal === 'lose_fat' ? '🔥' : 
-                       userData.goal === 'build_muscle' ? '💪' : 
-                       userData.goal === 'strength' ? '🏋️' : '❤️'}
+                      {userData.goal === 'lose_fat' && <Flame size={20} color={COLORS.error} />}
+                      {userData.goal === 'build_muscle' && <Target size={20} color={COLORS.success} />}
+                      {userData.goal === 'strength' && <Dumbbell size={20} color={COLORS.primary} />}
+                      {!['lose_fat', 'build_muscle', 'strength'].includes(userData.goal) && <Heart size={20} color={COLORS.accent} />}
                     </div>
                     <div>
                       <p className="font-bold" style={{ color: COLORS.text }}>
@@ -13333,9 +12297,8 @@ export default function UpRepDemo() {
                 </div>
 
                 {/* Today's Macros */}
+                <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>TODAY'S NUTRITION</p>
                 <div className="mb-6">
-                  <h3 className="font-semibold mb-3" style={{ color: COLORS.text }}>Today's Nutrition</h3>
-
                   {/* Quick Add Buttons */}
                   <div className="grid grid-cols-2 gap-3 mb-4">
                     <button
@@ -13418,8 +12381,8 @@ export default function UpRepDemo() {
                 </div>
 
                 {/* Macro Breakdown */}
+                <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>MACROS</p>
                 <div className="p-4 rounded-xl mb-6" style={{ backgroundColor: COLORS.surface }}>
-                  <h4 className="font-semibold mb-3" style={{ color: COLORS.text }}>Macros</h4>
                   <div className="space-y-3">
                     {[
                       { name: 'Protein', current: proteinIntake, target: adjustedNutritionGoals.protein, adjustment: adjustedNutritionGoals.adjustments?.protein || 0, unit: 'g', color: COLORS.primary },
@@ -13448,8 +12411,8 @@ export default function UpRepDemo() {
                 </div>
 
                 {/* Weekly Calorie Chart */}
+                <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>WEEKLY CALORIES</p>
                 <div className="p-4 rounded-xl mb-6" style={{ backgroundColor: COLORS.surface }}>
-                  <h4 className="font-semibold mb-3" style={{ color: COLORS.text }}>Weekly Calorie Average</h4>
                   <div style={{ height: 120 }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={weeklyNutrition}>
@@ -13498,8 +12461,8 @@ export default function UpRepDemo() {
                 </div>
 
                 {/* Weekly Water Chart */}
+                <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>WEEKLY HYDRATION</p>
                 <div className="p-4 rounded-xl mb-6" style={{ backgroundColor: COLORS.surface }}>
-                  <h4 className="font-semibold mb-3" style={{ color: COLORS.text }}>Weekly Water Intake</h4>
                   <div style={{ height: 120 }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={weeklyNutrition}>
@@ -13610,7 +12573,7 @@ export default function UpRepDemo() {
                 </button>
 
                 {/* Meal Log */}
-                <h4 className="font-semibold mb-3" style={{ color: COLORS.text }}>Today's Meals</h4>
+                <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>TODAY'S MEALS</p>
                 <div className="space-y-3">
                   {mealLog.map(meal => (
                     <div key={meal.id} className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
@@ -13648,11 +12611,11 @@ export default function UpRepDemo() {
             {nutritionTab === 'supplements' && (
               <>
                 {/* Today's Progress */}
+                <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>TODAY'S PROGRESS</p>
                 <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
-                  <div className="flex justify-between items-center mb-3">
-                    <h4 className="font-semibold" style={{ color: COLORS.text }}>Today's Supplements</h4>
+                  <div className="flex justify-end items-center mb-3">
                     <span className="text-sm font-semibold" style={{ color: COLORS.supplements }}>
-                      {supplements.filter(s => s.taken).length}/{supplements.length}
+                      {supplements.filter(s => s.taken).length}/{supplements.length} taken
                     </span>
                   </div>
                   <div className="h-3 rounded-full overflow-hidden mb-2" style={{ backgroundColor: COLORS.surfaceLight }}>
@@ -13668,7 +12631,7 @@ export default function UpRepDemo() {
                     {supplements.length === 0
                       ? 'Add supplements to start tracking'
                       : supplements.filter(s => s.taken).length === supplements.length
-                        ? '🎉 All supplements taken!'
+                        ? 'All supplements taken!'
                         : `${supplements.length - supplements.filter(s => s.taken).length} remaining`
                     }
                   </p>
@@ -13858,9 +12821,9 @@ export default function UpRepDemo() {
                 )}
 
                 {/* Supplement Streak */}
+                <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>CONSISTENCY</p>
                 <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-semibold" style={{ color: COLORS.text }}>Consistency</h4>
+                  <div className="flex items-center justify-end mb-3">
                     <div className="flex items-center gap-1">
                       <Flame size={16} color={COLORS.warning} />
                       <span className="font-bold" style={{ color: COLORS.warning }}>{streaks.supplements.daysInRow} day streak</span>
@@ -13903,9 +12866,9 @@ export default function UpRepDemo() {
             {nutritionTab === 'sleep' && (
               <>
                 {/* Last Night's Sleep */}
+                <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>LAST NIGHT</p>
                 <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-semibold" style={{ color: COLORS.text }}>Last Night</h4>
+                  <div className="flex items-center justify-end mb-3">
                     <div className="flex items-center gap-1">
                       <Moon size={16} color={COLORS.sleep} />
                       <span className="font-bold" style={{ color: COLORS.sleep }}>
@@ -14012,9 +12975,9 @@ export default function UpRepDemo() {
                 </div>
 
                 {/* Sleep Goal */}
+                <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>SLEEP GOAL</p>
                 <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-semibold" style={{ color: COLORS.text }}>Sleep Goal</h4>
+                  <div className="flex items-center justify-end mb-3">
                     <span className="text-sm" style={{ color: COLORS.textMuted }}>{sleepHours} hrs / night</span>
                   </div>
                   <div className="flex items-center gap-3">
@@ -14042,9 +13005,9 @@ export default function UpRepDemo() {
                 </div>
 
                 {/* Sleep Streak */}
+                <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>STREAK</p>
                 <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-semibold" style={{ color: COLORS.text }}>Sleep Streak</h4>
+                  <div className="flex items-center justify-end mb-3">
                     <div className="flex items-center gap-1">
                       <Flame size={16} color={COLORS.warning} />
                       <span className="font-bold" style={{ color: COLORS.warning }}>{streaks.sleep.daysInRow} days</span>
@@ -14056,8 +13019,8 @@ export default function UpRepDemo() {
                 </div>
 
                 {/* Weekly Chart */}
+                <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>THIS WEEK</p>
                 <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
-                  <h4 className="font-semibold mb-3" style={{ color: COLORS.text }}>This Week</h4>
                   <div style={{ height: 120 }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={sleepChartData.slice(-7)}>
@@ -14101,6 +13064,32 @@ export default function UpRepDemo() {
               </>
             )}
           </div>
+
+          {/* Meal Entry Modal - Nutrition Tab */}
+          {showMealEntry && (
+            <MealEntryModal
+              COLORS={COLORS}
+              onClose={() => setShowMealEntry(false)}
+              onSave={(calories, protein) => {
+                setCaloriesIntake(prev => prev + calories);
+                setProteinIntake(prev => prev + protein);
+                setShowMealEntry(false);
+              }}
+            />
+          )}
+
+          {/* Water Entry Modal - Nutrition Tab */}
+          {showWaterEntry && (
+            <WaterEntryModal
+              COLORS={COLORS}
+              onClose={() => setShowWaterEntry(false)}
+              onSave={(amount) => {
+                setWaterIntake(prev => Math.min(prev + amount, 10000));
+                setShowWaterEntry(false);
+              }}
+            />
+          )}
+          </>
         )}
         {activeTab === 'friends' && (
           <div className="p-4 h-full overflow-auto">
@@ -14270,10 +13259,10 @@ export default function UpRepDemo() {
                             {workout.creator && (
                               <div className="flex items-center gap-2 mt-2">
                                 <div
-                                  className="w-5 h-5 rounded-full flex items-center justify-center text-xs"
-                                  style={{ backgroundColor: COLORS.surfaceLight }}
+                                  className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold"
+                                  style={{ backgroundColor: COLORS.primary + '30', color: COLORS.primary }}
                                 >
-                                  {workout.creator.avatar || '💪'}
+                                  {workout.creator.username?.[0]?.toUpperCase() || 'U'}
                                 </div>
                                 <span className="text-xs" style={{ color: COLORS.textMuted }}>
                                   by @{workout.creator.username}
@@ -14383,7 +13372,7 @@ export default function UpRepDemo() {
                 </button>
 
                 {/* Activity Feed */}
-                <h4 className="font-semibold mb-3" style={{ color: COLORS.text }}>Activity Feed</h4>
+                <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>ACTIVITY FEED</p>
                 <div className="space-y-3">
                   {activityFeed.map(activity => {
                     const friend = friends.find(f => f.id === activity.friendId);
@@ -14511,8 +13500,8 @@ export default function UpRepDemo() {
                                   >
                                     {friend.name}
                                   </button>
-                                  <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: COLORS.success + '20', color: COLORS.success }}>
-                                    🏆 NEW PR
+                                  <span className="text-xs px-2 py-0.5 rounded-full flex items-center gap-1" style={{ backgroundColor: COLORS.success + '20', color: COLORS.success }}>
+                                    <Trophy size={12} /> NEW PR
                                   </span>
                                 </div>
                                 <p className="text-xs" style={{ color: COLORS.textMuted }}>{activity.time}</p>
@@ -14570,7 +13559,7 @@ export default function UpRepDemo() {
                                   </ResponsiveContainer>
                                 </div>
                                 <p className="text-xs text-center mt-2" style={{ color: COLORS.success }}>
-                                  +{activity.prHistory[activity.prHistory.length - 1].weight - activity.prHistory[0].weight}kg total progress 💪
+                                  +{activity.prHistory[activity.prHistory.length - 1].weight - activity.prHistory[0].weight}kg total progress
                                 </p>
                               </div>
                             )}
@@ -14623,8 +13612,8 @@ export default function UpRepDemo() {
                                     {friend.name}
                                   </button>
                                   <span className="text-sm" style={{ color: COLORS.textSecondary }}>reached</span>
-                                  <span className="text-sm font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: COLORS.accent + '20', color: COLORS.accent }}>
-                                    🎉 {activity.milestone}
+                                  <span className="text-sm font-bold px-2 py-0.5 rounded-full flex items-center gap-1" style={{ backgroundColor: COLORS.accent + '20', color: COLORS.accent }}>
+                                    <Star size={12} /> {activity.milestone}
                                   </span>
                                 </div>
                                 <p className="text-xs" style={{ color: COLORS.textMuted }}>{activity.time}</p>
@@ -14696,7 +13685,7 @@ export default function UpRepDemo() {
                 </div>
 
                 {/* All Following */}
-                <h4 className="font-semibold mb-3" style={{ color: COLORS.text }}>Following ({friends.length})</h4>
+                <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>FOLLOWING ({friends.length})</p>
                 
                 <div className="space-y-2">
                   {friends.map(friend => (
@@ -14812,10 +13801,10 @@ export default function UpRepDemo() {
                         {/* Avatar */}
                         <div className="relative flex-shrink-0">
                           <div
-                            className="w-12 h-12 rounded-full flex items-center justify-center text-xl"
-                            style={{ backgroundColor: COLORS.surfaceLight }}
+                            className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold"
+                            style={{ backgroundColor: COLORS.primary + '30', color: COLORS.primary }}
                           >
-                            {user.avatar || '💪'}
+                            {user.avatar || user.name?.[0]?.toUpperCase() || 'U'}
                           </div>
                           {user.verified && (
                             <div
@@ -14882,10 +13871,10 @@ export default function UpRepDemo() {
                           style={{ backgroundColor: COLORS.surface }}
                         >
                           <div
-                            className="w-10 h-10 rounded-full flex items-center justify-center text-lg"
-                            style={{ backgroundColor: COLORS.surfaceLight }}
+                            className="w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold"
+                            style={{ backgroundColor: COLORS.primary + '30', color: COLORS.primary }}
                           >
-                            {suggested.avatar || '💪'}
+                            {suggested.avatar || suggested.name?.[0]?.toUpperCase() || 'U'}
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="font-semibold text-sm truncate" style={{ color: COLORS.text }}>{suggested.name || 'User'}</p>
@@ -14913,7 +13902,7 @@ export default function UpRepDemo() {
             {friendsTab === 'challenges' && (
               <>
                 {/* Active Challenges */}
-                <h4 className="font-semibold mb-3" style={{ color: COLORS.text }}>Your Challenges</h4>
+                <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>YOUR CHALLENGES</p>
                 <div className="space-y-4 mb-6">
                   {challenges.filter(c => c.joined).map(challenge => (
                     <div key={challenge.id} className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
@@ -14973,7 +13962,7 @@ export default function UpRepDemo() {
                 </div>
 
                 {/* Available Challenges */}
-                <h4 className="font-semibold mb-3" style={{ color: COLORS.text }}>Join a Challenge</h4>
+                <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>JOIN A CHALLENGE</p>
                 <div className="space-y-3">
                   {challenges.filter(c => !c.joined).map(challenge => (
                     <div key={challenge.id} className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
@@ -15039,7 +14028,9 @@ export default function UpRepDemo() {
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-center">
                   <div className="p-2 rounded-lg" style={{ backgroundColor: COLORS.surface }}>
-                    <p className="font-bold" style={{ color: COLORS.warning }}>🔥 {streaks.weeklyWorkouts.weeksCompleted}</p>
+                    <p className="font-bold flex items-center justify-center gap-1" style={{ color: COLORS.warning }}>
+                      <Flame size={16} /> {streaks.weeklyWorkouts.weeksCompleted}
+                    </p>
                     <p className="text-xs" style={{ color: COLORS.textMuted }}>week streak</p>
                   </div>
                   <div className="p-2 rounded-lg" style={{ backgroundColor: COLORS.surface }}>
@@ -15122,12 +14113,12 @@ export default function UpRepDemo() {
                 <label className="text-sm mb-2 block font-semibold" style={{ color: COLORS.text }}>Challenge Type</label>
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { id: 'workouts', label: 'Most Workouts', icon: '🏋️', desc: 'Complete the most workouts' },
-                    { id: 'streak', label: 'Longest Streak', icon: '🔥', desc: 'Maintain the longest streak' },
-                    { id: 'volume', label: 'Total Volume', icon: '💪', desc: 'Lift the most total weight' },
-                    { id: 'reps', label: 'Total Reps', icon: '🔄', desc: 'Complete the most reps' },
-                    { id: 'calories', label: 'Calories Burned', icon: '🔥', desc: 'Burn the most calories' },
-                    { id: 'custom', label: 'Custom Goal', icon: '🎯', desc: 'Set your own metric' },
+                    { id: 'workouts', label: 'Most Workouts', icon: 'dumbbell', desc: 'Complete the most workouts' },
+                    { id: 'streak', label: 'Longest Streak', icon: 'flame', desc: 'Maintain the longest streak' },
+                    { id: 'volume', label: 'Total Volume', icon: 'dumbbell', desc: 'Lift the most total weight' },
+                    { id: 'reps', label: 'Total Reps', icon: 'refresh-cw', desc: 'Complete the most reps' },
+                    { id: 'calories', label: 'Calories Burned', icon: 'flame', desc: 'Burn the most calories' },
+                    { id: 'custom', label: 'Custom Goal', icon: 'target', desc: 'Set your own metric' },
                   ].map(type => (
                     <button
                       key={type.id}
@@ -15139,7 +14130,7 @@ export default function UpRepDemo() {
                       }}
                     >
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-lg">{type.icon}</span>
+                        <IconMap name={type.icon} size={18} color={newChallenge.type === type.id ? COLORS.primary : COLORS.textMuted} />
                         <span className="font-semibold text-sm" style={{ color: newChallenge.type === type.id ? COLORS.primary : COLORS.text }}>{type.label}</span>
                       </div>
                       <p className="text-xs" style={{ color: COLORS.textMuted }}>{type.desc}</p>
@@ -15263,7 +14254,7 @@ export default function UpRepDemo() {
                       type: newChallenge.type,
                       endDate: endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
                       participants: [
-                        { id: 'you', name: 'You', avatar: '💪', score: 0 },
+                        { id: 'you', name: 'You', avatar: null, score: 0 },
                         ...newChallenge.invitedFriends.map(friendId => {
                           const friend = friends.find(f => f.id === friendId);
                           return { id: friendId, name: friend.name, avatar: friend.avatar, score: 0 };
@@ -15881,7 +14872,9 @@ export default function UpRepDemo() {
                       border: achievement.unlocked ? `1px solid ${COLORS.primary}30` : 'none'
                     }}
                   >
-                    <span className="text-2xl">{achievement.icon}</span>
+                    <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: achievement.unlocked ? COLORS.primary + '20' : COLORS.surfaceLight }}>
+                      <IconMap name={achievement.icon} size={20} color={achievement.unlocked ? COLORS.primary : COLORS.textMuted} />
+                    </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate" style={{ color: achievement.unlocked ? COLORS.text : COLORS.textMuted }}>
                         {achievement.name}
@@ -16092,10 +15085,10 @@ export default function UpRepDemo() {
                           >
                             <div className="flex items-center gap-3">
                               <div
-                                className="w-12 h-12 rounded-full flex items-center justify-center text-xl"
-                                style={{ backgroundColor: COLORS.surfaceLight }}
+                                className="w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold"
+                                style={{ backgroundColor: COLORS.primary + '30', color: COLORS.primary }}
                               >
-                                {friend.avatar || '💪'}
+                                {friend.avatar || friend.name?.[0]?.toUpperCase() || 'U'}
                               </div>
                               <div>
                                 <p className="font-semibold" style={{ color: COLORS.text }}>{friend.name || 'User'}</p>
@@ -16231,10 +15224,10 @@ export default function UpRepDemo() {
                 <div className="space-y-2">
                   {activityFeed.filter(a => a.friendId === showFriendProfile.id).slice(0, 3).map(activity => (
                     <div key={activity.id} className="flex items-center gap-3 p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
-                      <div className="text-lg">
-                        {activity.type === 'workout' && '🏋️'}
-                        {activity.type === 'pr' && '🏆'}
-                        {activity.type === 'milestone' && '🎉'}
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '20' }}>
+                        {activity.type === 'workout' && <Dumbbell size={16} color={COLORS.primary} />}
+                        {activity.type === 'pr' && <Trophy size={16} color={COLORS.warning} />}
+                        {activity.type === 'milestone' && <Star size={16} color={COLORS.accent} />}
                       </div>
                       <div className="flex-1">
                         <p className="text-sm" style={{ color: COLORS.text }}>
@@ -16346,7 +15339,7 @@ export default function UpRepDemo() {
                   {friend.stats.streak >= 30 && (
                     <div className="mt-2 inline-flex items-center gap-1 px-3 py-1 rounded-full" style={{ backgroundColor: COLORS.warning + '30' }}>
                       <Trophy size={14} color={COLORS.warning} />
-                      <span className="text-xs font-semibold" style={{ color: COLORS.warning }}>On fire! 🔥</span>
+                      <span className="text-xs font-semibold" style={{ color: COLORS.warning }}>On fire!</span>
                     </div>
                   )}
                 </div>
@@ -16445,7 +15438,7 @@ export default function UpRepDemo() {
                     <div>
                       <p className="font-medium" style={{ color: COLORS.text }}>workouts per week</p>
                       <p className="text-xs" style={{ color: COLORS.textMuted }}>
-                        {friend.weeklyWorkouts >= 5 ? 'Very consistent! 💪' : friend.weeklyWorkouts >= 3 ? 'Solid routine!' : 'Building the habit'}
+                        {friend.weeklyWorkouts >= 5 ? 'Very consistent!' : friend.weeklyWorkouts >= 3 ? 'Solid routine!' : 'Building the habit'}
                       </p>
                     </div>
                   </div>
@@ -16468,6 +15461,7 @@ export default function UpRepDemo() {
         {activeTab === 'progress' && (
           <div className="p-4 h-full overflow-auto">
             {/* Progress Overview */}
+            <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>OVERVIEW</p>
             <div className="grid grid-cols-2 gap-3 mb-6">
               <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
                 <div className="flex items-center gap-2 mb-2">
@@ -16499,19 +15493,16 @@ export default function UpRepDemo() {
             </div>
 
             {/* Program Progress */}
+            <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>PROGRAM</p>
             <div className="p-4 rounded-xl mb-6" style={{ backgroundColor: COLORS.surface }}>
               <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <Dumbbell size={18} color={COLORS.primary} />
-                  <h4 className="font-semibold" style={{ color: COLORS.text }}>Program Progress</h4>
-                </div>
+                <p className="font-semibold" style={{ color: COLORS.text }}>{currentProgram.name}</p>
                 <span className="text-xs px-2 py-1 rounded-full" style={{ backgroundColor: programProgress.isComplete ? COLORS.success + '20' : COLORS.primary + '20', color: programProgress.isComplete ? COLORS.success : COLORS.primary }}>
                   {programProgress.isComplete ? 'Complete!' : `${Math.round(programProgress.progressPercent)}%`}
                 </span>
               </div>
 
               <div className="mb-3">
-                <p className="font-medium mb-1" style={{ color: COLORS.text }}>{currentProgram.name}</p>
                 <div className="flex items-center gap-3">
                   <div className="flex-1 h-2 rounded-full" style={{ backgroundColor: COLORS.surfaceLight }}>
                     <div
@@ -16546,16 +15537,16 @@ export default function UpRepDemo() {
               {programProgress.isComplete && (
                 <div className="mt-3 p-2 rounded-lg" style={{ backgroundColor: COLORS.success + '10' }}>
                   <p className="text-xs text-center" style={{ color: COLORS.success }}>
-                    🎉 Congratulations! Check the Workouts tab to choose your next program.
+                    Congratulations! Check the Workouts tab to choose your next program.
                   </p>
                 </div>
               )}
             </div>
 
             {/* Weight Chart */}
+            <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>WEIGHT TRACKING</p>
             <div className="p-4 rounded-xl mb-6" style={{ backgroundColor: COLORS.surface }}>
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="font-semibold" style={{ color: COLORS.text }}>Weight Trend</h4>
+              <div className="flex items-center justify-end mb-3">
                 <div className="flex gap-2">
                   {['1M', '3M', '6M', 'All'].map(period => (
                     <button
@@ -16606,10 +15597,8 @@ export default function UpRepDemo() {
             </div>
 
             {/* Body Composition Chart */}
+            <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>BODY COMPOSITION</p>
             <div className="p-4 rounded-xl mb-6" style={{ backgroundColor: COLORS.surface }}>
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="font-semibold" style={{ color: COLORS.text }}>Body Composition</h4>
-              </div>
               <div className="text-center py-8">
                 <p className="text-sm" style={{ color: COLORS.textMuted }}>Track body fat and muscle mass</p>
                 <p className="text-xs mt-1" style={{ color: COLORS.textMuted }}>Coming soon</p>
@@ -16617,8 +15606,8 @@ export default function UpRepDemo() {
             </div>
 
             {/* Current Stats */}
+            <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>MEASUREMENTS</p>
             <div className="p-4 rounded-xl mb-6" style={{ backgroundColor: COLORS.surface }}>
-              <h4 className="font-semibold mb-3" style={{ color: COLORS.text }}>Latest Measurements</h4>
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2">
@@ -16671,7 +15660,7 @@ export default function UpRepDemo() {
             </button>
 
             {/* Weigh-In History */}
-            <h4 className="font-semibold mb-3" style={{ color: COLORS.text }}>Recent Weigh-Ins</h4>
+            <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>WEIGH-IN HISTORY</p>
             <div className="p-4 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
               <p className="text-sm" style={{ color: COLORS.textMuted }}>
                 Log your weigh-ins to track progress
@@ -16683,8 +15672,8 @@ export default function UpRepDemo() {
           <div ref={profileTabScrollRef} onScroll={handleProfileTabScroll} className="h-full overflow-auto">
             {/* Profile Header */}
             <div className="p-6 text-center" style={{ backgroundColor: COLORS.surface }}>
-              <div className="w-24 h-24 rounded-full mx-auto mb-4 flex items-center justify-center text-5xl" style={{ backgroundColor: COLORS.primary + '20' }}>
-                💪
+              <div className="w-24 h-24 rounded-full mx-auto mb-4 flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '20' }}>
+                <User size={48} color={COLORS.primary} />
               </div>
               <h2 className="text-xl font-bold" style={{ color: COLORS.text }}>
                 @{userData.username || 'username'}
@@ -16707,6 +15696,7 @@ export default function UpRepDemo() {
 
             {/* Quick Stats */}
             <div className="p-4">
+              <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>STATS</p>
               <div className="grid grid-cols-4 gap-2 mb-6">
                 <div className="p-3 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
                   <p className="text-xl font-bold" style={{ color: COLORS.primary }}>{overviewStats.totalWorkouts}</p>
@@ -16728,8 +15718,8 @@ export default function UpRepDemo() {
 
               {/* Current Goal */}
               <div className="mb-4">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-semibold" style={{ color: COLORS.text }}>Current Goal</h3>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-semibold" style={{ color: COLORS.textMuted }}>CURRENT GOAL</p>
                   <button
                     onClick={() => setShowGoalEditor(true)}
                     className="text-xs px-2 py-1 rounded"
@@ -16741,7 +15731,16 @@ export default function UpRepDemo() {
                 {userData.goal && GOAL_INFO[userData.goal] ? (
                   <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
                     <div className="flex items-center gap-3 mb-3">
-                      <span className="text-3xl">{GOAL_INFO[userData.goal].icon}</span>
+                      <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '20' }}>
+                        {userData.goal === 'bulk' && <Dumbbell size={24} color={COLORS.primary} />}
+                        {userData.goal === 'build_muscle' && <Target size={24} color={COLORS.primary} />}
+                        {userData.goal === 'strength' && <Dumbbell size={24} color={COLORS.primary} />}
+                        {userData.goal === 'recomp' && <RefreshCw size={24} color={COLORS.primary} />}
+                        {userData.goal === 'fitness' && <Heart size={24} color={COLORS.primary} />}
+                        {userData.goal === 'athletic' && <Zap size={24} color={COLORS.primary} />}
+                        {userData.goal === 'lean' && <TrendingDown size={24} color={COLORS.primary} />}
+                        {userData.goal === 'lose_fat' && <Flame size={24} color={COLORS.primary} />}
+                      </div>
                       <div>
                         <p className="font-semibold" style={{ color: COLORS.text }}>{GOAL_INFO[userData.goal].title}</p>
                         <p className="text-xs" style={{ color: COLORS.textMuted }}>
@@ -16799,6 +15798,7 @@ export default function UpRepDemo() {
               </div>
 
               {/* Experience Level */}
+              <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>EXPERIENCE LEVEL</p>
               <button
                 onClick={() => setShowExperienceLevelModal(true)}
                 className="w-full p-4 rounded-xl mb-4 text-left"
@@ -16806,8 +15806,12 @@ export default function UpRepDemo() {
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style={{ backgroundColor: COLORS.accent + '20' }}>
-                      {EXPERIENCE_LEVELS[userData.experience]?.icon || '🏋️'}
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: COLORS.accent + '20' }}>
+                      {userData.experience === 'beginner' && <Sprout size={20} color={COLORS.accent} />}
+                      {userData.experience === 'novice' && <TrendingUp size={20} color={COLORS.accent} />}
+                      {userData.experience === 'experienced' && <Dumbbell size={20} color={COLORS.accent} />}
+                      {userData.experience === 'expert' && <Crown size={20} color={COLORS.accent} />}
+                      {!userData.experience && <Dumbbell size={20} color={COLORS.accent} />}
                     </div>
                     <div>
                       <p className="font-semibold" style={{ color: COLORS.text }}>
@@ -16823,8 +15827,8 @@ export default function UpRepDemo() {
               </button>
 
               {/* Current Program - opens modal */}
+              <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>TRAINING SPLIT</p>
               <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
-                <p className="text-xs mb-2" style={{ color: COLORS.textMuted }}>TRAINING SPLIT</p>
                 <button
                   type="button"
                   onClick={() => setShowProgramSelector(true)}
@@ -16857,7 +15861,7 @@ export default function UpRepDemo() {
               {/* Achievements */}
               <div className="mb-4">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold" style={{ color: COLORS.text }}>Achievements</h3>
+                  <p className="text-xs font-semibold" style={{ color: COLORS.textMuted }}>ACHIEVEMENTS</p>
                   <span className="text-xs" style={{ color: COLORS.textMuted }}>
                     {achievements.filter(a => a.unlocked).length}/{achievements.length} unlocked
                   </span>
@@ -16873,7 +15877,9 @@ export default function UpRepDemo() {
                         opacity: achievement.unlocked ? 1 : 0.5
                       }}
                     >
-                      <span className="text-2xl">{achievement.icon}</span>
+                      <div className="w-8 h-8 rounded-lg mx-auto flex items-center justify-center" style={{ backgroundColor: achievement.unlocked ? COLORS.primary + '20' : COLORS.surfaceLight }}>
+                        <IconMap name={achievement.icon} size={16} color={achievement.unlocked ? COLORS.primary : COLORS.textMuted} />
+                      </div>
                       <p className="text-xs mt-1 truncate" style={{ color: achievement.unlocked ? COLORS.text : COLORS.textMuted }}>
                         {achievement.name}
                       </p>
@@ -16893,7 +15899,7 @@ export default function UpRepDemo() {
 
               {/* Settings */}
               <div className="mb-4">
-                <h3 className="font-semibold mb-3" style={{ color: COLORS.text }}>Settings</h3>
+                <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>SETTINGS</p>
                 <div className="rounded-xl overflow-hidden" style={{ backgroundColor: COLORS.surface }}>
                   <button
                     onClick={() => setShowUnitsModal(true)}
@@ -16956,6 +15962,41 @@ export default function UpRepDemo() {
                     <ChevronRight size={18} color={COLORS.textMuted} />
                   </button>
 
+                  {/* Core Exercise Position Setting */}
+                  <div className="w-full p-4 flex items-center justify-between border-b" style={{ borderColor: COLORS.surfaceLight }}>
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: COLORS.warning + '20' }}>
+                        <Dumbbell size={16} color={COLORS.warning} />
+                      </div>
+                      <div>
+                        <span style={{ color: COLORS.text }}>Core Exercises</span>
+                        <p className="text-xs" style={{ color: COLORS.textMuted }}>Position in workout</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 p-1 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
+                      <button
+                        onClick={() => setSettings(prev => ({ ...prev, workout: { ...prev.workout, corePosition: 'first' } }))}
+                        className="px-3 py-1.5 rounded-md text-xs font-semibold"
+                        style={{
+                          backgroundColor: settings.workout.corePosition === 'first' ? COLORS.primary : 'transparent',
+                          color: settings.workout.corePosition === 'first' ? COLORS.text : COLORS.textMuted
+                        }}
+                      >
+                        First
+                      </button>
+                      <button
+                        onClick={() => setSettings(prev => ({ ...prev, workout: { ...prev.workout, corePosition: 'last' } }))}
+                        className="px-3 py-1.5 rounded-md text-xs font-semibold"
+                        style={{
+                          backgroundColor: settings.workout.corePosition === 'last' ? COLORS.primary : 'transparent',
+                          color: settings.workout.corePosition === 'last' ? COLORS.text : COLORS.textMuted
+                        }}
+                      >
+                        Last
+                      </button>
+                    </div>
+                  </div>
+
                   <button
                     onClick={() => setShowAccountModal(true)}
                     className="w-full p-4 flex items-center justify-between"
@@ -17010,7 +16051,9 @@ export default function UpRepDemo() {
                 <h3 className="font-semibold mb-3" style={{ color: COLORS.text }}>Enjoying UpRep?</h3>
                 <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.primary + '10', border: `1px solid ${COLORS.primary}30` }}>
                   <div className="flex items-center gap-4">
-                    <div className="text-4xl">⭐</div>
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: COLORS.warning + '20' }}>
+                      <Star size={24} color={COLORS.warning} />
+                    </div>
                     <div className="flex-1">
                       <p className="font-semibold mb-1" style={{ color: COLORS.text }}>Rate us on the App Store</p>
                       <p className="text-xs mb-3" style={{ color: COLORS.textMuted }}>
@@ -17134,30 +16177,6 @@ export default function UpRepDemo() {
                     <span className="text-sm" style={{ color: COLORS.textSecondary }}>
                       {workoutStats[workout.id]?.completionCount || 0} completed
                     </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Warm-up Section */}
-              <div className="mb-4">
-                <h3 className="font-semibold mb-3 flex items-center gap-2" style={{ color: COLORS.text }}>
-                  <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs" style={{ backgroundColor: COLORS.warning + '20', color: COLORS.warning }}>W</span>
-                  Warm-up (3 min)
-                </h3>
-                <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.warning + '10', border: `1px solid ${COLORS.warning}30` }}>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS.warning }} />
-                      <p className="text-sm" style={{ color: COLORS.text }}>Light cardio (jumping jacks, jogging in place)</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS.warning }} />
-                      <p className="text-sm" style={{ color: COLORS.text }}>Dynamic stretches for target muscle groups</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS.warning }} />
-                      <p className="text-sm" style={{ color: COLORS.text }}>1-2 light warm-up sets of first exercise</p>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -17975,11 +16994,19 @@ export default function UpRepDemo() {
 
       {/* Active Workout Screen - rendered at MainScreen level for access from all tabs */}
       {showActiveWorkout && (() => {
-        // Get exercises filtered for injuries plus recovery exercises
+        // Get exercises exactly as shown in the workout card
         const filteredExercises = getCurrentExercises();
         const recoveryExercises = getInjuryRecoveryExercisesToAdd();
-        const allExercises = [...filteredExercises, ...recoveryExercises];
-        const template = { ...todayWorkoutTemplate, exercises: allExercises };
+        const baseExercises = [...filteredExercises, ...recoveryExercises];
+        const fullPool = todayWorkoutTemplate?.exercises || baseExercises;
+
+        // Apply same time/count optimization as displayed
+        const defaultExerciseCount = Math.max(2, Math.floor(workoutTime / 12));
+        const exerciseCount = customExerciseCount || defaultExerciseCount;
+        const workoutTypeForCoverage = todayWorkoutTemplate?.workoutType || todayWorkout?.type || null;
+        const optimizedExercises = optimizeExercisesForTimeAndCount(baseExercises, fullPool, workoutTime, exerciseCount, workoutTypeForCoverage, settings.workout.corePosition);
+
+        const template = { ...todayWorkoutTemplate, exercises: optimizedExercises };
         return (
           <ActiveWorkoutScreen
             onClose={() => setShowActiveWorkout(false)}
@@ -18275,10 +17302,10 @@ export default function UpRepDemo() {
               {selectedCommunityWorkout.creator && (
                 <div className="flex items-center gap-2 mt-3 pt-3" style={{ borderTop: `1px solid ${COLORS.surfaceLight}` }}>
                   <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-lg"
-                    style={{ backgroundColor: COLORS.surfaceLight }}
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold"
+                    style={{ backgroundColor: COLORS.primary + '30', color: COLORS.primary }}
                   >
-                    {selectedCommunityWorkout.creator.avatar || '💪'}
+                    {selectedCommunityWorkout.creator.avatar || selectedCommunityWorkout.creator.name?.[0]?.toUpperCase() || 'U'}
                   </div>
                   <div>
                     <p className="text-sm font-semibold" style={{ color: COLORS.text }}>{selectedCommunityWorkout.creator.name}</p>
