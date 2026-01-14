@@ -3,3 +3,6 @@ export { workoutService } from './workoutService';
 export { nutritionService } from './nutritionService';
 export { sleepService } from './sleepService';
 export { streakService } from './streakService';
+export { socialService } from './socialService';
+export { workoutRatingService } from './workoutRatingService';
+export { publishedWorkoutService } from './publishedWorkoutService';

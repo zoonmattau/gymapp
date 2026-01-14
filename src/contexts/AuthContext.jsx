@@ -70,7 +70,16 @@ export function AuthProvider({ children }) {
         if (event === 'SIGNED_IN' && session?.user) {
           // Profile is auto-created by database trigger
           // Fetch it after a small delay to ensure trigger completed
-          setTimeout(() => fetchProfile(session.user.id), 500);
+          setTimeout(async () => {
+            // Always store email in profile for username lookup
+            if (session.user.email) {
+              await supabase
+                .from('profiles')
+                .update({ email: session.user.email })
+                .eq('id', session.user.id);
+            }
+            fetchProfile(session.user.id);
+          }, 500);
         } else if (event === 'SIGNED_OUT') {
           setProfile(null);
         }
@@ -81,9 +90,22 @@ export function AuthProvider({ children }) {
   }, []);
 
   // Sign up with email and password
-  const signUp = async ({ email, password, firstName, lastName, dob }) => {
+  const signUp = async ({ email, password, firstName, lastName, dob, username }) => {
     setError(null);
     try {
+      // First check if username is already taken
+      if (username) {
+        const { data: existingUser } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('username', username.toLowerCase())
+          .single();
+
+        if (existingUser) {
+          throw new Error('Username is already taken. Please choose a different one.');
+        }
+      }
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -92,11 +114,28 @@ export function AuthProvider({ children }) {
             first_name: firstName,
             last_name: lastName,
             date_of_birth: dob,
+            username: username?.toLowerCase(),
           },
         },
       });
 
       if (error) throw error;
+
+      // Update the profile with the chosen username and email after the trigger creates it
+      if (data.user) {
+        // Wait a moment for the trigger to create the profile
+        setTimeout(async () => {
+          const updates = { email: email };
+          if (username) {
+            updates.username = username.toLowerCase();
+          }
+          await supabase
+            .from('profiles')
+            .update(updates)
+            .eq('id', data.user.id);
+        }, 1000);
+      }
+
       return { data, error: null };
     } catch (err) {
       setError(err.message);
@@ -104,12 +143,36 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // Sign in with email and password
-  const signIn = async ({ email, password }) => {
+  // Sign in with email/username and password
+  const signIn = async ({ email, username, password }) => {
     setError(null);
     try {
+      let loginEmail = email;
+
+      // If username provided instead of email, look up the email using RPC (bypasses RLS)
+      if (username && !email) {
+        const usernameToFind = username.toLowerCase().trim();
+        console.log('Looking up username:', usernameToFind);
+
+        const { data: userEmail, error: rpcError } = await supabase
+          .rpc('get_email_by_username', { lookup_username: usernameToFind });
+
+        console.log('Username lookup result:', { userEmail, rpcError });
+
+        if (rpcError) {
+          console.error('RPC error:', rpcError);
+          throw new Error(`Username lookup failed. Please try logging in with your email instead.`);
+        }
+
+        if (!userEmail) {
+          throw new Error(`Username "${usernameToFind}" not found.`);
+        }
+
+        loginEmail = userEmail;
+      }
+
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: loginEmail,
         password,
       });
 

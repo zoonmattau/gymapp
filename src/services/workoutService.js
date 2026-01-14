@@ -187,6 +187,58 @@ export const workoutService = {
     return { data, error };
   },
 
+  // Get exercise history for progressive overload (last weight/reps per exercise)
+  async getExerciseHistory(userId) {
+    try {
+      // Get workout sets from the last 90 days
+      const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+
+      const { data, error } = await supabase
+        .from('workout_sets')
+        .select(`
+          *,
+          workout_sessions!inner (
+            user_id,
+            started_at
+          )
+        `)
+        .eq('workout_sessions.user_id', userId)
+        .gte('workout_sessions.started_at', ninetyDaysAgo)
+        .eq('is_warmup', false)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.warn('Error fetching exercise history:', error);
+        return { data: {}, error };
+      }
+
+      if (!data || data.length === 0) {
+        return { data: {}, error: null };
+      }
+
+      // Group by exercise name to get the last performed sets
+      const exerciseHistory = {};
+      data.forEach(set => {
+        const exerciseName = set.exercise_name;
+        if (!exerciseName) return;
+
+        if (!exerciseHistory[exerciseName]) {
+          exerciseHistory[exerciseName] = {
+            lastWeight: set.weight || 0,
+            lastReps: set.reps || 0,
+            lastRpe: set.rpe,
+            lastPerformedAt: set.workout_sessions?.started_at,
+          };
+        }
+      });
+
+      return { data: exerciseHistory, error: null };
+    } catch (err) {
+      console.warn('Exception in getExerciseHistory:', err);
+      return { data: {}, error: err };
+    }
+  },
+
   // Check and create PR if applicable
   async checkAndCreatePR(userId, exerciseId, exerciseName, weight, reps, sessionId = null) {
     // Calculate estimated 1RM using Epley formula
