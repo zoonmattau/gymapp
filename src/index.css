@@ -30,3 +30,22 @@ html, body {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Hide scrollbars for horizontal scroll */
+.overflow-x-auto::-webkit-scrollbar {
+  display: none;
+}
+
+.overflow-x-auto {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

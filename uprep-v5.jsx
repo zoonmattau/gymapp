@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
-import { ChevronRight, ChevronLeft, Check, Plus, Minus, Play, X, Droplets, Moon, TrendingUp, TrendingDown, User, Home, Dumbbell, Apple, BarChart3, Trophy, Flame, Clock, Target, Info, Calendar, AlertCircle, Zap, Coffee, Utensils, ChevronDown, ChevronUp, Eye, Undo2, Search, Book, History, Award, Edit3, Filter, ArrowLeftRight, GripVertical, Users, Heart, MessageCircle, Share2, Crown, Medal, Loader2, Settings, Sprout, RefreshCw, Scale, Scissors, Wind, Timer, Activity, Star, Sparkles, PartyPopper } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Check, Plus, Minus, Play, Pause, X, Droplets, Moon, TrendingUp, TrendingDown, User, Home, Dumbbell, Apple, BarChart3, Trophy, Flame, Clock, Target, Info, Calendar, AlertCircle, Zap, Coffee, Utensils, ChevronDown, ChevronUp, Eye, Undo2, Search, Book, History, Award, Edit3, Filter, ArrowLeftRight, GripVertical, Users, Heart, MessageCircle, Share2, Crown, Medal, Loader2, Settings, Sprout, RefreshCw, Scale, Scissors, Wind, Timer, Activity, Star, Sparkles, PartyPopper, Bell, UserPlus, Lock, Bookmark, Upload, Trash2 } from 'lucide-react';
 
 // Icon mapping helper - converts icon names to Lucide components
 const IconMap = ({ name, size = 24, color, className }) => {
@@ -36,6 +36,172 @@ const IconMap = ({ name, size = 24, color, className }) => {
   const Icon = icons[name] || Target;
   return <Icon size={size} color={color} className={className} />;
 };
+
+// Helper to get workout icon and color based on focus area
+const getWorkoutStyle = (focus) => {
+  const focusLower = (focus || '').toLowerCase();
+  if (focusLower.includes('chest') || focusLower.includes('push')) {
+    return { icon: 'target', color: '#FF6B6B', label: 'Push' };
+  }
+  if (focusLower.includes('back') || focusLower.includes('pull')) {
+    return { icon: 'activity', color: '#4ECDC4', label: 'Pull' };
+  }
+  if (focusLower.includes('leg') || focusLower.includes('quad') || focusLower.includes('glute')) {
+    return { icon: 'zap', color: '#45B7D1', label: 'Legs' };
+  }
+  if (focusLower.includes('arm') || focusLower.includes('bicep') || focusLower.includes('tricep')) {
+    return { icon: 'flame', color: '#F7DC6F', label: 'Arms' };
+  }
+  if (focusLower.includes('shoulder') || focusLower.includes('delt')) {
+    return { icon: 'star', color: '#BB8FCE', label: 'Shoulders' };
+  }
+  if (focusLower.includes('core') || focusLower.includes('ab')) {
+    return { icon: 'sparkles', color: '#F39C12', label: 'Core' };
+  }
+  if (focusLower.includes('cardio') || focusLower.includes('hiit')) {
+    return { icon: 'heart', color: '#E74C3C', label: 'Cardio' };
+  }
+  if (focusLower.includes('full body') || focusLower.includes('strength')) {
+    return { icon: 'crown', color: '#9B59B6', label: 'Full Body' };
+  }
+  if (focusLower.includes('power') || focusLower.includes('athletic')) {
+    return { icon: 'trophy', color: '#1ABC9C', label: 'Power' };
+  }
+  return { icon: 'dumbbell', color: '#3498DB', label: 'Workout' };
+};
+
+// Format time ago for activity timestamps
+const formatActivityTime = (dateString) => {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString();
+};
+
+// Render comment content with @mentions highlighted
+const renderCommentWithMentions = (content, COLORS, onMentionClick) => {
+  if (!content) return null;
+  // Match @username patterns (alphanumeric and underscores)
+  const mentionRegex = /@(\w+)/g;
+  const parts = [];
+  let lastIndex = 0;
+  let match;
+
+  while ((match = mentionRegex.exec(content)) !== null) {
+    // Add text before the mention
+    if (match.index > lastIndex) {
+      parts.push(content.substring(lastIndex, match.index));
+    }
+    // Add the mention as a styled span
+    const username = match[1];
+    parts.push(
+      <span
+        key={match.index}
+        onClick={() => onMentionClick && onMentionClick(username)}
+        style={{
+          color: COLORS.primary,
+          fontWeight: 600,
+          cursor: onMentionClick ? 'pointer' : 'default'
+        }}
+      >
+        @{username}
+      </span>
+    );
+    lastIndex = match.index + match[0].length;
+  }
+  // Add remaining text
+  if (lastIndex < content.length) {
+    parts.push(content.substring(lastIndex));
+  }
+  return parts.length > 0 ? parts : content;
+};
+
+// Star rating component with half-star support
+const StarRating = ({ rating, onRate, size = 16, readonly = false, color = '#F7DC6F' }) => {
+  // Map decimal to clip width that looks visually proportional
+  // Star shape has thin tips and wide center, so linear % doesn't look right
+  const getClipWidth = (decimal) => {
+    if (decimal <= 0) return 0;
+    if (decimal >= 1) return 100;
+    // Mapping designed so each .1 increment is visually distinct
+    const widthMap = {
+      0.1: 8,    // tiny left tip
+      0.2: 18,   // small wedge
+      0.3: 30,   // clear portion visible
+      0.4: 42,   // approaching half
+      0.5: 50,   // half star
+      0.6: 58,   // past half
+      0.7: 68,   // good portion
+      0.8: 78,   // most of star but gap visible
+      0.9: 88,   // almost full, small gap on right
+    };
+    const rounded = Math.round(decimal * 10) / 10;
+    return widthMap[rounded] || decimal * 100;
+  };
+
+  return (
+    <div className="flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map((star) => {
+        // Calculate fill: full stars get 100%, partial star gets decimal, empty get 0
+        let fillDecimal = 0;
+        if (star <= Math.floor(rating)) {
+          fillDecimal = 1;
+        } else if (star === Math.ceil(rating) && rating % 1 > 0) {
+          fillDecimal = rating % 1;
+        }
+
+        const clipWidth = getClipWidth(fillDecimal);
+
+        return (
+          <button
+            key={star}
+            onClick={() => !readonly && onRate && onRate(star)}
+            disabled={readonly}
+            className={readonly ? '' : 'hover:scale-110 transition-transform'}
+            style={{ cursor: readonly ? 'default' : 'pointer', position: 'relative' }}
+          >
+            {/* Background star (empty outline) */}
+            <Star
+              size={size}
+              color={color}
+              fill="transparent"
+              style={{ opacity: 0.3 }}
+            />
+            {/* Foreground star clipped to show partial fill */}
+            {clipWidth > 0 && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: `${clipWidth}%`,
+                  overflow: 'hidden'
+                }}
+              >
+                <Star
+                  size={size}
+                  color={color}
+                  fill={color}
+                />
+              </div>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+};
+
 import { useAuth } from './src/contexts/AuthContext';
 import { workoutService } from './src/services/workoutService';
 import { sleepService } from './src/services/sleepService';
@@ -44,9 +210,52 @@ import { nutritionService } from './src/services/nutritionService';
 import { profileService } from './src/services/profileService';
 import { injuryService } from './src/services/injuryService';
 import { socialService } from './src/services/socialService';
+import { notificationService } from './src/services/notificationService';
 import { workoutRatingService } from './src/services/workoutRatingService';
 import { publishedWorkoutService } from './src/services/publishedWorkoutService';
 import { generateNutritionTargets, projectWeightProgress, generateWorkoutSchedule } from './src/utils/fitnessCalculations';
+
+// Format date as relative time (Today at 2:30 PM, Yesterday, 3 days ago, etc.)
+const formatRelativeDate = (dateString) => {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffSecs = Math.floor(diffMs / 1000);
+  const diffMins = Math.floor(diffSecs / 60);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+  const diffWeeks = Math.floor(diffDays / 7);
+  const diffMonths = Math.floor(diffDays / 30);
+  const diffYears = Math.floor(diffDays / 365);
+
+  const timeStr = date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
+  // Check if same day
+  const isToday = date.toDateString() === now.toDateString();
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const isYesterday = date.toDateString() === yesterday.toDateString();
+
+  if (isToday) {
+    return `Today at ${timeStr}`;
+  } else if (isYesterday) {
+    return `Yesterday at ${timeStr}`;
+  } else if (diffDays < 7) {
+    return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
+  } else if (diffWeeks === 1) {
+    return 'Last week';
+  } else if (diffWeeks < 4) {
+    return `${diffWeeks} weeks ago`;
+  } else if (diffMonths === 1) {
+    return '1 month ago';
+  } else if (diffMonths < 12) {
+    return `${diffMonths} months ago`;
+  } else if (diffYears === 1) {
+    return '1 year ago';
+  } else {
+    return `${diffYears} years ago`;
+  }
+};
 
 // Dark mode color palette
 const COLORS_DARK = {
@@ -5072,22 +5281,17 @@ const getWorkoutTimeBreakdown = (exerciseList) => {
     return { workingTime: 0, restTime: 0, totalTime: 0, warmupCooldown: WORKOUT_TIMING.WARMUP_TIME + WORKOUT_TIMING.COOLDOWN_TIME };
   }
   let workingSeconds = 0;
-  let totalSets = 0;
+  let totalRestSeconds = 0;
   exerciseList.forEach((ex) => {
     const sets = ex.sets || 3;
-    totalSets += sets;
+    const restTime = ex.restTime || 90;
     workingSeconds += sets * WORKOUT_TIMING.AVG_SET_DURATION;
+    // Rest between sets within each exercise (no rest after last set of each exercise)
+    totalRestSeconds += (sets - 1) * restTime;
   });
-  // Rest after every set except the last one in the entire workout
-  const totalRestPeriods = Math.max(0, totalSets - 1);
-  // Use average rest time from exercises, or default to 90 seconds
-  const avgRestTime = exerciseList.length > 0
-    ? exerciseList.reduce((sum, ex) => sum + (ex.restTime || 90), 0) / exerciseList.length
-    : 90;
-  const restSeconds = totalRestPeriods * avgRestTime;
   const transitionTime = (exerciseList.length - 1) * WORKOUT_TIMING.TRANSITION_TIME;
   const warmupCooldown = WORKOUT_TIMING.WARMUP_TIME + WORKOUT_TIMING.COOLDOWN_TIME;
-  return { workingTime: workingSeconds, restTime: restSeconds, transitionTime, warmupCooldown, totalTime: workingSeconds + restSeconds + transitionTime + warmupCooldown, totalRestPeriods };
+  return { workingTime: workingSeconds, restTime: totalRestSeconds, transitionTime, warmupCooldown, totalTime: workingSeconds + totalRestSeconds + transitionTime + warmupCooldown };
 };
 
 // Optimize exercises for a specific time AND exercise count
@@ -5278,6 +5482,12 @@ function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, 
   // Workout media (photos/videos)
   const [workoutMedia, setWorkoutMedia] = useState([]);
   const fileInputRef = React.useRef(null);
+
+  // Publish workout state
+  const [showPublishPrompt, setShowPublishPrompt] = useState(false);
+  const [publishWorkoutName, setPublishWorkoutName] = useState('');
+  const [publishWorkoutDesc, setPublishWorkoutDesc] = useState('');
+  const [isPublishing, setIsPublishing] = useState(false);
   
   // Time tracking - initialize start time immediately since we start in workout phase
   const [workoutStartTime, setWorkoutStartTime] = useState(() => Date.now());
@@ -6337,8 +6547,86 @@ function ActiveWorkoutScreen({ onClose, onComplete, COLORS, availableTime = 60, 
               ✓ Progress saved! {prsAchieved.length > 0 ? `Amazing work on ${prsAchieved.length} PR${prsAchieved.length > 1 ? 's' : ''}!` : 'Keep pushing for those PRs!'}
             </p>
           </div>
+
+          {/* Publish to Community Suggestion */}
+          {!showPublishPrompt ? (
+            <button
+              onClick={() => setShowPublishPrompt(true)}
+              className="w-full mt-4 p-4 rounded-xl flex items-center gap-3"
+              style={{ backgroundColor: COLORS.primary + '15', border: `1px solid ${COLORS.primary}30` }}
+            >
+              <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '30' }}>
+                <Upload size={20} color={COLORS.primary} />
+              </div>
+              <div className="flex-1 text-left">
+                <p className="font-semibold text-sm" style={{ color: COLORS.text }}>Share with Community?</p>
+                <p className="text-xs" style={{ color: COLORS.textMuted }}>Let others try your workout routine</p>
+              </div>
+              <ChevronRight size={20} color={COLORS.primary} />
+            </button>
+          ) : (
+            <div className="mt-4 p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+              <div className="flex items-center justify-between mb-3">
+                <p className="font-semibold" style={{ color: COLORS.text }}>Publish Workout</p>
+                <button onClick={() => setShowPublishPrompt(false)}>
+                  <X size={18} color={COLORS.textMuted} />
+                </button>
+              </div>
+              <input
+                type="text"
+                placeholder="Workout name (e.g., 'Push Day Killer')"
+                value={publishWorkoutName}
+                onChange={(e) => setPublishWorkoutName(e.target.value)}
+                className="w-full p-3 rounded-lg mb-2 outline-none"
+                style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text }}
+              />
+              <textarea
+                placeholder="Description (optional)"
+                value={publishWorkoutDesc}
+                onChange={(e) => setPublishWorkoutDesc(e.target.value)}
+                className="w-full p-3 rounded-lg mb-3 outline-none resize-none"
+                style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text }}
+                rows={2}
+              />
+              <button
+                onClick={async () => {
+                  if (!userId || !publishWorkoutName.trim()) return;
+                  try {
+                    setIsPublishing(true);
+                    // Prepare workout data from completed session
+                    const workoutData = {
+                      name: publishWorkoutName.trim(),
+                      focus: activeWorkout?.focus || 'general',
+                      description: publishWorkoutDesc.trim(),
+                      exercises: exercisesForTime.map(ex => ({
+                        name: ex.name,
+                        muscleGroup: ex.muscleGroup,
+                        sets: ex.sets || 3,
+                        targetReps: ex.targetReps,
+                        restTime: ex.restTime || 90,
+                      })),
+                    };
+                    await publishedWorkoutService.publishWorkout(userId, workoutData);
+                    setShowPublishPrompt(false);
+                    setPublishWorkoutName('');
+                    setPublishWorkoutDesc('');
+                  } catch (err) {
+                    console.warn('Error publishing workout:', err?.message);
+                  } finally {
+                    setIsPublishing(false);
+                  }
+                }}
+                disabled={!publishWorkoutName.trim() || isPublishing}
+                className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
+                style={{ backgroundColor: publishWorkoutName.trim() ? COLORS.primary : COLORS.surfaceLight, color: COLORS.text }}
+              >
+                {isPublishing ? <Loader2 size={18} className="animate-spin" /> : <Upload size={18} />}
+                {isPublishing ? 'Publishing...' : 'Publish to Community'}
+              </button>
+            </div>
+          )}
         </div>
-        
+
         <div className="p-4 border-t" style={{ borderColor: COLORS.surfaceLight }}>
           <button
             disabled={isSaving}
@@ -6850,8 +7138,8 @@ export default function UpRepDemo() {
         programId: profile.user_goals?.program_id || prev.programId,
       }));
 
-      // Sync allow_subscribers from profile to settings
-      if (profile.allow_subscribers !== undefined) {
+      // Sync allow_subscribers from profile to settings (only if explicitly set to true/false)
+      if (typeof profile.allow_subscribers === 'boolean') {
         setSettings(prev => ({
           ...prev,
           social: { ...prev.social, allowSubscribers: profile.allow_subscribers }
@@ -7052,6 +7340,151 @@ export default function UpRepDemo() {
     return () => { isMounted = false; };
   }, [user?.id, isAuthenticated]);
 
+  // Load weekly nutrition data for charts
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadWeeklyNutrition = async () => {
+      if (!user?.id || !isAuthenticated) return;
+
+      try {
+        // Get last 7 weeks of data
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - 49); // 7 weeks
+
+        const { data, error } = await nutritionService.getNutritionHistory(
+          user.id,
+          startDate.toISOString().split('T')[0],
+          endDate.toISOString().split('T')[0]
+        );
+
+        if (error) {
+          console.warn('Weekly nutrition history error:', error?.message);
+          return;
+        }
+
+        if (isMounted && data && data.length > 0) {
+          // Group by week
+          const weeklyData = {};
+          const now = new Date();
+
+          data.forEach(entry => {
+            if (!entry?.log_date) return;
+            const entryDate = new Date(entry.log_date);
+            const daysDiff = Math.floor((now - entryDate) / (24 * 60 * 60 * 1000));
+            const weekNum = Math.floor(daysDiff / 7) + 1;
+
+            if (weekNum <= 7) {
+              if (!weeklyData[weekNum]) {
+                weeklyData[weekNum] = { calories: 0, caloriesCount: 0, water: 0, waterCount: 0 };
+              }
+              if (entry.total_calories) {
+                weeklyData[weekNum].calories += entry.total_calories;
+                weeklyData[weekNum].caloriesCount++;
+              }
+              if (entry.total_water) {
+                weeklyData[weekNum].water += entry.total_water;
+                weeklyData[weekNum].waterCount++;
+              }
+            }
+          });
+
+          // Build chart data array (most recent week last)
+          const chartData = [];
+          for (let week = 7; week >= 1; week--) {
+            const weekData = weeklyData[week];
+            chartData.push({
+              week: week === 1 ? 'This Week' : `${week}w ago`,
+              calories: weekData?.caloriesCount ? Math.round(weekData.calories / weekData.caloriesCount) : null,
+              water: weekData?.waterCount ? Math.round(weekData.water / weekData.waterCount) : null,
+              goal: 2500, // Will be overridden by actual goal in render
+              waterGoal: 2500, // Will be overridden by actual goal in render
+            });
+          }
+
+          setWeeklyNutrition(chartData);
+        }
+      } catch (err) {
+        console.warn('Error loading weekly nutrition:', err?.message || err);
+      }
+    };
+
+    loadWeeklyNutrition();
+
+    return () => { isMounted = false; };
+  }, [user?.id, isAuthenticated]);
+
+  // Load monthly tracking data for calendar views
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadMonthlyTracking = async () => {
+      if (!user?.id || !isAuthenticated) return;
+
+      try {
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - 35);
+
+        const startStr = startDate.toISOString().split('T')[0];
+        const endStr = endDate.toISOString().split('T')[0];
+
+        // Load nutrition, supplements, and sleep data in parallel
+        const [nutritionResult, sleepResult] = await Promise.all([
+          nutritionService.getNutritionHistory(user.id, startStr, endStr),
+          sleepService.getRecentSleep(user.id, 35),
+        ]);
+
+        if (isMounted) {
+          const nutritionByDay = {};
+          const sleepByDay = {};
+
+          // Process nutrition data (use default 2200 cal goal for initial load)
+          const defaultCalorieGoal = 2200;
+          if (nutritionResult.data) {
+            nutritionResult.data.forEach(entry => {
+              if (entry?.log_date) {
+                const calorieGoalMet = entry.total_calories >= (defaultCalorieGoal * 0.85) &&
+                                       entry.total_calories <= (defaultCalorieGoal * 1.15);
+                nutritionByDay[entry.log_date] = {
+                  calories: entry.total_calories || 0,
+                  protein: entry.total_protein || 0,
+                  water: entry.total_water || 0,
+                  goalMet: calorieGoalMet,
+                };
+              }
+            });
+          }
+
+          // Process sleep data
+          if (sleepResult.data) {
+            sleepResult.data.forEach(entry => {
+              if (entry?.log_date) {
+                sleepByDay[entry.log_date] = {
+                  hours: entry.hours || 0,
+                  goalMet: (entry.hours || 0) >= 7,
+                };
+              }
+            });
+          }
+
+          setMonthlyTracking({
+            nutrition: nutritionByDay,
+            supplements: {}, // Will be populated from supplementHistory
+            sleep: sleepByDay,
+          });
+        }
+      } catch (err) {
+        console.warn('Error loading monthly tracking:', err?.message || err);
+      }
+    };
+
+    loadMonthlyTracking();
+
+    return () => { isMounted = false; };
+  }, [user?.id, isAuthenticated]);
+
   // Load injuries from database
   useEffect(() => {
     let isMounted = true;
@@ -7114,6 +7547,108 @@ export default function UpRepDemo() {
         }
       } catch (err) {
         console.warn('Suggested users not available:', err?.message);
+      }
+
+      try {
+        // Load followers count
+        const result = await socialService.getFollowersCount(user.id);
+        if (isMounted && typeof result?.count === 'number') {
+          setFollowersCount(result.count);
+        }
+      } catch (err) {
+        console.warn('Followers count not available:', err?.message);
+      }
+
+      try {
+        // Load full friend/following list with profile data
+        const result = await profileService.getSubscriptions(user.id);
+        if (isMounted && result?.data && Array.isArray(result.data)) {
+          // Get user IDs to fetch workout statuses
+          const userIds = result.data.map(f => f.friend_id).filter(Boolean);
+
+          // Fetch workout statuses for all friends
+          let workoutStatuses = {};
+          if (userIds.length > 0) {
+            const statusResult = await workoutService.getWorkoutStatuses(userIds);
+            workoutStatuses = statusResult?.data || {};
+          }
+
+          // Helper to format time ago
+          const formatLastActive = (dateStr) => {
+            if (!dateStr) return null;
+            const date = new Date(dateStr);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMins = Math.floor(diffMs / (1000 * 60));
+            const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+            const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+            if (diffMins < 60) return `${diffMins}m ago`;
+            if (diffHours < 24) return `${diffHours}h ago`;
+            if (diffDays === 1) return 'Yesterday';
+            if (diffDays < 7) return `${diffDays}d ago`;
+            return `${Math.floor(diffDays / 7)}w ago`;
+          };
+
+          const friendsList = result.data.map(f => {
+            const firstName = f.profiles?.first_name || '';
+            const lastName = f.profiles?.last_name || '';
+            const status = workoutStatuses[f.friend_id];
+
+            // Determine last active time
+            let lastActive = null;
+            if (status?.status === 'working_out') {
+              lastActive = 'Working out now';
+            } else if (status?.status === 'just_finished') {
+              lastActive = `${status.minutesAgo}m ago`;
+            } else if (f.profiles?.updated_at) {
+              lastActive = formatLastActive(f.profiles.updated_at);
+            }
+
+            return {
+              id: f.friend_id,
+              name: `${firstName} ${lastName}`.trim() || f.profiles?.username || 'User',
+              username: f.profiles?.username || 'user',
+              avatar: f.profiles?.avatar_url || firstName?.[0]?.toUpperCase() || '?',
+              bio: f.profiles?.bio || '',
+              program: f.profiles?.bio?.slice(0, 30) || 'Fitness enthusiast',
+              isOnline: status?.status === 'working_out', // Online if currently working out
+              streak: 0, // Will be calculated when viewing profile
+              lastActive: lastActive,
+              // Workout status
+              workoutStatus: status?.status || null, // 'working_out' or 'just_finished'
+              currentWorkout: status?.workoutName || null,
+              workoutDuration: status?.duration || null,
+              finishedMinutesAgo: status?.minutesAgo || null,
+            };
+          });
+          setFriends(friendsList);
+        }
+      } catch (err) {
+        console.warn('Friends list not available:', err?.message);
+      }
+
+      try {
+        // Load notifications
+        const result = await notificationService.getNotifications(user.id, 20);
+        if (isMounted && result?.data) {
+          setNotifications(result.data);
+        }
+        const unreadResult = await notificationService.getUnreadCount(user.id);
+        if (isMounted && typeof unreadResult?.count === 'number') {
+          setUnreadCount(unreadResult.count);
+        }
+      } catch (err) {
+        console.warn('Notifications not available:', err?.message);
+      }
+
+      try {
+        // Load activity feed from followed users
+        const result = await socialService.getActivityFeed(user.id, 30);
+        if (isMounted && result?.data) {
+          setActivityFeed(result.data);
+        }
+      } catch (err) {
+        console.warn('Activity feed not available:', err?.message);
       }
     };
 
@@ -7540,8 +8075,10 @@ export default function UpRepDemo() {
   const [customExerciseCount, setCustomExerciseCount] = useState(null); // null = use default (workoutTime / 12), number = override
   const workoutTabScrollRef = useRef(null);
   const profileTabScrollRef = useRef(null);
+  const friendsTabScrollRef = useRef(null);
   const workoutTabScrollPos = useRef(0);
   const profileTabScrollPos = useRef(0);
+  const friendsTabScrollPos = useRef(0);
 
   // Track scroll position on workouts tab
   const handleWorkoutTabScroll = (e) => {
@@ -7551,6 +8088,22 @@ export default function UpRepDemo() {
   // Track scroll position on profile tab
   const handleProfileTabScroll = (e) => {
     profileTabScrollPos.current = e.target.scrollTop;
+  };
+
+  // Track scroll position on friends tab
+  const handleFriendsTabScroll = (e) => {
+    friendsTabScrollPos.current = e.target.scrollTop;
+  };
+
+  // Toggle expanded workout with scroll preservation (for friends tab)
+  const setExpandedWorkoutIdWithScroll = (id) => {
+    const scrollTop = friendsTabScrollRef.current?.scrollTop;
+    setExpandedWorkoutId(id);
+    requestAnimationFrame(() => {
+      if (friendsTabScrollRef.current && scrollTop !== undefined) {
+        friendsTabScrollRef.current.scrollTop = scrollTop;
+      }
+    });
   };
 
   // Toggle exercise list with scroll preservation
@@ -7571,6 +8124,17 @@ export default function UpRepDemo() {
     requestAnimationFrame(() => {
       if (workoutTabScrollRef.current && scrollTop !== undefined) {
         workoutTabScrollRef.current.scrollTop = scrollTop;
+      }
+    });
+  };
+
+  // Show/hide exercise info with friends tab scroll preservation
+  const showExerciseInfoFriendsTab = (exerciseName) => {
+    const scrollTop = friendsTabScrollRef.current?.scrollTop;
+    setShowExerciseInfo(exerciseName);
+    requestAnimationFrame(() => {
+      if (friendsTabScrollRef.current && scrollTop !== undefined) {
+        friendsTabScrollRef.current.scrollTop = scrollTop;
       }
     });
   };
@@ -7718,6 +8282,13 @@ export default function UpRepDemo() {
   // Recent nutrition history for dynamic goal adjustment (last 7 days)
   const [recentNutritionHistory, setRecentNutritionHistory] = useState([]);
 
+  // Monthly tracking data for calendar views (last 35 days)
+  const [monthlyTracking, setMonthlyTracking] = useState({
+    nutrition: {}, // { 'YYYY-MM-DD': { calories, protein, water, goalMet } }
+    supplements: {}, // { 'YYYY-MM-DD': { taken, total, allTaken } }
+    sleep: {}, // { 'YYYY-MM-DD': { hours, goalMet } }
+  });
+
   // Supplement History - loaded from database
   const [supplementHistory, setSupplementHistory] = useState([]);
   
@@ -7733,6 +8304,8 @@ export default function UpRepDemo() {
   const [showAddFriendModal, setShowAddFriendModal] = useState(false);
   const [friendSearchQuery, setFriendSearchQuery] = useState('');
   const [expandedActivity, setExpandedActivity] = useState(null);
+  const [expandedActivitySets, setExpandedActivitySets] = useState({});
+  const [expandedHomeActivity, setExpandedHomeActivity] = useState(null);
   const friendSearchInputRef = useRef(null);
   const friendSearchTimeoutRef = useRef(null);
 
@@ -7751,6 +8324,14 @@ export default function UpRepDemo() {
 
   // IDs of users the current user is following (for quick lookup)
   const [followingIds, setFollowingIds] = useState(new Set());
+
+  // Count of users who follow the current user
+  const [followersCount, setFollowersCount] = useState(0);
+
+  // Notifications
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   // Persist socialEnabled to localStorage
   useEffect(() => {
@@ -7822,47 +8403,6 @@ export default function UpRepDemo() {
     return () => { isMounted = false; };
   }, [user?.id]);
 
-  // Handle rating a workout
-  const handleRateWorkout = async (workoutId, rating) => {
-    if (!user?.id || !workoutId || rating < 1 || rating > 5) return;
-
-    // Optimistically update UI
-    const oldRating = userRatings[workoutId] || 0;
-    const isNewRating = !userRatings[workoutId];
-
-    setUserRatings(prev => ({ ...prev, [workoutId]: rating }));
-
-    // Update stats optimistically
-    setWorkoutStats(prev => {
-      const current = prev[workoutId] || { completionCount: 0, averageRating: 0, ratingCount: 0 };
-      const newRatingCount = isNewRating ? current.ratingCount + 1 : current.ratingCount;
-      const totalRating = (current.averageRating * current.ratingCount) - oldRating + rating;
-      return {
-        ...prev,
-        [workoutId]: {
-          ...current,
-          averageRating: newRatingCount > 0 ? totalRating / newRatingCount : 0,
-          ratingCount: newRatingCount,
-        }
-      };
-    });
-
-    // Submit to backend
-    try {
-      await workoutRatingService.rateWorkout(user.id, workoutId, rating);
-    } catch (err) {
-      console.warn('Error submitting rating:', err?.message);
-      // Revert on error
-      setUserRatings(prev => {
-        if (isNewRating) {
-          const { [workoutId]: removed, ...rest } = prev;
-          return rest;
-        }
-        return { ...prev, [workoutId]: oldRating };
-      });
-    }
-  };
-
   // Activity feed - loaded from database
   const [activityFeed, setActivityFeed] = useState([]);
   
@@ -7875,18 +8415,38 @@ export default function UpRepDemo() {
     name: '',
     type: 'workouts',
     duration: 7, // days
-    invitedUsers: []
+    invitedFriends: []
   });
 
   // Community workouts state
   const [communityWorkouts, setCommunityWorkouts] = useState([]);
   const [communityWorkoutsLoading, setCommunityWorkoutsLoading] = useState(false);
   const [communitySort, setCommunitySort] = useState('popular'); // popular, rating, newest
+  const [communityFilters, setCommunityFilters] = useState({
+    duration: null, // 'short' (<30min), 'medium' (30-60), 'long' (>60)
+    minRating: null, // 3, 4, 4.5
+    focus: null, // 'push', 'pull', 'legs', etc.
+    minCompletions: null, // 10, 50, 100
+  });
+  const [showCommunityFilters, setShowCommunityFilters] = useState(false);
   const [savedWorkoutIds, setSavedWorkoutIds] = useState(new Set());
+  const [showRepertoire, setShowRepertoire] = useState(false); // show saved workouts modal
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [workoutToPublish, setWorkoutToPublish] = useState(null);
+  const [publishDescription, setPublishDescription] = useState('');
   const [myPublishedWorkouts, setMyPublishedWorkouts] = useState([]);
   const [selectedCommunityWorkout, setSelectedCommunityWorkout] = useState(null);
+  const [expandedWorkoutId, setExpandedWorkoutId] = useState(null); // For inline expansion
+  const [userWorkoutRatings, setUserWorkoutRatings] = useState({}); // user's ratings cache
+  const [completedCommunityWorkoutIds, setCompletedCommunityWorkoutIds] = useState(new Set()); // workouts user has completed
+  const [showCommentsFor, setShowCommentsFor] = useState(null); // workout ID to show comments
+  const [workoutComments, setWorkoutComments] = useState([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [newComment, setNewComment] = useState('');
+  const [savedWorkoutsDetails, setSavedWorkoutsDetails] = useState([]);
+  const [renamingWorkout, setRenamingWorkout] = useState(null); // {id, name} of workout being renamed
+  const [newWorkoutName, setNewWorkoutName] = useState('');
+  const [workoutWarmupCooldown, setWorkoutWarmupCooldown] = useState({}); // {workoutId: {warmup: bool, cooldown: bool}}
 
   // Load community workouts
   useEffect(() => {
@@ -7902,6 +8462,14 @@ export default function UpRepDemo() {
         if (isMounted && result?.data && Array.isArray(result.data)) {
           setCommunityWorkouts(result.data);
         }
+
+        // Load user ratings if logged in
+        if (user?.id) {
+          const ratingsResult = await publishedWorkoutService.getUserRatings(user.id);
+          if (isMounted && ratingsResult?.data) {
+            setUserWorkoutRatings(ratingsResult.data);
+          }
+        }
       } catch (err) {
         console.warn('Error loading community workouts:', err?.message);
       } finally {
@@ -7912,7 +8480,7 @@ export default function UpRepDemo() {
     loadCommunityWorkouts();
 
     return () => { isMounted = false; };
-  }, [communitySort]);
+  }, [communitySort, user?.id]);
 
   // Load saved workout IDs and my published workouts
   useEffect(() => {
@@ -8007,6 +8575,133 @@ export default function UpRepDemo() {
     }
   };
 
+  // Handle rating a workout
+  const handleRateWorkout = async (workoutId, rating) => {
+    if (!user?.id || !workoutId) return;
+
+    const oldRating = userWorkoutRatings[workoutId];
+
+    // Optimistic update
+    setUserWorkoutRatings(prev => ({ ...prev, [workoutId]: rating }));
+
+    try {
+      await publishedWorkoutService.rateWorkout(user.id, workoutId, rating);
+      // Refresh community workouts to get updated average
+      const result = await publishedWorkoutService.getPublishedWorkouts({
+        sortBy: communitySort,
+        limit: 20
+      });
+      if (result?.data) {
+        setCommunityWorkouts(result.data);
+      }
+    } catch (err) {
+      console.warn('Error rating workout:', err?.message);
+      // Revert on error
+      setUserWorkoutRatings(prev => ({ ...prev, [workoutId]: oldRating }));
+    }
+  };
+
+  // Load comments for a workout
+  const loadComments = async (workoutId) => {
+    setCommentsLoading(true);
+    setShowCommentsFor(workoutId);
+    try {
+      const result = await publishedWorkoutService.getComments(workoutId);
+      if (result?.data) {
+        setWorkoutComments(result.data);
+      }
+    } catch (err) {
+      console.warn('Error loading comments:', err?.message);
+    } finally {
+      setCommentsLoading(false);
+    }
+  };
+
+  // Add a comment
+  const handleAddComment = async () => {
+    if (!user?.id || !showCommentsFor || !newComment.trim()) return;
+
+    try {
+      const result = await publishedWorkoutService.addComment(user.id, showCommentsFor, newComment.trim());
+      if (result?.data) {
+        // Refresh comments
+        await loadComments(showCommentsFor);
+        setNewComment('');
+      }
+    } catch (err) {
+      console.warn('Error adding comment:', err?.message);
+    }
+  };
+
+  // Load saved workouts (Rep-ertoire)
+  const loadRepertoire = async () => {
+    setShowRepertoire(true);
+    try {
+      const result = await publishedWorkoutService.getSavedWorkoutsWithDetails(user?.id);
+      if (result?.data) {
+        setSavedWorkoutsDetails(result.data);
+      }
+    } catch (err) {
+      console.warn('Error loading Rep-ertoire:', err?.message);
+    }
+  };
+
+  // Rename a published workout
+  const handleRenameWorkout = async () => {
+    if (!renamingWorkout?.id || !newWorkoutName.trim() || !user?.id) return;
+    try {
+      const { error } = await publishedWorkoutService.updateWorkout(user.id, renamingWorkout.id, {
+        name: newWorkoutName.trim(),
+      });
+      if (!error) {
+        // Update in my published workouts list
+        setMyPublishedWorkouts(prev => prev.map(w =>
+          w.id === renamingWorkout.id ? { ...w, name: newWorkoutName.trim() } : w
+        ));
+        // Update in community workouts list if present
+        setCommunityWorkouts(prev => prev.map(w =>
+          w.id === renamingWorkout.id ? { ...w, name: newWorkoutName.trim() } : w
+        ));
+        setRenamingWorkout(null);
+        setNewWorkoutName('');
+      }
+    } catch (err) {
+      console.warn('Error renaming workout:', err?.message);
+    }
+  };
+
+  // Auto-adjust workout for user level
+  const adjustWorkoutForUser = (workout) => {
+    if (!workout?.exercises) return workout;
+
+    const userExperience = userData.experience || 'beginner';
+    const multipliers = {
+      beginner: { sets: 0.75, weight: 0.6, reps: 1.2 },
+      intermediate: { sets: 1, weight: 1, reps: 1 },
+      advanced: { sets: 1.25, weight: 1.2, reps: 0.9 },
+    };
+    const mult = multipliers[userExperience] || multipliers.intermediate;
+
+    return {
+      ...workout,
+      exercises: workout.exercises.map(ex => ({
+        ...ex,
+        sets: Math.max(2, Math.round((ex.sets || 3) * mult.sets)),
+        targetReps: ex.targetReps ? Math.round(ex.targetReps * mult.reps) : ex.reps,
+        suggestedWeight: ex.suggestedWeight ? Math.round(ex.suggestedWeight * mult.weight) : null,
+        adjusted: true,
+      })),
+    };
+  };
+
+  // Calculate estimated workout duration
+  const estimateWorkoutDuration = (exercises) => {
+    if (!exercises || exercises.length === 0) return 45;
+    const totalSets = exercises.reduce((sum, ex) => sum + (ex.sets || 3), 0);
+    // Assume ~2 min per set including rest
+    return Math.max(20, Math.min(120, totalSets * 2 + 5)); // 5 min warmup
+  };
+
   // Profile editing state
   const [showEditProfile, setShowEditProfile] = useState(false);
 
@@ -8023,6 +8718,9 @@ export default function UpRepDemo() {
       profileVisible: true,
       showActivity: true,
       showProgress: false,
+      publicPRs: true,
+      publicWorkouts: true,
+      allowTagsFrom: 'everyone', // 'everyone', 'followers', 'none'
     },
     tracking: {
       calories: true,
@@ -8086,9 +8784,16 @@ export default function UpRepDemo() {
   const [showAllAchievements, setShowAllAchievements] = useState(false);
 
   const [showFriendProfile, setShowFriendProfile] = useState(null);
+  const [friendFollowStatus, setFriendFollowStatus] = useState({ isFollowing: false, followsYou: false });
+  const [friendStats, setFriendStats] = useState({ workouts: 0, prs: 0, streak: 0 });
   const [showFriendStreakCalendar, setShowFriendStreakCalendar] = useState(null);
   const [friendStreakMonth, setFriendStreakMonth] = useState(currentMonth);
   const [friendStreakYear, setFriendStreakYear] = useState(currentYear);
+  const [showFriendPRs, setShowFriendPRs] = useState(null);
+  const [friendPRsData, setFriendPRsData] = useState([]);
+  const [showFriendWorkouts, setShowFriendWorkouts] = useState(null);
+  const [friendWorkoutsData, setFriendWorkoutsData] = useState([]);
+  const [selectedFriendWorkout, setSelectedFriendWorkout] = useState(null);
   const [likedPosts, setLikedPosts] = useState([]);
   
   const [userData, setUserData] = useState({
@@ -8233,6 +8938,76 @@ export default function UpRepDemo() {
       }
     }
   }, [userData.programId, userData.goal]);
+
+  // Check follow status and load stats when viewing a friend's profile
+  useEffect(() => {
+    const friendId = showFriendProfile?.id;
+    const currentUserId = user?.id;
+
+    if (!friendId || !currentUserId || typeof friendId !== 'string' || typeof currentUserId !== 'string') {
+      return;
+    }
+
+    // Reset stats when opening a new profile
+    setFriendStats({ workouts: 0, prs: 0, streak: 0 });
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const [followingRes, followsYouRes, workoutsRes, prsRes] = await Promise.all([
+          socialService.isFollowing(currentUserId, friendId).catch(() => ({ isFollowing: false })),
+          socialService.isFollowing(friendId, currentUserId).catch(() => ({ isFollowing: false })),
+          workoutService.getWorkoutHistory(friendId, 1000, 0).catch(() => ({ data: [] })),
+          workoutService.getPersonalRecords(friendId).catch(() => ({ data: [] })),
+        ]);
+
+        if (!cancelled) {
+          setFriendFollowStatus({
+            isFollowing: Boolean(followingRes?.isFollowing),
+            followsYou: Boolean(followsYouRes?.isFollowing),
+          });
+
+          // Calculate streak from workout history
+          const workouts = workoutsRes?.data || [];
+          let streak = 0;
+          if (workouts.length > 0) {
+            // Sort by date descending and count consecutive days
+            const sortedDates = workouts
+              .map(w => new Date(w.ended_at || w.started_at).toDateString())
+              .filter((date, i, arr) => arr.indexOf(date) === i); // unique dates
+
+            const today = new Date().toDateString();
+            const yesterday = new Date(Date.now() - 86400000).toDateString();
+
+            if (sortedDates[0] === today || sortedDates[0] === yesterday) {
+              streak = 1;
+              for (let i = 1; i < sortedDates.length; i++) {
+                const curr = new Date(sortedDates[i - 1]);
+                const prev = new Date(sortedDates[i]);
+                const diffDays = Math.round((curr - prev) / 86400000);
+                if (diffDays <= 1) {
+                  streak++;
+                } else {
+                  break;
+                }
+              }
+            }
+          }
+
+          setFriendStats({
+            workouts: workouts.length,
+            prs: prsRes?.data?.length || 0,
+            streak: streak,
+          });
+        }
+      } catch (e) {
+        // Silently fail
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [showFriendProfile?.id, user?.id]);
 
   // State for next program selection
   const [selectedBreakDuration, setSelectedBreakDuration] = useState('none');
@@ -8862,6 +9637,17 @@ export default function UpRepDemo() {
       ...prev,
       [TODAY_DATE_KEY]: { ...prev[TODAY_DATE_KEY], completed: true }
     }));
+
+    // Track community workout completion if applicable
+    if (todayWorkout?.communityWorkoutId) {
+      setCompletedCommunityWorkoutIds(prev => new Set([...prev, todayWorkout.communityWorkoutId]));
+      // Increment completion count in database
+      try {
+        await publishedWorkoutService.incrementCompletion(todayWorkout.communityWorkoutId);
+      } catch (err) {
+        console.warn('Error incrementing community workout completion:', err?.message);
+      }
+    }
 
     // Increment completion count for this workout
     const workoutId = todayWorkoutTemplate?.id;
@@ -10507,34 +11293,186 @@ export default function UpRepDemo() {
               {userData.firstName ? userData.firstName[0].toUpperCase() : 'U'}
             </span>
           </button>
-          <div>
+          <div className="flex-1">
             <p className="font-bold text-lg" style={{ color: COLORS.text }}>
-              {userData.firstName || 'User'} {userData.lastName?.[0] ? userData.lastName[0] + '.' : ''}
+              @{userData.username || 'username'}
             </p>
-            <div className="flex items-center gap-2">
-              {userData.weight && (
-                <span className="text-xs" style={{ color: COLORS.textMuted }}>{userData.weight}kg</span>
-              )}
-              {userData.goal && (
-                <span className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: COLORS.primary + '20', color: COLORS.primary }}>
-                  {userData.goal === 'build_muscle' ? 'Building' : userData.goal === 'lose_fat' ? 'Cutting' : userData.goal === 'strength' ? 'Strength' : 'Fitness'}
-                </span>
-              )}
-              {(streaks?.weeklyWorkouts?.weeksCompleted > 0) && (
-                <span className="text-xs flex items-center gap-1" style={{ color: COLORS.warning }}>
-                  <Flame size={12} /> {streaks.weeklyWorkouts.weeksCompleted}w
-                </span>
-              )}
+            {userData.bio && (
+              <p className="text-xs mb-1 line-clamp-1" style={{ color: COLORS.textSecondary }}>
+                {userData.bio}
+              </p>
+            )}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => { setActiveTab('friends'); setFriendsSubTab('followers'); }}
+                className="text-xs"
+                style={{ color: COLORS.textMuted }}
+              >
+                <span style={{ color: COLORS.text, fontWeight: 600 }}>{followersCount}</span> followers
+              </button>
+              <button
+                onClick={() => { setActiveTab('friends'); setFriendsSubTab('following'); }}
+                className="text-xs"
+                style={{ color: COLORS.textMuted }}
+              >
+                <span style={{ color: COLORS.text, fontWeight: 600 }}>{followingIds.size}</span> following
+              </button>
             </div>
           </div>
         </div>
-        <button
-          onClick={() => setActiveTab('profile')}
-          className="p-2 rounded-lg"
-          style={{ backgroundColor: COLORS.surface }}
-        >
-          <Settings size={18} color={COLORS.textMuted} />
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Notification Bell */}
+          <div className="relative">
+            <button
+              onClick={() => setShowNotifications(!showNotifications)}
+              className="p-2 rounded-lg relative"
+              style={{ backgroundColor: COLORS.surface }}
+            >
+              <Bell size={18} color={COLORS.textMuted} />
+              {unreadCount > 0 && (
+                <span
+                  className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold"
+                  style={{ backgroundColor: COLORS.error, color: COLORS.text }}
+                >
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </button>
+
+            {/* Notification Dropdown */}
+            {showNotifications && (
+              <>
+                {/* Backdrop to close on outside click */}
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={async () => {
+                    if (unreadCount > 0) {
+                      await notificationService.markAllAsRead(user?.id);
+                      setUnreadCount(0);
+                      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+                    }
+                    setShowNotifications(false);
+                  }}
+                />
+                <div
+                  className="absolute right-0 top-12 w-80 max-h-96 overflow-auto rounded-xl shadow-lg z-50"
+                  style={{ backgroundColor: COLORS.surface }}
+                >
+                  <div className="p-3 border-b flex justify-between items-center" style={{ borderColor: COLORS.surfaceLight }}>
+                    <p className="font-semibold" style={{ color: COLORS.text }}>Notifications</p>
+                    {unreadCount > 0 && (
+                      <button
+                        onClick={async () => {
+                          await notificationService.markAllAsRead(user?.id);
+                          setUnreadCount(0);
+                          setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+                        }}
+                        className="text-xs"
+                        style={{ color: COLORS.primary }}
+                      >
+                        Mark all read
+                      </button>
+                    )}
+                  </div>
+                  {notifications.length === 0 ? (
+                    <div className="p-6 text-center">
+                      <Bell size={24} color={COLORS.textMuted} className="mx-auto mb-2" />
+                      <p className="text-sm" style={{ color: COLORS.textMuted }}>No notifications yet</p>
+                    </div>
+                  ) : (
+                    <div>
+                      {notifications.slice(0, 10).map(notif => (
+                        <button
+                          key={notif.id}
+                          onClick={async () => {
+                            // Mark as read
+                            if (!notif.read) {
+                              await notificationService.markAsRead(notif.id);
+                              setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
+                              setUnreadCount(prev => Math.max(0, prev - 1));
+                            }
+                            // Navigate based on notification type
+                            if (notif.type === 'new_follower' && notif.from_user) {
+                              setShowFriendProfile({
+                                id: notif.from_user.id,
+                                name: `${notif.from_user.first_name || ''} ${notif.from_user.last_name || ''}`.trim() || notif.from_user.username,
+                                username: notif.from_user.username,
+                                avatar: notif.from_user.avatar_url || notif.from_user.first_name?.[0]?.toUpperCase() || '?',
+                              });
+                            } else if (notif.type === 'comment' && notif.reference_id) {
+                              // Go directly to comments section
+                              loadComments(notif.reference_id);
+                              setActiveTab('friends');
+                              setFriendsTab('community_workouts');
+                            } else if (notif.type === 'workout_like' && notif.reference_id) {
+                              // Find the workout in communityWorkouts or myPublishedWorkouts
+                              let workout = communityWorkouts.find(w => w.id === notif.reference_id);
+                              if (!workout) {
+                                workout = myPublishedWorkouts.find(w => w.id === notif.reference_id);
+                              }
+                              if (workout) {
+                                setSelectedCommunityWorkout(workout);
+                              } else {
+                                // Fetch the workout directly
+                                publishedWorkoutService.getWorkoutById(notif.reference_id).then(result => {
+                                  if (result?.data) {
+                                    setSelectedCommunityWorkout(result.data);
+                                  }
+                                });
+                              }
+                              setActiveTab('friends');
+                              setFriendsTab('community_workouts');
+                            }
+                            setShowNotifications(false);
+                          }}
+                          className="w-full p-3 border-b flex items-start gap-3 text-left hover:opacity-80"
+                          style={{
+                            borderColor: COLORS.surfaceLight,
+                            backgroundColor: notif.read ? 'transparent' : COLORS.primary + '10'
+                          }}
+                        >
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (notif.from_user) {
+                                setShowFriendProfile({
+                                  id: notif.from_user.id,
+                                  name: `${notif.from_user.first_name || ''} ${notif.from_user.last_name || ''}`.trim() || notif.from_user.username,
+                                  username: notif.from_user.username,
+                                  avatar: notif.from_user.avatar_url || notif.from_user.first_name?.[0]?.toUpperCase() || '?',
+                                });
+                                setShowNotifications(false);
+                              }
+                            }}
+                            className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+                            style={{ backgroundColor: COLORS.surfaceLight }}
+                          >
+                            {notif.from_user?.first_name?.[0]?.toUpperCase() || <User size={16} color={COLORS.textMuted} />}
+                          </button>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium" style={{ color: COLORS.text }}>{notif.title}</p>
+                            <p className="text-xs" style={{ color: COLORS.textMuted }}>{notif.message}</p>
+                            <p className="text-xs mt-1" style={{ color: COLORS.textSecondary }}>
+                              {formatRelativeDate(notif.created_at)}
+                            </p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+
+          <button
+            onClick={() => setActiveTab('profile')}
+            className="p-2 rounded-lg"
+            style={{ backgroundColor: COLORS.surface }}
+          >
+            <Settings size={18} color={COLORS.textMuted} />
+          </button>
+        </div>
       </div>
 
       {/* Today's Action Card - FIRST */}
@@ -10545,7 +11483,9 @@ export default function UpRepDemo() {
         {isPaused ? (
           <>
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl" style={{ backgroundColor: COLORS.warning + '20' }}>🏖️</div>
+              <div className="w-14 h-14 rounded-xl flex items-center justify-center" style={{ backgroundColor: COLORS.warning + '20' }}>
+                <Pause size={28} color={COLORS.warning} />
+              </div>
               <div className="flex-1">
                 <p className="text-xs font-semibold mb-1" style={{ color: COLORS.warning }}>PAUSED</p>
                 <p className="font-semibold" style={{ color: COLORS.text }}>Enjoying your break</p>
@@ -10557,7 +11497,9 @@ export default function UpRepDemo() {
           </>
         ) : todayWorkoutCompleted ? (
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl" style={{ backgroundColor: COLORS.success + '20' }}>✓</div>
+            <div className="w-14 h-14 rounded-xl flex items-center justify-center" style={{ backgroundColor: COLORS.success + '20' }}>
+              <Check size={28} color={COLORS.success} />
+            </div>
             <div className="flex-1">
               <p className="text-xs font-semibold mb-1" style={{ color: COLORS.success }}>COMPLETED</p>
               <p className="font-semibold" style={{ color: COLORS.text }}>{todayWorkout?.name || 'Workout'}</p>
@@ -10566,7 +11508,9 @@ export default function UpRepDemo() {
           </div>
         ) : todayWorkout?.type === 'Rest' ? (
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl" style={{ backgroundColor: COLORS.sleep + '20' }}>😴</div>
+            <div className="w-14 h-14 rounded-xl flex items-center justify-center" style={{ backgroundColor: COLORS.sleep + '20' }}>
+              <Moon size={28} color={COLORS.sleep} />
+            </div>
             <div className="flex-1">
               <p className="text-xs font-semibold mb-1" style={{ color: COLORS.sleep }}>REST DAY</p>
               <p className="font-semibold" style={{ color: COLORS.text }}>Recovery Time</p>
@@ -11090,68 +12034,381 @@ export default function UpRepDemo() {
         </div>
       </div>
 
-      {/* Community / Following */}
+      {/* Community Section - Trending Workouts Carousel */}
       <div className="mx-4 mt-4">
-        <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>COMMUNITY</p>
-      </div>
-      <div className="mx-4 p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
-        <div className="flex justify-between items-center mb-3">
-          <p className="text-sm font-semibold" style={{ color: COLORS.text }}>Following</p>
-          <button onClick={() => setActiveTab('friends')} className="text-xs" style={{ color: COLORS.primary }}>
-            {friends.length > 0 ? 'See All' : 'Find Friends'}
+        <div className="flex justify-between items-center mb-2">
+          <p className="text-xs font-semibold" style={{ color: COLORS.textMuted }}>TRENDING WORKOUTS</p>
+          <button
+            onClick={() => { setActiveTab('friends'); setFriendsTab('community_workouts'); }}
+            className="text-xs"
+            style={{ color: COLORS.primary }}
+          >
+            View All
           </button>
         </div>
-        {friends.length > 0 ? (
-          <div className="flex gap-3">
-            {friends.slice(0, 4).map(friend => (
-              <div key={friend.id} className="flex flex-col items-center">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center mb-1" style={{ backgroundColor: COLORS.primary + '30' }}>
-                  <span className="text-xs font-bold" style={{ color: COLORS.primary }}>
-                    {friend.name?.[0]?.toUpperCase() || '?'}
-                  </span>
+      </div>
+      {/* Horizontal Scrollable Carousel */}
+      {communityWorkouts.length > 0 && (
+        <div
+          className="flex gap-3 overflow-x-auto pb-2 px-4 scrollbar-hide"
+          style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}
+        >
+          {communityWorkouts.slice(0, 5).map((workout, idx) => {
+            const creator = workout?.creator;
+            const creatorProfile = creator ? {
+              id: creator.id,
+              name: creator.name,
+              username: creator.username,
+              avatar: creator.avatar,
+            } : null;
+
+            return (
+              <div
+                key={workout.id || idx}
+                className="flex-shrink-0 p-4 rounded-xl"
+                style={{
+                  backgroundColor: COLORS.primary + '15',
+                  border: `1px solid ${COLORS.primary}30`,
+                  width: '280px',
+                  scrollSnapAlign: 'start',
+                }}
+              >
+                {/* Workout Name */}
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '30' }}>
+                    <Dumbbell size={16} color={COLORS.primary} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-sm truncate" style={{ color: COLORS.text }}>{workout.name}</p>
+                    {workout.focus && (
+                      <p className="text-xs truncate" style={{ color: COLORS.textMuted }}>{workout.focus}</p>
+                    )}
+                  </div>
                 </div>
-                <span className="text-xs" style={{ color: COLORS.textMuted }}>
-                  {friend.name?.split(' ')[0] || 'User'}
-                </span>
+
+                {/* Publisher Info - Clickable */}
+                {creatorProfile && (
+                  <button
+                    onClick={() => setShowFriendProfile(creatorProfile)}
+                    className="flex items-center gap-2 mb-3 p-2 rounded-lg w-full text-left hover:opacity-80"
+                    style={{ backgroundColor: COLORS.surface }}
+                  >
+                    <div
+                      className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
+                      style={{ backgroundColor: COLORS.primary + '30', color: COLORS.primary }}
+                    >
+                      {typeof creator.avatar === 'string' && creator.avatar.length === 1 ? creator.avatar : creator.name?.[0]?.toUpperCase() || '?'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium truncate" style={{ color: COLORS.text }}>{creator.name}</p>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>@{creator.username} • {creator.followers || 0} followers</p>
+                    </div>
+                  </button>
+                )}
+
+                {/* Stats Row */}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3 text-xs" style={{ color: COLORS.textMuted }}>
+                    <span className="flex items-center gap-1">
+                      <Star size={12} color={COLORS.warning} fill={COLORS.warning} />
+                      {(workout.averageRating || 0).toFixed(1)}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Users size={12} />
+                      {workout.completionCount || 0}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      setShowCommentsFor(workout.id);
+                      loadComments(workout.id);
+                    }}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg"
+                    style={{ backgroundColor: COLORS.surface }}
+                  >
+                    <MessageCircle size={14} color={COLORS.textMuted} />
+                    <span className="text-xs" style={{ color: COLORS.textMuted }}>
+                      {workout.comment_count || 0} comments
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => { setActiveTab('friends'); setFriendsTab('community_workouts'); }}
+                    className="flex items-center justify-center gap-1 px-3 py-2 rounded-lg"
+                    style={{ backgroundColor: COLORS.primary }}
+                  >
+                    <span className="text-xs font-semibold" style={{ color: COLORS.text }}>Try It</span>
+                  </button>
+                </div>
               </div>
-            ))}
+            );
+          })}
+        </div>
+      )}
+
+      <div className="mx-4 mt-3 space-y-3">
+
+        {/* Friends Activity Feed */}
+        <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+          <div className="flex justify-between items-center mb-3">
+            <p className="font-semibold text-sm" style={{ color: COLORS.text }}>Friends Activity</p>
+            <button onClick={() => { setActiveTab('friends'); setFriendsTab('feed'); }} className="text-xs" style={{ color: COLORS.primary }}>
+              View All
+            </button>
           </div>
-        ) : (
-          <div className="flex items-center gap-3 py-2">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.surfaceLight }}>
-              <Users size={18} color={COLORS.textMuted} />
+
+          {/* Show recent activity from followed users */}
+          {activityFeed.length > 0 ? (
+            <div className="space-y-3">
+              {activityFeed.slice(0, 5).map((activity, i) => {
+                const friendName = activity.friend
+                  ? `${activity.friend.first_name || ''} ${activity.friend.last_name || ''}`.trim() || activity.friend.username || 'User'
+                  : 'User';
+                const friendAvatar = activity.friend?.avatar_url || activity.friend?.first_name?.[0]?.toUpperCase() || 'U';
+                const isExpanded = expandedHomeActivity === activity.id;
+
+                const handleExpandWorkout = async () => {
+                  if (isExpanded) {
+                    setExpandedHomeActivity(null);
+                    return;
+                  }
+                  setExpandedHomeActivity(activity.id);
+                  // Fetch workout sets if not already loaded
+                  if (!expandedActivitySets[activity.id]) {
+                    try {
+                      const { data } = await supabase
+                        .from('workout_sets')
+                        .select('*')
+                        .eq('session_id', activity.id)
+                        .order('exercise_name', { ascending: true })
+                        .order('set_number', { ascending: true });
+                      setExpandedActivitySets(prev => ({ ...prev, [activity.id]: data || [] }));
+                    } catch (err) {
+                      console.warn('Error loading workout sets:', err);
+                    }
+                  }
+                };
+
+                const friendProfile = {
+                  id: activity.friendId,
+                  name: friendName,
+                  username: activity.friend?.username || 'user',
+                  avatar: friendAvatar,
+                  bio: activity.friend?.bio || '',
+                };
+
+                return (
+                  <div key={activity.id || i} className="rounded-lg overflow-hidden" style={{ backgroundColor: COLORS.surfaceLight }}>
+                    {/* Header - clickable to expand */}
+                    <button
+                      onClick={handleExpandWorkout}
+                      className="w-full flex items-center gap-3 p-3"
+                    >
+                      {/* Avatar - clickable to profile */}
+                      <div
+                        onClick={(e) => { e.stopPropagation(); setShowFriendProfile(friendProfile); }}
+                        className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold cursor-pointer hover:opacity-80"
+                        style={{ backgroundColor: COLORS.primary + '30', color: COLORS.primary }}
+                      >
+                        {friendAvatar}
+                      </div>
+                      <div className="flex-1 min-w-0 text-left">
+                        <p className="text-sm" style={{ color: COLORS.text }}>
+                          <span
+                            onClick={(e) => { e.stopPropagation(); setShowFriendProfile(friendProfile); }}
+                            className="font-semibold hover:underline cursor-pointer"
+                          >
+                            {friendName.split(' ')[0]}
+                          </span>
+                          {' '}{activity.type === 'workout' ? 'completed' : activity.type === 'pr' ? 'hit a PR' : 'is active'}
+                        </p>
+                        <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                          @{friendProfile.username} {activity.time && `• ${activity.time}`}
+                        </p>
+                        {(activity.workoutName || activity.exercise) && (
+                          <p className="text-xs font-medium" style={{ color: COLORS.primary }}>
+                            {activity.workoutName || activity.exercise}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {activity.type === 'pr' && <Trophy size={16} color={COLORS.warning} />}
+                        {activity.type === 'workout' && <Check size={16} color={COLORS.success} />}
+                        <ChevronDown
+                          size={16}
+                          color={COLORS.textMuted}
+                          style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}
+                        />
+                      </div>
+                    </button>
+
+                    {/* Expanded workout details */}
+                    {isExpanded && activity.type === 'workout' && (
+                      <div className="px-3 pb-3 border-t" style={{ borderColor: COLORS.surface }}>
+                        {!expandedActivitySets[activity.id] ? (
+                          <div className="py-4 text-center">
+                            <div className="animate-spin w-5 h-5 border-2 rounded-full mx-auto" style={{ borderColor: COLORS.primary, borderTopColor: 'transparent' }} />
+                          </div>
+                        ) : expandedActivitySets[activity.id].length === 0 ? (
+                          <p className="py-3 text-sm text-center" style={{ color: COLORS.textMuted }}>No exercise data recorded</p>
+                        ) : (
+                          <div className="pt-3 space-y-3">
+                            {/* Group sets by exercise */}
+                            {Object.entries(
+                              expandedActivitySets[activity.id].reduce((acc, set) => {
+                                const name = set.exercise_name || 'Unknown';
+                                if (!acc[name]) acc[name] = [];
+                                acc[name].push(set);
+                                return acc;
+                              }, {})
+                            ).map(([exerciseName, sets]) => (
+                              <div key={exerciseName}>
+                                <p className="text-sm font-semibold mb-2" style={{ color: COLORS.text }}>{exerciseName}</p>
+                                <div className="space-y-1">
+                                  {sets.map((set, idx) => (
+                                    <div key={set.id || idx} className="flex items-center justify-between text-xs px-2 py-1 rounded" style={{ backgroundColor: COLORS.surface }}>
+                                      <span style={{ color: COLORS.textMuted }}>
+                                        {set.is_warmup ? 'Warmup' : `Set ${set.set_number}`}
+                                      </span>
+                                      <span style={{ color: COLORS.text }}>
+                                        {set.weight}kg × {set.reps} reps
+                                        {set.rpe && <span style={{ color: COLORS.textMuted }}> @ RPE {set.rpe}</span>}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                            {activity.duration && (
+                              <div className="flex items-center gap-2 pt-2 text-xs" style={{ color: COLORS.textMuted }}>
+                                <Clock size={12} />
+                                <span>{activity.duration} min workout</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Like and Comment buttons */}
+                    <div className="flex items-center gap-4 px-3 pb-3 border-t pt-2" style={{ borderColor: COLORS.surface }}>
+                      <button
+                        onClick={() => setLikedPosts(prev =>
+                          prev.includes(activity.id)
+                            ? prev.filter(id => id !== activity.id)
+                            : [...prev, activity.id]
+                        )}
+                        className="flex items-center gap-1.5"
+                      >
+                        <Heart
+                          size={16}
+                          color={likedPosts.includes(activity.id) ? COLORS.error : COLORS.textMuted}
+                          fill={likedPosts.includes(activity.id) ? COLORS.error : 'none'}
+                        />
+                        <span className="text-xs" style={{ color: COLORS.textMuted }}>
+                          {(activity.likes || 0) + (likedPosts.includes(activity.id) ? 1 : 0)}
+                        </span>
+                      </button>
+                      <button className="flex items-center gap-1.5">
+                        <MessageCircle size={16} color={COLORS.textMuted} />
+                        <span className="text-xs" style={{ color: COLORS.textMuted }}>Comment</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-            <div className="flex-1">
-              <p className="text-sm" style={{ color: COLORS.textMuted }}>Connect with friends to share your progress</p>
+          ) : friends.length > 0 ? (
+            <div className="text-center py-4">
+              <Activity size={32} color={COLORS.textMuted} className="mx-auto mb-2" style={{ opacity: 0.5 }} />
+              <p className="text-sm" style={{ color: COLORS.textMuted }}>No recent activity from friends</p>
+              <p className="text-xs" style={{ color: COLORS.textMuted }}>Check back later!</p>
             </div>
-          </div>
-        )}
+          ) : (
+            <button
+              onClick={() => setActiveTab('friends')}
+              className="w-full flex items-center gap-3 py-2"
+            >
+              <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '20' }}>
+                <UserPlus size={18} color={COLORS.primary} />
+              </div>
+              <div className="flex-1 text-left">
+                <p className="text-sm font-semibold" style={{ color: COLORS.text }}>Find workout buddies</p>
+                <p className="text-xs" style={{ color: COLORS.textMuted }}>Follow friends to see their activity</p>
+              </div>
+              <ChevronRight size={18} color={COLORS.primary} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Rep-ertoire (Saved Workouts) */}
+      <div className="mx-4 mt-4">
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs font-semibold" style={{ color: COLORS.textMuted }}>MY REP-ERTOIRE</p>
+          {savedWorkoutIds.size > 0 && (
+            <button
+              onClick={() => { setActiveTab('friends'); setFriendsTab('community_workouts'); setShowRepertoire(true); }}
+              className="text-xs"
+              style={{ color: COLORS.primary }}
+            >
+              See All ({savedWorkoutIds.size})
+            </button>
+          )}
+        </div>
+        <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+          {savedWorkoutIds.size > 0 ? (
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '20' }}>
+                <Bookmark size={24} color={COLORS.primary} />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold" style={{ color: COLORS.text }}>{savedWorkoutIds.size} Saved Workouts</p>
+                <p className="text-xs" style={{ color: COLORS.textMuted }}>Ready for your next session</p>
+              </div>
+              <button
+                onClick={() => { setActiveTab('friends'); setFriendsTab('community_workouts'); setShowRepertoire(true); }}
+                className="px-3 py-2 rounded-lg text-xs font-semibold"
+                style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+              >
+                Browse
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: COLORS.surfaceLight }}>
+                <Bookmark size={24} color={COLORS.textMuted} />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold" style={{ color: COLORS.text }}>No saved workouts yet</p>
+                <p className="text-xs" style={{ color: COLORS.textMuted }}>Save workouts from the community</p>
+              </div>
+              <button
+                onClick={() => { setActiveTab('friends'); setFriendsTab('community_workouts'); }}
+                className="px-3 py-2 rounded-lg text-xs font-semibold"
+                style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+              >
+                Discover
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Weight Tracking */}
       <div className="mx-4 mt-4">
         <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>WEIGHT TRACKING</p>
-      </div>
-      <div className="mx-4 p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '20' }}>
-            <Scale size={24} color={COLORS.primary} />
-          </div>
-          <div className="flex-1">
-            <p className="font-semibold" style={{ color: COLORS.text }}>Log Today's Weight</p>
-            <p className="text-xs" style={{ color: COLORS.textMuted }}>Track your progress over time</p>
-          </div>
-          <button
-            onClick={() => {
-              setWeightLogValue(userData.currentWeight?.toString() || '');
-              setShowWeightLogModal(true);
-            }}
-            className="px-4 py-2 rounded-lg font-medium"
-            style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
-          >
-            Log
-          </button>
-        </div>
+        <button
+          onClick={() => setShowWeighIn(true)}
+          className="w-full p-4 rounded-xl flex items-center justify-center gap-2 mb-4"
+          style={{ backgroundColor: COLORS.primary }}
+        >
+          <Plus size={20} color={COLORS.text} />
+          <span className="font-semibold" style={{ color: COLORS.text }}>Log Weigh-In</span>
+        </button>
       </div>
 
       {/* Bottom padding */}
@@ -11181,49 +12438,6 @@ export default function UpRepDemo() {
         />
       )}
 
-      {/* Weight Log Modal */}
-      {showWeightLogModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}>
-          <div className="w-80 rounded-2xl p-6" style={{ backgroundColor: COLORS.surface }}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold" style={{ color: COLORS.text }}>Log Weight</h3>
-              <button onClick={() => setShowWeightLogModal(false)}>
-                <X size={24} color={COLORS.textMuted} />
-              </button>
-            </div>
-            <div className="mb-4">
-              <label className="text-sm mb-2 block" style={{ color: COLORS.textMuted }}>Weight (kg)</label>
-              <input
-                type="number"
-                value={weightLogValue}
-                onChange={(e) => setWeightLogValue(e.target.value)}
-                placeholder="Enter weight"
-                className="w-full p-4 rounded-xl text-lg text-center"
-                style={{ backgroundColor: COLORS.background, color: COLORS.text, border: `1px solid ${COLORS.surfaceLight}` }}
-                autoFocus
-              />
-            </div>
-            <button
-              onClick={async () => {
-                const weight = parseFloat(weightLogValue);
-                if (weight > 0 && user?.id) {
-                  await profileService.logWeight(user.id, weight);
-                  setUserData(prev => ({ ...prev, currentWeight: weight }));
-                  setShowWeightLogModal(false);
-                }
-              }}
-              disabled={!weightLogValue || parseFloat(weightLogValue) <= 0}
-              className="w-full py-4 rounded-xl font-semibold"
-              style={{
-                backgroundColor: weightLogValue && parseFloat(weightLogValue) > 0 ? COLORS.primary : COLORS.surfaceLight,
-                color: weightLogValue && parseFloat(weightLogValue) > 0 ? COLORS.text : COLORS.textMuted
-              }}
-            >
-              Save
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Active Workout Screen */}
       {showActiveWorkout && (() => {
@@ -12413,99 +13627,180 @@ export default function UpRepDemo() {
                 {/* Weekly Calorie Chart */}
                 <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>WEEKLY CALORIES</p>
                 <div className="p-4 rounded-xl mb-6" style={{ backgroundColor: COLORS.surface }}>
-                  <div style={{ height: 120 }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={weeklyNutrition}>
-                        <XAxis dataKey="week" tick={{ fill: COLORS.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} />
-                        <YAxis tick={{ fill: COLORS.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} width={35} domain={['dataMin - 200', 'dataMax + 200']} />
-                        <Tooltip
-                          content={({ active, payload, label }) => {
-                            if (active && payload && payload.length) {
-                              const userVal = payload.find(p => p.dataKey === 'calories')?.value;
-                              const goalVal = payload.find(p => p.dataKey === 'goal')?.value;
-                              return (
-                                <div style={{
-                                  backgroundColor: COLORS.surface,
-                                  border: `1px solid ${COLORS.surfaceLight}`,
-                                  borderRadius: 8,
-                                  padding: '8px 12px',
-                                }}>
-                                  <p style={{ color: COLORS.textMuted, fontSize: 11, marginBottom: 4 }}>{label}</p>
-                                  {userVal !== undefined && (
-                                    <p style={{ color: COLORS.accent, fontSize: 14, fontWeight: 'bold' }}>You: {userVal} kcal</p>
-                                  )}
-                                  {goalVal !== undefined && (
-                                    <p style={{ color: COLORS.textMuted, fontSize: 11 }}>Goal: {goalVal} kcal</p>
-                                  )}
-                                </div>
-                              );
-                            }
-                            return null;
-                          }}
-                        />
-                        <Line type="monotone" dataKey="goal" stroke={COLORS.textMuted} strokeWidth={2} strokeDasharray="5 5" dot={false} />
-                        <Line type="monotone" dataKey="calories" stroke={COLORS.accent} strokeWidth={2} dot={{ fill: COLORS.accent, r: 4 }} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="flex justify-center gap-4 mt-2">
-                    <div className="flex items-center gap-1">
-                      <div className="w-3 h-0.5 rounded" style={{ backgroundColor: COLORS.accent }} />
-                      <span className="text-xs" style={{ color: COLORS.textMuted }}>Actual</span>
+                  {weeklyNutrition.length > 0 && weeklyNutrition.some(d => d.calories != null) ? (
+                    <>
+                      <div style={{ height: 120 }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={weeklyNutrition.map(d => ({ ...d, goal: nutritionGoals.calories }))}>
+                            <XAxis dataKey="week" tick={{ fill: COLORS.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} />
+                            <YAxis tick={{ fill: COLORS.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} width={40} />
+                            <Tooltip
+                              content={({ active, payload, label }) => {
+                                if (active && payload && payload.length) {
+                                  const userVal = payload.find(p => p.dataKey === 'calories')?.value;
+                                  const goalVal = payload.find(p => p.dataKey === 'goal')?.value;
+                                  return (
+                                    <div style={{
+                                      backgroundColor: COLORS.surface,
+                                      border: `1px solid ${COLORS.surfaceLight}`,
+                                      borderRadius: 8,
+                                      padding: '8px 12px',
+                                    }}>
+                                      <p style={{ color: COLORS.textMuted, fontSize: 11, marginBottom: 4 }}>{label}</p>
+                                      {userVal != null && (
+                                        <p style={{ color: COLORS.accent, fontSize: 14, fontWeight: 'bold' }}>Avg: {userVal} kcal</p>
+                                      )}
+                                      {goalVal != null && (
+                                        <p style={{ color: COLORS.textMuted, fontSize: 11 }}>Goal: {goalVal} kcal</p>
+                                      )}
+                                    </div>
+                                  );
+                                }
+                                return null;
+                              }}
+                            />
+                            <Line type="monotone" dataKey="goal" stroke={COLORS.textMuted} strokeWidth={1} strokeDasharray="5 5" dot={false} connectNulls />
+                            <Line type="monotone" dataKey="calories" stroke={COLORS.accent} strokeWidth={2} dot={{ fill: COLORS.accent, r: 3 }} connectNulls />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <div className="flex justify-center gap-4 mt-2">
+                        <div className="flex items-center gap-1">
+                          <div className="w-3 h-0.5 rounded" style={{ backgroundColor: COLORS.accent }} />
+                          <span className="text-xs" style={{ color: COLORS.textMuted }}>Avg/day</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <div className="w-3 h-0.5 rounded" style={{ backgroundColor: COLORS.textMuted, opacity: 0.5 }} />
+                          <span className="text-xs" style={{ color: COLORS.textMuted }}>Goal ({nutritionGoals.calories})</span>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="h-24 flex flex-col items-center justify-center">
+                      <TrendingUp size={32} color={COLORS.textMuted} style={{ opacity: 0.3 }} />
+                      <p className="text-sm mt-2" style={{ color: COLORS.textMuted }}>No calorie data yet</p>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>Log meals to see your weekly trends</p>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <div className="w-3 h-0.5 rounded" style={{ backgroundColor: COLORS.textMuted, opacity: 0.5 }} />
-                      <span className="text-xs" style={{ color: COLORS.textMuted }}>Goal ({nutritionGoals.calories})</span>
-                    </div>
-                  </div>
+                  )}
                 </div>
 
                 {/* Weekly Water Chart */}
                 <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>WEEKLY HYDRATION</p>
                 <div className="p-4 rounded-xl mb-6" style={{ backgroundColor: COLORS.surface }}>
-                  <div style={{ height: 120 }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={weeklyNutrition}>
-                        <XAxis dataKey="week" tick={{ fill: COLORS.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} />
-                        <YAxis tick={{ fill: COLORS.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} width={35} domain={['dataMin - 300', 'dataMax + 300']} />
-                        <Tooltip
-                          content={({ active, payload, label }) => {
-                            if (active && payload && payload.length) {
-                              const userVal = payload.find(p => p.dataKey === 'water')?.value;
-                              const goalVal = payload.find(p => p.dataKey === 'waterGoal')?.value;
-                              return (
-                                <div style={{
-                                  backgroundColor: COLORS.surface,
-                                  border: `1px solid ${COLORS.surfaceLight}`,
-                                  borderRadius: 8,
-                                  padding: '8px 12px',
-                                }}>
-                                  <p style={{ color: COLORS.textMuted, fontSize: 11, marginBottom: 4 }}>{label}</p>
-                                  {userVal !== undefined && (
-                                    <p style={{ color: COLORS.water, fontSize: 14, fontWeight: 'bold' }}>You: {(userVal / 1000).toFixed(1)}L</p>
-                                  )}
-                                  {goalVal !== undefined && (
-                                    <p style={{ color: COLORS.textMuted, fontSize: 11 }}>Goal: {(goalVal / 1000).toFixed(1)}L</p>
-                                  )}
-                                </div>
-                              );
-                            }
-                            return null;
-                          }}
-                        />
-                        <Line type="monotone" dataKey="waterGoal" stroke={COLORS.textMuted} strokeWidth={2} strokeDasharray="5 5" dot={false} />
-                        <Line type="monotone" dataKey="water" stroke={COLORS.water} strokeWidth={2} dot={{ fill: COLORS.water, r: 4 }} />
-                      </LineChart>
-                    </ResponsiveContainer>
+                  {weeklyNutrition.length > 0 && weeklyNutrition.some(d => d.water != null) ? (
+                    <>
+                      <div style={{ height: 120 }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={weeklyNutrition.map(d => ({ ...d, waterGoal: nutritionGoals.water }))}>
+                            <XAxis dataKey="week" tick={{ fill: COLORS.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} />
+                            <YAxis tick={{ fill: COLORS.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} width={40} tickFormatter={(v) => `${(v/1000).toFixed(1)}`} />
+                            <Tooltip
+                              content={({ active, payload, label }) => {
+                                if (active && payload && payload.length) {
+                                  const userVal = payload.find(p => p.dataKey === 'water')?.value;
+                                  const goalVal = payload.find(p => p.dataKey === 'waterGoal')?.value;
+                                  return (
+                                    <div style={{
+                                      backgroundColor: COLORS.surface,
+                                      border: `1px solid ${COLORS.surfaceLight}`,
+                                      borderRadius: 8,
+                                      padding: '8px 12px',
+                                    }}>
+                                      <p style={{ color: COLORS.textMuted, fontSize: 11, marginBottom: 4 }}>{label}</p>
+                                      {userVal != null && (
+                                        <p style={{ color: COLORS.water, fontSize: 14, fontWeight: 'bold' }}>Avg: {(userVal / 1000).toFixed(1)}L</p>
+                                      )}
+                                      {goalVal != null && (
+                                        <p style={{ color: COLORS.textMuted, fontSize: 11 }}>Goal: {(goalVal / 1000).toFixed(1)}L</p>
+                                      )}
+                                    </div>
+                                  );
+                                }
+                                return null;
+                              }}
+                            />
+                            <Line type="monotone" dataKey="waterGoal" stroke={COLORS.textMuted} strokeWidth={1} strokeDasharray="5 5" dot={false} connectNulls />
+                            <Line type="monotone" dataKey="water" stroke={COLORS.water} strokeWidth={2} dot={{ fill: COLORS.water, r: 3 }} connectNulls />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <div className="flex justify-center gap-4 mt-2">
+                        <div className="flex items-center gap-1">
+                          <div className="w-3 h-0.5 rounded" style={{ backgroundColor: COLORS.water }} />
+                          <span className="text-xs" style={{ color: COLORS.textMuted }}>Avg/day</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <div className="w-3 h-0.5 rounded" style={{ backgroundColor: COLORS.textMuted, opacity: 0.5 }} />
+                          <span className="text-xs" style={{ color: COLORS.textMuted }}>Goal ({(nutritionGoals.water / 1000).toFixed(1)}L)</span>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="h-24 flex flex-col items-center justify-center">
+                      <Droplets size={32} color={COLORS.textMuted} style={{ opacity: 0.3 }} />
+                      <p className="text-sm mt-2" style={{ color: COLORS.textMuted }}>No hydration data yet</p>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>Log water intake to see your weekly trends</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Monthly Nutrition Calendar */}
+                <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>NUTRITION STREAK</p>
+                <div className="p-3 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
+                  <div className="flex gap-0.5 mb-1">
+                    {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
+                      <div key={i} className="flex-1 text-center">
+                        <span className="text-xs" style={{ color: COLORS.textMuted, fontSize: 9 }}>{d}</span>
+                      </div>
+                    ))}
                   </div>
-                  <div className="flex justify-center gap-4 mt-2">
+                  <div className="grid grid-cols-7 gap-0.5">
+                    {(() => {
+                      const days = [];
+                      const today = new Date();
+                      // Start from 27 days ago to show 4 complete weeks ending today
+                      for (let i = 27; i >= 0; i--) {
+                        const date = new Date(today);
+                        date.setDate(today.getDate() - i);
+                        const dateKey = date.toISOString().split('T')[0];
+                        const data = monthlyTracking?.nutrition?.[dateKey];
+                        const isToday = i === 0;
+                        const isFuture = false;
+
+                        let bgColor = COLORS.surfaceLight;
+                        if (data) {
+                          bgColor = data.goalMet ? COLORS.success + '60' : COLORS.error + '40';
+                        }
+
+                        days.push(
+                          <div
+                            key={dateKey}
+                            className="aspect-square rounded-sm flex items-center justify-center"
+                            style={{
+                              backgroundColor: bgColor,
+                              border: isToday ? `2px solid ${COLORS.primary}` : 'none',
+                            }}
+                            title={`${dateKey}: ${data ? `${data.calories} kcal` : 'No data'}`}
+                          >
+                            {data?.goalMet && <Check size={8} color={COLORS.success} />}
+                          </div>
+                        );
+                      }
+                      return days;
+                    })()}
+                  </div>
+                  <div className="flex items-center justify-center gap-4 mt-2">
                     <div className="flex items-center gap-1">
-                      <div className="w-3 h-0.5 rounded" style={{ backgroundColor: COLORS.water }} />
-                      <span className="text-xs" style={{ color: COLORS.textMuted }}>Actual</span>
+                      <div className="w-2 h-2 rounded-sm" style={{ backgroundColor: COLORS.success + '60' }} />
+                      <span style={{ fontSize: 9, color: COLORS.textMuted }}>Goal met</span>
                     </div>
                     <div className="flex items-center gap-1">
-                      <div className="w-3 h-0.5 rounded" style={{ backgroundColor: COLORS.textMuted, opacity: 0.5 }} />
-                      <span className="text-xs" style={{ color: COLORS.textMuted }}>Goal ({(nutritionGoals.water / 1000).toFixed(1)}L)</span>
+                      <div className="w-2 h-2 rounded-sm" style={{ backgroundColor: COLORS.error + '40' }} />
+                      <span style={{ fontSize: 9, color: COLORS.textMuted }}>Missed</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-2 rounded-sm" style={{ backgroundColor: COLORS.surfaceLight }} />
+                      <span style={{ fontSize: 9, color: COLORS.textMuted }}>No data</span>
                     </div>
                   </div>
                 </div>
@@ -12603,6 +13898,62 @@ export default function UpRepDemo() {
                       </div>
                     </div>
                   ))}
+                </div>
+
+                {/* Monthly Meals Calendar */}
+                <p className="text-xs font-semibold mb-2 mt-4" style={{ color: COLORS.textMuted }}>PROTEIN STREAK</p>
+                <div className="p-3 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
+                  <div className="flex gap-0.5 mb-1">
+                    {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
+                      <div key={i} className="flex-1 text-center">
+                        <span className="text-xs" style={{ color: COLORS.textMuted, fontSize: 9 }}>{d}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-7 gap-0.5">
+                    {(() => {
+                      const days = [];
+                      const today = new Date();
+                      for (let i = 27; i >= 0; i--) {
+                        const date = new Date(today);
+                        date.setDate(today.getDate() - i);
+                        const dateKey = date.toISOString().split('T')[0];
+                        const data = monthlyTracking?.nutrition?.[dateKey];
+                        const isToday = i === 0;
+                        const proteinGoalMet = data && data.protein >= (nutritionGoals.protein * 0.85);
+
+                        let bgColor = COLORS.surfaceLight;
+                        if (data) {
+                          bgColor = proteinGoalMet ? COLORS.primary + '50' : COLORS.error + '40';
+                        }
+
+                        days.push(
+                          <div
+                            key={dateKey}
+                            className="aspect-square rounded-sm flex items-center justify-center"
+                            style={{
+                              backgroundColor: bgColor,
+                              border: isToday ? `2px solid ${COLORS.primary}` : 'none',
+                            }}
+                            title={`${dateKey}: ${data ? `${data.protein}g protein` : 'No data'}`}
+                          >
+                            {proteinGoalMet && <Check size={8} color={COLORS.primary} />}
+                          </div>
+                        );
+                      }
+                      return days;
+                    })()}
+                  </div>
+                  <div className="flex items-center justify-center gap-4 mt-2">
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-2 rounded-sm" style={{ backgroundColor: COLORS.primary + '50' }} />
+                      <span style={{ fontSize: 9, color: COLORS.textMuted }}>Goal met</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-2 rounded-sm" style={{ backgroundColor: COLORS.error + '40' }} />
+                      <span style={{ fontSize: 9, color: COLORS.textMuted }}>Missed</span>
+                    </div>
+                  </div>
                 </div>
               </>
             )}
@@ -12848,7 +14199,7 @@ export default function UpRepDemo() {
                 </div>
 
                 {/* Quick Tips */}
-                <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surfaceLight }}>
+                <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surfaceLight }}>
                   <div className="flex items-start gap-3">
                     <Info size={18} color={COLORS.accent} className="flex-shrink-0 mt-0.5" />
                     <div>
@@ -12856,6 +14207,64 @@ export default function UpRepDemo() {
                       <p className="text-xs" style={{ color: COLORS.textSecondary }}>
                         Take creatine daily at the same time for best results. Vitamin D is best absorbed with a meal containing fats.
                       </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Monthly Supplements Calendar */}
+                <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>SUPPLEMENT STREAK</p>
+                <div className="p-3 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+                  <div className="flex gap-0.5 mb-1">
+                    {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
+                      <div key={i} className="flex-1 text-center">
+                        <span className="text-xs" style={{ color: COLORS.textMuted, fontSize: 9 }}>{d}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-7 gap-0.5">
+                    {(() => {
+                      const days = [];
+                      const today = new Date();
+                      for (let i = 27; i >= 0; i--) {
+                        const date = new Date(today);
+                        date.setDate(today.getDate() - i);
+                        const dateKey = date.toISOString().split('T')[0];
+                        // Check supplementHistory for this day
+                        const dayData = supplementHistory.find(h => h.date === dateKey);
+                        const isToday = i === 0;
+                        const allTaken = dayData?.allTaken || false;
+                        const hasData = dayData !== undefined;
+
+                        let bgColor = COLORS.surfaceLight;
+                        if (hasData) {
+                          bgColor = allTaken ? COLORS.supplements + '50' : COLORS.error + '40';
+                        }
+
+                        days.push(
+                          <div
+                            key={dateKey}
+                            className="aspect-square rounded-sm flex items-center justify-center"
+                            style={{
+                              backgroundColor: bgColor,
+                              border: isToday ? `2px solid ${COLORS.supplements}` : 'none',
+                            }}
+                            title={`${dateKey}: ${hasData ? (allTaken ? 'All taken' : 'Incomplete') : 'No data'}`}
+                          >
+                            {allTaken && <Check size={8} color={COLORS.supplements} />}
+                          </div>
+                        );
+                      }
+                      return days;
+                    })()}
+                  </div>
+                  <div className="flex items-center justify-center gap-4 mt-2">
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-2 rounded-sm" style={{ backgroundColor: COLORS.supplements + '50' }} />
+                      <span style={{ fontSize: 9, color: COLORS.textMuted }}>All taken</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-2 rounded-sm" style={{ backgroundColor: COLORS.error + '40' }} />
+                      <span style={{ fontSize: 9, color: COLORS.textMuted }}>Incomplete</span>
                     </div>
                   </div>
                 </div>
@@ -13050,7 +14459,7 @@ export default function UpRepDemo() {
                 </div>
 
                 {/* Sleep Tips */}
-                <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surfaceLight }}>
+                <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surfaceLight }}>
                   <div className="flex items-start gap-3">
                     <Info size={18} color={COLORS.sleep} className="flex-shrink-0 mt-0.5" />
                     <div>
@@ -13058,6 +14467,61 @@ export default function UpRepDemo() {
                       <p className="text-xs" style={{ color: COLORS.textSecondary }}>
                         Maintain a consistent sleep schedule, even on weekends. This helps regulate your body's internal clock.
                       </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Monthly Sleep Calendar */}
+                <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>SLEEP STREAK</p>
+                <div className="p-3 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+                  <div className="flex gap-0.5 mb-1">
+                    {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
+                      <div key={i} className="flex-1 text-center">
+                        <span className="text-xs" style={{ color: COLORS.textMuted, fontSize: 9 }}>{d}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-7 gap-0.5">
+                    {(() => {
+                      const days = [];
+                      const today = new Date();
+                      for (let i = 27; i >= 0; i--) {
+                        const date = new Date(today);
+                        date.setDate(today.getDate() - i);
+                        const dateKey = date.toISOString().split('T')[0];
+                        const data = monthlyTracking?.sleep?.[dateKey];
+                        const isToday = i === 0;
+
+                        let bgColor = COLORS.surfaceLight;
+                        if (data) {
+                          bgColor = data.goalMet ? COLORS.sleep + '50' : COLORS.error + '40';
+                        }
+
+                        days.push(
+                          <div
+                            key={dateKey}
+                            className="aspect-square rounded-sm flex items-center justify-center"
+                            style={{
+                              backgroundColor: bgColor,
+                              border: isToday ? `2px solid ${COLORS.sleep}` : 'none',
+                            }}
+                            title={`${dateKey}: ${data ? `${data.hours}h sleep` : 'No data'}`}
+                          >
+                            {data?.goalMet && <Check size={8} color={COLORS.sleep} />}
+                          </div>
+                        );
+                      }
+                      return days;
+                    })()}
+                  </div>
+                  <div className="flex items-center justify-center gap-4 mt-2">
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-2 rounded-sm" style={{ backgroundColor: COLORS.sleep + '50' }} />
+                      <span style={{ fontSize: 9, color: COLORS.textMuted }}>7+ hrs</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-2 rounded-sm" style={{ backgroundColor: COLORS.error + '40' }} />
+                      <span style={{ fontSize: 9, color: COLORS.textMuted }}>&lt;7 hrs</span>
                     </div>
                   </div>
                 </div>
@@ -13092,7 +14556,11 @@ export default function UpRepDemo() {
           </>
         )}
         {activeTab === 'friends' && (
-          <div className="p-4 h-full overflow-auto">
+          <div
+            ref={friendsTabScrollRef}
+            onScroll={handleFriendsTabScroll}
+            className="p-4 h-full overflow-auto"
+          >
             {/* Social Opt-Out Banner */}
             {!socialEnabled && (
               <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surfaceLight }}>
@@ -13115,8 +14583,8 @@ export default function UpRepDemo() {
             {/* Tab Navigation */}
             <div className="flex gap-2 mb-4 overflow-x-auto">
               {[
-                { id: 'community_workouts', label: 'Workouts' },
                 { id: 'feed', label: 'Activity' },
+                { id: 'community_workouts', label: 'Workouts' },
                 { id: 'following', label: 'Following' },
                 { id: 'discover', label: 'Discover' },
                 { id: 'challenges', label: 'Challenges' },
@@ -13154,7 +14622,7 @@ export default function UpRepDemo() {
                 </button>
 
                 {/* Sort Options */}
-                <div className="flex gap-2 mb-4">
+                <div className="flex gap-2 mb-3">
                   {[
                     { id: 'popular', label: 'Most Popular' },
                     { id: 'rating', label: 'Top Rated' },
@@ -13174,38 +14642,425 @@ export default function UpRepDemo() {
                   ))}
                 </div>
 
+                {/* Filter Options */}
+                <div className="mb-4">
+                  <button
+                    onClick={() => setShowCommunityFilters(!showCommunityFilters)}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold"
+                    style={{ backgroundColor: COLORS.surface, color: COLORS.textMuted }}
+                  >
+                    <Filter size={14} />
+                    Filters
+                    {(communityFilters.duration || communityFilters.minRating || communityFilters.focus || communityFilters.minCompletions) && (
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS.primary }} />
+                    )}
+                    <ChevronDown size={14} style={{ transform: showCommunityFilters ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
+                  </button>
+
+                  {showCommunityFilters && (
+                    <div className="mt-2 p-3 rounded-xl space-y-3" style={{ backgroundColor: COLORS.surface }}>
+                      {/* Duration Filter */}
+                      <div>
+                        <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>Duration</p>
+                        <div className="flex gap-2 flex-wrap">
+                          {[
+                            { id: null, label: 'Any' },
+                            { id: 'short', label: '<30min' },
+                            { id: 'medium', label: '30-60min' },
+                            { id: 'long', label: '>60min' },
+                          ].map(d => (
+                            <button
+                              key={d.id || 'any'}
+                              onClick={() => setCommunityFilters(prev => ({ ...prev, duration: d.id }))}
+                              className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                              style={{
+                                backgroundColor: communityFilters.duration === d.id ? COLORS.primary : COLORS.surfaceLight,
+                                color: communityFilters.duration === d.id ? COLORS.text : COLORS.textMuted
+                              }}
+                            >
+                              {d.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Min Rating Filter */}
+                      <div>
+                        <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>Minimum Rating</p>
+                        <div className="flex gap-2 flex-wrap">
+                          {[
+                            { id: null, label: 'Any' },
+                            { id: 3, label: '3+ stars' },
+                            { id: 4, label: '4+ stars' },
+                            { id: 4.5, label: '4.5+ stars' },
+                          ].map(r => (
+                            <button
+                              key={r.id || 'any'}
+                              onClick={() => setCommunityFilters(prev => ({ ...prev, minRating: r.id }))}
+                              className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                              style={{
+                                backgroundColor: communityFilters.minRating === r.id ? COLORS.primary : COLORS.surfaceLight,
+                                color: communityFilters.minRating === r.id ? COLORS.text : COLORS.textMuted
+                              }}
+                            >
+                              {r.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Focus/Type Filter */}
+                      <div>
+                        <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>Workout Type</p>
+                        <div className="flex gap-2 flex-wrap">
+                          {[
+                            { id: null, label: 'Any' },
+                            { id: 'push', label: 'Push' },
+                            { id: 'pull', label: 'Pull' },
+                            { id: 'legs', label: 'Legs' },
+                            { id: 'upper', label: 'Upper' },
+                            { id: 'full', label: 'Full Body' },
+                            { id: 'core', label: 'Core' },
+                          ].map(f => (
+                            <button
+                              key={f.id || 'any'}
+                              onClick={() => setCommunityFilters(prev => ({ ...prev, focus: f.id }))}
+                              className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                              style={{
+                                backgroundColor: communityFilters.focus === f.id ? COLORS.primary : COLORS.surfaceLight,
+                                color: communityFilters.focus === f.id ? COLORS.text : COLORS.textMuted
+                              }}
+                            >
+                              {f.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Min Completions Filter */}
+                      <div>
+                        <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>Completed By</p>
+                        <div className="flex gap-2 flex-wrap">
+                          {[
+                            { id: null, label: 'Any' },
+                            { id: 10, label: '10+ people' },
+                            { id: 50, label: '50+ people' },
+                            { id: 100, label: '100+ people' },
+                          ].map(c => (
+                            <button
+                              key={c.id || 'any'}
+                              onClick={() => setCommunityFilters(prev => ({ ...prev, minCompletions: c.id }))}
+                              className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                              style={{
+                                backgroundColor: communityFilters.minCompletions === c.id ? COLORS.primary : COLORS.surfaceLight,
+                                color: communityFilters.minCompletions === c.id ? COLORS.text : COLORS.textMuted
+                              }}
+                            >
+                              {c.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Clear Filters */}
+                      {(communityFilters.duration || communityFilters.minRating || communityFilters.focus || communityFilters.minCompletions) && (
+                        <button
+                          onClick={() => setCommunityFilters({ duration: null, minRating: null, focus: null, minCompletions: null })}
+                          className="text-xs font-semibold"
+                          style={{ color: COLORS.error }}
+                        >
+                          Clear All Filters
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 {/* My Published Workouts */}
                 {myPublishedWorkouts.length > 0 && (
                   <div className="mb-6">
                     <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>YOUR SHARED WORKOUTS</p>
                     <div className="space-y-2">
-                      {myPublishedWorkouts.slice(0, 3).map(workout => (
-                        <div
-                          key={workout.id}
-                          className="p-3 rounded-xl flex items-center gap-3"
-                          style={{ backgroundColor: COLORS.surface }}
-                        >
+                      {myPublishedWorkouts.map(workout => {
+                        const style = getWorkoutStyle(workout.focus);
+                        const isExpanded = expandedWorkoutId === workout.id;
+                        const targetDuration = workout.target_duration || estimateWorkoutDuration(workout.exercises);
+                        const uploadDate = workout.created_at ? new Date(workout.created_at) : null;
+                        const uploadTimeAgo = uploadDate ? formatActivityTime(workout.created_at) : '';
+
+                        return (
                           <div
-                            className="w-10 h-10 rounded-lg flex items-center justify-center"
-                            style={{ backgroundColor: COLORS.primary + '20' }}
+                            key={workout.id}
+                            className="rounded-xl overflow-hidden"
+                            style={{ backgroundColor: COLORS.surface }}
                           >
-                            <Dumbbell size={18} color={COLORS.primary} />
+                            {/* Card Header - Clickable to expand */}
+                            <button
+                              onClick={() => setExpandedWorkoutIdWithScroll(isExpanded ? null : workout.id)}
+                              className="w-full p-3 text-left"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div
+                                  className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                                  style={{ backgroundColor: style.color + '20' }}
+                                >
+                                  <IconMap name={style.icon} size={18} color={style.color} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-semibold text-sm truncate" style={{ color: COLORS.text }}>{workout.name}</p>
+                                    <ChevronDown
+                                      size={14}
+                                      color={COLORS.textMuted}
+                                      style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}
+                                    />
+                                  </div>
+                                  <div className="flex items-center flex-wrap gap-2 text-xs mt-1" style={{ color: COLORS.textMuted }}>
+                                    <div className="flex items-center gap-1">
+                                      <StarRating rating={workout.averageRating || 0} readonly size={10} />
+                                      <span className="font-medium" style={{ color: COLORS.warning }}>{(workout.averageRating || 0).toFixed(1)}</span>
+                                    </div>
+                                    <span>({workout.ratingCount || 0})</span>
+                                    <span className="flex items-center gap-1">
+                                      <Users size={10} /> {workout.completionCount || 0}
+                                    </span>
+                                    {uploadTimeAgo && <span>{uploadTimeAgo}</span>}
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); loadComments(workout.id); }}
+                                  className="p-2 rounded-lg flex items-center gap-1"
+                                  style={{ backgroundColor: COLORS.surfaceLight }}
+                                >
+                                  <MessageCircle size={14} color={COLORS.textMuted} />
+                                  <span className="text-xs" style={{ color: COLORS.textMuted }}>{workout.comment_count || 0}</span>
+                                </button>
+                              </div>
+                            </button>
+
+                            {/* Expanded Content */}
+                            {isExpanded && (() => {
+                              const timing = getWorkoutTimeBreakdown(workout.exercises || []);
+                              const activeMins = Math.round(timing.workingTime / 60);
+                              const restMins = Math.round(timing.restTime / 60);
+                              const warmupMins = Math.round(WORKOUT_TIMING.WARMUP_TIME / 60);
+                              const cooldownMins = Math.round(WORKOUT_TIMING.COOLDOWN_TIME / 60);
+                              const warmupCooldownState = workoutWarmupCooldown[workout.id] || {};
+                              const hasWarmup = warmupCooldownState.warmup ?? true;
+                              const hasCooldown = warmupCooldownState.cooldown ?? true;
+                              const workoutMins = activeMins + restMins + (hasWarmup ? warmupMins : 0) + (hasCooldown ? cooldownMins : 0);
+                              return (
+                              <div className="px-3 pb-3 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+                                {/* Time Breakdown */}
+                                <div className="grid grid-cols-4 gap-2 py-3">
+                                  <div className="text-center p-2 rounded-lg" style={{ backgroundColor: COLORS.success + '15' }}>
+                                    <p className="font-bold text-sm" style={{ color: COLORS.success }}>{activeMins}min</p>
+                                    <p className="text-xs" style={{ color: COLORS.textMuted }}>Active</p>
+                                  </div>
+                                  <div className="text-center p-2 rounded-lg" style={{ backgroundColor: COLORS.warning + '15' }}>
+                                    <p className="font-bold text-sm" style={{ color: COLORS.warning }}>{restMins}min</p>
+                                    <p className="text-xs" style={{ color: COLORS.textMuted }}>Rest</p>
+                                  </div>
+                                  <div className="text-center p-2 rounded-lg" style={{ backgroundColor: COLORS.primary + '15' }}>
+                                    <p className="font-bold text-sm" style={{ color: COLORS.primary }}>{hasWarmup ? warmupMins : 0}+{hasCooldown ? cooldownMins : 0}min</p>
+                                    <p className="text-xs" style={{ color: COLORS.textMuted }}>Warm/Cool</p>
+                                  </div>
+                                  <div className="text-center p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
+                                    <p className="font-bold text-sm" style={{ color: COLORS.text }}>{workoutMins}min</p>
+                                    <p className="text-xs" style={{ color: COLORS.textMuted }}>Total</p>
+                                  </div>
+                                </div>
+
+                                {/* Warmup/Cooldown Toggles */}
+                                <div className="flex items-center gap-3 py-2">
+                                  <button
+                                    onClick={() => setWorkoutWarmupCooldown(prev => ({
+                                      ...prev,
+                                      [workout.id]: { ...prev[workout.id], warmup: !(prev[workout.id]?.warmup ?? true) }
+                                    }))}
+                                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold"
+                                    style={{
+                                      backgroundColor: hasWarmup ? COLORS.primary + '20' : COLORS.surfaceLight,
+                                      color: hasWarmup ? COLORS.primary : COLORS.textMuted
+                                    }}
+                                  >
+                                    <Wind size={12} />
+                                    Warmup {warmupMins}min
+                                    {hasWarmup ? <Check size={12} /> : null}
+                                  </button>
+                                  <button
+                                    onClick={() => setWorkoutWarmupCooldown(prev => ({
+                                      ...prev,
+                                      [workout.id]: { ...prev[workout.id], cooldown: !(prev[workout.id]?.cooldown ?? true) }
+                                    }))}
+                                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold"
+                                    style={{
+                                      backgroundColor: hasCooldown ? COLORS.primary + '20' : COLORS.surfaceLight,
+                                      color: hasCooldown ? COLORS.primary : COLORS.textMuted
+                                    }}
+                                  >
+                                    <Sprout size={12} />
+                                    Cooldown {cooldownMins}min
+                                    {hasCooldown ? <Check size={12} /> : null}
+                                  </button>
+                                </div>
+
+                                {/* Exercise count & avg completion */}
+                                <div className="flex items-center gap-3 py-2 text-xs" style={{ color: COLORS.textMuted }}>
+                                  <span>{workout.exercises?.length || 0} exercises</span>
+                                  {workout.avg_actual_duration && (
+                                    <span className="flex items-center gap-1">
+                                      <Clock size={10} /> Avg completion: {workout.avg_actual_duration}min
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* Description */}
+                                {workout.description && (
+                                  <p className="text-sm py-2" style={{ color: COLORS.textSecondary }}>{workout.description}</p>
+                                )}
+
+                                {/* Exercises List with Warmup/Cooldown */}
+                                <div className="py-2 space-y-2">
+                                  {/* Warmup Item */}
+                                  {hasWarmup && (
+                                    <div className="p-2 rounded-lg flex items-center gap-2" style={{ backgroundColor: COLORS.primary + '15', border: `1px dashed ${COLORS.primary}40` }}>
+                                      <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '30' }}>
+                                        <Wind size={12} color={COLORS.primary} />
+                                      </div>
+                                      <div className="flex-1">
+                                        <p className="font-semibold text-xs" style={{ color: COLORS.primary }}>Warmup</p>
+                                        <p className="text-xs" style={{ color: COLORS.textMuted }}>Light cardio & dynamic stretches</p>
+                                      </div>
+                                      <p className="font-semibold text-xs" style={{ color: COLORS.primary }}>{warmupMins}min</p>
+                                    </div>
+                                  )}
+                                  {(workout.exercises || []).map((exercise, i) => {
+                                    const sets = exercise.sets || 3;
+                                    const restTime = exercise.restTime || 90;
+                                    return (
+                                      <div
+                                        key={exercise.id || i}
+                                        className="p-2 rounded-lg flex items-center gap-2"
+                                        style={{ backgroundColor: COLORS.surfaceLight }}
+                                      >
+                                        <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: style.color + '20' }}>
+                                          <span className="font-bold text-xs" style={{ color: style.color }}>{i + 1}</span>
+                                        </div>
+                                        <div className="flex-1 flex items-center gap-1">
+                                          <p className="font-semibold text-xs" style={{ color: COLORS.text }}>{exercise.name}</p>
+                                          <button
+                                            onClick={(e) => { e.stopPropagation(); showExerciseInfoFriendsTab(exercise.name); }}
+                                            className="p-0.5 rounded-full"
+                                            style={{ backgroundColor: COLORS.primary + '20' }}
+                                          >
+                                            <Info size={10} color={COLORS.primary} />
+                                          </button>
+                                        </div>
+                                        <div className="text-right">
+                                          <p className="font-semibold text-xs" style={{ color: COLORS.text }}>
+                                            {exercise.sets} x {exercise.targetReps || exercise.reps}
+                                          </p>
+                                          {sets > 1 && (
+                                            <p className="text-xs" style={{ color: COLORS.warning }}>{restTime}s rest</p>
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+
+                                  {/* Cooldown Item */}
+                                  {hasCooldown && (
+                                    <div className="p-2 rounded-lg flex items-center gap-2" style={{ backgroundColor: COLORS.primary + '15', border: `1px dashed ${COLORS.primary}40` }}>
+                                      <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '30' }}>
+                                        <Sprout size={12} color={COLORS.primary} />
+                                      </div>
+                                      <div className="flex-1">
+                                        <p className="font-semibold text-xs" style={{ color: COLORS.primary }}>Cooldown</p>
+                                        <p className="text-xs" style={{ color: COLORS.textMuted }}>Static stretches & recovery</p>
+                                      </div>
+                                      <p className="font-semibold text-xs" style={{ color: COLORS.primary }}>{cooldownMins}min</p>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Rename Section */}
+                                {renamingWorkout?.id === workout.id ? (
+                                  <div className="flex gap-2 py-2">
+                                    <input
+                                      type="text"
+                                      value={newWorkoutName}
+                                      onChange={(e) => setNewWorkoutName(e.target.value)}
+                                      placeholder="New workout name"
+                                      className="flex-1 px-3 py-2 rounded-lg text-sm outline-none"
+                                      style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: `1px solid ${COLORS.primary}` }}
+                                      autoFocus
+                                    />
+                                    <button
+                                      onClick={handleRenameWorkout}
+                                      className="px-3 py-2 rounded-lg text-sm font-semibold"
+                                      style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+                                    >
+                                      Save
+                                    </button>
+                                    <button
+                                      onClick={() => { setRenamingWorkout(null); setNewWorkoutName(''); }}
+                                      className="px-3 py-2 rounded-lg text-sm"
+                                      style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.textMuted }}
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                ) : null}
+
+                                {/* Action Buttons */}
+                                <div className="flex gap-2 pt-2">
+                                  <button
+                                    onClick={() => { setRenamingWorkout({ id: workout.id, name: workout.name }); setNewWorkoutName(workout.name); }}
+                                    className="py-2 px-3 rounded-lg font-semibold text-sm flex items-center justify-center gap-1"
+                                    style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text }}
+                                  >
+                                    <Edit3 size={14} />
+                                  </button>
+                                  <button
+                                    onClick={() => loadComments(workout.id)}
+                                    className="flex-1 py-2 rounded-lg font-semibold text-sm flex items-center justify-center gap-1"
+                                    style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text }}
+                                  >
+                                    <MessageCircle size={14} /> Comments
+                                  </button>
+                                  <button
+                                    onClick={() => setSelectedCommunityWorkout(workout)}
+                                    className="flex-1 py-2 rounded-lg font-semibold text-sm"
+                                    style={{ backgroundColor: COLORS.primary + '20', color: COLORS.primary }}
+                                  >
+                                    Full Details
+                                  </button>
+                                </div>
+                              </div>
+                              );
+                            })()}
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-semibold text-sm truncate" style={{ color: COLORS.text }}>{workout.name}</p>
-                            <div className="flex items-center gap-2 text-xs" style={{ color: COLORS.textMuted }}>
-                              <span className="flex items-center gap-1">
-                                <Award size={10} color={COLORS.warning} />
-                                {(workout.averageRating || 0).toFixed(1)}
-                              </span>
-                              <span>{workout.completionCount || 0} completed</span>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}
+
+                {/* Rep-ertoire Button */}
+                <button
+                  onClick={loadRepertoire}
+                  className="w-full p-3 rounded-xl mb-4 flex items-center justify-center gap-2"
+                  style={{ backgroundColor: COLORS.surface, border: `1px solid ${COLORS.warning}40` }}
+                >
+                  <Book size={18} color={COLORS.warning} />
+                  <span className="font-semibold" style={{ color: COLORS.warning }}>My Rep-ertoire</span>
+                  {savedWorkoutIds.size > 0 && (
+                    <span className="px-2 py-0.5 rounded-full text-xs font-bold" style={{ backgroundColor: COLORS.warning, color: COLORS.background }}>
+                      {savedWorkoutIds.size}
+                    </span>
+                  )}
+                </button>
 
                 {/* Community Workouts List */}
                 <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>COMMUNITY WORKOUTS</p>
@@ -13220,83 +15075,356 @@ export default function UpRepDemo() {
                     <p className="text-sm font-medium" style={{ color: COLORS.text }}>No workouts yet</p>
                     <p className="text-xs mt-1" style={{ color: COLORS.textMuted }}>Be the first to share a workout with the community!</p>
                   </div>
-                ) : (
-                  <div className="space-y-3">
-                    {communityWorkouts.map(workout => (
-                      <div
-                        key={workout.id}
-                        className="p-4 rounded-xl"
-                        style={{ backgroundColor: COLORS.surface }}
-                      >
-                        <div className="flex items-start gap-3">
-                          {/* Workout Icon */}
-                          <div
-                            className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
-                            style={{ backgroundColor: COLORS.primary + '20' }}
-                          >
-                            <Dumbbell size={24} color={COLORS.primary} />
-                          </div>
+                ) : (() => {
+                  // Apply filters to community workouts
+                  const filteredWorkouts = communityWorkouts.filter(workout => {
+                    const duration = workout.target_duration || estimateWorkoutDuration(workout.exercises);
 
-                          {/* Workout Info */}
-                          <div className="flex-1 min-w-0">
-                            <p className="font-bold truncate" style={{ color: COLORS.text }}>{workout.name}</p>
-                            <p className="text-xs" style={{ color: COLORS.textSecondary }}>{workout.focus}</p>
+                    // Duration filter
+                    if (communityFilters.duration) {
+                      if (communityFilters.duration === 'short' && duration >= 30) return false;
+                      if (communityFilters.duration === 'medium' && (duration < 30 || duration > 60)) return false;
+                      if (communityFilters.duration === 'long' && duration <= 60) return false;
+                    }
 
-                            {/* Stats Row */}
-                            <div className="flex items-center gap-3 mt-2">
-                              <span className="text-xs flex items-center gap-1" style={{ color: COLORS.warning }}>
-                                <Award size={12} /> {(workout.averageRating || 0).toFixed(1)}
-                              </span>
-                              <span className="text-xs" style={{ color: COLORS.textMuted }}>
-                                {workout.completionCount || 0} completed
-                              </span>
-                              <span className="text-xs" style={{ color: COLORS.textMuted }}>
-                                {workout.exercises?.length || 0} exercises
-                              </span>
-                            </div>
+                    // Rating filter
+                    if (communityFilters.minRating && (workout.averageRating || 0) < communityFilters.minRating) {
+                      return false;
+                    }
 
-                            {/* Creator */}
-                            {workout.creator && (
-                              <div className="flex items-center gap-2 mt-2">
-                                <div
-                                  className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold"
-                                  style={{ backgroundColor: COLORS.primary + '30', color: COLORS.primary }}
-                                >
-                                  {workout.creator.username?.[0]?.toUpperCase() || 'U'}
-                                </div>
-                                <span className="text-xs" style={{ color: COLORS.textMuted }}>
-                                  by @{workout.creator.username}
-                                </span>
-                              </div>
-                            )}
-                          </div>
+                    // Focus/type filter
+                    if (communityFilters.focus) {
+                      const focusLower = (workout.focus || '').toLowerCase();
+                      if (!focusLower.includes(communityFilters.focus)) return false;
+                    }
 
-                          {/* Actions */}
-                          <div className="flex flex-col gap-2">
-                            <button
-                              onClick={() => handleSaveWorkout(workout.id)}
-                              className="p-2 rounded-lg"
-                              style={{ backgroundColor: savedWorkoutIds.has(workout.id) ? COLORS.warning + '20' : COLORS.surfaceLight }}
-                            >
-                              <Heart
-                                size={16}
-                                color={savedWorkoutIds.has(workout.id) ? COLORS.warning : COLORS.textMuted}
-                                fill={savedWorkoutIds.has(workout.id) ? COLORS.warning : 'transparent'}
-                              />
-                            </button>
-                            <button
-                              onClick={() => setSelectedCommunityWorkout(workout)}
-                              className="p-2 rounded-lg"
-                              style={{ backgroundColor: COLORS.primary + '20' }}
-                            >
-                              <Eye size={16} color={COLORS.primary} />
-                            </button>
-                          </div>
-                        </div>
+                    // Completions filter
+                    if (communityFilters.minCompletions && (workout.completionCount || 0) < communityFilters.minCompletions) {
+                      return false;
+                    }
+
+                    return true;
+                  });
+
+                  if (filteredWorkouts.length === 0) {
+                    return (
+                      <div className="p-6 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
+                        <Filter size={40} color={COLORS.primary} className="mx-auto mb-3" style={{ opacity: 0.7 }} />
+                        <p className="text-sm font-medium" style={{ color: COLORS.text }}>No matching workouts</p>
+                        <p className="text-xs mt-1" style={{ color: COLORS.textMuted }}>Try adjusting your filters</p>
                       </div>
-                    ))}
+                    );
+                  }
+
+                  return (
+                  <div className="space-y-3">
+                    {filteredWorkouts.map(workout => {
+                      const style = getWorkoutStyle(workout.focus);
+                      const isExpanded = expandedWorkoutId === workout.id;
+                      const targetDuration = workout.target_duration || estimateWorkoutDuration(workout.exercises);
+                      const uploadDate = workout.created_at ? new Date(workout.created_at) : null;
+                      const uploadTimeAgo = uploadDate ? formatActivityTime(workout.created_at) : '';
+
+                      return (
+                        <div
+                          key={workout.id}
+                          className="rounded-xl overflow-hidden"
+                          style={{ backgroundColor: COLORS.surface }}
+                        >
+                          {/* Card Header - Clickable to expand */}
+                          <button
+                            onClick={() => setExpandedWorkoutIdWithScroll(isExpanded ? null : workout.id)}
+                            className="w-full p-4 text-left"
+                          >
+                            <div className="flex items-start gap-3">
+                              {/* Workout Icon - Unique based on focus */}
+                              <div
+                                className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+                                style={{ backgroundColor: style.color + '20' }}
+                              >
+                                <IconMap name={style.icon} size={24} color={style.color} />
+                              </div>
+
+                              {/* Workout Info */}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <p className="font-bold truncate" style={{ color: COLORS.text }}>{workout.name}</p>
+                                  <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: style.color + '20', color: style.color }}>
+                                    {style.label}
+                                  </span>
+                                </div>
+
+                                {/* Duration & Time */}
+                                <div className="flex items-center gap-3 mt-1">
+                                  <span className="text-xs flex items-center gap-1" style={{ color: COLORS.textMuted }}>
+                                    <Clock size={10} /> {targetDuration}min target
+                                    {workout.avg_actual_duration && (
+                                      <span style={{ color: COLORS.textSecondary }}> / {workout.avg_actual_duration}min avg</span>
+                                    )}
+                                  </span>
+                                </div>
+
+                                {/* Stats Row */}
+                                <div className="flex items-center flex-wrap gap-2 mt-2">
+                                  <div className="flex items-center gap-1">
+                                    <StarRating rating={workout.averageRating || 0} readonly size={12} />
+                                    <span className="text-xs font-medium" style={{ color: COLORS.warning }}>
+                                      {(workout.averageRating || 0).toFixed(1)}
+                                    </span>
+                                  </div>
+                                  <span className="text-xs" style={{ color: COLORS.textMuted }}>
+                                    ({workout.ratingCount || 0} {(workout.ratingCount || 0) === 1 ? 'review' : 'reviews'})
+                                  </span>
+                                  <span className="text-xs flex items-center gap-1" style={{ color: COLORS.textMuted }}>
+                                    <Users size={10} /> {workout.completionCount || 0} done
+                                  </span>
+                                  <span className="text-xs" style={{ color: COLORS.textMuted }}>
+                                    {workout.exercises?.length || 0} exercises
+                                  </span>
+                                </div>
+
+                                {/* Creator & Upload Time */}
+                                <div className="flex items-center justify-between mt-2">
+                                  {workout.creator && (
+                                    <div className="flex items-center gap-2">
+                                      <div
+                                        className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold"
+                                        style={{ backgroundColor: style.color + '30', color: style.color }}
+                                      >
+                                        {workout.creator.avatar || workout.creator.name?.[0]?.toUpperCase() || 'U'}
+                                      </div>
+                                      <span className="text-xs" style={{ color: COLORS.textMuted }}>
+                                        {workout.creator.name} <span style={{ opacity: 0.7 }}>@{workout.creator.username}</span>
+                                      </span>
+                                    </div>
+                                  )}
+                                  {uploadTimeAgo && (
+                                    <span className="text-xs" style={{ color: COLORS.textMuted }}>{uploadTimeAgo}</span>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Actions */}
+                              <div className="flex flex-col gap-2">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleSaveWorkout(workout.id); }}
+                                  className="p-2 rounded-lg"
+                                  style={{ backgroundColor: savedWorkoutIds.has(workout.id) ? COLORS.warning + '20' : COLORS.surfaceLight }}
+                                  title={savedWorkoutIds.has(workout.id) ? 'Remove from Rep-ertoire' : 'Add to Rep-ertoire'}
+                                >
+                                  <Book
+                                    size={16}
+                                    color={savedWorkoutIds.has(workout.id) ? COLORS.warning : COLORS.textMuted}
+                                    fill={savedWorkoutIds.has(workout.id) ? COLORS.warning : 'transparent'}
+                                  />
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); loadComments(workout.id); }}
+                                  className="p-2 rounded-lg flex items-center justify-center"
+                                  style={{ backgroundColor: COLORS.surfaceLight }}
+                                >
+                                  <MessageCircle size={16} color={COLORS.textMuted} />
+                                </button>
+                              </div>
+                            </div>
+                          </button>
+
+                          {/* Expanded Content - Inline workout details */}
+                          {isExpanded && (() => {
+                            const timing = getWorkoutTimeBreakdown(workout.exercises || []);
+                            const activeMins = Math.round(timing.workingTime / 60);
+                            const restMins = Math.round(timing.restTime / 60);
+                            const warmupMins = Math.round(WORKOUT_TIMING.WARMUP_TIME / 60);
+                            const cooldownMins = Math.round(WORKOUT_TIMING.COOLDOWN_TIME / 60);
+                            const warmupCooldownState = workoutWarmupCooldown[workout.id] || {};
+                            const hasWarmup = warmupCooldownState.warmup ?? true;
+                            const hasCooldown = warmupCooldownState.cooldown ?? true;
+                            const workoutMins = activeMins + restMins + (hasWarmup ? warmupMins : 0) + (hasCooldown ? cooldownMins : 0);
+                            return (
+                            <div className="px-4 pb-4 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+                              {/* Time Breakdown */}
+                              <div className="grid grid-cols-4 gap-2 py-3">
+                                <div className="text-center p-2 rounded-lg" style={{ backgroundColor: COLORS.success + '15' }}>
+                                  <p className="font-bold text-sm" style={{ color: COLORS.success }}>{activeMins}min</p>
+                                  <p className="text-xs" style={{ color: COLORS.textMuted }}>Active</p>
+                                </div>
+                                <div className="text-center p-2 rounded-lg" style={{ backgroundColor: COLORS.warning + '15' }}>
+                                  <p className="font-bold text-sm" style={{ color: COLORS.warning }}>{restMins}min</p>
+                                  <p className="text-xs" style={{ color: COLORS.textMuted }}>Rest</p>
+                                </div>
+                                <div className="text-center p-2 rounded-lg" style={{ backgroundColor: COLORS.primary + '15' }}>
+                                  <p className="font-bold text-sm" style={{ color: COLORS.primary }}>{hasWarmup ? warmupMins : 0}+{hasCooldown ? cooldownMins : 0}min</p>
+                                  <p className="text-xs" style={{ color: COLORS.textMuted }}>Warm/Cool</p>
+                                </div>
+                                <div className="text-center p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
+                                  <p className="font-bold text-sm" style={{ color: COLORS.text }}>{workoutMins}min</p>
+                                  <p className="text-xs" style={{ color: COLORS.textMuted }}>Total</p>
+                                </div>
+                              </div>
+
+                              {/* Warmup/Cooldown Toggles */}
+                              <div className="flex items-center gap-3 py-2">
+                                <button
+                                  onClick={() => setWorkoutWarmupCooldown(prev => ({
+                                    ...prev,
+                                    [workout.id]: { ...prev[workout.id], warmup: !(prev[workout.id]?.warmup ?? true) }
+                                  }))}
+                                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold"
+                                  style={{
+                                    backgroundColor: hasWarmup ? COLORS.primary + '20' : COLORS.surfaceLight,
+                                    color: hasWarmup ? COLORS.primary : COLORS.textMuted
+                                  }}
+                                >
+                                  <Wind size={12} />
+                                  Warmup {warmupMins}min
+                                  {hasWarmup ? <Check size={12} /> : null}
+                                </button>
+                                <button
+                                  onClick={() => setWorkoutWarmupCooldown(prev => ({
+                                    ...prev,
+                                    [workout.id]: { ...prev[workout.id], cooldown: !(prev[workout.id]?.cooldown ?? true) }
+                                  }))}
+                                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold"
+                                  style={{
+                                    backgroundColor: hasCooldown ? COLORS.primary + '20' : COLORS.surfaceLight,
+                                    color: hasCooldown ? COLORS.primary : COLORS.textMuted
+                                  }}
+                                >
+                                  <Sprout size={12} />
+                                  Cooldown {cooldownMins}min
+                                  {hasCooldown ? <Check size={12} /> : null}
+                                </button>
+                              </div>
+
+                              {/* Your Rating - Only show if user has completed or already rated */}
+                              {(completedCommunityWorkoutIds.has(workout.id) || userWorkoutRatings[workout.id]) ? (
+                                <div className="py-3 flex items-center justify-between border-b" style={{ borderColor: COLORS.surfaceLight }}>
+                                  <span className="text-sm font-semibold" style={{ color: COLORS.text }}>Your Rating</span>
+                                  <StarRating
+                                    rating={userWorkoutRatings[workout.id] || 0}
+                                    onRate={(rating) => handleRateWorkout(workout.id, rating)}
+                                    size={20}
+                                  />
+                                </div>
+                              ) : (
+                                <div className="py-3 flex items-center justify-between border-b" style={{ borderColor: COLORS.surfaceLight }}>
+                                  <span className="text-xs" style={{ color: COLORS.textMuted }}>Complete this workout to rate it</span>
+                                </div>
+                              )}
+
+                              {/* Description */}
+                              {workout.description && (
+                                <p className="text-sm py-3" style={{ color: COLORS.textSecondary }}>{workout.description}</p>
+                              )}
+
+                              {/* Exercises List with Warmup/Cooldown */}
+                              <div className="py-3 space-y-2">
+                                {/* Warmup Item */}
+                                {hasWarmup && (
+                                  <div className="p-3 rounded-lg flex items-center gap-3" style={{ backgroundColor: COLORS.primary + '15', border: `1px dashed ${COLORS.primary}40` }}>
+                                    <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '30' }}>
+                                      <Wind size={14} color={COLORS.primary} />
+                                    </div>
+                                    <div className="flex-1">
+                                      <p className="font-semibold text-sm" style={{ color: COLORS.primary }}>Warmup</p>
+                                      <p className="text-xs" style={{ color: COLORS.textMuted }}>Light cardio & dynamic stretches</p>
+                                    </div>
+                                    <p className="font-semibold text-sm" style={{ color: COLORS.primary }}>{warmupMins}min</p>
+                                  </div>
+                                )}
+
+                                {(workout.exercises || []).map((exercise, i) => {
+                                  const sets = exercise.sets || 3;
+                                  const restTime = exercise.restTime || 90;
+                                  return (
+                                    <div
+                                      key={exercise.id || i}
+                                      className="p-3 rounded-lg flex items-center gap-3"
+                                      style={{ backgroundColor: COLORS.surfaceLight }}
+                                    >
+                                      <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: style.color + '20' }}>
+                                        <span className="font-bold text-sm" style={{ color: style.color }}>{i + 1}</span>
+                                      </div>
+                                      <div className="flex-1">
+                                        <div className="flex items-center gap-1">
+                                          <p className="font-semibold text-sm" style={{ color: COLORS.text }}>{exercise.name}</p>
+                                          <button
+                                            onClick={(e) => { e.stopPropagation(); showExerciseInfoFriendsTab(exercise.name); }}
+                                            className="p-0.5 rounded-full"
+                                            style={{ backgroundColor: COLORS.primary + '20' }}
+                                          >
+                                            <Info size={12} color={COLORS.primary} />
+                                          </button>
+                                        </div>
+                                        <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                                          {exercise.muscleGroup}
+                                        </p>
+                                      </div>
+                                      <div className="text-right">
+                                        <p className="font-semibold text-sm" style={{ color: COLORS.text }}>
+                                          {exercise.sets} x {exercise.targetReps || exercise.reps}
+                                        </p>
+                                        {sets > 1 && (
+                                          <p className="text-xs" style={{ color: COLORS.warning }}>{restTime}s rest</p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+
+                                {/* Cooldown Item */}
+                                {hasCooldown && (
+                                  <div className="p-3 rounded-lg flex items-center gap-3" style={{ backgroundColor: COLORS.primary + '15', border: `1px dashed ${COLORS.primary}40` }}>
+                                    <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '30' }}>
+                                      <Sprout size={14} color={COLORS.primary} />
+                                    </div>
+                                    <div className="flex-1">
+                                      <p className="font-semibold text-sm" style={{ color: COLORS.primary }}>Cooldown</p>
+                                      <p className="text-xs" style={{ color: COLORS.textMuted }}>Static stretches & recovery</p>
+                                    </div>
+                                    <p className="font-semibold text-sm" style={{ color: COLORS.primary }}>{cooldownMins}min</p>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Action Buttons */}
+                              <div className="space-y-2 pt-2">
+                                <button
+                                  onClick={() => {
+                                    const adjusted = adjustWorkoutForUser(workout);
+                                    setTodayWorkout({
+                                      type: adjusted.name,
+                                      name: adjusted.name,
+                                      focus: adjusted.focus,
+                                      exercises: adjusted.exercises?.length || 0,
+                                      duration: targetDuration,
+                                      communityWorkoutId: workout.id,
+                                    });
+                                    setExpandedWorkoutId(null);
+                                    setActiveTab('workouts');
+                                  }}
+                                  className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
+                                  style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+                                >
+                                  <Play size={18} /> Start Workout (Auto-adjusted)
+                                </button>
+                                <button
+                                  onClick={() => setSelectedCommunityWorkout(workout)}
+                                  className="w-full py-2 rounded-xl font-semibold text-sm"
+                                  style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.textSecondary }}
+                                >
+                                  View Full Details
+                                </button>
+                              </div>
+                            </div>
+                            );
+                          })()}
+                        </div>
+                      );
+                    })}
                   </div>
-                )}
+                  );
+                })()}
               </>
             )}
 
@@ -13373,15 +15501,38 @@ export default function UpRepDemo() {
 
                 {/* Activity Feed */}
                 <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>ACTIVITY FEED</p>
+
+                {activityFeed.length === 0 ? (
+                  <div className="p-6 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
+                    <Users size={40} color={COLORS.primary} className="mx-auto mb-3" style={{ opacity: 0.7 }} />
+                    <p className="text-sm font-medium" style={{ color: COLORS.text }}>No recent activity</p>
+                    <p className="text-xs mt-1" style={{ color: COLORS.textMuted }}>Follow more people to see their workouts here!</p>
+                    <button
+                      onClick={() => setFriendsTab('discover')}
+                      className="mt-3 px-4 py-2 rounded-lg text-sm font-semibold"
+                      style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+                    >
+                      Discover People
+                    </button>
+                  </div>
+                ) : (
                 <div className="space-y-3">
                   {activityFeed.map(activity => {
-                    const friend = friends.find(f => f.id === activity.friendId);
-                    if (!friend) return null;
+                    // Use friend data from activity object
+                    const friendData = activity.friend;
+                    if (!friendData) return null;
+                    const friend = {
+                      id: friendData.id,
+                      name: `${friendData.first_name || ''} ${friendData.last_name || ''}`.trim() || friendData.username || 'User',
+                      username: friendData.username || 'user',
+                      avatar: friendData.avatar_url || friendData.first_name?.[0]?.toUpperCase() || '?',
+                      streak: 0, // Will be calculated when viewing profile
+                    };
                     const isExpanded = expandedActivity === activity.id;
-                    
+
                     return (
-                      <div 
-                        key={activity.id} 
+                      <div
+                        key={activity.id}
                         className="rounded-xl overflow-hidden"
                         style={{ backgroundColor: COLORS.surface }}
                       >
@@ -13389,16 +15540,16 @@ export default function UpRepDemo() {
                         {activity.type === 'workout' && (
                           <div className="p-4">
                             <div className="flex items-start gap-3 mb-3">
-                              <button 
+                              <button
                                 onClick={() => setShowFriendProfile(friend)}
                                 className="w-10 h-10 rounded-full flex items-center justify-center text-xl flex-shrink-0"
                                 style={{ backgroundColor: COLORS.surfaceLight }}
                               >
-                                {friend.avatar}
+                                {typeof friend.avatar === 'string' && friend.avatar.length === 1 ? friend.avatar : '?'}
                               </button>
                               <div className="flex-1">
                                 <div className="flex items-center gap-2">
-                                  <button 
+                                  <button
                                     onClick={() => setShowFriendProfile(friend)}
                                     className="font-semibold"
                                     style={{ color: COLORS.text }}
@@ -13406,22 +15557,43 @@ export default function UpRepDemo() {
                                     {friend.name}
                                   </button>
                                   {friend.streak >= 7 && (
-                                    <button 
+                                    <button
                                       onClick={(e) => { e.stopPropagation(); setShowFriendStreakCalendar(friend); }}
-                                      className="text-xs px-2 py-0.5 rounded-full flex items-center gap-1" 
+                                      className="text-xs px-2 py-0.5 rounded-full flex items-center gap-1"
                                       style={{ backgroundColor: COLORS.warning + '20' }}>
                                       <Flame size={10} color={COLORS.warning} />
                                       <span style={{ color: COLORS.warning }}>{friend.streak}</span>
                                     </button>
                                   )}
                                 </div>
-                                <p className="text-xs" style={{ color: COLORS.textMuted }}>{activity.time}</p>
+                                <p className="text-xs" style={{ color: COLORS.textMuted }}>@{friend.username} · {activity.time}</p>
                               </div>
                             </div>
                             
-                            {/* Workout Summary */}
-                            <div 
-                              className="p-3 rounded-lg mb-3"
+                            {/* Workout Summary - Clickable to expand */}
+                            <button
+                              onClick={async () => {
+                                if (isExpanded) {
+                                  setExpandedActivity(null);
+                                  return;
+                                }
+                                setExpandedActivity(activity.id);
+                                // Fetch workout sets if not already loaded
+                                if (!expandedActivitySets[activity.id]) {
+                                  try {
+                                    const { data } = await supabase
+                                      .from('workout_sets')
+                                      .select('*')
+                                      .eq('session_id', activity.id)
+                                      .order('exercise_name', { ascending: true })
+                                      .order('set_number', { ascending: true });
+                                    setExpandedActivitySets(prev => ({ ...prev, [activity.id]: data || [] }));
+                                  } catch (err) {
+                                    console.warn('Error loading workout sets:', err);
+                                  }
+                                }
+                              }}
+                              className="w-full p-3 rounded-lg mb-3 text-left"
                               style={{ backgroundColor: COLORS.primary + '10', borderLeft: `3px solid ${COLORS.primary}` }}
                             >
                               <div className="flex items-center justify-between mb-2">
@@ -13429,29 +15601,54 @@ export default function UpRepDemo() {
                                   <Dumbbell size={16} color={COLORS.primary} />
                                   <span className="font-semibold" style={{ color: COLORS.text }}>{activity.workoutName}</span>
                                 </div>
-                                <span className="text-xs" style={{ color: COLORS.textMuted }}>{activity.duration} min</span>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs" style={{ color: COLORS.textMuted }}>{activity.duration} min</span>
+                                  {isExpanded ? <ChevronUp size={16} color={COLORS.primary} /> : <ChevronDown size={16} color={COLORS.primary} />}
+                                </div>
                               </div>
-                              
-                              {/* Exercise Preview */}
-                              <div className="space-y-1">
-                                {activity.exercises.slice(0, isExpanded ? undefined : 3).map((ex, i) => (
-                                  <div key={i} className="flex items-center justify-between text-sm">
-                                    <span style={{ color: COLORS.textSecondary }}>{ex.name}</span>
-                                    <span style={{ color: COLORS.textMuted }}>{ex.sets}×{ex.reps} @ {ex.weight}kg</span>
-                                  </div>
-                                ))}
-                              </div>
-                              
-                              {activity.exercises.length > 3 && (
-                                <button 
-                                  onClick={() => setExpandedActivity(isExpanded ? null : activity.id)}
-                                  className="text-xs mt-2 font-semibold"
-                                  style={{ color: COLORS.primary }}
-                                >
-                                  {isExpanded ? 'Show less' : `+${activity.exercises.length - 3} more exercises`}
-                                </button>
+
+                              {/* Exercise Details when expanded */}
+                              {isExpanded && (
+                                <div className="space-y-2 mt-3 pt-3 border-t" style={{ borderColor: COLORS.primary + '30' }}>
+                                  {expandedActivitySets[activity.id] ? (
+                                    (() => {
+                                      const sets = expandedActivitySets[activity.id];
+                                      if (sets.length === 0) {
+                                        return <p className="text-xs" style={{ color: COLORS.textMuted }}>No exercise details recorded</p>;
+                                      }
+                                      // Group sets by exercise name
+                                      const groupedExercises = {};
+                                      sets.forEach(set => {
+                                        const name = set.exercise_name || 'Unknown';
+                                        if (!groupedExercises[name]) {
+                                          groupedExercises[name] = [];
+                                        }
+                                        groupedExercises[name].push(set);
+                                      });
+                                      return Object.entries(groupedExercises).map(([exerciseName, exerciseSets], i) => (
+                                        <div key={i} className="text-sm">
+                                          <p className="font-medium" style={{ color: COLORS.text }}>{exerciseName}</p>
+                                          <div className="ml-3 space-y-0.5">
+                                            {exerciseSets.map((set, j) => (
+                                              <p key={j} className="text-xs" style={{ color: COLORS.textMuted }}>
+                                                Set {set.set_number}: {set.weight}kg x {set.reps} reps
+                                                {set.rpe && ` @ RPE ${set.rpe}`}
+                                              </p>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      ));
+                                    })()
+                                  ) : (
+                                    <p className="text-xs" style={{ color: COLORS.textMuted }}>Loading...</p>
+                                  )}
+                                </div>
                               )}
-                            </div>
+
+                              {!isExpanded && (
+                                <p className="text-xs" style={{ color: COLORS.primary }}>Tap to see exercises</p>
+                              )}
+                            </button>
                             
                             {/* Actions */}
                             <div className="flex items-center gap-4">
@@ -13638,6 +15835,7 @@ export default function UpRepDemo() {
                     );
                   })}
                 </div>
+                )}
               </>
             )}
 
@@ -13654,42 +15852,128 @@ export default function UpRepDemo() {
                   <span className="font-semibold" style={{ color: COLORS.text }}>Find Users to Follow</span>
                 </button>
 
-                {/* Online Now */}
-                <div className="mb-4">
-                  <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>ONLINE NOW</p>
-                  <div className="flex gap-3 overflow-x-auto pb-2">
-                    {friends.filter(f => f.isOnline).map(friend => (
-                      <button 
-                        key={friend.id}
-                        onClick={() => setShowFriendProfile(friend)}
-                        className="flex flex-col items-center flex-shrink-0"
-                      >
-                        <div className="relative">
-                          <div 
-                            className="w-14 h-14 rounded-full flex items-center justify-center text-2xl"
-                            style={{ backgroundColor: COLORS.surface }}
-                          >
-                            {friend.avatar}
+                {/* Active Workouts */}
+                {friends.filter(f => f.workoutStatus === 'working_out').length > 0 && (
+                  <div className="mb-4">
+                    <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>WORKING OUT NOW</p>
+                    <div className="flex gap-3 overflow-x-auto pb-2">
+                      {friends.filter(f => f.workoutStatus === 'working_out').map(friend => (
+                        <button
+                          key={friend.id}
+                          onClick={() => setShowFriendProfile(friend)}
+                          className="flex flex-col items-center flex-shrink-0"
+                        >
+                          <div className="relative">
+                            <div
+                              className="w-14 h-14 rounded-full flex items-center justify-center text-2xl animate-pulse"
+                              style={{ backgroundColor: COLORS.primary + '30', border: `2px solid ${COLORS.primary}` }}
+                            >
+                              {friend.avatar}
+                            </div>
+                            <div
+                              className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full flex items-center gap-1"
+                              style={{ backgroundColor: COLORS.primary }}
+                            >
+                              <Dumbbell size={10} color={COLORS.text} />
+                              <span className="text-xs font-bold" style={{ color: COLORS.text }}>{friend.workoutDuration}m</span>
+                            </div>
                           </div>
-                          <div 
-                            className="absolute bottom-0 right-0 w-4 h-4 rounded-full border-2"
-                            style={{ backgroundColor: COLORS.success, borderColor: COLORS.background }}
-                          />
-                        </div>
-                        <p className="text-xs mt-1 max-w-[60px] truncate" style={{ color: COLORS.textSecondary }}>
-                          {friend.name.split(' ')[0]}
-                        </p>
-                      </button>
-                    ))}
+                          <p className="text-xs mt-2 max-w-[70px] truncate" style={{ color: COLORS.textSecondary }}>
+                            {friend.name.split(' ')[0]}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
+
+                {/* Just Finished */}
+                {friends.filter(f => f.workoutStatus === 'just_finished').length > 0 && (
+                  <div className="mb-4">
+                    <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>JUST FINISHED</p>
+                    <div className="flex gap-3 overflow-x-auto pb-2">
+                      {friends.filter(f => f.workoutStatus === 'just_finished').map(friend => (
+                        <button
+                          key={friend.id}
+                          onClick={() => setShowFriendProfile(friend)}
+                          className="flex flex-col items-center flex-shrink-0"
+                        >
+                          <div className="relative">
+                            <div
+                              className="w-14 h-14 rounded-full flex items-center justify-center text-2xl"
+                              style={{ backgroundColor: COLORS.success + '20', border: `2px solid ${COLORS.success}` }}
+                            >
+                              {friend.avatar}
+                            </div>
+                            <div
+                              className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full flex items-center gap-1"
+                              style={{ backgroundColor: COLORS.success }}
+                            >
+                              <Check size={10} color={COLORS.background} />
+                              <span className="text-xs font-bold" style={{ color: COLORS.background }}>{friend.finishedMinutesAgo}m</span>
+                            </div>
+                          </div>
+                          <p className="text-xs mt-2 max-w-[70px] truncate" style={{ color: COLORS.textSecondary }}>
+                            {friend.name.split(' ')[0]}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Online Now (no workout activity) */}
+                {friends.filter(f => f.isOnline && !f.workoutStatus).length > 0 && (
+                  <div className="mb-4">
+                    <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>ONLINE NOW</p>
+                    <div className="flex gap-3 overflow-x-auto pb-2">
+                      {friends.filter(f => f.isOnline && !f.workoutStatus).map(friend => (
+                        <button
+                          key={friend.id}
+                          onClick={() => setShowFriendProfile(friend)}
+                          className="flex flex-col items-center flex-shrink-0"
+                        >
+                          <div className="relative">
+                            <div
+                              className="w-14 h-14 rounded-full flex items-center justify-center text-2xl"
+                              style={{ backgroundColor: COLORS.surface }}
+                            >
+                              {friend.avatar}
+                            </div>
+                            <div
+                              className="absolute bottom-0 right-0 w-4 h-4 rounded-full border-2"
+                              style={{ backgroundColor: COLORS.success, borderColor: COLORS.background }}
+                            />
+                          </div>
+                          <p className="text-xs mt-1 max-w-[60px] truncate" style={{ color: COLORS.textSecondary }}>
+                            {friend.name.split(' ')[0]}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* All Following */}
                 <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>FOLLOWING ({friends.length})</p>
-                
+
+                {friends.length === 0 ? (
+                  <div className="p-6 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
+                    <UserPlus size={40} color={COLORS.primary} className="mx-auto mb-3" style={{ opacity: 0.7 }} />
+                    <p className="text-sm font-medium" style={{ color: COLORS.text }}>Not following anyone yet</p>
+                    <p className="text-xs mt-1" style={{ color: COLORS.textMuted }}>Search for users or discover top athletes to follow!</p>
+                    <button
+                      onClick={() => setFriendsTab('discover')}
+                      className="mt-3 px-4 py-2 rounded-lg text-sm font-semibold"
+                      style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+                    >
+                      Discover People
+                    </button>
+                  </div>
+                ) : (
                 <div className="space-y-2">
                   {friends.map(friend => (
-                    <button 
+                    <button
                       key={friend.id}
                       onClick={() => setShowFriendProfile(friend)}
                       className="w-full p-4 rounded-xl flex items-center justify-between"
@@ -13697,26 +15981,50 @@ export default function UpRepDemo() {
                     >
                       <div className="flex items-center gap-3">
                         <div className="relative">
-                          <div 
+                          <div
                             className="w-12 h-12 rounded-full flex items-center justify-center text-xl"
-                            style={{ backgroundColor: COLORS.surfaceLight }}
+                            style={{
+                              backgroundColor: friend.workoutStatus === 'working_out' ? COLORS.primary + '30' :
+                                              friend.workoutStatus === 'just_finished' ? COLORS.success + '20' :
+                                              COLORS.surfaceLight,
+                              border: friend.workoutStatus ? `2px solid ${friend.workoutStatus === 'working_out' ? COLORS.primary : COLORS.success}` : 'none'
+                            }}
                           >
-                            {friend.avatar}
+                            {typeof friend.avatar === 'string' && friend.avatar.length === 1 ? friend.avatar : '?'}
                           </div>
-                          {friend.isOnline && (
-                            <div 
+                          {friend.workoutStatus === 'working_out' ? (
+                            <div
+                              className="absolute -bottom-1 right-0 px-1.5 py-0.5 rounded-full flex items-center gap-0.5"
+                              style={{ backgroundColor: COLORS.primary }}
+                            >
+                              <Dumbbell size={8} color={COLORS.text} />
+                            </div>
+                          ) : friend.workoutStatus === 'just_finished' ? (
+                            <div
+                              className="absolute -bottom-1 right-0 px-1.5 py-0.5 rounded-full flex items-center gap-0.5"
+                              style={{ backgroundColor: COLORS.success }}
+                            >
+                              <Check size={8} color={COLORS.background} />
+                            </div>
+                          ) : friend.isOnline ? (
+                            <div
                               className="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2"
                               style={{ backgroundColor: COLORS.success, borderColor: COLORS.surface }}
                             />
-                          )}
+                          ) : null}
                         </div>
                         <div className="text-left">
                           <p className="font-semibold" style={{ color: COLORS.text }}>{friend.name}</p>
-                          <p className="text-xs" style={{ color: COLORS.textMuted }}>{friend.program}</p>
+                          <p className="text-xs" style={{ color: COLORS.textMuted }}>@{friend.username}</p>
+                          <p className="text-xs mt-0.5" style={{ color: friend.workoutStatus === 'working_out' ? COLORS.primary : friend.workoutStatus === 'just_finished' ? COLORS.success : COLORS.textMuted }}>
+                            {friend.workoutStatus === 'working_out' ? `Working out - ${friend.currentWorkout}` :
+                             friend.workoutStatus === 'just_finished' ? `Finished ${friend.finishedMinutesAgo}m ago` :
+                             friend.program}
+                          </p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <button 
+                        <button
                           onClick={(e) => { e.stopPropagation(); setShowFriendStreakCalendar(friend); }}
                           className="flex items-center gap-1 justify-end px-2 py-1 rounded-lg mb-1"
                           style={{ backgroundColor: COLORS.warning + '15' }}
@@ -13729,6 +16037,7 @@ export default function UpRepDemo() {
                     </button>
                   ))}
                 </div>
+                )}
               </>
             )}
 
@@ -13878,7 +16187,7 @@ export default function UpRepDemo() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="font-semibold text-sm truncate" style={{ color: COLORS.text }}>{suggested.name || 'User'}</p>
-                            <p className="text-xs" style={{ color: COLORS.textMuted }}>{suggested.mutualFriends || 0} mutual</p>
+                            <p className="text-xs" style={{ color: COLORS.textMuted }}>{suggested.followers || 0} followers</p>
                           </div>
                           <button
                             onClick={() => suggested?.id && handleFollowUser(suggested.id)}
@@ -14169,48 +16478,71 @@ export default function UpRepDemo() {
               {/* Invite Friends */}
               <div className="mb-6">
                 <label className="text-sm mb-2 block font-semibold" style={{ color: COLORS.text }}>Invite Friends</label>
-                <div className="space-y-2">
-                  {friends.map(friend => (
-                    <div
-                      key={friend.id}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setNewChallenge(prev => ({
-                          ...prev,
-                          invitedFriends: prev.invitedFriends.includes(friend.id)
-                            ? prev.invitedFriends.filter(id => id !== friend.id)
-                            : [...prev.invitedFriends, friend.id]
-                        }));
+                {friends.length === 0 ? (
+                  <div className="p-6 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
+                    <Users size={32} color={COLORS.textMuted} className="mx-auto mb-3" style={{ opacity: 0.5 }} />
+                    <p className="font-semibold mb-1" style={{ color: COLORS.text }}>No friends yet</p>
+                    <p className="text-sm mb-4" style={{ color: COLORS.textMuted }}>
+                      Follow some people to challenge them to competitions
+                    </p>
+                    <button
+                      onClick={() => {
+                        setShowCreateChallenge(false);
+                        setNewChallenge({ name: '', type: 'workouts', duration: 7, invitedFriends: [] });
+                        setFriendsTab('discover');
                       }}
-                      className="w-full p-3 rounded-xl flex items-center justify-between cursor-pointer"
-                      style={{ 
-                        backgroundColor: newChallenge.invitedFriends.includes(friend.id) ? COLORS.primary + '20' : COLORS.surface,
-                        border: `2px solid ${newChallenge.invitedFriends.includes(friend.id) ? COLORS.primary : 'transparent'}`
-                      }}
+                      className="px-4 py-2 rounded-xl font-semibold"
+                      style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
                     >
-                      <div className="flex items-center gap-3">
-                        <span className="text-2xl">{friend.avatar}</span>
-                        <div className="text-left">
-                          <p className="font-semibold" style={{ color: COLORS.text }}>{friend.name}</p>
-                          <p className="text-xs" style={{ color: COLORS.textMuted }}>@{friend.name.toLowerCase().replace(' ', '_')}</p>
+                      Find People to Follow
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      {friends.map(friend => (
+                        <div
+                          key={friend.id}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setNewChallenge(prev => ({
+                              ...prev,
+                              invitedFriends: prev.invitedFriends.includes(friend.id)
+                                ? prev.invitedFriends.filter(id => id !== friend.id)
+                                : [...prev.invitedFriends, friend.id]
+                            }));
+                          }}
+                          className="w-full p-3 rounded-xl flex items-center justify-between cursor-pointer"
+                          style={{
+                            backgroundColor: newChallenge.invitedFriends.includes(friend.id) ? COLORS.primary + '20' : COLORS.surface,
+                            border: `2px solid ${newChallenge.invitedFriends.includes(friend.id) ? COLORS.primary : 'transparent'}`
+                          }}
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="text-2xl">{friend.avatar}</span>
+                            <div className="text-left">
+                              <p className="font-semibold" style={{ color: COLORS.text }}>{friend.name}</p>
+                              <p className="text-xs" style={{ color: COLORS.textMuted }}>@{friend.username}</p>
+                            </div>
+                          </div>
+                          <div
+                            className="w-6 h-6 rounded-full flex items-center justify-center"
+                            style={{
+                              backgroundColor: newChallenge.invitedFriends.includes(friend.id) ? COLORS.primary : COLORS.surfaceLight
+                            }}
+                          >
+                            {newChallenge.invitedFriends.includes(friend.id) && <Check size={14} color={COLORS.text} />}
+                          </div>
                         </div>
-                      </div>
-                      <div 
-                        className="w-6 h-6 rounded-full flex items-center justify-center"
-                        style={{ 
-                          backgroundColor: newChallenge.invitedFriends.includes(friend.id) ? COLORS.primary : COLORS.surfaceLight 
-                        }}
-                      >
-                        {newChallenge.invitedFriends.includes(friend.id) && <Check size={14} color={COLORS.text} />}
-                      </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-                {newChallenge.invitedFriends.length > 0 && (
-                  <p className="text-xs mt-2" style={{ color: COLORS.primary }}>
-                    {newChallenge.invitedFriends.length} friend{newChallenge.invitedFriends.length > 1 ? 's' : ''} selected
-                  </p>
+                    {newChallenge.invitedFriends.length > 0 && (
+                      <p className="text-xs mt-2" style={{ color: COLORS.primary }}>
+                        {newChallenge.invitedFriends.length} friend{newChallenge.invitedFriends.length > 1 ? 's' : ''} selected
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
               
@@ -14423,6 +16755,8 @@ export default function UpRepDemo() {
                   { id: 'profileVisible', label: 'Public Profile', desc: 'Allow others to find and view your profile' },
                   { id: 'showActivity', label: 'Show Activity', desc: 'Share your workouts in the activity feed' },
                   { id: 'showProgress', label: 'Show Progress', desc: 'Display weight and body stats to friends' },
+                  { id: 'publicPRs', label: 'Share PRs', desc: 'Let friends view your personal records' },
+                  { id: 'publicWorkouts', label: 'Share Workouts', desc: 'Let friends view your completed workouts' },
                 ].map(privacy => (
                   <div
                     key={privacy.id}
@@ -14434,10 +16768,18 @@ export default function UpRepDemo() {
                       <p className="text-xs" style={{ color: COLORS.textMuted }}>{privacy.desc}</p>
                     </div>
                     <button
-                      onClick={() => setSettings(prev => ({
-                        ...prev,
-                        privacy: { ...prev.privacy, [privacy.id]: !prev.privacy[privacy.id] }
-                      }))}
+                      onClick={async () => {
+                        const newValue = !settings.privacy[privacy.id];
+                        setSettings(prev => ({
+                          ...prev,
+                          privacy: { ...prev.privacy, [privacy.id]: newValue }
+                        }));
+                        // Save to database for PRs and workouts privacy
+                        if (user?.id && (privacy.id === 'publicPRs' || privacy.id === 'publicWorkouts')) {
+                          const dbKey = privacy.id === 'publicPRs' ? 'public_prs' : 'public_workouts';
+                          await profileService.updateSettings(user.id, { [dbKey]: newValue });
+                        }
+                      }}
                       className="w-12 h-7 rounded-full p-0.5 transition-colors"
                       style={{ backgroundColor: settings.privacy[privacy.id] ? COLORS.success : COLORS.surfaceLight }}
                     >
@@ -14451,6 +16793,51 @@ export default function UpRepDemo() {
                     </button>
                   </div>
                 ))}
+              </div>
+
+              {/* Tagging Privacy Section */}
+              <h4 className="font-semibold mt-6 mb-3" style={{ color: COLORS.text }}>Tagging & Mentions</h4>
+              <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+                <div className="mb-3">
+                  <p className="font-semibold mb-1" style={{ color: COLORS.text }}>Who can tag you in comments?</p>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>Control who can @mention you</p>
+                </div>
+                <div className="space-y-2">
+                  {[
+                    { id: 'everyone', label: 'Everyone', desc: 'Any user can tag you' },
+                    { id: 'followers', label: 'People you follow', desc: 'Only users you follow can tag you' },
+                    { id: 'none', label: 'No one', desc: 'Disable tagging completely' },
+                  ].map(option => (
+                    <button
+                      key={option.id}
+                      onClick={() => {
+                        setSettings(prev => ({
+                          ...prev,
+                          privacy: { ...prev.privacy, allowTagsFrom: option.id }
+                        }));
+                      }}
+                      className="w-full p-3 rounded-lg flex items-center gap-3 text-left"
+                      style={{
+                        backgroundColor: settings.privacy.allowTagsFrom === option.id ? COLORS.primary + '15' : COLORS.surfaceLight,
+                        border: settings.privacy.allowTagsFrom === option.id ? `1px solid ${COLORS.primary}` : '1px solid transparent'
+                      }}
+                    >
+                      <div
+                        className="w-5 h-5 rounded-full flex items-center justify-center"
+                        style={{
+                          backgroundColor: settings.privacy.allowTagsFrom === option.id ? COLORS.primary : COLORS.surfaceLight,
+                          border: settings.privacy.allowTagsFrom === option.id ? 'none' : `2px solid ${COLORS.textMuted}`
+                        }}
+                      >
+                        {settings.privacy.allowTagsFrom === option.id && <Check size={12} color={COLORS.text} />}
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-semibold text-sm" style={{ color: COLORS.text }}>{option.label}</p>
+                        <p className="text-xs" style={{ color: COLORS.textMuted }}>{option.desc}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Followers / Subscribers Section */}
@@ -14472,10 +16859,10 @@ export default function UpRepDemo() {
                           ...prev,
                           social: { ...prev.social, allowSubscribers: newValue }
                         }));
-                        // Save to database
+                        // Save to database using AuthContext updateProfile (keeps profile in sync)
                         if (user?.id) {
                           try {
-                            const { error } = await profileService.updateProfile(user.id, { allow_subscribers: newValue });
+                            const { error } = await updateProfile({ allow_subscribers: newValue });
                             if (error) {
                               // Revert on error
                               console.warn('Settings update error:', error?.message);
@@ -14692,7 +17079,9 @@ export default function UpRepDemo() {
                       border: `2px solid ${userData.goal === id ? COLORS.primary : COLORS.surfaceLight}`
                     }}
                   >
-                    <span className="text-3xl">{goal.icon}</span>
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: userData.goal === id ? COLORS.primary + '30' : COLORS.surfaceLight }}>
+                      <IconMap name={goal.icon} size={28} color={userData.goal === id ? COLORS.primary : COLORS.textMuted} />
+                    </div>
                     <div className="flex-1">
                       <p className="font-semibold" style={{ color: userData.goal === id ? COLORS.primary : COLORS.text }}>
                         {goal.title}
@@ -14741,7 +17130,9 @@ export default function UpRepDemo() {
                       border: `2px solid ${userData.experience === level.id ? COLORS.primary : 'transparent'}`
                     }}
                   >
-                    <span className="text-2xl">{level.icon}</span>
+                    <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: userData.experience === level.id ? COLORS.primary + '30' : COLORS.surface }}>
+                      <IconMap name={level.icon} size={24} color={userData.experience === level.id ? COLORS.primary : COLORS.textMuted} />
+                    </div>
                     <div className="flex-1 text-left">
                       <p className="font-semibold" style={{ color: userData.experience === level.id ? COLORS.primary : COLORS.text }}>
                         {level.label}
@@ -14969,86 +17360,71 @@ export default function UpRepDemo() {
                     {searchResults.map(person => (
                       <div
                         key={person.id}
-                        className="p-4 rounded-xl flex items-center justify-between"
+                        className="p-4 rounded-xl"
                         style={{ backgroundColor: COLORS.surface }}
                       >
-                        <div className="flex items-center gap-3">
-                          <div
-                            className="w-12 h-12 rounded-full flex items-center justify-center text-xl"
-                            style={{ backgroundColor: COLORS.surfaceLight }}
-                          >
-                            {person.avatar_url || (person.first_name ? person.first_name[0].toUpperCase() : '?')}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <p className="font-semibold" style={{ color: COLORS.text }}>
-                                {person.first_name} {person.last_name}
-                              </p>
-                              {person.allow_subscribers && (
-                                <span className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: COLORS.primary + '20', color: COLORS.primary }}>
-                                  Public
-                                </span>
-                              )}
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-start gap-3 flex-1">
+                            <div
+                              className="w-12 h-12 rounded-full flex items-center justify-center text-xl flex-shrink-0"
+                              style={{ backgroundColor: COLORS.surfaceLight }}
+                            >
+                              {person.avatar_url || (person.first_name ? person.first_name[0].toUpperCase() : '?')}
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="font-semibold" style={{ color: COLORS.text }}>
+                                  {person.first_name} {person.last_name}
+                                </p>
+                              </div>
                               <p className="text-xs" style={{ color: COLORS.textMuted }}>@{person.username || 'user'}</p>
-                              {person.subscriber_count > 0 && (
-                                <span className="text-xs" style={{ color: COLORS.textSecondary }}>
-                                  · {person.subscriber_count} {person.subscriber_count === 1 ? 'subscriber' : 'subscribers'}
-                                </span>
+                              {person.bio && (
+                                <p className="text-xs mt-1 line-clamp-1" style={{ color: COLORS.textSecondary }}>
+                                  {person.bio}
+                                </p>
                               )}
+                              <div className="flex items-center gap-3 mt-2">
+                                <span className="text-xs" style={{ color: COLORS.textMuted }}>
+                                  <span style={{ color: COLORS.text, fontWeight: 600 }}>{person.follower_count || 0}</span> followers
+                                </span>
+                                {person.published_workouts > 0 && (
+                                  <span className="text-xs" style={{ color: COLORS.textMuted }}>
+                                    <span style={{ color: COLORS.text, fontWeight: 600 }}>{person.published_workouts}</span> workouts
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        {person.allow_subscribers ? (
                           <button
                             onClick={async () => {
                               if (user?.id) {
                                 try {
-                                  const { error } = await profileService.subscribeToUser(user.id, person.id);
-                                  if (!error) {
-                                    setSearchResults(prev => prev.filter(p => p.id !== person.id));
+                                  const isFollowing = followingIds?.has?.(person.id);
+                                  if (isFollowing) {
+                                    await profileService.unsubscribeFromUser(user.id, person.id);
+                                    setFollowingIds(prev => {
+                                      const next = new Set(prev);
+                                      next.delete(person.id);
+                                      return next;
+                                    });
                                   } else {
-                                    console.warn('Subscribe error:', error?.message);
+                                    await profileService.subscribeToUser(user.id, person.id);
+                                    setFollowingIds(prev => new Set([...prev, person.id]));
                                   }
                                 } catch (err) {
-                                  console.warn('Subscribe failed:', err?.message || err);
+                                  console.warn('Follow action failed:', err?.message || err);
                                 }
                               }
                             }}
-                            className="px-4 py-2 rounded-xl text-sm font-semibold"
-                            style={{ backgroundColor: COLORS.accent, color: COLORS.background }}
-                          >
-                            Subscribe
-                          </button>
-                        ) : (
-                          <button
-                            onClick={async () => {
-                              if (user?.id) {
-                                try {
-                                  const { error } = await profileService.sendFriendRequest(user.id, person.id);
-                                  if (!error) {
-                                    setSearchResults(prev => prev.map(p =>
-                                      p.id === person.id ? { ...p, requestSent: true } : p
-                                    ));
-                                  } else {
-                                    console.warn('Friend request error:', error?.message);
-                                  }
-                                } catch (err) {
-                                  console.warn('Friend request failed:', err?.message || err);
-                                }
-                              }
-                            }}
-                            className="px-4 py-2 rounded-xl text-sm font-semibold"
+                            className="px-4 py-2 rounded-xl text-sm font-semibold flex-shrink-0"
                             style={{
-                              backgroundColor: person.requestSent ? COLORS.surfaceLight : COLORS.primary,
-                              color: person.requestSent ? COLORS.textMuted : COLORS.text
+                              backgroundColor: followingIds?.has?.(person.id) ? COLORS.surfaceLight : COLORS.primary,
+                              color: followingIds?.has?.(person.id) ? COLORS.textMuted : COLORS.text
                             }}
-                            disabled={person.requestSent}
                           >
-                            {person.requestSent ? 'Requested' : 'Add Friend'}
+                            {followingIds?.has?.(person.id) ? 'Following' : 'Follow'}
                           </button>
-                        )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -15092,7 +17468,7 @@ export default function UpRepDemo() {
                               </div>
                               <div>
                                 <p className="font-semibold" style={{ color: COLORS.text }}>{friend.name || 'User'}</p>
-                                <p className="text-xs" style={{ color: COLORS.textMuted }}>{friend.mutualFriends || 0} mutual friends</p>
+                                <p className="text-xs" style={{ color: COLORS.textMuted }}>{friend.followers || 0} followers</p>
                               </div>
                             </div>
                             <button
@@ -15147,50 +17523,116 @@ export default function UpRepDemo() {
               </button>
               <h3 className="text-lg font-bold" style={{ color: COLORS.text }}>Profile</h3>
             </div>
-            
+
             <div className="flex-1 overflow-auto p-4">
               {/* Profile Header */}
               <div className="text-center mb-6">
-                <div 
+                <div
                   className="w-24 h-24 rounded-full mx-auto mb-3 flex items-center justify-center text-5xl"
                   style={{ backgroundColor: COLORS.surface }}
                 >
-                  {showFriendProfile.avatar}
+                  {typeof showFriendProfile.avatar === 'string' && showFriendProfile.avatar.length === 1
+                    ? showFriendProfile.avatar
+                    : showFriendProfile.name?.[0]?.toUpperCase() || '?'}
                 </div>
-                <h4 className="text-xl font-bold" style={{ color: COLORS.text }}>{showFriendProfile.name}</h4>
-                <p className="text-sm" style={{ color: COLORS.textMuted }}>{showFriendProfile.program}</p>
-                <div className="flex items-center justify-center gap-2 mt-2">
+                <h4 className="text-xl font-bold" style={{ color: COLORS.text }}>{showFriendProfile.name || 'User'}</h4>
+                <p className="text-sm" style={{ color: COLORS.textMuted }}>@{showFriendProfile.username || 'user'}</p>
+                {showFriendProfile.bio && (
+                  <p className="text-sm mt-2" style={{ color: COLORS.textSecondary }}>{showFriendProfile.bio}</p>
+                )}
+                <div className="flex items-center justify-center gap-2 mt-2 flex-wrap">
                   {showFriendProfile.isOnline ? (
                     <span className="text-xs px-2 py-1 rounded-full" style={{ backgroundColor: COLORS.success + '20', color: COLORS.success }}>
                       Online now
                     </span>
-                  ) : (
+                  ) : showFriendProfile.lastActive ? (
                     <span className="text-xs" style={{ color: COLORS.textMuted }}>
                       Active {showFriendProfile.lastActive}
                     </span>
+                  ) : null}
+                  {friendFollowStatus.followsYou && (
+                    <span className="text-xs px-2 py-1 rounded-full" style={{ backgroundColor: COLORS.success + '20', color: COLORS.success }}>
+                      Follows you
+                    </span>
                   )}
                 </div>
+
+                {/* Follow Button */}
+                <button
+                  onClick={async () => {
+                    if (friendFollowStatus.isFollowing) {
+                      await socialService.unfollowUser(user?.id, showFriendProfile.id);
+                      setFriendFollowStatus(prev => ({ ...prev, isFollowing: false }));
+                      setFriends(prev => prev.filter(f => f.id !== showFriendProfile.id));
+                    } else {
+                      await socialService.followUser(user?.id, showFriendProfile.id);
+                      setFriendFollowStatus(prev => ({ ...prev, isFollowing: true }));
+                    }
+                  }}
+                  className="mt-4 px-6 py-2 rounded-xl font-semibold text-sm"
+                  style={{
+                    backgroundColor: friendFollowStatus.isFollowing ? COLORS.surface : COLORS.primary,
+                    color: friendFollowStatus.isFollowing ? COLORS.textMuted : COLORS.text,
+                    border: friendFollowStatus.isFollowing ? `1px solid ${COLORS.surfaceLight}` : 'none'
+                  }}
+                >
+                  {friendFollowStatus.isFollowing ? 'Following' : 'Follow'}
+                </button>
               </div>
 
               {/* Stats - Clickable */}
               <div className="grid grid-cols-3 gap-3 mb-6">
-                <div className="p-4 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
-                  <Dumbbell size={20} color={COLORS.primary} className="mx-auto mb-1" />
-                  <p className="text-xl font-bold" style={{ color: COLORS.text }}>{showFriendProfile.stats.workouts}</p>
-                  <p className="text-xs" style={{ color: COLORS.textMuted }}>Workouts</p>
-                </div>
-                <div className="p-4 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
-                  <Trophy size={20} color={COLORS.warning} className="mx-auto mb-1" />
-                  <p className="text-xl font-bold" style={{ color: COLORS.text }}>{showFriendProfile.stats.prs}</p>
-                  <p className="text-xs" style={{ color: COLORS.textMuted }}>PRs</p>
-                </div>
                 <button
-                  onClick={() => setShowFriendStreakCalendar(showFriendProfile)}
+                  onClick={async () => {
+                    // Check privacy settings first
+                    const { data: userSettings } = await profileService.getUserSettings(showFriendProfile.id);
+                    if (userSettings?.public_workouts === false) {
+                      setFriendWorkoutsData([]);
+                      setShowFriendWorkouts({ ...showFriendProfile, privacyBlocked: true });
+                      return;
+                    }
+                    // Load friend's workouts
+                    const { data } = await workoutService.getCompletedSessions(showFriendProfile.id);
+                    setFriendWorkoutsData(data || []);
+                    setShowFriendWorkouts(showFriendProfile);
+                  }}
+                  className="p-4 rounded-xl text-center relative"
+                  style={{ backgroundColor: COLORS.surface }}
+                >
+                  <Dumbbell size={20} color={COLORS.primary} className="mx-auto mb-1" />
+                  <p className="text-xl font-bold" style={{ color: COLORS.text }}>{friendStats.workouts}</p>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>Workouts</p>
+                  <ChevronRight size={14} color={COLORS.textMuted} className="absolute right-2 top-1/2 -translate-y-1/2" />
+                </button>
+                <button
+                  onClick={async () => {
+                    // Check privacy settings first
+                    const { data: userSettings } = await profileService.getUserSettings(showFriendProfile.id);
+                    if (userSettings?.public_prs === false) {
+                      setFriendPRsData([]);
+                      setShowFriendPRs({ ...showFriendProfile, privacyBlocked: true });
+                      return;
+                    }
+                    // Load friend's PRs
+                    const { data } = await workoutService.getPersonalRecords(showFriendProfile.id);
+                    setFriendPRsData(data || []);
+                    setShowFriendPRs(showFriendProfile);
+                  }}
+                  className="p-4 rounded-xl text-center relative"
+                  style={{ backgroundColor: COLORS.surface }}
+                >
+                  <Trophy size={20} color={COLORS.warning} className="mx-auto mb-1" />
+                  <p className="text-xl font-bold" style={{ color: COLORS.text }}>{friendStats.prs}</p>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>PRs</p>
+                  <ChevronRight size={14} color={COLORS.textMuted} className="absolute right-2 top-1/2 -translate-y-1/2" />
+                </button>
+                <button
+                  onClick={() => setShowFriendStreakCalendar({...showFriendProfile, streak: friendStats.streak})}
                   className="p-4 rounded-xl text-center relative"
                   style={{ backgroundColor: COLORS.surface }}
                 >
                   <Flame size={20} color={COLORS.error} className="mx-auto mb-1" />
-                  <p className="text-xl font-bold" style={{ color: COLORS.text }}>{showFriendProfile.stats.streak}</p>
+                  <p className="text-xl font-bold" style={{ color: COLORS.text }}>{friendStats.streak}</p>
                   <p className="text-xs" style={{ color: COLORS.textMuted }}>Workout Streak</p>
                   <ChevronRight size={14} color={COLORS.textMuted} className="absolute right-2 top-1/2 -translate-y-1/2" />
                 </button>
@@ -15200,7 +17642,7 @@ export default function UpRepDemo() {
               <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
                 <h5 className="font-semibold mb-2" style={{ color: COLORS.text }}>Current Goal</h5>
                 <div className="flex items-center gap-3">
-                  <div 
+                  <div
                     className="w-10 h-10 rounded-full flex items-center justify-center"
                     style={{ backgroundColor: COLORS.primary + '20' }}
                   >
@@ -15212,8 +17654,9 @@ export default function UpRepDemo() {
                       {showFriendProfile.goal === 'lose_fat' && 'Lose Fat'}
                       {showFriendProfile.goal === 'strength' && 'Get Stronger'}
                       {showFriendProfile.goal === 'fitness' && 'General Fitness'}
+                      {!showFriendProfile.goal && 'General Fitness'}
                     </p>
-                    <p className="text-xs" style={{ color: COLORS.textMuted }}>{showFriendProfile.weeklyWorkouts}x per week</p>
+                    <p className="text-xs" style={{ color: COLORS.textMuted }}>{showFriendProfile.weeklyWorkouts || 4}x per week</p>
                   </div>
                 </div>
               </div>
@@ -15261,7 +17704,7 @@ export default function UpRepDemo() {
           // Generate friend's workout data based on their streak
           const generateFriendWorkoutData = () => {
             const data = {};
-            const streakDays = friend.stats.streak;
+            const streakDays = friend.streak || friend.stats?.streak || 0;
             
             // Work backwards from today to create workout history
             for (let i = 1; i <= 31; i++) {
@@ -15316,15 +17759,15 @@ export default function UpRepDemo() {
                 <button onClick={() => { setShowFriendStreakCalendar(null); setFriendStreakMonth(currentMonth); setFriendStreakYear(currentYear); }}>
                   <ChevronLeft size={24} color={COLORS.text} />
                 </button>
-                <div 
+                <div
                   className="w-10 h-10 rounded-full flex items-center justify-center text-xl"
                   style={{ backgroundColor: COLORS.surfaceLight }}
                 >
-                  {friend.avatar}
+                  {typeof friend.avatar === 'string' && friend.avatar.length === 1 ? friend.avatar : friend.name?.[0]?.toUpperCase() || '?'}
                 </div>
                 <div>
-                  <h2 className="font-bold" style={{ color: COLORS.text }}>{friend.name.split(' ')[0]}'s Streak</h2>
-                  <p className="text-xs" style={{ color: COLORS.textMuted }}>{friend.program}</p>
+                  <h2 className="font-bold" style={{ color: COLORS.text }}>{(friend.name || 'User').split(' ')[0]}'s Streak</h2>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>{friend.program || friend.bio || 'Fitness enthusiast'}</p>
                 </div>
               </div>
               
@@ -15333,10 +17776,10 @@ export default function UpRepDemo() {
                 <div className="p-4 rounded-xl mb-4 text-center" style={{ backgroundColor: COLORS.warning + '20' }}>
                   <div className="flex items-center justify-center gap-2 mb-1">
                     <Flame size={28} color={COLORS.warning} />
-                    <p className="text-4xl font-bold" style={{ color: COLORS.warning }}>{friend.stats.streak}</p>
+                    <p className="text-4xl font-bold" style={{ color: COLORS.warning }}>{friend.streak || friend.stats?.streak || 0}</p>
                   </div>
                   <p style={{ color: COLORS.textSecondary }}>day workout streak</p>
-                  {friend.stats.streak >= 30 && (
+                  {(friend.streak || friend.stats?.streak || 0) >= 30 && (
                     <div className="mt-2 inline-flex items-center gap-1 px-3 py-1 rounded-full" style={{ backgroundColor: COLORS.warning + '30' }}>
                       <Trophy size={14} color={COLORS.warning} />
                       <span className="text-xs font-semibold" style={{ color: COLORS.warning }}>On fire!</span>
@@ -15457,6 +17900,315 @@ export default function UpRepDemo() {
             </div>
           );
         })()}
+
+        {/* Friend PRs Modal */}
+        {showFriendPRs && (
+          <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
+            <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
+              <button onClick={() => setShowFriendPRs(null)}>
+                <ChevronLeft size={24} color={COLORS.text} />
+              </button>
+              <div
+                className="w-10 h-10 rounded-full flex items-center justify-center text-xl"
+                style={{ backgroundColor: COLORS.surfaceLight }}
+              >
+                {typeof showFriendPRs.avatar === 'string' && showFriendPRs.avatar.length === 1 ? showFriendPRs.avatar : showFriendPRs.name?.[0]?.toUpperCase() || '?'}
+              </div>
+              <div>
+                <h2 className="font-bold" style={{ color: COLORS.text }}>{(showFriendPRs.name || 'User').split(' ')[0]}'s PRs</h2>
+                <p className="text-xs" style={{ color: COLORS.textMuted }}>{friendPRsData.length} personal records</p>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-auto p-4">
+              {showFriendPRs.privacyBlocked ? (
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center" style={{ backgroundColor: COLORS.surfaceLight }}>
+                    <Lock size={32} color={COLORS.textMuted} />
+                  </div>
+                  <h3 className="font-bold mb-2" style={{ color: COLORS.text }}>PRs are Private</h3>
+                  <p className="text-sm" style={{ color: COLORS.textMuted }}>
+                    {showFriendPRs.name?.split(' ')[0] || 'This user'} has chosen to keep their personal records private
+                  </p>
+                </div>
+              ) : friendPRsData.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center" style={{ backgroundColor: COLORS.surfaceLight }}>
+                    <Trophy size={32} color={COLORS.textMuted} />
+                  </div>
+                  <h3 className="font-bold mb-2" style={{ color: COLORS.text }}>No PRs Yet</h3>
+                  <p className="text-sm" style={{ color: COLORS.textMuted }}>
+                    {showFriendPRs.name?.split(' ')[0] || 'This user'} hasn't set any personal records yet
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {/* Group PRs by exercise */}
+                  {Object.entries(
+                    friendPRsData.reduce((acc, pr) => {
+                      const key = pr.exercise_name || pr.exercise || 'Unknown';
+                      if (!acc[key]) acc[key] = [];
+                      acc[key].push(pr);
+                      return acc;
+                    }, {})
+                  ).sort(([a], [b]) => a.localeCompare(b)).map(([exercise, prs]) => (
+                    <div key={exercise} className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.warning + '20' }}>
+                          <Trophy size={18} color={COLORS.warning} />
+                        </div>
+                        <div>
+                          <p className="font-semibold" style={{ color: COLORS.text }}>{exercise}</p>
+                          <p className="text-xs" style={{ color: COLORS.textMuted }}>{prs.length} record{prs.length > 1 ? 's' : ''}</p>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        {prs.slice(0, 3).map((pr, idx) => (
+                          <div key={idx} className="flex items-center justify-between p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
+                            <div>
+                              <p className="font-semibold" style={{ color: COLORS.text }}>{pr.weight}kg x {pr.reps}</p>
+                              <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                                {pr.achieved_at ? new Date(pr.achieved_at).toLocaleDateString() : 'Recently'}
+                              </p>
+                            </div>
+                            {pr.e1rm && (
+                              <div className="text-right">
+                                <p className="text-sm font-semibold" style={{ color: COLORS.primary }}>{Math.round(pr.e1rm)}kg</p>
+                                <p className="text-xs" style={{ color: COLORS.textMuted }}>Est. 1RM</p>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+              <button
+                onClick={() => setShowFriendPRs(null)}
+                className="w-full py-4 rounded-xl font-semibold"
+                style={{ backgroundColor: COLORS.warning, color: COLORS.background }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Friend Workouts Modal */}
+        {showFriendWorkouts && !selectedFriendWorkout && (
+          <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
+            <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
+              <button onClick={() => setShowFriendWorkouts(null)}>
+                <ChevronLeft size={24} color={COLORS.text} />
+              </button>
+              <div
+                className="w-10 h-10 rounded-full flex items-center justify-center text-xl"
+                style={{ backgroundColor: COLORS.surfaceLight }}
+              >
+                {typeof showFriendWorkouts.avatar === 'string' && showFriendWorkouts.avatar.length === 1 ? showFriendWorkouts.avatar : showFriendWorkouts.name?.[0]?.toUpperCase() || '?'}
+              </div>
+              <div>
+                <h2 className="font-bold" style={{ color: COLORS.text }}>{(showFriendWorkouts.name || 'User').split(' ')[0]}'s Workouts</h2>
+                <p className="text-xs" style={{ color: COLORS.textMuted }}>{friendWorkoutsData.length} completed workouts</p>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-auto p-4">
+              {showFriendWorkouts.privacyBlocked ? (
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center" style={{ backgroundColor: COLORS.surfaceLight }}>
+                    <Lock size={32} color={COLORS.textMuted} />
+                  </div>
+                  <h3 className="font-bold mb-2" style={{ color: COLORS.text }}>Workouts are Private</h3>
+                  <p className="text-sm" style={{ color: COLORS.textMuted }}>
+                    {showFriendWorkouts.name?.split(' ')[0] || 'This user'} has chosen to keep their workouts private
+                  </p>
+                </div>
+              ) : friendWorkoutsData.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center" style={{ backgroundColor: COLORS.surfaceLight }}>
+                    <Dumbbell size={32} color={COLORS.textMuted} />
+                  </div>
+                  <h3 className="font-bold mb-2" style={{ color: COLORS.text }}>No Workouts Yet</h3>
+                  <p className="text-sm" style={{ color: COLORS.textMuted }}>
+                    {showFriendWorkouts.name?.split(' ')[0] || 'This user'} hasn't completed any workouts yet
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {friendWorkoutsData.map((workout, idx) => {
+                    const exerciseCount = workout.exercises?.length || 0;
+                    const totalVolume = (workout.exercises || []).reduce((sum, ex) => {
+                      return sum + (ex.sets || []).reduce((setSum, set) => {
+                        return setSum + ((set.weight || 0) * (set.reps || 0));
+                      }, 0);
+                    }, 0);
+
+                    return (
+                      <button
+                        key={workout.id || idx}
+                        onClick={() => setSelectedFriendWorkout(workout)}
+                        className="w-full p-4 rounded-xl text-left"
+                        style={{ backgroundColor: COLORS.surface }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '20' }}>
+                              <Dumbbell size={24} color={COLORS.primary} />
+                            </div>
+                            <div>
+                              <p className="font-semibold" style={{ color: COLORS.text }}>{workout.template_name || workout.name || 'Workout'}</p>
+                              <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                                {workout.completed_at ? new Date(workout.completed_at).toLocaleDateString() : 'Recently'}
+                                {workout.focus && ` - ${workout.focus}`}
+                              </p>
+                            </div>
+                          </div>
+                          <ChevronRight size={20} color={COLORS.textMuted} />
+                        </div>
+                        <div className="flex gap-4 mt-3 pt-3 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+                          <div>
+                            <p className="text-sm font-semibold" style={{ color: COLORS.text }}>{exerciseCount}</p>
+                            <p className="text-xs" style={{ color: COLORS.textMuted }}>exercises</p>
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold" style={{ color: COLORS.text }}>{workout.duration_minutes || 45}min</p>
+                            <p className="text-xs" style={{ color: COLORS.textMuted }}>duration</p>
+                          </div>
+                          {totalVolume > 0 && (
+                            <div>
+                              <p className="text-sm font-semibold" style={{ color: COLORS.text }}>{(totalVolume / 1000).toFixed(1)}k</p>
+                              <p className="text-xs" style={{ color: COLORS.textMuted }}>volume (kg)</p>
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+              <button
+                onClick={() => setShowFriendWorkouts(null)}
+                className="w-full py-4 rounded-xl font-semibold"
+                style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Selected Friend Workout Detail */}
+        {selectedFriendWorkout && (
+          <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
+            <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
+              <button onClick={() => setSelectedFriendWorkout(null)}>
+                <ChevronLeft size={24} color={COLORS.text} />
+              </button>
+              <div>
+                <h2 className="font-bold" style={{ color: COLORS.text }}>{selectedFriendWorkout.template_name || selectedFriendWorkout.name || 'Workout'}</h2>
+                <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                  {selectedFriendWorkout.completed_at ? new Date(selectedFriendWorkout.completed_at).toLocaleDateString() : 'Recently'}
+                  {selectedFriendWorkout.focus && ` - ${selectedFriendWorkout.focus}`}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-auto p-4">
+              {/* Workout Summary */}
+              <div className="grid grid-cols-3 gap-3 mb-6">
+                <div className="p-4 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
+                  <p className="text-xl font-bold" style={{ color: COLORS.text }}>{(selectedFriendWorkout.exercises || []).length}</p>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>Exercises</p>
+                </div>
+                <div className="p-4 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
+                  <p className="text-xl font-bold" style={{ color: COLORS.text }}>{selectedFriendWorkout.duration_minutes || 45}</p>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>Minutes</p>
+                </div>
+                <div className="p-4 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
+                  <p className="text-xl font-bold" style={{ color: COLORS.text }}>
+                    {((selectedFriendWorkout.exercises || []).reduce((sum, ex) => {
+                      return sum + (ex.sets || []).reduce((setSum, set) => {
+                        return setSum + ((set.weight || 0) * (set.reps || 0));
+                      }, 0);
+                    }, 0) / 1000).toFixed(1)}k
+                  </p>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>Volume (kg)</p>
+                </div>
+              </div>
+
+              {/* Exercises List */}
+              <h3 className="font-semibold mb-3" style={{ color: COLORS.text }}>Exercises</h3>
+              <div className="space-y-3">
+                {(selectedFriendWorkout.exercises || []).map((exercise, idx) => {
+                  const sets = exercise.sets || [];
+                  const completedSets = sets.filter(s => s.completed);
+
+                  return (
+                    <div key={idx} className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '20' }}>
+                          <Dumbbell size={18} color={COLORS.primary} />
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-semibold" style={{ color: COLORS.text }}>{exercise.name || exercise.exercise_name || 'Exercise'}</p>
+                          <p className="text-xs" style={{ color: COLORS.textMuted }}>{exercise.muscle_group || exercise.muscleGroup || ''}</p>
+                        </div>
+                      </div>
+
+                      {/* Sets Table */}
+                      <div className="rounded-lg overflow-hidden" style={{ backgroundColor: COLORS.surfaceLight }}>
+                        <div className="grid grid-cols-4 gap-2 p-2 border-b" style={{ borderColor: COLORS.surface }}>
+                          <p className="text-xs font-semibold" style={{ color: COLORS.textMuted }}>Set</p>
+                          <p className="text-xs font-semibold" style={{ color: COLORS.textMuted }}>Weight</p>
+                          <p className="text-xs font-semibold" style={{ color: COLORS.textMuted }}>Reps</p>
+                          <p className="text-xs font-semibold text-right" style={{ color: COLORS.textMuted }}>Status</p>
+                        </div>
+                        {sets.length > 0 ? sets.map((set, setIdx) => (
+                          <div key={setIdx} className="grid grid-cols-4 gap-2 p-2">
+                            <p className="text-sm" style={{ color: COLORS.text }}>{setIdx + 1}</p>
+                            <p className="text-sm" style={{ color: COLORS.text }}>{set.weight || '-'}kg</p>
+                            <p className="text-sm" style={{ color: COLORS.text }}>{set.reps || '-'}</p>
+                            <div className="text-right">
+                              {set.completed ? (
+                                <Check size={16} color={COLORS.success} />
+                              ) : (
+                                <span className="text-xs" style={{ color: COLORS.textMuted }}>-</span>
+                              )}
+                            </div>
+                          </div>
+                        )) : (
+                          <div className="p-3 text-center">
+                            <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                              {exercise.sets_count || 3} sets x {exercise.reps || exercise.target_reps || '8-12'} reps
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="p-4 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+              <button
+                onClick={() => setSelectedFriendWorkout(null)}
+                className="w-full py-4 rounded-xl font-semibold"
+                style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+              >
+                Back to Workouts
+              </button>
+            </div>
+          </div>
+        )}
 
         {activeTab === 'progress' && (
           <div className="p-4 h-full overflow-auto">
@@ -16899,6 +19651,34 @@ export default function UpRepDemo() {
                 </div>
               ))}
             </div>
+
+            {/* Publish to Community Option */}
+            <div className="mt-6 p-4 rounded-xl" style={{ backgroundColor: COLORS.primary + '10', border: `1px solid ${COLORS.primary}30` }}>
+              <div className="flex items-center gap-3 mb-3">
+                <Upload size={20} color={COLORS.primary} />
+                <div className="flex-1">
+                  <p className="font-semibold" style={{ color: COLORS.text }}>Share this workout</p>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>Let others try your routine</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  // Set up publish modal with this workout's data
+                  setWorkoutToPublish({
+                    name: showWorkoutSummary.workout.name,
+                    focus: showWorkoutSummary.workout.focus || 'general',
+                    exercises: showWorkoutSummary.workout.exercises,
+                  });
+                  setPublishDescription('');
+                  setShowPublishModal(true);
+                  setShowWorkoutSummary(null);
+                }}
+                className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
+                style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+              >
+                <Upload size={16} /> Publish to Community
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -17212,10 +19992,10 @@ export default function UpRepDemo() {
       {/* Publish Workout Modal */}
       {showPublishModal && workoutToPublish && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.8)' }}>
-          <div className="w-full max-w-md rounded-2xl p-6" style={{ backgroundColor: COLORS.surface }}>
+          <div className="w-full max-w-md rounded-2xl p-6 max-h-[90vh] overflow-auto" style={{ backgroundColor: COLORS.surface }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold" style={{ color: COLORS.text }}>Share Workout</h3>
-              <button onClick={() => { setShowPublishModal(false); setWorkoutToPublish(null); }} className="p-1">
+              <button onClick={() => { setShowPublishModal(false); setWorkoutToPublish(null); setPublishDescription(''); }} className="p-1">
                 <X size={20} color={COLORS.textMuted} />
               </button>
             </div>
@@ -17228,20 +20008,45 @@ export default function UpRepDemo() {
               </p>
             </div>
 
+            {/* Description/Review Field */}
+            <div className="mb-4">
+              <label className="text-sm font-medium mb-2 block" style={{ color: COLORS.text }}>
+                Add a description or review
+              </label>
+              <textarea
+                value={publishDescription}
+                onChange={(e) => setPublishDescription(e.target.value)}
+                placeholder="Share your thoughts about this workout... What makes it great? Who is it best for? Any tips for getting the most out of it?"
+                rows={4}
+                className="w-full p-3 rounded-xl text-sm resize-none"
+                style={{
+                  backgroundColor: COLORS.surfaceLight,
+                  color: COLORS.text,
+                  border: `1px solid ${COLORS.surfaceLight}`,
+                }}
+              />
+              <p className="text-xs mt-1" style={{ color: COLORS.textMuted }}>
+                {publishDescription.length}/500 characters
+              </p>
+            </div>
+
             <p className="text-sm mb-4" style={{ color: COLORS.textMuted }}>
               Share this workout with the community. Others will be able to view, rate, and use this workout in their training.
             </p>
 
             <div className="flex gap-3">
               <button
-                onClick={() => { setShowPublishModal(false); setWorkoutToPublish(null); }}
+                onClick={() => { setShowPublishModal(false); setWorkoutToPublish(null); setPublishDescription(''); }}
                 className="flex-1 py-3 rounded-xl font-semibold"
                 style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text }}
               >
                 Cancel
               </button>
               <button
-                onClick={() => handlePublishWorkout(workoutToPublish)}
+                onClick={() => {
+                  handlePublishWorkout({ ...workoutToPublish, description: publishDescription });
+                  setPublishDescription('');
+                }}
                 className="flex-1 py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
                 style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
               >
@@ -17348,29 +20153,57 @@ export default function UpRepDemo() {
 
           {/* Actions Footer */}
           <div className="p-4 border-t space-y-3" style={{ borderColor: COLORS.surfaceLight }}>
-            <button
-              onClick={() => handleSaveWorkout(selectedCommunityWorkout.id)}
-              className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
-              style={{
-                backgroundColor: savedWorkoutIds.has(selectedCommunityWorkout.id) ? COLORS.warning + '20' : COLORS.surfaceLight,
-                color: savedWorkoutIds.has(selectedCommunityWorkout.id) ? COLORS.warning : COLORS.text
-              }}
-            >
-              <Heart
-                size={18}
-                fill={savedWorkoutIds.has(selectedCommunityWorkout.id) ? COLORS.warning : 'transparent'}
-              />
-              {savedWorkoutIds.has(selectedCommunityWorkout.id) ? 'Saved' : 'Save Workout'}
-            </button>
+            {/* Rating Section - Only show if completed or already rated */}
+            {(completedCommunityWorkoutIds.has(selectedCommunityWorkout.id) || userWorkoutRatings[selectedCommunityWorkout.id]) ? (
+              <div className="flex items-center justify-between py-2">
+                <span className="text-sm font-semibold" style={{ color: COLORS.text }}>Rate this workout</span>
+                <StarRating
+                  rating={userWorkoutRatings[selectedCommunityWorkout.id] || 0}
+                  onRate={(rating) => handleRateWorkout(selectedCommunityWorkout.id, rating)}
+                  size={24}
+                />
+              </div>
+            ) : (
+              <div className="py-2">
+                <span className="text-xs" style={{ color: COLORS.textMuted }}>Complete this workout to rate it</span>
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleSaveWorkout(selectedCommunityWorkout.id)}
+                className="flex-1 py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
+                style={{
+                  backgroundColor: savedWorkoutIds.has(selectedCommunityWorkout.id) ? COLORS.warning + '20' : COLORS.surfaceLight,
+                  color: savedWorkoutIds.has(selectedCommunityWorkout.id) ? COLORS.warning : COLORS.text
+                }}
+              >
+                <Book
+                  size={18}
+                  fill={savedWorkoutIds.has(selectedCommunityWorkout.id) ? COLORS.warning : 'transparent'}
+                />
+                {savedWorkoutIds.has(selectedCommunityWorkout.id) ? 'Saved' : 'Rep-ertoire'}
+              </button>
+              <button
+                onClick={() => { loadComments(selectedCommunityWorkout.id); }}
+                className="flex-1 py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
+                style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text }}
+              >
+                <MessageCircle size={18} />
+                Comments
+              </button>
+            </div>
+
             <button
               onClick={() => {
-                // Copy workout to today's schedule
+                const adjusted = adjustWorkoutForUser(selectedCommunityWorkout);
                 setTodayWorkout({
-                  type: selectedCommunityWorkout.name,
-                  name: selectedCommunityWorkout.name,
-                  focus: selectedCommunityWorkout.focus,
-                  exercises: selectedCommunityWorkout.exercises?.length || 0,
-                  duration: 60
+                  type: adjusted.name,
+                  name: adjusted.name,
+                  focus: adjusted.focus,
+                  exercises: adjusted.exercises?.length || 0,
+                  duration: selectedCommunityWorkout.target_duration || estimateWorkoutDuration(selectedCommunityWorkout.exercises),
+                  communityWorkoutId: selectedCommunityWorkout.id,
                 });
                 setSelectedCommunityWorkout(null);
                 setActiveTab('workouts');
@@ -17378,10 +20211,226 @@ export default function UpRepDemo() {
               className="w-full py-4 rounded-xl font-semibold flex items-center justify-center gap-2"
               style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
             >
-              <Plus size={18} /> Use This Workout Today
+              <Play size={18} /> Start Workout (Auto-adjusted for you)
             </button>
           </div>
         </div>
+      )}
+
+      {/* Comments Modal */}
+      {showCommentsFor && (
+        <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
+          <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
+            <button onClick={() => { setShowCommentsFor(null); setWorkoutComments([]); }}>
+              <X size={24} color={COLORS.text} />
+            </button>
+            <h2 className="text-lg font-bold" style={{ color: COLORS.text }}>Comments</h2>
+          </div>
+
+          <div className="flex-1 overflow-auto p-4">
+            {commentsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 size={24} className="animate-spin" color={COLORS.primary} />
+              </div>
+            ) : workoutComments.length === 0 ? (
+              <div className="text-center py-8">
+                <MessageCircle size={40} color={COLORS.textMuted} className="mx-auto mb-3" style={{ opacity: 0.5 }} />
+                <p className="font-semibold" style={{ color: COLORS.text }}>No comments yet</p>
+                <p className="text-sm" style={{ color: COLORS.textMuted }}>Be the first to leave a comment!</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {workoutComments.map(comment => (
+                  <div key={comment.id} className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+                    <div className="flex items-center gap-3 mb-2">
+                      <div
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold"
+                        style={{ backgroundColor: COLORS.primary + '30', color: COLORS.primary }}
+                      >
+                        {comment.user?.avatar || comment.user?.username?.[0]?.toUpperCase() || 'U'}
+                      </div>
+                      <div>
+                        <p className="font-semibold text-sm" style={{ color: COLORS.text }}>{comment.user?.name || 'User'}</p>
+                        <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                          {comment.created_at ? formatActivityTime(comment.created_at) : ''}
+                        </p>
+                      </div>
+                    </div>
+                    <p className="text-sm" style={{ color: COLORS.textSecondary }}>
+                      {renderCommentWithMentions(comment.content, COLORS, (username) => {
+                        // Could navigate to user profile here
+                        console.log('Clicked mention:', username);
+                      })}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Add Comment */}
+          <div className="p-4 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                placeholder="Add a comment..."
+                className="flex-1 p-3 rounded-xl"
+                style={{ backgroundColor: COLORS.surface, color: COLORS.text, border: 'none', outline: 'none' }}
+              />
+              <button
+                onClick={handleAddComment}
+                disabled={!newComment.trim()}
+                className="px-4 rounded-xl font-semibold"
+                style={{
+                  backgroundColor: newComment.trim() ? COLORS.primary : COLORS.surfaceLight,
+                  color: newComment.trim() ? COLORS.text : COLORS.textMuted
+                }}
+              >
+                Post
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rep-ertoire Modal (Saved Workouts) */}
+      {showRepertoire && (
+        <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
+          <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
+            <button onClick={() => setShowRepertoire(false)}>
+              <X size={24} color={COLORS.text} />
+            </button>
+            <Book size={24} color={COLORS.warning} />
+            <h2 className="text-lg font-bold" style={{ color: COLORS.text }}>My Rep-ertoire</h2>
+          </div>
+
+          <div className="flex-1 overflow-auto p-4">
+            {savedWorkoutsDetails.length === 0 ? (
+              <div className="text-center py-12">
+                <Book size={48} color={COLORS.textMuted} className="mx-auto mb-3" style={{ opacity: 0.5 }} />
+                <p className="font-bold mb-2" style={{ color: COLORS.text }}>No saved workouts yet</p>
+                <p className="text-sm" style={{ color: COLORS.textMuted }}>
+                  Save workouts from the community to build your Rep-ertoire!
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {savedWorkoutsDetails.map(workout => {
+                  const style = getWorkoutStyle(workout.focus);
+                  const targetDuration = workout.target_duration || estimateWorkoutDuration(workout.exercises);
+                  return (
+                    <div
+                      key={workout.id}
+                      className="p-4 rounded-xl"
+                      style={{ backgroundColor: COLORS.surface }}
+                    >
+                      <button
+                        onClick={() => { setShowRepertoire(false); setSelectedCommunityWorkout(workout); }}
+                        className="w-full text-left"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="w-12 h-12 rounded-xl flex items-center justify-center"
+                            style={{ backgroundColor: style.color + '20' }}
+                          >
+                            <IconMap name={style.icon} size={24} color={style.color} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-bold truncate" style={{ color: COLORS.text }}>{workout.name}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <StarRating rating={workout.averageRating || 0} readonly size={12} />
+                              <span className="text-xs" style={{ color: COLORS.textMuted }}>
+                                ({(workout.averageRating || 0).toFixed(1)}) {workout.ratingCount || 0} {(workout.ratingCount || 0) === 1 ? 'review' : 'reviews'}
+                              </span>
+                              <span className="text-xs" style={{ color: COLORS.textMuted }}>
+                                {workout.exercises?.length || 0} exercises
+                              </span>
+                            </div>
+                            {workout.creator && (
+                              <p className="text-xs mt-1" style={{ color: COLORS.textMuted }}>
+                                by @{workout.creator.username}
+                              </p>
+                            )}
+                          </div>
+                          <ChevronRight size={20} color={COLORS.textMuted} />
+                        </div>
+                      </button>
+
+                      {/* Action Buttons */}
+                      <div className="flex gap-2 mt-3 pt-3 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+                        <button
+                          onClick={() => {
+                            const adjusted = adjustWorkoutForUser(workout);
+                            setTodayWorkout({
+                              type: adjusted.name,
+                              name: adjusted.name,
+                              focus: adjusted.focus,
+                              exercises: adjusted.exercises?.length || 0,
+                              duration: targetDuration,
+                              communityWorkoutId: workout.id,
+                            });
+                            setShowRepertoire(false);
+                            setActiveTab('workouts');
+                          }}
+                          className="flex-1 py-2 rounded-lg flex items-center justify-center gap-1 text-xs font-semibold"
+                          style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+                        >
+                          <Play size={14} /> Start Now
+                        </button>
+                        <button
+                          onClick={() => {
+                            // Add to schedule for today
+                            setMasterSchedule(prev => ({
+                              ...prev,
+                              [TODAY_DATE_KEY]: {
+                                ...prev[TODAY_DATE_KEY],
+                                workout: workout.name,
+                                type: workout.focus || 'general',
+                                communityWorkoutId: workout.id,
+                              }
+                            }));
+                            setShowRepertoire(false);
+                          }}
+                          className="flex-1 py-2 rounded-lg flex items-center justify-center gap-1 text-xs font-semibold"
+                          style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text }}
+                        >
+                          <Calendar size={14} /> Add to Today
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleSaveWorkout(workout.id); }}
+                          className="px-3 py-2 rounded-lg"
+                          style={{ backgroundColor: COLORS.warning + '20' }}
+                        >
+                          <Trash2 size={14} color={COLORS.error} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Weigh-In Modal */}
+      {showWeighIn && (
+        <WeighInModal
+          COLORS={COLORS}
+          onClose={() => setShowWeighIn(false)}
+          initialWeight={userData.currentWeight || 80}
+          currentWeight={userData.currentWeight || 80}
+          userGoal={userData.goal || 'build_muscle'}
+          onSave={async (data) => {
+            if (user?.id) {
+              await profileService.logWeight(user.id, data.weight, data.date, data.bodyFat, data.muscleMass);
+              setUserData(prev => ({ ...prev, currentWeight: data.weight }));
+            }
+            setShowWeighIn(false);
+          }}
+        />
       )}
 
       <div className="flex justify-around py-2 border-t" style={{ backgroundColor: COLORS.surface, borderColor: COLORS.surfaceLight }}>

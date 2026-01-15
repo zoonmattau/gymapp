@@ -18,7 +18,7 @@ export const streakService = {
       .select('*')
       .eq('user_id', userId)
       .eq('streak_type', streakType)
-      .single();
+      .maybeSingle();
 
     return { data, error };
   },
@@ -38,9 +38,9 @@ export const streakService = {
         longest_streak: longestStreak,
         last_activity_date: lastActivityDate,
         updated_at: new Date().toISOString(),
-      })
+      }, { onConflict: 'user_id,streak_type' })
       .select()
-      .single();
+      .maybeSingle();
 
     return { data, error };
   },
@@ -97,7 +97,7 @@ export const streakService = {
       .from('nutrition_goals')
       .select('calories')
       .eq('user_id', userId)
-      .single();
+      .maybeSingle();
 
     if (!goals) return { streak: 0, lastDate: null };
 
@@ -146,7 +146,7 @@ export const streakService = {
       .from('sleep_goals')
       .select('target_hours')
       .eq('user_id', userId)
-      .single();
+      .maybeSingle();
 
     if (!goals) return { streak: 0, lastDate: null };
 
@@ -194,7 +194,7 @@ export const streakService = {
       .from('nutrition_goals')
       .select('water')
       .eq('user_id', userId)
-      .single();
+      .maybeSingle();
 
     if (!goals) return { streak: 0, lastDate: null };
 

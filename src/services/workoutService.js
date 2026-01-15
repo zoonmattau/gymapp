@@ -74,7 +74,7 @@ export const workoutService = {
         scheduled_date: date,
         template_id: isRestDay ? null : templateId,
         is_rest_day: isRestDay,
-      })
+      }, { onConflict: 'user_id,scheduled_date' })
       .select()
       .single();
 
@@ -162,18 +162,25 @@ export const workoutService = {
 
   // Get workout history
   async getWorkoutHistory(userId, limit = 20, offset = 0) {
-    const { data, error } = await supabase
-      .from('workout_sessions')
-      .select(`
-        *,
-        workout_sets (*)
-      `)
-      .eq('user_id', userId)
-      .not('ended_at', 'is', null)
-      .order('started_at', { ascending: false })
-      .range(offset, offset + limit - 1);
+    try {
+      const { data, error } = await supabase
+        .from('workout_sessions')
+        .select('*')
+        .eq('user_id', userId)
+        .not('ended_at', 'is', null)
+        .order('started_at', { ascending: false })
+        .range(offset, offset + limit - 1);
 
-    return { data, error };
+      if (error) {
+        console.warn('getWorkoutHistory error:', error?.message);
+        return { data: [], error: null };
+      }
+
+      return { data: data || [], error: null };
+    } catch (err) {
+      console.warn('getWorkoutHistory error:', err?.message);
+      return { data: [], error: null };
+    }
   },
 
   // Get personal records
@@ -187,29 +194,117 @@ export const workoutService = {
     return { data, error };
   },
 
+  // Get completed workout sessions for a user
+  async getCompletedSessions(userId, limit = 50) {
+    try {
+      const { data, error } = await supabase
+        .from('workout_sessions')
+        .select('*')
+        .eq('user_id', userId)
+        .not('ended_at', 'is', null)
+        .order('ended_at', { ascending: false })
+        .limit(limit);
+
+      if (error) {
+        console.warn('getCompletedSessions error:', error?.message);
+        return { data: [], error };
+      }
+
+      return { data: data || [], error: null };
+    } catch (err) {
+      console.warn('getCompletedSessions exception:', err?.message);
+      return { data: [], error: err };
+    }
+  },
+
+  // Get workout status for a list of users (active or recently completed)
+  async getWorkoutStatuses(userIds) {
+    try {
+      if (!userIds || userIds.length === 0) return { data: {}, error: null };
+
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+
+      // Get active sessions (started but not completed)
+      const { data: activeSessions } = await supabase
+        .from('workout_sessions')
+        .select('user_id, workout_name, started_at')
+        .in('user_id', userIds)
+        .is('ended_at', null)
+        .gte('started_at', new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString()); // Started within 4 hours
+
+      // Get recently completed sessions
+      const { data: recentSessions } = await supabase
+        .from('workout_sessions')
+        .select('user_id, workout_name, ended_at')
+        .in('user_id', userIds)
+        .not('ended_at', 'is', null)
+        .gte('ended_at', oneHourAgo)
+        .order('ended_at', { ascending: false });
+
+      const statuses = {};
+
+      // Mark active workouts
+      (activeSessions || []).forEach(session => {
+        if (!statuses[session.user_id]) {
+          const startTime = new Date(session.started_at);
+          const duration = Math.floor((Date.now() - startTime) / (1000 * 60));
+          statuses[session.user_id] = {
+            status: 'working_out',
+            workoutName: session.workout_name || 'Workout',
+            duration: duration,
+          };
+        }
+      });
+
+      // Mark recently completed (only if not already working out)
+      (recentSessions || []).forEach(session => {
+        if (!statuses[session.user_id]) {
+          const completedTime = new Date(session.ended_at);
+          const minutesAgo = Math.floor((Date.now() - completedTime) / (1000 * 60));
+          statuses[session.user_id] = {
+            status: 'just_finished',
+            workoutName: session.workout_name || 'Workout',
+            minutesAgo: minutesAgo,
+          };
+        }
+      });
+
+      return { data: statuses, error: null };
+    } catch (err) {
+      console.warn('getWorkoutStatuses error:', err?.message);
+      return { data: {}, error: err };
+    }
+  },
+
   // Get exercise history for progressive overload (last weight/reps per exercise)
   async getExerciseHistory(userId) {
     try {
-      // Get workout sets from the last 90 days
+      // First get user's recent workout sessions
       const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
 
+      const { data: sessions, error: sessionsError } = await supabase
+        .from('workout_sessions')
+        .select('id, started_at')
+        .eq('user_id', userId)
+        .gte('started_at', ninetyDaysAgo);
+
+      if (sessionsError || !sessions || sessions.length === 0) {
+        return { data: {}, error: null };
+      }
+
+      const sessionIds = sessions.map(s => s.id);
+
+      // Then get workout sets for those sessions
       const { data, error } = await supabase
         .from('workout_sets')
-        .select(`
-          *,
-          workout_sessions!inner (
-            user_id,
-            started_at
-          )
-        `)
-        .eq('workout_sessions.user_id', userId)
-        .gte('workout_sessions.started_at', ninetyDaysAgo)
+        .select('*')
+        .in('session_id', sessionIds)
         .eq('is_warmup', false)
-        .order('created_at', { ascending: false });
+        .order('completed_at', { ascending: false });
 
       if (error) {
-        console.warn('Error fetching exercise history:', error);
-        return { data: {}, error };
+        console.warn('Error fetching exercise history:', error?.message);
+        return { data: {}, error: null };
       }
 
       if (!data || data.length === 0) {
@@ -227,15 +322,15 @@ export const workoutService = {
             lastWeight: set.weight || 0,
             lastReps: set.reps || 0,
             lastRpe: set.rpe,
-            lastPerformedAt: set.workout_sessions?.started_at,
+            lastPerformedAt: set.completed_at,
           };
         }
       });
 
       return { data: exerciseHistory, error: null };
     } catch (err) {
-      console.warn('Exception in getExerciseHistory:', err);
-      return { data: {}, error: err };
+      console.warn('Exception in getExerciseHistory:', err?.message);
+      return { data: {}, error: null };
     }
   },
 
@@ -298,7 +393,7 @@ export const workoutService = {
 
     const { data, error } = await supabase
       .from('user_programs')
-      .upsert({
+      .insert({
         user_id: userId,
         ...program,
         is_active: true,

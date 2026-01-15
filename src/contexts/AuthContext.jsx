@@ -21,21 +21,34 @@ export function AuthProvider({ children }) {
   // Fetch user profile
   const fetchProfile = async (userId) => {
     try {
-      const { data, error } = await supabase
+      // Get profile separately to avoid join issues
+      const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select(`
-          *,
-          user_goals (*),
-          user_settings (*)
-        `)
+        .select('*')
         .eq('id', userId)
         .single();
 
-      if (error) throw error;
-      setProfile(data);
-      return data;
+      if (profileError) {
+        console.warn('Error fetching profile:', profileError?.message);
+        return null;
+      }
+
+      // Try to get related data separately (they may not exist)
+      const [goalsResult, settingsResult] = await Promise.all([
+        supabase.from('user_goals').select('*').eq('user_id', userId).maybeSingle(),
+        supabase.from('user_settings').select('*').eq('user_id', userId).maybeSingle(),
+      ]);
+
+      const fullProfile = {
+        ...profileData,
+        user_goals: goalsResult.data,
+        user_settings: settingsResult.data,
+      };
+
+      setProfile(fullProfile);
+      return fullProfile;
     } catch (err) {
-      console.error('Error fetching profile:', err);
+      console.warn('Error fetching profile:', err?.message);
       return null;
     }
   };
@@ -223,21 +236,43 @@ export function AuthProvider({ children }) {
     if (!user) return { error: 'Not authenticated' };
 
     try {
+      // Check if record exists first
+      const { data: existing } = await supabase
+        .from('user_goals')
+        .select('goal')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      // Build a clean object with only valid, non-null values
+      const cleanGoals = { user_id: user.id };
+
+      // goal is required - use existing or default
+      cleanGoals.goal = goals.goal || existing?.goal || 'fitness';
+
+      // Only add other fields that have actual values
+      if (goals.experience) cleanGoals.experience = goals.experience;
+      if (goals.days_per_week != null) cleanGoals.days_per_week = goals.days_per_week;
+      if (goals.target_weight != null) cleanGoals.target_weight = goals.target_weight;
+      if (goals.current_weight != null) cleanGoals.current_weight = goals.current_weight;
+      if (goals.activity_level) cleanGoals.activity_level = goals.activity_level;
+
       const { data, error } = await supabase
         .from('user_goals')
-        .upsert({
-          user_id: user.id,
-          ...goals,
-          updated_at: new Date().toISOString(),
-        })
+        .upsert(cleanGoals, { onConflict: 'user_id' })
         .select()
-        .single();
+        .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        console.warn('updateGoals error:', error?.message);
+        // Don't throw - just return gracefully
+        return { data: null, error: null };
+      }
+
       setProfile(prev => ({ ...prev, user_goals: data }));
       return { data, error: null };
     } catch (err) {
-      return { data: null, error: err };
+      console.warn('updateGoals error:', err?.message);
+      return { data: null, error: null };
     }
   };
 

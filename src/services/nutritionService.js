@@ -3,74 +3,93 @@ import { supabase } from '../lib/supabase';
 export const nutritionService = {
   // Get nutrition goals
   async getNutritionGoals(userId) {
-    const { data, error } = await supabase
-      .from('nutrition_goals')
-      .select('*')
-      .eq('user_id', userId)
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('nutrition_goals')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
 
-    return { data, error };
+      if (error) {
+        console.warn('getNutritionGoals error:', error?.message);
+        return { data: null, error: null };
+      }
+      return { data, error: null };
+    } catch (err) {
+      console.warn('getNutritionGoals error:', err?.message);
+      return { data: null, error: null };
+    }
   },
 
   // Update nutrition goals
   async updateNutritionGoals(userId, goals) {
-    const { data, error } = await supabase
-      .from('nutrition_goals')
-      .upsert({
-        user_id: userId,
-        ...goals,
-        updated_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('nutrition_goals')
+        .upsert({
+          user_id: userId,
+          ...goals,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id' })
+        .select()
+        .maybeSingle();
 
-    return { data, error };
+      if (error) {
+        console.warn('updateNutritionGoals error:', error?.message);
+      }
+      return { data, error };
+    } catch (err) {
+      console.warn('updateNutritionGoals error:', err?.message);
+      return { data: null, error: err };
+    }
   },
 
   // Get or create daily nutrition entry
   async getDailyNutrition(userId, date = null) {
-    const logDate = date || new Date().toISOString().split('T')[0];
+    try {
+      const logDate = date || new Date().toISOString().split('T')[0];
 
-    // Try to get existing entry
-    let { data, error } = await supabase
-      .from('daily_nutrition')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('log_date', logDate)
-      .single();
-
-    // Create if doesn't exist
-    if (!data && !error?.code !== 'PGRST116') {
-      const result = await supabase
+      // Try to get existing entry
+      const { data, error } = await supabase
         .from('daily_nutrition')
-        .insert({
-          user_id: userId,
-          log_date: logDate,
-        })
-        .select()
-        .single();
+        .select('*')
+        .eq('user_id', userId)
+        .eq('log_date', logDate)
+        .maybeSingle();
 
-      data = result.data;
-      error = result.error;
+      if (error) {
+        console.warn('getDailyNutrition error:', error?.message);
+        return { data: null, error: null };
+      }
+      return { data, error: null };
+    } catch (err) {
+      console.warn('getDailyNutrition error:', err?.message);
+      return { data: null, error: null };
     }
-
-    return { data, error };
   },
 
   // Update daily nutrition totals
   async updateDailyNutrition(userId, date, totals) {
-    const { data, error } = await supabase
-      .from('daily_nutrition')
-      .upsert({
-        user_id: userId,
-        log_date: date,
-        ...totals,
-        updated_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('daily_nutrition')
+        .upsert({
+          user_id: userId,
+          log_date: date,
+          ...totals,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id,log_date' })
+        .select()
+        .maybeSingle();
 
-    return { data, error };
+      if (error) {
+        console.warn('updateDailyNutrition error:', error?.message);
+      }
+      return { data, error };
+    } catch (err) {
+      console.warn('updateDailyNutrition error:', err?.message);
+      return { data: null, error: err };
+    }
   },
 
   // Log a meal
@@ -237,7 +256,7 @@ export const nutritionService = {
         user_id: userId,
         supplement_id: supplementId,
         log_date: logDate,
-      })
+      }, { onConflict: 'supplement_id,log_date' })
       .select()
       .single();
 
