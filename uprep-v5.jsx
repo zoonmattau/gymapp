@@ -203,6 +203,7 @@ const StarRating = ({ rating, onRate, size = 16, readonly = false, color = '#F7D
 };
 
 import { useAuth } from './src/contexts/AuthContext';
+import { supabase } from './src/lib/supabase';
 import { workoutService } from './src/services/workoutService';
 import { sleepService } from './src/services/sleepService';
 import { streakService } from './src/services/streakService';
@@ -213,6 +214,8 @@ import { socialService } from './src/services/socialService';
 import { notificationService } from './src/services/notificationService';
 import { workoutRatingService } from './src/services/workoutRatingService';
 import { publishedWorkoutService } from './src/services/publishedWorkoutService';
+import { storageService } from './src/services/storageService';
+import { foodRecognitionService } from './src/services/foodRecognitionService';
 import { generateNutritionTargets, projectWeightProgress, generateWorkoutSchedule } from './src/utils/fitnessCalculations';
 
 // Format date as relative time (Today at 2:30 PM, Yesterday, 3 days ago, etc.)
@@ -2072,12 +2075,81 @@ const ProfileSetupStep = ({ userData, setUserData, COLORS }) => {
 };
 
 // Edit Profile Modal - separate component to prevent input focus loss
-const EditProfileModal = ({ userData, setUserData, COLORS, onClose }) => {
+const EditProfileModal = ({ userData, setUserData, COLORS, onClose, user, updateProfile }) => {
   const usernameRef = React.useRef(null);
   const firstNameRef = React.useRef(null);
   const lastNameRef = React.useRef(null);
   const bioRef = React.useRef(null);
-  
+  const profilePicInputRef = React.useRef(null);
+  const coverPhotoInputRef = React.useRef(null);
+
+  const [uploadingProfilePic, setUploadingProfilePic] = React.useState(false);
+  const [uploadingCover, setUploadingCover] = React.useState(false);
+
+  const handleProfilePicUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !user?.id) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image must be less than 5MB');
+      return;
+    }
+
+    setUploadingProfilePic(true);
+    try {
+      const { data, error } = await storageService.uploadProfilePicture(user.id, file);
+      if (error) throw error;
+
+      // Update profile with new avatar URL
+      await updateProfile({ avatar_url: data.url });
+      setUserData(prev => ({ ...prev, avatarUrl: data.url }));
+    } catch (err) {
+      console.error('Error uploading profile picture:', err);
+      alert('Failed to upload profile picture');
+    } finally {
+      setUploadingProfilePic(false);
+    }
+  };
+
+  const handleCoverPhotoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !user?.id) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file');
+      return;
+    }
+
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      alert('Image must be less than 10MB');
+      return;
+    }
+
+    setUploadingCover(true);
+    try {
+      const { data, error } = await storageService.uploadCoverPhoto(user.id, file);
+      if (error) throw error;
+
+      // Update profile with new cover photo URL
+      await updateProfile({ cover_photo_url: data.url });
+      setUserData(prev => ({ ...prev, coverPhotoUrl: data.url }));
+    } catch (err) {
+      console.error('Error uploading cover photo:', err);
+      alert('Failed to upload cover photo');
+    } finally {
+      setUploadingCover(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
       <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
@@ -2086,15 +2158,65 @@ const EditProfileModal = ({ userData, setUserData, COLORS, onClose }) => {
         </button>
         <h3 className="text-lg font-bold" style={{ color: COLORS.text }}>Edit Profile</h3>
       </div>
-      
+
       <div className="flex-1 overflow-auto p-4">
-        {/* Avatar Preview */}
-        <div className="flex flex-col items-center mb-6">
-          <div className="w-24 h-24 rounded-full flex items-center justify-center text-5xl mb-3" style={{ backgroundColor: COLORS.primary + '20' }}>
-            💪
+        {/* Cover Photo */}
+        <div className="mb-4 -mx-4 -mt-4">
+          <div
+            className="h-32 relative flex items-center justify-center"
+            style={{
+              backgroundColor: userData.coverPhotoUrl ? 'transparent' : COLORS.surfaceLight,
+              backgroundImage: userData.coverPhotoUrl ? `url(${userData.coverPhotoUrl})` : 'none',
+              backgroundSize: 'cover',
+              backgroundPosition: 'center'
+            }}
+          >
+            <input
+              ref={coverPhotoInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleCoverPhotoUpload}
+              className="hidden"
+            />
+            <button
+              onClick={() => coverPhotoInputRef.current?.click()}
+              disabled={uploadingCover}
+              className="px-4 py-2 rounded-xl text-sm font-semibold"
+              style={{ backgroundColor: COLORS.background + 'CC', color: COLORS.text }}
+            >
+              {uploadingCover ? 'Uploading...' : (userData.coverPhotoUrl ? 'Change Cover' : 'Add Cover Photo')}
+            </button>
           </div>
-          <button className="text-sm px-4 py-2 rounded-full" style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.primary }}>
-            Change Avatar
+        </div>
+
+        {/* Avatar Preview */}
+        <div className="flex flex-col items-center mb-6 -mt-12">
+          <div
+            className="w-24 h-24 rounded-full flex items-center justify-center text-5xl mb-3 border-4"
+            style={{
+              backgroundColor: userData.avatarUrl ? 'transparent' : COLORS.primary + '20',
+              backgroundImage: userData.avatarUrl ? `url(${userData.avatarUrl})` : 'none',
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              borderColor: COLORS.background
+            }}
+          >
+            {!userData.avatarUrl && '💪'}
+          </div>
+          <input
+            ref={profilePicInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleProfilePicUpload}
+            className="hidden"
+          />
+          <button
+            onClick={() => profilePicInputRef.current?.click()}
+            disabled={uploadingProfilePic}
+            className="text-sm px-4 py-2 rounded-full"
+            style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.primary }}
+          >
+            {uploadingProfilePic ? 'Uploading...' : 'Change Avatar'}
           </button>
         </div>
         
@@ -2200,7 +2322,17 @@ const EditProfileModal = ({ userData, setUserData, COLORS, onClose }) => {
         <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
           <p className="text-xs mb-3" style={{ color: COLORS.textMuted }}>PREVIEW - How others see you</p>
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-12 h-12 rounded-full flex items-center justify-center text-2xl" style={{ backgroundColor: COLORS.primary + '20' }}>💪</div>
+            <div
+              className="w-12 h-12 rounded-full flex items-center justify-center text-2xl"
+              style={{
+                backgroundColor: userData.avatarUrl ? 'transparent' : COLORS.primary + '20',
+                backgroundImage: userData.avatarUrl ? `url(${userData.avatarUrl})` : 'none',
+                backgroundSize: 'cover',
+                backgroundPosition: 'center'
+              }}
+            >
+              {!userData.avatarUrl && '💪'}
+            </div>
             <div>
               <p className="font-bold" style={{ color: COLORS.text }}>@{userData.username || 'username'}</p>
               <p className="text-xs" style={{ color: COLORS.textMuted }}>{userData.firstName || 'First'} {userData.lastName || 'Last'}</p>
@@ -2226,21 +2358,391 @@ const EditProfileModal = ({ userData, setUserData, COLORS, onClose }) => {
 };
 
 // Meal Entry Modal - separate component to prevent input focus loss
-const MealEntryModal = ({ COLORS, onClose, onSave }) => {
+const MealEntryModal = ({ COLORS, onClose, onSave, userId }) => {
   const [name, setName] = React.useState('');
   const [calories, setCalories] = React.useState('');
   const [protein, setProtein] = React.useState('');
-  
+  const [carbs, setCarbs] = React.useState('');
+  const [fats, setFats] = React.useState('');
+  const [capturedImage, setCapturedImage] = React.useState(null);
+  const [analyzing, setAnalyzing] = React.useState(false);
+  const [recognitionResult, setRecognitionResult] = React.useState(null);
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const [searchResults, setSearchResults] = React.useState([]);
+  const [searching, setSearching] = React.useState(false);
+  const [servingMultiplier, setServingMultiplier] = React.useState(1);
+  const [frequentMeals, setFrequentMeals] = React.useState([]);
+  const [loadingFrequent, setLoadingFrequent] = React.useState(false);
+  const fileInputRef = React.useRef(null);
+
+  // Prevent body scroll when modal is open
+  React.useEffect(() => {
+    const scrollY = window.scrollY;
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = '100%';
+
+    return () => {
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      window.scrollTo(0, scrollY);
+    };
+  }, []);
+
+  // Load user's frequent meals on mount
+  React.useEffect(() => {
+    if (!userId) return;
+
+    const loadFrequentMeals = async () => {
+      setLoadingFrequent(true);
+      try {
+        const { data, error } = await supabase
+          .from('meal_logs')
+          .select('name, calories, protein, carbs, fats')
+          .eq('user_id', userId)
+          .order('logged_at', { ascending: false })
+          .limit(100);
+
+        if (error) throw error;
+
+        // Group by meal name and count occurrences
+        const mealCounts = {};
+        const mealData = {};
+
+        data?.forEach(meal => {
+          const mealName = meal.name?.toLowerCase().trim();
+          if (!mealName) return;
+
+          if (!mealCounts[mealName]) {
+            mealCounts[mealName] = 0;
+            mealData[mealName] = {
+              name: meal.name,
+              calories: meal.calories || 0,
+              protein: meal.protein || 0,
+              carbs: meal.carbs || 0,
+              fats: meal.fats || 0,
+            };
+          }
+          mealCounts[mealName]++;
+        });
+
+        // Sort by frequency and take top 10
+        const sortedMeals = Object.entries(mealCounts)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 10)
+          .map(([mealName, count]) => ({
+            ...mealData[mealName],
+            count,
+          }));
+
+        setFrequentMeals(sortedMeals);
+      } catch (err) {
+        console.error('Error loading frequent meals:', err);
+      } finally {
+        setLoadingFrequent(false);
+      }
+    };
+
+    loadFrequentMeals();
+  }, [userId]);
+
+  const handlePhotoCapture = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Show preview
+    const reader = new FileReader();
+    reader.onload = (e) => setCapturedImage(e.target.result);
+    reader.readAsDataURL(file);
+
+    // Analyze food
+    setAnalyzing(true);
+    setRecognitionResult(null);
+
+    try {
+      const { data, error } = await foodRecognitionService.analyzeFood(file);
+
+      if (error) {
+        alert('Could not analyze food: ' + error);
+        setAnalyzing(false);
+        return;
+      }
+
+      // Auto-fill the form with recognized data
+      setName(data.name);
+      setCalories(data.nutrition.calories.toString());
+      setProtein(data.nutrition.protein.toString());
+      setCarbs((data.nutrition.carbs || 0).toString());
+      setFats((data.nutrition.fats || 0).toString());
+      setRecognitionResult(data);
+    } catch (err) {
+      console.error('Food analysis error:', err);
+      alert('Failed to analyze food. Please enter manually.');
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) {
+      // Show all frequent meals if no query
+      setSearchResults(frequentMeals.map(meal => ({
+        ...meal,
+        isFrequent: true,
+      })));
+      return;
+    }
+
+    setSearching(true);
+
+    try {
+      // Search user's frequent meals first
+      const query = searchQuery.toLowerCase().trim();
+      const matchingFrequent = frequentMeals
+        .filter(meal => meal.name.toLowerCase().includes(query))
+        .map(meal => ({ ...meal, isFrequent: true }));
+
+      // Also search Open Food Facts database
+      const { data, error } = await foodRecognitionService.searchOpenFoodFacts(searchQuery);
+
+      if (error) {
+        // Still show frequent meals even if API fails
+        setSearchResults(matchingFrequent);
+        setSearching(false);
+        return;
+      }
+
+      // Combine results: frequent meals first, then API results
+      const combinedResults = [
+        ...matchingFrequent,
+        ...(data || []).map(item => ({ ...item, isFrequent: false })),
+      ];
+
+      setSearchResults(combinedResults);
+    } catch (err) {
+      console.error('Search error:', err);
+      // Show frequent meals as fallback
+      const query = searchQuery.toLowerCase().trim();
+      const matchingFrequent = frequentMeals
+        .filter(meal => meal.name.toLowerCase().includes(query))
+        .map(meal => ({ ...meal, isFrequent: true }));
+      setSearchResults(matchingFrequent);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  // Show suggestions as user types
+  React.useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    const query = searchQuery.toLowerCase().trim();
+    const matchingFrequent = frequentMeals
+      .filter(meal => meal.name.toLowerCase().includes(query))
+      .map(meal => ({ ...meal, isFrequent: true }));
+
+    if (matchingFrequent.length > 0) {
+      setSearchResults(matchingFrequent);
+    }
+  }, [searchQuery, frequentMeals]);
+
+  const handleSelectFood = (food) => {
+    setName(food.name + (food.brand ? ` (${food.brand})` : ''));
+    setCalories(Math.round(food.calories * servingMultiplier).toString());
+    setProtein(Math.round(food.protein * servingMultiplier).toString());
+    setCarbs(Math.round(food.carbs * servingMultiplier).toString());
+    setFats(Math.round(food.fats * servingMultiplier).toString());
+    setSearchResults([]);
+    setSearchQuery('');
+  };
+
+  const handleSave = (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    const mealData = {
+      name: name || 'Meal',
+      calories: parseInt(calories) || 0,
+      protein: parseInt(protein) || 0,
+      carbs: parseInt(carbs) || 0,
+      fats: parseInt(fats) || 0,
+    };
+    onSave(mealData);
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.8)' }}>
-      <div className="w-full max-w-sm rounded-2xl p-6" style={{ backgroundColor: COLORS.surface }}>
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center"
+      style={{ backgroundColor: 'rgba(0,0,0,0.8)' }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <div className="w-full max-w-md rounded-t-3xl p-6 max-h-[85vh] overflow-auto" style={{ backgroundColor: COLORS.surface }}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-bold" style={{ color: COLORS.text }}>Add Meal</h3>
           <button onClick={onClose} className="p-2 rounded-full" style={{ backgroundColor: COLORS.surfaceLight }}>
             <X size={20} color={COLORS.textMuted} />
           </button>
         </div>
-        
+
+        {/* Camera Capture Section */}
+        <div className="mb-4">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handlePhotoCapture}
+            className="hidden"
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={analyzing}
+            className="w-full p-4 rounded-xl flex items-center justify-center gap-2 font-semibold"
+            style={{ backgroundColor: COLORS.primary + '20', color: COLORS.primary, border: `2px dashed ${COLORS.primary}` }}
+          >
+            <Camera size={20} />
+            {analyzing ? 'Analyzing...' : 'Take Photo of Food'}
+          </button>
+        </div>
+
+        {/* Search Section */}
+        <div className="mb-4">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              onKeyPress={e => e.key === 'Enter' && handleSearch()}
+              placeholder="Search for food..."
+              className="flex-1 p-3 rounded-xl text-sm"
+              style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+            />
+            <button
+              onClick={handleSearch}
+              disabled={searching || !searchQuery.trim()}
+              className="px-4 rounded-xl font-semibold"
+              style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+            >
+              {searching ? 'Searching...' : 'Search'}
+            </button>
+          </div>
+
+          {/* Serving Size Multiplier */}
+          <div className="flex items-center gap-2 mt-2">
+            <label className="text-xs" style={{ color: COLORS.textMuted }}>Servings:</label>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setServingMultiplier(Math.max(0.25, servingMultiplier - 0.25))}
+                className="w-8 h-8 rounded-lg font-bold"
+                style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text }}
+              >
+                -
+              </button>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={servingMultiplier}
+                onChange={e => {
+                  const val = parseFloat(e.target.value);
+                  if (!isNaN(val) && val >= 0) setServingMultiplier(val);
+                }}
+                className="w-16 p-2 rounded-lg text-sm text-center font-semibold"
+                style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+              />
+              <button
+                onClick={() => setServingMultiplier(servingMultiplier + 0.25)}
+                className="w-8 h-8 rounded-lg font-bold"
+                style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text }}
+              >
+                +
+              </button>
+            </div>
+            <span className="text-xs" style={{ color: COLORS.textMuted }}>× 100g</span>
+          </div>
+        </div>
+
+        {/* Search Results */}
+        {searchResults.length > 0 && (
+          <div className="mb-4 max-h-64 overflow-auto rounded-xl" style={{ backgroundColor: COLORS.surfaceLight }}>
+            {searchResults.map((food, idx) => (
+              <button
+                key={idx}
+                onClick={() => handleSelectFood(food)}
+                className="w-full p-3 text-left border-b hover:opacity-80"
+                style={{ borderColor: COLORS.surface }}
+              >
+                <div className="flex items-start justify-between mb-1">
+                  <div className="font-semibold text-sm" style={{ color: COLORS.text }}>
+                    {food.name}
+                  </div>
+                  {food.isFrequent && (
+                    <div className="px-2 py-0.5 rounded text-xs font-semibold" style={{ backgroundColor: COLORS.primary + '30', color: COLORS.primary }}>
+                      Your Meal {food.count && `(${food.count}×)`}
+                    </div>
+                  )}
+                </div>
+                {food.brand && (
+                  <div className="text-xs mb-1" style={{ color: COLORS.textMuted }}>
+                    {food.brand}
+                  </div>
+                )}
+                <div className="text-xs flex gap-3" style={{ color: COLORS.textMuted }}>
+                  <span>{Math.round(food.calories * servingMultiplier)} cal</span>
+                  <span>P: {Math.round(food.protein * servingMultiplier)}g</span>
+                  <span>C: {Math.round(food.carbs * servingMultiplier)}g</span>
+                  <span>F: {Math.round(food.fats * servingMultiplier)}g</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Captured Image Preview */}
+        {capturedImage && (
+          <div className="mb-4 relative">
+            <img src={capturedImage} alt="Captured food" className="w-full rounded-xl" />
+            <button
+              onClick={() => {
+                setCapturedImage(null);
+                setRecognitionResult(null);
+              }}
+              className="absolute top-2 right-2 p-2 rounded-full"
+              style={{ backgroundColor: COLORS.background + 'CC' }}
+            >
+              <X size={16} color={COLORS.text} />
+            </button>
+          </div>
+        )}
+
+        {/* Recognition Result */}
+        {recognitionResult && (
+          <div className="mb-4 p-3 rounded-xl" style={{ backgroundColor: COLORS.success + '20' }}>
+            <p className="text-xs font-semibold mb-1" style={{ color: COLORS.success }}>
+              DETECTED: {recognitionResult.name} ({recognitionResult.confidence}% confident)
+            </p>
+            <p className="text-xs" style={{ color: COLORS.textMuted }}>
+              Source: {recognitionResult.source === 'logmeal' ? 'Logmeal AI' : 'Open Food Facts'}
+            </p>
+          </div>
+        )}
+
+        {/* Divider */}
+        <div className="flex items-center gap-2 mb-4">
+          <div className="flex-1 h-px" style={{ backgroundColor: COLORS.surfaceLight }}></div>
+          <span className="text-xs font-semibold" style={{ color: COLORS.textMuted }}>OR ENTER MANUALLY</span>
+          <div className="flex-1 h-px" style={{ backgroundColor: COLORS.surfaceLight }}></div>
+        </div>
+
         <div className="space-y-4 mb-6">
           <div>
             <label className="text-sm mb-1 block" style={{ color: COLORS.textMuted }}>Meal Name</label>
@@ -2279,18 +2781,44 @@ const MealEntryModal = ({ COLORS, onClose, onSave }) => {
               />
             </div>
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-sm mb-1 block" style={{ color: COLORS.textMuted }}>Carbs (g)</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={carbs}
+                onChange={e => setCarbs(e.target.value.replace(/\D/g, ''))}
+                placeholder="0"
+                className="w-full p-3 rounded-xl text-sm text-center"
+                style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+              />
+            </div>
+            <div>
+              <label className="text-sm mb-1 block" style={{ color: COLORS.textMuted }}>Fats (g)</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={fats}
+                onChange={e => setFats(e.target.value.replace(/\D/g, ''))}
+                placeholder="0"
+                className="w-full p-3 rounded-xl text-sm text-center"
+                style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+              />
+            </div>
+          </div>
         </div>
 
         <div className="flex gap-3">
-          <button 
+          <button
             onClick={onClose}
             className="flex-1 py-3 rounded-xl font-semibold"
             style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.textMuted }}
           >
             Cancel
           </button>
-          <button 
-            onClick={() => onSave(parseInt(calories) || 0, parseInt(protein) || 0)}
+          <button
+            onClick={handleSave}
             className="flex-1 py-3 rounded-xl font-semibold"
             style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
           >
@@ -2305,26 +2833,71 @@ const MealEntryModal = ({ COLORS, onClose, onSave }) => {
 // Water Entry Modal - separate component to prevent input focus loss
 const WaterEntryModal = ({ COLORS, onClose, onSave }) => {
   const [amount, setAmount] = React.useState('');
-  
+  const [saving, setSaving] = React.useState(false);
+
+  // Prevent body scroll when modal is open
+  React.useEffect(() => {
+    const scrollY = window.scrollY;
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = '100%';
+
+    return () => {
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      window.scrollTo(0, scrollY);
+    };
+  }, []);
+
+  const handleSave = async (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    const waterAmount = parseInt(amount) || 0;
+    if (waterAmount <= 0) return;
+
+    setSaving(true);
+    try {
+      await onSave(waterAmount);
+    } catch (err) {
+      console.error('Error saving water:', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.8)' }}>
-      <div className="w-full max-w-sm rounded-2xl p-6" style={{ backgroundColor: COLORS.surface }}>
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center"
+      style={{ backgroundColor: 'rgba(0,0,0,0.8)' }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !saving) {
+          onClose();
+        }
+      }}
+    >
+      <div className="w-full max-w-md rounded-t-3xl p-6" style={{ backgroundColor: COLORS.surface }}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-bold" style={{ color: COLORS.text }}>Add Water</h3>
-          <button onClick={onClose} className="p-2 rounded-full" style={{ backgroundColor: COLORS.surfaceLight }}>
+          <button onClick={onClose} disabled={saving} className="p-2 rounded-full" style={{ backgroundColor: COLORS.surfaceLight }}>
             <X size={20} color={COLORS.textMuted} />
           </button>
         </div>
-        
+
         <div className="grid grid-cols-3 gap-2 mb-4">
           {[250, 500, 750, 1000, 1500, 2000].map(amt => (
             <button
               key={amt}
               onClick={() => setAmount(amt.toString())}
+              disabled={saving}
               className="py-3 rounded-xl text-sm font-semibold"
-              style={{ 
-                backgroundColor: amount === amt.toString() ? COLORS.water : COLORS.surfaceLight, 
-                color: amount === amt.toString() ? COLORS.text : COLORS.water 
+              style={{
+                backgroundColor: amount === amt.toString() ? COLORS.water : COLORS.surfaceLight,
+                color: amount === amt.toString() ? COLORS.text : COLORS.water,
+                opacity: saving ? 0.5 : 1
               }}
             >
               {amt >= 1000 ? `${amt/1000}L` : `${amt}ml`}
@@ -2339,26 +2912,36 @@ const WaterEntryModal = ({ COLORS, onClose, onSave }) => {
             inputMode="numeric"
             value={amount}
             onChange={e => setAmount(e.target.value.replace(/\D/g, ''))}
+            disabled={saving}
             placeholder="Enter ml"
             className="w-full p-3 rounded-xl text-center text-xl font-bold"
-            style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+            style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none', opacity: saving ? 0.5 : 1 }}
           />
         </div>
 
         <div className="flex gap-3">
-          <button 
+          <button
             onClick={onClose}
+            disabled={saving}
             className="flex-1 py-3 rounded-xl font-semibold"
-            style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.textMuted }}
+            style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.textMuted, opacity: saving ? 0.5 : 1 }}
           >
             Cancel
           </button>
-          <button 
-            onClick={() => onSave(parseInt(amount) || 0)}
-            className="flex-1 py-3 rounded-xl font-semibold"
-            style={{ backgroundColor: COLORS.water, color: COLORS.text }}
+          <button
+            onClick={handleSave}
+            disabled={saving || !amount}
+            className="flex-1 py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
+            style={{ backgroundColor: COLORS.water, color: COLORS.text, opacity: (saving || !amount) ? 0.5 : 1 }}
           >
-            Add Water
+            {saving ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                Adding...
+              </>
+            ) : (
+              'Add Water'
+            )}
           </button>
         </div>
       </div>
@@ -7800,6 +8383,13 @@ export default function UpRepDemo() {
   const [currentScreen, setCurrentScreen] = useState('welcome');
   const [activeTab, setActiveTab] = useState('home');
 
+  // Selected date for sleep logging (defaults to yesterday)
+  const [selectedSleepDate, setSelectedSleepDate] = useState(() => {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    return yesterday.toISOString().split('T')[0];
+  });
+
   // Update screen when auth state changes
   useEffect(() => {
     if (!authLoading) {
@@ -7828,6 +8418,8 @@ export default function UpRepDemo() {
         firstName: profile.first_name || prev.firstName,
         lastName: profile.last_name || prev.lastName,
         email: user?.email || prev.email,
+        avatarUrl: profile.avatar_url || prev.avatarUrl,
+        coverPhotoUrl: profile.cover_photo_url || prev.coverPhotoUrl,
         // From user_goals
         goal: profile.user_goals?.goal || prev.goal,
         experience: profile.user_goals?.experience || prev.experience,
@@ -8204,8 +8796,8 @@ export default function UpRepDemo() {
             sleepResult.data.forEach(entry => {
               if (entry?.log_date) {
                 sleepByDay[entry.log_date] = {
-                  hours: entry.hours || 0,
-                  goalMet: (entry.hours || 0) >= 7,
+                  hours: entry.hours_slept || 0,
+                  goalMet: (entry.hours_slept || 0) >= 7,
                 };
               }
             });
@@ -8718,7 +9310,7 @@ export default function UpRepDemo() {
     return () => { isMounted = false; };
   }, [user?.id, isAuthenticated]);
 
-  // Load yesterday's sleep entry and most recent sleep for defaults
+  // Load sleep entry for selected date
   useEffect(() => {
     let isMounted = true;
 
@@ -8732,25 +9324,33 @@ export default function UpRepDemo() {
         // Find the most recent entry with bed_time and wake_time
         const recentWithTimes = (recentSleep || []).find(entry => entry.bed_time && entry.wake_time);
 
-        if (isMounted && recentWithTimes) {
-          // Use most recent sleep times as defaults for both target and last night
-          setBedTime(recentWithTimes.bed_time);
-          setWakeTime(recentWithTimes.wake_time);
-          setLastNightBedTime(recentWithTimes.bed_time);
-          setLastNightWakeTime(recentWithTimes.wake_time);
-        }
+        // Check if selected date's entry exists (already logged)
+        const { data: sleepEntry } = await sleepService.getSleepLog(user.id, selectedSleepDate);
 
-        // Check if yesterday's entry exists (already logged)
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = yesterday.toISOString().split('T')[0];
+        if (isMounted) {
+          // Always show the entry form when changing dates
+          setLastNightConfirmed(false);
 
-        const { data: sleepEntry } = await sleepService.getSleepLog(user.id, yesterdayStr);
+          if (sleepEntry) {
+            // Load existing entry for selected date (user can edit it)
+            setLastNightBedTime(sleepEntry.bed_time || '23:00');
+            setLastNightWakeTime(sleepEntry.wake_time || '06:30');
+          } else {
+            // No entry for this date - reset to defaults
+            if (recentWithTimes) {
+              setLastNightBedTime(recentWithTimes.bed_time);
+              setLastNightWakeTime(recentWithTimes.wake_time);
+            } else {
+              setLastNightBedTime('23:00');
+              setLastNightWakeTime('06:30');
+            }
+          }
 
-        if (isMounted && sleepEntry) {
-          setLastNightConfirmed(true);
-          if (sleepEntry.bed_time) setLastNightBedTime(sleepEntry.bed_time);
-          if (sleepEntry.wake_time) setLastNightWakeTime(sleepEntry.wake_time);
+          // Update target sleep times defaults
+          if (recentWithTimes) {
+            setBedTime(recentWithTimes.bed_time);
+            setWakeTime(recentWithTimes.wake_time);
+          }
         }
       } catch (err) {
         console.warn('Error loading sleep data:', err?.message || err);
@@ -8760,7 +9360,7 @@ export default function UpRepDemo() {
     loadSleepData();
 
     return () => { isMounted = false; };
-  }, [user?.id, isAuthenticated]);
+  }, [user?.id, isAuthenticated, selectedSleepDate]);
 
   // Function to refresh sleep chart data (called after saving sleep)
   const refreshSleepChartData = async () => {
@@ -9677,6 +10277,12 @@ export default function UpRepDemo() {
   const [showWaterEntry, setShowWaterEntry] = useState(false);
   const [showWeightLogModal, setShowWeightLogModal] = useState(false);
   const [weightLogValue, setWeightLogValue] = useState('');
+  const [showMacroDetail, setShowMacroDetail] = useState(null); // 'protein', 'carbs', or 'fats'
+
+  // Debug showMacroDetail changes
+  useEffect(() => {
+    console.log('showMacroDetail changed to:', showMacroDetail);
+  }, [showMacroDetail]);
 
   // History modals for viewing/editing entries
   const [showMealHistory, setShowMealHistory] = useState(false);
@@ -12882,48 +13488,6 @@ export default function UpRepDemo() {
         </div>
       </div>
 
-      {/* Quick Water Buttons */}
-      <div className="px-4 mt-3">
-        <div className="flex items-center gap-2 p-3 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <Droplets size={16} color={COLORS.water} />
-            <span className="text-xs font-semibold" style={{ color: COLORS.textMuted }}>Water:</span>
-          </div>
-          <div className="flex gap-2 flex-1">
-            {[
-              { label: '1 Cup', amount: 250 },
-              { label: '500ml', amount: 500 },
-              { label: '1L', amount: 1000 },
-            ].map(opt => (
-              <button
-                key={opt.amount}
-                onClick={async (e) => {
-                  e.preventDefault();
-                  setWaterIntake(prev => Math.min(prev + opt.amount, 10000));
-                  if (user?.id) {
-                    const { data } = await nutritionService.logWater(user.id, opt.amount);
-                    if (data) {
-                      setWaterLogs(prev => [...prev, data]);
-                    }
-                  }
-                }}
-                className="flex-1 py-1.5 px-2 rounded-lg text-center"
-                style={{ backgroundColor: COLORS.water + '15', border: `1px solid ${COLORS.water}30` }}
-              >
-                <p className="text-xs font-bold" style={{ color: COLORS.water }}>{opt.label}</p>
-              </button>
-            ))}
-            <button
-              onClick={() => setShowWaterEntry(true)}
-              className="py-1.5 px-2 rounded-lg"
-              style={{ backgroundColor: COLORS.surfaceLight }}
-            >
-              <p className="text-xs font-semibold" style={{ color: COLORS.textMuted }}>+</p>
-            </button>
-          </div>
-        </div>
-      </div>
-
       {/* Streak Section - THIRD */}
       <div className="mx-4 mt-4">
         <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>STREAKS</p>
@@ -13706,10 +14270,13 @@ export default function UpRepDemo() {
       {showMealEntry && (
         <MealEntryModal
           COLORS={COLORS}
+          userId={user?.id}
           onClose={() => setShowMealEntry(false)}
-          onSave={(calories, protein) => {
-            setCaloriesIntake(prev => prev + calories);
-            setProteinIntake(prev => prev + protein);
+          onSave={(mealData) => {
+            setCaloriesIntake(prev => prev + (mealData.calories || 0));
+            setProteinIntake(prev => prev + (mealData.protein || 0));
+            setCarbsIntake(prev => prev + (mealData.carbs || 0));
+            setFatsIntake(prev => prev + (mealData.fats || 0));
             setShowMealEntry(false);
           }}
         />
@@ -15093,40 +15660,105 @@ export default function UpRepDemo() {
                 {/* Today's Macros */}
                 <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>TODAY'S NUTRITION</p>
                 <div className="mb-6">
-                  {/* Quick Add Buttons */}
-                  <div className="mb-4">
-                    <button
-                      onClick={() => setShowAddMealFull(true)}
-                      className="w-full p-3 rounded-xl flex items-center gap-3 mb-3"
-                      style={{ backgroundColor: COLORS.surface }}
-                    >
-                      <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.accent + '20' }}>
-                        <Utensils size={18} color={COLORS.accent} />
-                      </div>
-                      <div className="text-left flex-1">
-                        <p className="font-semibold text-sm" style={{ color: COLORS.text }}>Add Meal</p>
-                      </div>
-                      <ChevronRight size={18} color={COLORS.textMuted} />
-                    </button>
-
-                    {/* Quick Water Buttons */}
+                  {/* Quick Add Section - Side by Side */}
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    {/* Left: Add Meal */}
                     <div className="p-3 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
                       <div className="flex items-center gap-2 mb-3">
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.water + '20' }}>
-                          <Droplets size={16} color={COLORS.water} />
+                        <div className="w-7 h-7 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.accent + '20' }}>
+                          <Utensils size={14} color={COLORS.accent} />
                         </div>
-                        <p className="font-semibold text-sm" style={{ color: COLORS.text }}>Quick Add Water</p>
+                        <p className="font-semibold text-xs" style={{ color: COLORS.text }}>Add Meal</p>
                       </div>
-                      <div className="flex gap-2">
+                      <button
+                        onClick={() => setShowAddMealFull(true)}
+                        className="w-full py-2 rounded-lg flex items-center justify-center gap-1 mb-3"
+                        style={{ backgroundColor: COLORS.accent + '20', border: `1px solid ${COLORS.accent}40` }}
+                      >
+                        <span className="text-xs font-semibold" style={{ color: COLORS.accent }}>Log Meal</span>
+                      </button>
+                      {/* Macro Rings */}
+                      <div className="flex justify-between gap-1">
                         {[
-                          { label: '1 Cup', amount: 250 },
+                          { name: 'Protein', key: 'P', id: 'protein', current: proteinIntake, target: adjustedNutritionGoals.protein, unit: 'g', color: COLORS.primary },
+                          { name: 'Carbs', key: 'C', id: 'carbs', current: carbsIntake, target: nutritionGoals.carbs, unit: 'g', color: COLORS.warning },
+                          { name: 'Fats', key: 'F', id: 'fats', current: fatsIntake, target: nutritionGoals.fats, unit: 'g', color: COLORS.sleep },
+                        ].map(macro => {
+                          const percentage = Math.min(100, (macro.current / macro.target) * 100);
+                          const circumference = 2 * Math.PI * 16;
+                          const strokeDasharray = `${(percentage / 100) * circumference} ${circumference}`;
+
+                          return (
+                            <button
+                              type="button"
+                              key={macro.name}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                console.log('=== MACRO CLICK START ===');
+                                console.log('Macro clicked:', macro.id);
+                                console.log('Current showMacroDetail before:', showMacroDetail);
+
+                                // Use functional update to ensure we get latest state
+                                setShowMacroDetail(prev => {
+                                  console.log('Previous showMacroDetail:', prev);
+                                  console.log('Setting to:', macro.id);
+                                  return macro.id;
+                                });
+
+                                console.log('=== MACRO CLICK END ===');
+                              }}
+                              className="flex-1 flex flex-col items-center"
+                              style={{ cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                            >
+                              <p className="text-xs font-semibold mb-1" style={{ color: COLORS.text }}>{macro.name}</p>
+                              <div className="relative w-12 h-12">
+                                <svg className="w-full h-full transform -rotate-90">
+                                  <circle cx="24" cy="24" r="16" stroke={COLORS.surfaceLight} strokeWidth="3" fill="none" />
+                                  <circle
+                                    cx="24" cy="24" r="16"
+                                    stroke={macro.color}
+                                    strokeWidth="3"
+                                    fill="none"
+                                    strokeDasharray={strokeDasharray}
+                                    strokeLinecap="round"
+                                  />
+                                </svg>
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                  <span className="text-xs font-bold" style={{ color: COLORS.text }}>{Math.round(percentage)}%</span>
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Right: Quick Add Water */}
+                    <div className="p-3 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="w-7 h-7 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.water + '20' }}>
+                          <Droplets size={14} color={COLORS.water} />
+                        </div>
+                        <p className="font-semibold text-xs" style={{ color: COLORS.text }}>Quick Water</p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {[
+                          { label: '100ml', amount: 100 },
+                          { label: '200ml', amount: 200 },
+                          { label: '250ml', amount: 250 },
                           { label: '500ml', amount: 500 },
                           { label: '1L', amount: 1000 },
-                        ].map(opt => (
+                          { label: '+', amount: null },
+                        ].map((opt, idx) => (
                           <button
-                            key={opt.amount}
+                            key={idx}
                             onClick={async (e) => {
                               e.preventDefault();
+                              if (opt.amount === null) {
+                                setShowWaterEntry(true);
+                                return;
+                              }
                               const targetDate = nutritionSelectedDate !== TODAY_DATE_KEY ? nutritionSelectedDate : null;
                               if (targetDate) {
                                 // Backdate water entry
@@ -15151,21 +15783,17 @@ export default function UpRepDemo() {
                                 }
                               }
                             }}
-                            className="flex-1 py-2 px-3 rounded-lg text-center"
-                            style={{ backgroundColor: COLORS.water + '15', border: `1px solid ${COLORS.water}30` }}
+                            className="py-1.5 rounded-lg text-center"
+                            style={{
+                              backgroundColor: opt.amount === null ? COLORS.surfaceLight : COLORS.water + '15',
+                              border: opt.amount === null ? 'none' : `1px solid ${COLORS.water}30`
+                            }}
                           >
-                            <p className="text-sm font-bold" style={{ color: COLORS.water }}>{opt.label}</p>
-                            <p className="text-xs" style={{ color: COLORS.textMuted }}>{opt.amount}ml</p>
+                            <p className="text-xs font-bold" style={{ color: opt.amount === null ? COLORS.textMuted : COLORS.water }}>
+                              {opt.label}
+                            </p>
                           </button>
                         ))}
-                        <button
-                          onClick={() => setShowWaterEntry(true)}
-                          className="py-2 px-3 rounded-lg"
-                          style={{ backgroundColor: COLORS.surfaceLight }}
-                        >
-                          <p className="text-sm font-semibold" style={{ color: COLORS.textMuted }}>+</p>
-                          <p className="text-xs" style={{ color: COLORS.textMuted }}>Custom</p>
-                        </button>
                       </div>
                     </div>
                   </div>
@@ -15331,11 +15959,33 @@ export default function UpRepDemo() {
                                 </p>
                               </div>
                               <button
-                                onClick={async () => {
-                                  if (!user?.id || !log.id) return;
-                                  const { error } = await supabase.from('water_logs').delete().eq('id', log.id);
-                                  if (!error) {
+                                onClick={async (e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  if (!user?.id || !log.id) {
+                                    return;
+                                  }
+
+                                  // Save scroll position
+                                  const scrollY = window.scrollY;
+
+                                  try {
+                                    const { error } = await supabase
+                                      .from('water_logs')
+                                      .delete()
+                                      .eq('id', log.id)
+                                      .eq('user_id', user.id);
+
+                                    if (error) {
+                                      console.error('Delete error:', error);
+                                      alert(`Delete failed: ${error.message}`);
+                                      return;
+                                    }
+
+                                    // Update local state
                                     setWaterLogs(prev => prev.filter(l => l.id !== log.id));
+
+                                    // Update water intake
                                     if (nutritionSelectedDate === TODAY_DATE_KEY) {
                                       setWaterIntake(prev => Math.max(0, prev - log.amount_ml));
                                     } else {
@@ -15344,8 +15994,13 @@ export default function UpRepDemo() {
                                         water: Math.max(0, (prev.water || 0) - log.amount_ml),
                                       } : null);
                                     }
-                                    const targetDate = nutritionSelectedDate !== TODAY_DATE_KEY ? nutritionSelectedDate : TODAY_DATE_KEY;
-                                    await nutritionService.recalculateWaterTotal(user.id, targetDate);
+
+                                    // Restore scroll position after state update
+                                    requestAnimationFrame(() => {
+                                      window.scrollTo(0, scrollY);
+                                    });
+                                  } catch (err) {
+                                    console.error('Error deleting water:', err);
                                   }
                                 }}
                                 className="p-1 ml-2"
@@ -15359,36 +16014,6 @@ export default function UpRepDemo() {
                         })()}
                       </div>
                     </div>
-                  </div>
-                </div>
-
-                {/* Macro Breakdown */}
-                <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>MACROS</p>
-                <div className="p-4 rounded-xl mb-6" style={{ backgroundColor: COLORS.surface }}>
-                  <div className="space-y-3">
-                    {[
-                      { name: 'Protein', current: proteinIntake, target: adjustedNutritionGoals.protein, adjustment: adjustedNutritionGoals.adjustments?.protein || 0, unit: 'g', color: COLORS.primary },
-                      { name: 'Carbs', current: carbsIntake, target: nutritionGoals.carbs, adjustment: 0, unit: 'g', color: COLORS.warning },
-                      { name: 'Fats', current: fatsIntake, target: nutritionGoals.fats, adjustment: 0, unit: 'g', color: COLORS.sleep },
-                    ].map(macro => (
-                      <div key={macro.name}>
-                        <div className="flex justify-between mb-1">
-                          <span className="text-sm" style={{ color: COLORS.textSecondary }}>{macro.name}</span>
-                          <span className="text-sm font-semibold" style={{ color: COLORS.text }}>
-                            {macro.current}{macro.unit} / {macro.target}{macro.unit}
-                          </span>
-                        </div>
-                        <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: COLORS.surfaceLight }}>
-                          <div 
-                            className="h-full rounded-full transition-all"
-                            style={{ 
-                              backgroundColor: macro.color, 
-                              width: `${Math.min(100, (macro.current / macro.target) * 100)}%` 
-                            }}
-                          />
-                        </div>
-                      </div>
-                    ))}
                   </div>
                 </div>
 
@@ -15966,19 +16591,6 @@ export default function UpRepDemo() {
                   </div>
                 </div>
 
-                {/* Quick Tips */}
-                <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surfaceLight }}>
-                  <div className="flex items-start gap-3">
-                    <Info size={18} color={COLORS.accent} className="flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-semibold mb-1" style={{ color: COLORS.text }}>Supplement Tip</p>
-                      <p className="text-xs" style={{ color: COLORS.textSecondary }}>
-                        Take creatine daily at the same time for best results. Vitamin D is best absorbed with a meal containing fats.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
                 {/* Monthly Supplements Calendar */}
                 <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>SUPPLEMENT STREAK</p>
                 <div className="p-3 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
@@ -16042,86 +16654,214 @@ export default function UpRepDemo() {
             {/* SLEEP TAB */}
             {nutritionTab === 'sleep' && (
               <>
-                {/* Last Night's Sleep */}
-                <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>LAST NIGHT</p>
-                <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
-                  <div className="flex items-center justify-end mb-3">
-                    <div className="flex items-center gap-1">
-                      <Moon size={16} color={COLORS.sleep} />
-                      <span className="font-bold" style={{ color: COLORS.sleep }}>
-                        {(() => {
-                          const [bedH, bedM] = lastNightBedTime.split(':').map(Number);
-                          const [wakeH, wakeM] = lastNightWakeTime.split(':').map(Number);
-                          let hours = wakeH - bedH + (wakeM - bedM) / 60;
-                          if (hours < 0) hours += 24;
-                          return hours.toFixed(1);
-                        })()} hrs
-                      </span>
-                    </div>
+                {/* Sleep Entry with Date Navigation */}
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-semibold" style={{ color: COLORS.textMuted }}>
+                    {new Date(selectedSleepDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase()}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        const newDate = new Date(selectedSleepDate);
+                        newDate.setDate(newDate.getDate() - 1);
+                        setSelectedSleepDate(newDate.toISOString().split('T')[0]);
+                      }}
+                      className="p-1.5 rounded-lg"
+                      style={{ backgroundColor: COLORS.surfaceLight }}
+                    >
+                      <ChevronLeft size={16} color={COLORS.text} />
+                    </button>
+                    <button
+                      onClick={() => {
+                        const newDate = new Date(selectedSleepDate);
+                        const yesterday = new Date();
+                        yesterday.setDate(yesterday.getDate() - 1);
+                        // Don't allow going forward past yesterday
+                        if (newDate < yesterday) {
+                          newDate.setDate(newDate.getDate() + 1);
+                          setSelectedSleepDate(newDate.toISOString().split('T')[0]);
+                        }
+                      }}
+                      className="p-1.5 rounded-lg"
+                      style={{ backgroundColor: COLORS.surfaceLight }}
+                      disabled={selectedSleepDate >= new Date(new Date().setDate(new Date().getDate() - 1)).toISOString().split('T')[0]}
+                    >
+                      <ChevronRight size={16} color={COLORS.text} />
+                    </button>
                   </div>
-
+                </div>
+                <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
                   {!lastNightConfirmed ? (
-                    <div className="space-y-4">
-                      <div>
-                        <p className="text-xs mb-2" style={{ color: COLORS.textMuted }}>Bed Time</p>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="number"
-                            min="0"
-                            max="23"
-                            value={parseInt(lastNightBedTime.split(':')[0])}
-                            onChange={(e) => {
-                              const h = Math.max(0, Math.min(23, parseInt(e.target.value) || 0)).toString().padStart(2, '0');
-                              setLastNightBedTime(prev => `${h}:${prev.split(':')[1]}`);
-                            }}
-                            className="w-16 p-3 rounded-xl text-center text-lg font-bold"
-                            style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
-                          />
-                          <span style={{ color: COLORS.textMuted, fontSize: 20 }}>:</span>
-                          <input
-                            type="number"
-                            min="0"
-                            max="59"
-                            step="5"
-                            value={parseInt(lastNightBedTime.split(':')[1])}
-                            onChange={(e) => {
-                              const m = Math.max(0, Math.min(59, parseInt(e.target.value) || 0)).toString().padStart(2, '0');
-                              setLastNightBedTime(prev => `${prev.split(':')[0]}:${m}`);
-                            }}
-                            className="w-16 p-3 rounded-xl text-center text-lg font-bold"
-                            style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
-                          />
+                    <>
+                      <div className="flex items-center justify-end mb-3">
+                        <div className="flex items-center gap-1">
+                          <Moon size={16} color={COLORS.sleep} />
+                          <span className="font-bold" style={{ color: COLORS.sleep }}>
+                            {(() => {
+                              const [bedH, bedM] = lastNightBedTime.split(':').map(Number);
+                              const [wakeH, wakeM] = lastNightWakeTime.split(':').map(Number);
+                              let hours = wakeH - bedH + (wakeM - bedM) / 60;
+                              if (hours < 0) hours += 24;
+                              return hours.toFixed(1);
+                            })()} hrs
+                          </span>
                         </div>
                       </div>
-                      <div>
-                        <p className="text-xs mb-2" style={{ color: COLORS.textMuted }}>Wake Time</p>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="number"
-                            min="0"
-                            max="23"
-                            value={parseInt(lastNightWakeTime.split(':')[0])}
-                            onChange={(e) => {
-                              const h = Math.max(0, Math.min(23, parseInt(e.target.value) || 0)).toString().padStart(2, '0');
-                              setLastNightWakeTime(prev => `${h}:${prev.split(':')[1]}`);
-                            }}
-                            className="w-16 p-3 rounded-xl text-center text-lg font-bold"
-                            style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
-                          />
-                          <span style={{ color: COLORS.textMuted, fontSize: 20 }}>:</span>
-                          <input
-                            type="number"
-                            min="0"
-                            max="59"
-                            step="5"
-                            value={parseInt(lastNightWakeTime.split(':')[1])}
-                            onChange={(e) => {
-                              const m = Math.max(0, Math.min(59, parseInt(e.target.value) || 0)).toString().padStart(2, '0');
-                              setLastNightWakeTime(prev => `${prev.split(':')[0]}:${m}`);
-                            }}
-                            className="w-16 p-3 rounded-xl text-center text-lg font-bold"
-                            style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
-                          />
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1">
+                          <p className="text-xs mb-2" style={{ color: COLORS.textMuted }}>Bed Time</p>
+                          <div className="flex items-center gap-2">
+                            <input
+                              ref={sleepEditRefs.lastBedH}
+                              type="text"
+                              inputMode="numeric"
+                              defaultValue={lastNightBedTime.split(':')[0]}
+                              onBlur={(e) => {
+                                let val = parseInt(e.target.value) || 0;
+                                const h = Math.max(0, Math.min(23, val)).toString().padStart(2, '0');
+                                e.target.value = h;
+                                setLastNightBedTime(prev => `${h}:${prev.split(':')[1]}`);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') e.target.blur();
+                              }}
+                              className="w-12 p-2 rounded-lg text-center font-bold"
+                              style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+                            />
+                            <span style={{ color: COLORS.textMuted, fontSize: 18 }}>:</span>
+                            <input
+                              ref={sleepEditRefs.lastBedM}
+                              type="text"
+                              inputMode="numeric"
+                              defaultValue={lastNightBedTime.split(':')[1]}
+                              onBlur={(e) => {
+                                let val = parseInt(e.target.value) || 0;
+                                const newMinutes = Math.max(0, Math.min(59, val));
+                                const m = newMinutes.toString().padStart(2, '0');
+                                e.target.value = m;
+
+                                setLastNightBedTime(prev => {
+                                  const [currentH, currentM] = prev.split(':').map(Number);
+                                  let newH = currentH;
+
+                                  // If going from 55 to 0, increment hour
+                                  if (currentM === 55 && newMinutes === 0) {
+                                    newH = (currentH + 1) % 24;
+                                  }
+                                  // If going from 0 to 55, decrement hour
+                                  else if (currentM === 0 && newMinutes === 55) {
+                                    newH = (currentH - 1 + 24) % 24;
+                                  }
+
+                                  return `${newH.toString().padStart(2, '0')}:${m}`;
+                                });
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') e.target.blur();
+                                // Handle arrow keys for wrapping
+                                if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                                  const currentVal = parseInt(e.target.value) || 0;
+                                  if (e.key === 'ArrowUp' && currentVal >= 55) {
+                                    e.preventDefault();
+                                    e.target.value = '00';
+                                    e.target.blur();
+                                  } else if (e.key === 'ArrowDown' && currentVal <= 0) {
+                                    e.preventDefault();
+                                    e.target.value = '55';
+                                    e.target.blur();
+                                  } else if (e.key === 'ArrowUp') {
+                                    e.preventDefault();
+                                    e.target.value = Math.min(55, currentVal + 5).toString().padStart(2, '0');
+                                    e.target.blur();
+                                  } else if (e.key === 'ArrowDown') {
+                                    e.preventDefault();
+                                    e.target.value = Math.max(0, currentVal - 5).toString().padStart(2, '0');
+                                    e.target.blur();
+                                  }
+                                }
+                              }}
+                              className="w-12 p-2 rounded-lg text-center font-bold"
+                              style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+                            />
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-xs mb-2" style={{ color: COLORS.textMuted }}>Wake Time</p>
+                          <div className="flex items-center gap-2">
+                            <input
+                              ref={sleepEditRefs.lastWakeH}
+                              type="text"
+                              inputMode="numeric"
+                              defaultValue={lastNightWakeTime.split(':')[0]}
+                              onBlur={(e) => {
+                                let val = parseInt(e.target.value) || 0;
+                                const h = Math.max(0, Math.min(23, val)).toString().padStart(2, '0');
+                                e.target.value = h;
+                                setLastNightWakeTime(prev => `${h}:${prev.split(':')[1]}`);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') e.target.blur();
+                              }}
+                              className="w-12 p-2 rounded-lg text-center font-bold"
+                              style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+                            />
+                            <span style={{ color: COLORS.textMuted, fontSize: 18 }}>:</span>
+                            <input
+                              ref={sleepEditRefs.lastWakeM}
+                              type="text"
+                              inputMode="numeric"
+                              defaultValue={lastNightWakeTime.split(':')[1]}
+                              onBlur={(e) => {
+                                let val = parseInt(e.target.value) || 0;
+                                const newMinutes = Math.max(0, Math.min(59, val));
+                                const m = newMinutes.toString().padStart(2, '0');
+                                e.target.value = m;
+
+                                setLastNightWakeTime(prev => {
+                                  const [currentH, currentM] = prev.split(':').map(Number);
+                                  let newH = currentH;
+
+                                  // If going from 55 to 0, increment hour
+                                  if (currentM === 55 && newMinutes === 0) {
+                                    newH = (currentH + 1) % 24;
+                                  }
+                                  // If going from 0 to 55, decrement hour
+                                  else if (currentM === 0 && newMinutes === 55) {
+                                    newH = (currentH - 1 + 24) % 24;
+                                  }
+
+                                  return `${newH.toString().padStart(2, '0')}:${m}`;
+                                });
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') e.target.blur();
+                                // Handle arrow keys for wrapping
+                                if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                                  const currentVal = parseInt(e.target.value) || 0;
+                                  if (e.key === 'ArrowUp' && currentVal >= 55) {
+                                    e.preventDefault();
+                                    e.target.value = '00';
+                                    e.target.blur();
+                                  } else if (e.key === 'ArrowDown' && currentVal <= 0) {
+                                    e.preventDefault();
+                                    e.target.value = '55';
+                                    e.target.blur();
+                                  } else if (e.key === 'ArrowUp') {
+                                    e.preventDefault();
+                                    e.target.value = Math.min(55, currentVal + 5).toString().padStart(2, '0');
+                                    e.target.blur();
+                                  } else if (e.key === 'ArrowDown') {
+                                    e.preventDefault();
+                                    e.target.value = Math.max(0, currentVal - 5).toString().padStart(2, '0');
+                                    e.target.blur();
+                                  }
+                                }
+                              }}
+                              className="w-12 p-2 rounded-lg text-center font-bold"
+                              style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+                            />
+                          </div>
                         </div>
                       </div>
                       <button
@@ -16130,10 +16870,37 @@ export default function UpRepDemo() {
                           const [wakeH, wakeM] = lastNightWakeTime.split(':').map(Number);
                           let hours = wakeH - bedH + (wakeM - bedM) / 60;
                           if (hours < 0) hours += 24;
-                          const yesterday = new Date();
-                          yesterday.setDate(yesterday.getDate() - 1);
-                          const yesterdayStr = yesterday.toISOString().split('T')[0];
-                          await sleepService.logSleep(user.id, yesterdayStr, hours, 3, lastNightBedTime, lastNightWakeTime);
+                          await sleepService.logSleep(user.id, {
+                            date: selectedSleepDate,
+                            hoursSlept: hours,
+                            qualityRating: 3,
+                            bedTime: lastNightBedTime,
+                            wakeTime: lastNightWakeTime,
+                          });
+                          // Update local tracking state for calendar
+                          setMonthlyTracking(prev => ({
+                            ...prev,
+                            sleep: {
+                              ...prev.sleep,
+                              [selectedSleepDate]: { hours, goalMet: hours >= sleepHours }
+                            }
+                          }));
+                          // Refresh streaks to update sleep streak
+                          try {
+                            const result = await streakService.refreshAllStreaks(user.id);
+                            if (result) {
+                              setStreaks({
+                                weeklyWorkouts: { weeksCompleted: result.workout?.streak || 0 },
+                                calories: { daysInRow: result.nutrition?.streak || 0 },
+                                protein: { daysInRow: result.nutrition?.streak || 0 },
+                                water: { daysInRow: result.water?.streak || 0 },
+                                sleep: { daysInRow: result.sleep?.streak || 0 },
+                                supplements: { daysInRow: 0 },
+                              });
+                            }
+                          } catch (err) {
+                            console.warn('Error refreshing streaks:', err?.message || err);
+                          }
                           setLastNightConfirmed(true);
                         }}
                         className="w-full py-3 rounded-xl font-semibold"
@@ -16142,74 +16909,55 @@ export default function UpRepDemo() {
                         Log Sleep
                       </button>
                     </div>
+                    </>
                   ) : (
-                    <div className="relative text-center py-4">
+                    <div className="relative flex items-center justify-between py-3">
                       <button
                         onClick={() => setLastNightConfirmed(false)}
-                        className="absolute top-2 right-2 p-1.5 rounded-full"
+                        className="absolute top-1 right-1 p-1.5 rounded-full"
                         style={{ backgroundColor: COLORS.surfaceLight }}
                       >
                         <Settings size={14} color={COLORS.textMuted} />
                       </button>
-                      <Check size={32} color={COLORS.success} className="mx-auto mb-2" />
-                      <p className="font-semibold" style={{ color: COLORS.text }}>Sleep Logged!</p>
-                      <p className="text-sm" style={{ color: COLORS.textMuted }}>{lastNightBedTime} → {lastNightWakeTime}</p>
+                      <div className="flex items-center gap-3">
+                        <Check size={24} color={COLORS.success} />
+                        <div>
+                          <p className="font-semibold" style={{ color: COLORS.text }}>Sleep Logged</p>
+                          <p className="text-sm" style={{ color: COLORS.textMuted }}>{lastNightBedTime} → {lastNightWakeTime}</p>
+                        </div>
+                      </div>
+                      <div className="text-right pr-8">
+                        <span className="text-2xl font-bold" style={{ color: COLORS.sleep }}>
+                          {(() => {
+                            const [bedH, bedM] = lastNightBedTime.split(':').map(Number);
+                            const [wakeH, wakeM] = lastNightWakeTime.split(':').map(Number);
+                            let hours = wakeH - bedH + (wakeM - bedM) / 60;
+                            if (hours < 0) hours += 24;
+                            return hours.toFixed(1);
+                          })()}
+                        </span>
+                        <span className="text-sm ml-1" style={{ color: COLORS.textMuted }}>hrs</span>
+                      </div>
                     </div>
                   )}
                 </div>
 
-                {/* Sleep Goal & Streak - Side by Side */}
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                  {/* Sleep Goal Card */}
-                  <div className="p-3 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
-                    <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>GOAL</p>
-                    <div className="text-center mb-2">
-                      <span className="text-2xl font-bold" style={{ color: COLORS.sleep }}>{sleepHours}</span>
-                      <span className="text-sm ml-1" style={{ color: COLORS.textMuted }}>hrs</span>
+                {/* Sleep Streak Card */}
+                <div className="p-4 rounded-xl mb-4 flex items-center justify-between" style={{ backgroundColor: COLORS.surface }}>
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: COLORS.warning + '20' }}>
+                      <Flame size={24} color={COLORS.warning} />
                     </div>
-                    <div className="flex items-center justify-center gap-2">
-                      <button
-                        onClick={async () => {
-                          const newVal = Math.max(5, sleepHours - 0.5);
-                          setSleepHours(newVal);
-                          if (user?.id) {
-                            await sleepService.updateSleepGoals(user.id, { target_hours: newVal });
-                          }
-                        }}
-                        className="w-8 h-8 rounded-full flex items-center justify-center"
-                        style={{ backgroundColor: COLORS.surfaceLight }}
-                      >
-                        <Minus size={14} color={COLORS.text} />
-                      </button>
-                      <button
-                        onClick={async () => {
-                          const newVal = Math.min(10, sleepHours + 0.5);
-                          setSleepHours(newVal);
-                          if (user?.id) {
-                            await sleepService.updateSleepGoals(user.id, { target_hours: newVal });
-                          }
-                        }}
-                        className="w-8 h-8 rounded-full flex items-center justify-center"
-                        style={{ backgroundColor: COLORS.surfaceLight }}
-                      >
-                        <Plus size={14} color={COLORS.text} />
-                      </button>
+                    <div>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>Current Streak</p>
+                      <p className="font-bold text-lg" style={{ color: COLORS.text }}>
+                        {streaks.sleep.daysInRow} {streaks.sleep.daysInRow === 1 ? 'night' : 'nights'}
+                      </p>
                     </div>
                   </div>
-
-                  {/* Sleep Streak Card */}
-                  <div className="p-3 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
-                    <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>STREAK</p>
-                    <div className="text-center mb-2">
-                      <div className="flex items-center justify-center gap-1">
-                        <Flame size={20} color={COLORS.warning} />
-                        <span className="text-2xl font-bold" style={{ color: COLORS.warning }}>{streaks.sleep.daysInRow}</span>
-                      </div>
-                      <span className="text-xs" style={{ color: COLORS.textMuted }}>
-                        {streaks.sleep.daysInRow === 1 ? 'night' : 'nights'}
-                      </span>
-                    </div>
-                    <p className="text-xs text-center" style={{ color: COLORS.textMuted }}>
+                  <div className="text-right">
+                    <p className="text-xs" style={{ color: COLORS.textMuted }}>Goal: {sleepHours} hrs</p>
+                    <p className="text-xs" style={{ color: streaks.sleep.daysInRow > 0 ? COLORS.success : COLORS.textMuted }}>
                       {streaks.sleep.daysInRow === 0 ? "Log sleep to start!" : "Keep it up!"}
                     </p>
                   </div>
@@ -16322,13 +17070,18 @@ export default function UpRepDemo() {
                               tickLine={false}
                               width={25}
                               domain={[0, 12]}
+                              ticks={[0, 3, 6, 9, 12]}
+                              interval={0}
                             />
                             <Line
                               type="monotone"
                               dataKey="hours"
                               stroke={COLORS.sleep}
                               strokeWidth={2}
-                              dot={{ fill: COLORS.sleep, r: 4 }}
+                              dot={(props) => {
+                                if (!props.payload.hours || props.payload.hours === 0) return null;
+                                return <circle cx={props.cx} cy={props.cy} r={4} fill={COLORS.sleep} />;
+                              }}
                               connectNulls={false}
                             />
                             <Line
@@ -16349,14 +17102,14 @@ export default function UpRepDemo() {
                 {/* Monthly Sleep Calendar */}
                 <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>SLEEP STREAK</p>
                 <div className="p-3 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
-                  <div className="flex gap-0.5 mb-1">
+                  <div className="flex gap-1 mb-1">
                     {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
                       <div key={i} className="flex-1 text-center">
-                        <span className="text-xs" style={{ color: COLORS.textMuted, fontSize: 9 }}>{d}</span>
+                        <span style={{ color: COLORS.textMuted, fontSize: 8, fontWeight: 600 }}>{d}</span>
                       </div>
                     ))}
                   </div>
-                  <div className="grid grid-cols-7 gap-0.5">
+                  <div className="grid grid-cols-7 gap-1">
                     {(() => {
                       const days = [];
                       const today = new Date();
@@ -16364,6 +17117,7 @@ export default function UpRepDemo() {
                         const date = new Date(today);
                         date.setDate(today.getDate() - i);
                         const dateKey = date.toISOString().split('T')[0];
+                        const dateNum = date.getDate();
                         const data = monthlyTracking?.sleep?.[dateKey];
                         const isToday = i === 0;
 
@@ -16375,14 +17129,24 @@ export default function UpRepDemo() {
                         days.push(
                           <div
                             key={dateKey}
-                            className="aspect-square rounded-sm flex items-center justify-center"
+                            className="rounded-sm flex flex-col items-center justify-center p-1 relative"
                             style={{
                               backgroundColor: bgColor,
                               border: isToday ? `2px solid ${COLORS.sleep}` : 'none',
+                              minHeight: 40,
                             }}
                             title={`${dateKey}: ${data ? `${data.hours}h sleep` : 'No data'}`}
                           >
-                            {data?.goalMet && <Check size={8} color={COLORS.sleep} />}
+                            <span style={{ fontSize: 7, fontWeight: 500, color: COLORS.textMuted, position: 'absolute', top: 2, left: 3, lineHeight: 1 }}>
+                              {dateNum}
+                            </span>
+                            {data?.hours > 0 ? (
+                              <span style={{ fontSize: 14, fontWeight: 700, color: COLORS.text, lineHeight: 1 }}>
+                                {data.hours.toFixed(1)}
+                              </span>
+                            ) : (
+                              <span style={{ fontSize: 10, color: COLORS.textMuted, opacity: 0.3 }}>-</span>
+                            )}
                           </div>
                         );
                       }
@@ -16403,6 +17167,112 @@ export default function UpRepDemo() {
               </>
             )}
           </div>
+
+          {/* Macro Detail Modal */}
+          {showMacroDetail && (() => {
+            console.log('Rendering macro modal for:', showMacroDetail);
+            const macros = {
+              protein: { name: 'Protein', key: 'protein', current: proteinIntake, target: adjustedNutritionGoals.protein, color: COLORS.primary },
+              carbs: { name: 'Carbs', key: 'carbs', current: carbsIntake, target: nutritionGoals.carbs, color: COLORS.warning },
+              fats: { name: 'Fats', key: 'fats', current: fatsIntake, target: nutritionGoals.fats, color: COLORS.sleep },
+            };
+            const macro = macros[showMacroDetail];
+            if (!macro) return null;
+
+            const percentage = Math.min(100, (macro.current / macro.target) * 100);
+            const remaining = macro.target - macro.current;
+
+            return (
+              <div
+                className="fixed inset-0 z-50 flex items-end justify-center"
+                style={{ backgroundColor: 'rgba(0,0,0,0.8)' }}
+                onClick={(e) => {
+                  if (e.target === e.currentTarget) {
+                    setShowMacroDetail(null);
+                  }
+                }}
+              >
+                <div className="w-full max-w-md rounded-t-3xl p-6 max-h-[85vh] overflow-y-auto" style={{ backgroundColor: COLORS.surface }}>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xl font-bold" style={{ color: COLORS.text }}>{macro.name}</h3>
+                    <button onClick={() => setShowMacroDetail(null)} className="p-2 rounded-full" style={{ backgroundColor: COLORS.surfaceLight }}>
+                      <X size={20} color={COLORS.textMuted} />
+                    </button>
+                  </div>
+
+                  {/* Summary Stats */}
+                  <div className="grid grid-cols-3 gap-2 mb-4">
+                    <div className="p-3 rounded-xl text-center" style={{ backgroundColor: COLORS.surfaceLight }}>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>Current</p>
+                      <p className="text-lg font-bold" style={{ color: COLORS.text }}>{macro.current}g</p>
+                    </div>
+                    <div className="p-3 rounded-xl text-center" style={{ backgroundColor: COLORS.surfaceLight }}>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>Goal</p>
+                      <p className="text-lg font-bold" style={{ color: COLORS.text }}>{macro.target}g</p>
+                    </div>
+                    <div className="p-3 rounded-xl text-center" style={{ backgroundColor: remaining >= 0 ? COLORS.success + '20' : COLORS.error + '20' }}>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>{remaining >= 0 ? 'To Go' : 'Over'}</p>
+                      <p className="text-lg font-bold" style={{ color: remaining >= 0 ? COLORS.success : COLORS.error }}>
+                        {Math.abs(remaining)}g
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Progress Bar */}
+                  <div className="mb-6">
+                    <div className="h-3 rounded-full overflow-hidden" style={{ backgroundColor: COLORS.surfaceLight }}>
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{
+                          backgroundColor: macro.color,
+                          width: `${percentage}%`
+                        }}
+                      />
+                    </div>
+                    <p className="text-xs text-center mt-1" style={{ color: COLORS.textMuted }}>{Math.round(percentage)}% of daily goal</p>
+                  </div>
+
+                  {/* Meals Breakdown */}
+                  <div className="mb-4">
+                    <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>TODAY'S MEALS</p>
+                    {mealLog.length > 0 ? (
+                      <div className="space-y-2">
+                        {mealLog.map((meal, idx) => {
+                          const macroAmount = meal[macro.key] || 0;
+                          return (
+                            <div key={meal.id || idx} className="p-3 rounded-xl" style={{ backgroundColor: COLORS.surfaceLight }}>
+                              <div className="flex items-start justify-between mb-1">
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-semibold truncate" style={{ color: COLORS.text }}>{meal.name}</p>
+                                  <p className="text-xs" style={{ color: COLORS.textMuted }}>{meal.calories} cal</p>
+                                </div>
+                                <div className="text-right ml-2">
+                                  <p className="text-lg font-bold" style={{ color: macro.color }}>{macroAmount}g</p>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="p-6 text-center rounded-xl" style={{ backgroundColor: COLORS.surfaceLight }}>
+                        <Utensils size={24} color={COLORS.textMuted} className="mx-auto mb-2" />
+                        <p className="text-sm" style={{ color: COLORS.textMuted }}>No meals logged yet</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    onClick={() => setShowMacroDetail(null)}
+                    className="w-full py-3 rounded-xl font-semibold"
+                    style={{ backgroundColor: macro.color, color: COLORS.text }}
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
 
           </>
         )}
@@ -18465,6 +19335,8 @@ export default function UpRepDemo() {
             setUserData={setUserData}
             COLORS={COLORS}
             onClose={() => setShowEditProfile(false)}
+            user={user}
+            updateProfile={updateProfile}
           />
         )}
 
@@ -20830,9 +21702,31 @@ export default function UpRepDemo() {
         {activeTab === 'profile' && (
           <div ref={profileTabScrollRef} onScroll={handleProfileTabScroll} className="h-full overflow-auto">
             {/* Profile Header */}
-            <div className="p-6 text-center" style={{ backgroundColor: COLORS.surface }}>
-              <div className="w-24 h-24 rounded-full mx-auto mb-4 flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '20' }}>
-                <User size={48} color={COLORS.primary} />
+            <div className="pb-6 text-center" style={{ backgroundColor: COLORS.surface }}>
+              {/* Cover Photo */}
+              <div
+                className="h-32 w-full"
+                style={{
+                  backgroundColor: userData.coverPhotoUrl ? 'transparent' : COLORS.surfaceLight,
+                  backgroundImage: userData.coverPhotoUrl ? `url(${userData.coverPhotoUrl})` : 'none',
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center'
+                }}
+              />
+              {/* Profile Picture */}
+              <div className="-mt-12 mb-4">
+                <div
+                  className="w-24 h-24 rounded-full mx-auto border-4 flex items-center justify-center"
+                  style={{
+                    backgroundColor: userData.avatarUrl ? 'transparent' : COLORS.primary + '20',
+                    backgroundImage: userData.avatarUrl ? `url(${userData.avatarUrl})` : 'none',
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    borderColor: COLORS.surface
+                  }}
+                >
+                  {!userData.avatarUrl && <User size={48} color={COLORS.primary} />}
+                </div>
               </div>
               <h2 className="text-xl font-bold" style={{ color: COLORS.text }}>
                 @{userData.username || 'username'}
@@ -21009,6 +21903,55 @@ export default function UpRepDemo() {
                   <ChevronRight size={20} color={COLORS.textMuted} />
                 </div>
               </button>
+
+              {/* Sleep Goal */}
+              <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>SLEEP GOAL</p>
+              <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: COLORS.sleep + '20' }}>
+                      <Moon size={20} color={COLORS.sleep} />
+                    </div>
+                    <div>
+                      <p className="font-semibold" style={{ color: COLORS.text }}>
+                        {sleepHours} hours per night
+                      </p>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                        Target sleep duration
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={async () => {
+                        const newHours = Math.max(5, sleepHours - 0.5);
+                        setSleepHours(newHours);
+                        if (user?.id) {
+                          await sleepService.updateSleepGoals(user.id, { target_hours: newHours });
+                        }
+                      }}
+                      className="w-8 h-8 rounded-full flex items-center justify-center"
+                      style={{ backgroundColor: COLORS.surfaceLight }}
+                    >
+                      <Minus size={16} color={COLORS.textMuted} />
+                    </button>
+                    <span className="w-10 text-center font-bold" style={{ color: COLORS.sleep }}>{sleepHours}</span>
+                    <button
+                      onClick={async () => {
+                        const newHours = Math.min(10, sleepHours + 0.5);
+                        setSleepHours(newHours);
+                        if (user?.id) {
+                          await sleepService.updateSleepGoals(user.id, { target_hours: newHours });
+                        }
+                      }}
+                      className="w-8 h-8 rounded-full flex items-center justify-center"
+                      style={{ backgroundColor: COLORS.surfaceLight }}
+                    >
+                      <Plus size={16} color={COLORS.textMuted} />
+                    </button>
+                  </div>
+                </div>
+              </div>
 
               {/* Current Program - opens modal */}
               <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>TRAINING SPLIT</p>
@@ -22502,10 +23445,13 @@ export default function UpRepDemo() {
       {showMealEntry && (
         <MealEntryModal
           COLORS={COLORS}
+          userId={user?.id}
           onClose={() => setShowMealEntry(false)}
-          onSave={(calories, protein) => {
-            setCaloriesIntake(prev => prev + calories);
-            setProteinIntake(prev => prev + protein);
+          onSave={(mealData) => {
+            setCaloriesIntake(prev => prev + (mealData.calories || 0));
+            setProteinIntake(prev => prev + (mealData.protein || 0));
+            setCarbsIntake(prev => prev + (mealData.carbs || 0));
+            setFatsIntake(prev => prev + (mealData.fats || 0));
             setShowMealEntry(false);
           }}
         />
@@ -22673,8 +23619,11 @@ export default function UpRepDemo() {
                       </div>
                     </div>
                     <button
-                      onClick={async () => {
+                      onClick={async (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
                         if (!user?.id || !log.id) return;
+
                         // Delete water log from database
                         const { error } = await supabase
                           .from('water_logs')
@@ -22682,7 +23631,10 @@ export default function UpRepDemo() {
                           .eq('id', log.id);
 
                         if (!error) {
+                          // Update local state
                           setWaterLogs(prev => prev.filter(l => l.id !== log.id));
+
+                          // Update today's intake or backdate nutrition
                           if (nutritionSelectedDate === TODAY_DATE_KEY) {
                             setWaterIntake(prev => Math.max(0, prev - log.amount_ml));
                           } else {
@@ -22691,9 +23643,9 @@ export default function UpRepDemo() {
                               water: Math.max(0, (prev.water || 0) - log.amount_ml),
                             } : null);
                           }
-                          // Recalculate daily total
-                          const targetDate = nutritionSelectedDate !== TODAY_DATE_KEY ? nutritionSelectedDate : TODAY_DATE_KEY;
-                          await nutritionService.recalculateWaterTotal(user.id, targetDate);
+                        } else {
+                          console.error('Error deleting water log:', error);
+                          alert('Failed to delete water entry');
                         }
                       }}
                       className="p-2 rounded-lg"
@@ -23388,7 +24340,7 @@ export default function UpRepDemo() {
   // Show loading screen while checking auth
   if (authLoading) {
     return (
-      <div className="w-full max-w-md mx-auto h-screen flex flex-col items-center justify-center" style={{ backgroundColor: COLORS.background }}>
+      <div className="w-full h-screen flex flex-col items-center justify-center" style={{ backgroundColor: COLORS.background }}>
         <Loader2 size={48} color={COLORS.primary} className="animate-spin mb-4" />
         <p style={{ color: COLORS.textSecondary }}>Loading...</p>
       </div>
@@ -23396,7 +24348,7 @@ export default function UpRepDemo() {
   }
 
   return (
-    <div className="w-full max-w-md mx-auto h-screen flex flex-col" style={{ backgroundColor: COLORS.background }}>
+    <div className="w-full h-screen flex flex-col" style={{ backgroundColor: COLORS.background }}>
       <div className="flex-1 overflow-hidden relative">
         {currentScreen === 'welcome' && <WelcomeScreen />}
         {currentScreen === 'login' && <LoginScreen onBack={() => setCurrentScreen('welcome')} onLogin={() => setCurrentScreen('main')} COLORS={COLORS} />}
