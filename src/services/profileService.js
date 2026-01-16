@@ -399,7 +399,8 @@ export const profileService = {
           const { count } = await supabase
             .from('published_workouts')
             .select('*', { count: 'exact', head: true })
-            .eq('user_id', user.id);
+            .eq('creator_id', user.id)
+            .eq('is_public', true);
           publishedCount = count || 0;
         } catch (e) {
           // Table might not exist
