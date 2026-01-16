@@ -6,3 +6,5 @@ export { streakService } from './streakService';
 export { socialService } from './socialService';
 export { workoutRatingService } from './workoutRatingService';
 export { publishedWorkoutService } from './publishedWorkoutService';
+export { foodService } from './foodService';
+export { exerciseService } from './exerciseService';

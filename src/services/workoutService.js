@@ -403,6 +403,130 @@ export const workoutService = {
 
     return { data, error };
   },
+
+  // Get all workout templates
+  async getWorkoutTemplates() {
+    try {
+      const { data, error } = await supabase
+        .from('workout_templates')
+        .select(`
+          *,
+          template_exercises (
+            order_index,
+            sets,
+            target_reps,
+            suggested_weight,
+            rest_time,
+            exercise:exercises (
+              id,
+              name,
+              muscle_group,
+              equipment,
+              exercise_type
+            )
+          )
+        `)
+        .eq('is_system', true)
+        .order('name');
+
+      if (error) {
+        console.warn('getWorkoutTemplates error:', error?.message);
+        return { data: [], error: null };
+      }
+
+      // Transform to match existing WORKOUT_TEMPLATES structure
+      const templates = (data || []).map(template => ({
+        id: template.id,
+        name: template.name,
+        focus: template.focus,
+        description: template.description,
+        goals: template.goals || [],
+        difficulty: template.difficulty,
+        exercises: (template.template_exercises || [])
+          .sort((a, b) => a.order_index - b.order_index)
+          .map(te => ({
+            id: te.exercise.id,
+            name: te.exercise.name,
+            sets: te.sets,
+            targetReps: te.target_reps,
+            suggestedWeight: te.suggested_weight,
+            lastWeight: 0,
+            lastReps: [],
+            restTime: te.rest_time,
+            muscleGroup: te.exercise.muscle_group
+          }))
+      }));
+
+      return { data: templates, error: null };
+    } catch (err) {
+      console.warn('getWorkoutTemplates error:', err?.message);
+      return { data: [], error: null };
+    }
+  },
+
+  // Get a single workout template by ID
+  async getWorkoutTemplate(templateId) {
+    try {
+      const { data, error } = await supabase
+        .from('workout_templates')
+        .select(`
+          *,
+          template_exercises (
+            order_index,
+            sets,
+            target_reps,
+            suggested_weight,
+            rest_time,
+            exercise:exercises (
+              id,
+              name,
+              muscle_group,
+              equipment,
+              exercise_type
+            )
+          )
+        `)
+        .eq('id', templateId)
+        .single();
+
+      if (error) {
+        console.warn('getWorkoutTemplate error:', error?.message);
+        return { data: null, error: null };
+      }
+
+      if (!data) {
+        return { data: null, error: null };
+      }
+
+      // Transform to match existing structure
+      const template = {
+        id: data.id,
+        name: data.name,
+        focus: data.focus,
+        description: data.description,
+        goals: data.goals || [],
+        difficulty: data.difficulty,
+        exercises: (data.template_exercises || [])
+          .sort((a, b) => a.order_index - b.order_index)
+          .map(te => ({
+            id: te.exercise.id,
+            name: te.exercise.name,
+            sets: te.sets,
+            targetReps: te.target_reps,
+            suggestedWeight: te.suggested_weight,
+            lastWeight: 0,
+            lastReps: [],
+            restTime: te.rest_time,
+            muscleGroup: te.exercise.muscle_group
+          }))
+      };
+
+      return { data: template, error: null };
+    } catch (err) {
+      console.warn('getWorkoutTemplate error:', err?.message);
+      return { data: null, error: null };
+    }
+  },
 };
 
 export default workoutService;
