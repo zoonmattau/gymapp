@@ -252,9 +252,17 @@ export function AuthProvider({ children }) {
       // Only add other fields that have actual values
       if (goals.experience) cleanGoals.experience = goals.experience;
       if (goals.days_per_week != null) cleanGoals.days_per_week = goals.days_per_week;
-      if (goals.target_weight != null) cleanGoals.target_weight = goals.target_weight;
+      // Support both target_weight and goal_weight (column is goal_weight)
+      if (goals.goal_weight != null) cleanGoals.goal_weight = goals.goal_weight;
+      else if (goals.target_weight != null) cleanGoals.goal_weight = goals.target_weight;
       if (goals.current_weight != null) cleanGoals.current_weight = goals.current_weight;
+      if (goals.starting_weight != null) cleanGoals.starting_weight = goals.starting_weight;
+      if (goals.program_weeks != null) cleanGoals.program_weeks = goals.program_weeks;
+      if (goals.session_duration != null) cleanGoals.session_duration = goals.session_duration;
+      if (goals.rest_days != null) cleanGoals.rest_days = goals.rest_days;
       if (goals.activity_level) cleanGoals.activity_level = goals.activity_level;
+      if (goals.program_id) cleanGoals.program_id = goals.program_id;
+      if (goals.equipment) cleanGoals.equipment = goals.equipment;
 
       const { data, error } = await supabase
         .from('user_goals')
@@ -263,16 +271,16 @@ export function AuthProvider({ children }) {
         .maybeSingle();
 
       if (error) {
-        console.warn('updateGoals error:', error?.message);
-        // Don't throw - just return gracefully
-        return { data: null, error: null };
+        console.error('❌ updateGoals FAILED:', error?.message, '| Attempted to save:', cleanGoals);
+        return { data: null, error };
       }
 
+      console.log('✅ updateGoals SUCCESS:', data);
       setProfile(prev => ({ ...prev, user_goals: data }));
       return { data, error: null };
     } catch (err) {
-      console.warn('updateGoals error:', err?.message);
-      return { data: null, error: null };
+      console.error('❌ updateGoals EXCEPTION:', err?.message);
+      return { data: null, error: err };
     }
   };
 

@@ -96,7 +96,7 @@ export const nutritionService = {
   async logMeal(userId, meal) {
     const logDate = meal.date || new Date().toISOString().split('T')[0];
 
-    // Ensure daily nutrition entry exists
+    // Get existing daily nutrition entry (may be null)
     const { data: daily } = await this.getDailyNutrition(userId, logDate);
 
     const { data, error } = await supabase
@@ -115,8 +115,8 @@ export const nutritionService = {
       .select()
       .single();
 
-    // Update daily totals
-    if (data && daily) {
+    // Always recalculate daily totals (this will create the entry if it doesn't exist)
+    if (data) {
       await this.recalculateDailyTotals(userId, logDate);
     }
 
