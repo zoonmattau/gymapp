@@ -218,6 +218,8 @@ import { storageService } from './src/services/storageService';
 import { foodRecognitionService } from './src/services/foodRecognitionService';
 import { foodService } from './src/services/foodService';
 import { exerciseService } from './src/services/exerciseService';
+import { competitionService } from './src/services/competitionService';
+import { accountabilityService } from './src/services/accountabilityService';
 import { generateNutritionTargets, projectWeightProgress, generateWorkoutSchedule } from './src/utils/fitnessCalculations';
 
 // Format date as relative time (Today at 2:30 PM, Yesterday, 3 days ago, etc.)
@@ -2347,8 +2349,24 @@ const EditProfileModal = ({ userData, setUserData, COLORS, onClose, user, update
       </div>
       
       <div className="p-4 border-t" style={{ borderColor: COLORS.surfaceLight }}>
-        <button 
-          onClick={onClose}
+        <button
+          onClick={async () => {
+            // Save profile data to database
+            if (user?.id && updateProfile) {
+              try {
+                await updateProfile({
+                  username: userData.username,
+                  bio: userData.bio,
+                  first_name: userData.firstName,
+                  last_name: userData.lastName,
+                  gender: userData.gender,
+                });
+              } catch (err) {
+                console.error('Error saving profile:', err);
+              }
+            }
+            onClose();
+          }}
           className="w-full py-4 rounded-xl font-semibold"
           style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
         >
@@ -8818,12 +8836,12 @@ export default function UpRepDemo() {
         email: user?.email || prev.email,
         avatarUrl: profile.avatar_url || prev.avatarUrl,
         coverPhotoUrl: profile.cover_photo_url || prev.coverPhotoUrl,
-        // From user_goals
-        goal: profile.user_goals?.goal || prev.goal,
+        // From user_goals - skip goal/weight sync if a goal change is in progress to prevent race condition
+        goal: goalChangeInProgressRef.current ? prev.goal : (profile.user_goals?.goal || prev.goal),
         experience: profile.user_goals?.experience || prev.experience,
-        currentWeight: profile.user_goals?.current_weight?.toString() || prev.currentWeight,
-        goalWeight: profile.user_goals?.goal_weight?.toString() || prev.goalWeight,
-        programWeeks: profile.user_goals?.program_weeks || prev.programWeeks,
+        currentWeight: goalChangeInProgressRef.current ? prev.currentWeight : (profile.user_goals?.current_weight?.toString() || prev.currentWeight),
+        goalWeight: goalChangeInProgressRef.current ? prev.goalWeight : (profile.user_goals?.goal_weight?.toString() || prev.goalWeight),
+        programWeeks: goalChangeInProgressRef.current ? prev.programWeeks : (profile.user_goals?.program_weeks || prev.programWeeks),
         daysPerWeek: profile.user_goals?.days_per_week || prev.daysPerWeek,
         sessionDuration: profile.user_goals?.session_duration || prev.sessionDuration,
         restDays: profile.user_goals?.rest_days || prev.restDays,
@@ -9495,8 +9513,54 @@ export default function UpRepDemo() {
         if (isMounted && result?.data) {
           setActivityFeed(result.data);
         }
+
+        // Load user's likes from database
+        const likesResult = await socialService.getUserLikes(user.id);
+        if (isMounted && likesResult?.data) {
+          const likesMap = {};
+          likesResult.data.forEach(like => {
+            likesMap[like.activity_id] = like.reaction_type || 'like';
+          });
+          setUserLikes(likesMap);
+          // Also sync to likedPosts for backwards compatibility
+          setLikedPosts(likesResult.data.map(like => like.activity_id));
+        }
       } catch (err) {
         console.warn('Activity feed not available:', err?.message);
+      }
+
+      // Load weekly leaderboard
+      try {
+        const leaderboardResult = await competitionService.getFriendsLeaderboard(user.id, 'workouts', 10);
+        if (isMounted && leaderboardResult?.data) {
+          setWeeklyLeaderboard(leaderboardResult.data);
+        }
+      } catch (err) {
+        console.warn('Leaderboard not available:', err?.message);
+      }
+
+      // Load workout buddy
+      try {
+        const buddyResult = await accountabilityService.getBuddy(user.id);
+        if (isMounted && buddyResult?.data) {
+          setWorkoutBuddy(buddyResult.data);
+        }
+        const requestsResult = await accountabilityService.getPendingBuddyRequests(user.id);
+        if (isMounted && requestsResult?.data) {
+          setBuddyRequests(requestsResult.data);
+        }
+      } catch (err) {
+        console.warn('Buddy data not available:', err?.message);
+      }
+
+      // Load shared goals
+      try {
+        const goalsResult = await accountabilityService.getSharedGoals(user.id);
+        if (isMounted && goalsResult?.data) {
+          setSharedGoals(goalsResult.data);
+        }
+      } catch (err) {
+        console.warn('Shared goals not available:', err?.message);
       }
     };
 
@@ -9935,6 +9999,7 @@ export default function UpRepDemo() {
   const workoutTabScrollPos = useRef(0);
   const profileTabScrollPos = useRef(0);
   const friendsTabScrollPos = useRef(0);
+  const goalChangeInProgressRef = useRef(false); // Prevent profile sync from overwriting goal during change
 
   // Track scroll position on workouts tab
   const handleWorkoutTabScroll = (e) => {
@@ -9945,6 +10010,18 @@ export default function UpRepDemo() {
   const handleProfileTabScroll = (e) => {
     profileTabScrollPos.current = e.target.scrollTop;
   };
+
+  // Restore profile tab scroll position after re-renders
+  useEffect(() => {
+    if (activeTab === 'profile' && profileTabScrollRef.current && profileTabScrollPos.current > 0) {
+      // Use requestAnimationFrame to ensure DOM has updated
+      requestAnimationFrame(() => {
+        if (profileTabScrollRef.current) {
+          profileTabScrollRef.current.scrollTop = profileTabScrollPos.current;
+        }
+      });
+    }
+  });
 
   // Track scroll position on friends tab
   const handleFriendsTabScroll = (e) => {
@@ -10007,6 +10084,51 @@ export default function UpRepDemo() {
         friendsTabScrollRef.current.scrollTop = scrollTop;
       }
     });
+  };
+
+  // Like/unlike activity with scroll preservation (Friends tab)
+  const handleActivityLike = async (activityId, friendId) => {
+    const scrollTop = friendsTabScrollRef.current?.scrollTop;
+    const isLiked = userLikes[activityId];
+
+    if (isLiked) {
+      setUserLikes(prev => { const newLikes = { ...prev }; delete newLikes[activityId]; return newLikes; });
+      setLikedPosts(prev => prev.filter(id => id !== activityId));
+      await socialService.unlikeActivity(activityId, user?.id);
+    } else {
+      setUserLikes(prev => ({ ...prev, [activityId]: 'like' }));
+      setLikedPosts(prev => [...prev, activityId]);
+      await socialService.likeActivity(activityId, user?.id, 'like');
+      if (friendId && friendId !== user?.id) {
+        const userName = `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() || profile?.username || 'Someone';
+        notificationService.notifyWorkoutLike(friendId, user?.id, userName, activityId);
+      }
+    }
+
+    requestAnimationFrame(() => {
+      if (friendsTabScrollRef.current && scrollTop !== undefined) {
+        friendsTabScrollRef.current.scrollTop = scrollTop;
+      }
+    });
+  };
+
+  // Like/unlike activity with scroll preservation (Home tab)
+  const handleHomeActivityLike = async (activityId, friendId) => {
+    const isLiked = userLikes[activityId];
+
+    if (isLiked) {
+      setUserLikes(prev => { const newLikes = { ...prev }; delete newLikes[activityId]; return newLikes; });
+      setLikedPosts(prev => prev.filter(id => id !== activityId));
+      await socialService.unlikeActivity(activityId, user?.id);
+    } else {
+      setUserLikes(prev => ({ ...prev, [activityId]: 'like' }));
+      setLikedPosts(prev => [...prev, activityId]);
+      await socialService.likeActivity(activityId, user?.id, 'like');
+      if (friendId && friendId !== user?.id) {
+        const userName = `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() || profile?.username || 'Someone';
+        notificationService.notifyWorkoutLike(friendId, user?.id, userName, activityId);
+      }
+    }
   };
 
   // Expand/collapse exercise with scroll preservation
@@ -10782,8 +10904,38 @@ export default function UpRepDemo() {
   const [showFriendWorkouts, setShowFriendWorkouts] = useState(null);
   const [friendWorkoutsData, setFriendWorkoutsData] = useState([]);
   const [selectedFriendWorkout, setSelectedFriendWorkout] = useState(null);
-  const [likedPosts, setLikedPosts] = useState([]);
-  
+  const [likedPosts, setLikedPosts] = useState([]); // Local fallback, synced from userLikes
+  const [userLikes, setUserLikes] = useState({}); // { activityId: 'reactionType' } - synced from DB
+  const [activityCommentCounts, setActivityCommentCounts] = useState({}); // { activityId: count }
+  const [showCommentsModal, setShowCommentsModal] = useState(null); // activityId or null
+  const [activityCommentsData, setActivityCommentsData] = useState([]); // Comments for current activity modal
+  const [newActivityComment, setNewActivityComment] = useState('');
+  const [activityCommentsLoading, setActivityCommentsLoading] = useState(false);
+
+  // Head-to-head comparison state
+  const [showHeadToHead, setShowHeadToHead] = useState(false);
+  const [headToHeadData, setHeadToHeadData] = useState(null);
+  const [headToHeadPeriod, setHeadToHeadPeriod] = useState('week');
+  const [headToHeadLoading, setHeadToHeadLoading] = useState(false);
+
+  // Weekly leaderboard state
+  const [weeklyLeaderboard, setWeeklyLeaderboard] = useState([]);
+  const [leaderboardType, setLeaderboardType] = useState('workouts');
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
+
+  // Nudge state
+  const [canNudge, setCanNudge] = useState(true);
+  const [nudgeSending, setNudgeSending] = useState(false);
+  const [nudgeSent, setNudgeSent] = useState(false);
+
+  // Workout buddy state
+  const [workoutBuddy, setWorkoutBuddy] = useState(null);
+  const [buddyRequests, setBuddyRequests] = useState([]);
+  const [buddyRequestSent, setBuddyRequestSent] = useState(false);
+
+  // Shared goals state
+  const [sharedGoals, setSharedGoals] = useState([]);
+
   const [userData, setUserData] = useState({
     firstName: '', lastName: '', email: '', goal: null, experience: null,
     daysPerWeek: 4, sessionDuration: 60, dob: '', weight: '',
@@ -10949,18 +11101,23 @@ export default function UpRepDemo() {
       return;
     }
 
-    // Reset stats when opening a new profile
+    // Reset stats and states when opening a new profile
     setFriendStats({ workouts: 0, prs: 0, streak: 0 });
+    setCanNudge(true);
+    setNudgeSent(false);
+    setBuddyRequestSent(false);
+    setHeadToHeadData(null);
 
     let cancelled = false;
 
     (async () => {
       try {
-        const [followingRes, followsYouRes, workoutsRes, prsRes] = await Promise.all([
+        const [followingRes, followsYouRes, workoutsRes, prsRes, canNudgeRes] = await Promise.all([
           socialService.isFollowing(currentUserId, friendId).catch(() => ({ isFollowing: false })),
           socialService.isFollowing(friendId, currentUserId).catch(() => ({ isFollowing: false })),
           workoutService.getWorkoutHistory(friendId, 1000, 0).catch(() => ({ data: [] })),
           workoutService.getPersonalRecords(friendId).catch(() => ({ data: [] })),
+          accountabilityService.canNudgeToday(currentUserId, friendId).catch(() => ({ canNudge: true })),
         ]);
 
         if (!cancelled) {
@@ -10968,6 +11125,7 @@ export default function UpRepDemo() {
             isFollowing: Boolean(followingRes?.isFollowing),
             followsYou: Boolean(followsYouRes?.isFollowing),
           });
+          setCanNudge(canNudgeRes?.canNudge !== false);
 
           // Calculate streak from workout history
           const workouts = workoutsRes?.data || [];
@@ -11009,6 +11167,33 @@ export default function UpRepDemo() {
 
     return () => { cancelled = true; };
   }, [showFriendProfile?.id, user?.id]);
+
+  // Load comments when activity comments modal opens
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadActivityComments = async () => {
+      if (!showCommentsModal) return;
+
+      setActivityCommentsLoading(true);
+      try {
+        const { data } = await socialService.getActivityComments(showCommentsModal);
+        if (isMounted && data) {
+          setActivityCommentsData(data);
+        }
+      } catch (err) {
+        console.warn('Error loading activity comments:', err?.message);
+      } finally {
+        if (isMounted) {
+          setActivityCommentsLoading(false);
+        }
+      }
+    };
+
+    loadActivityComments();
+
+    return () => { isMounted = false; };
+  }, [showCommentsModal]);
 
   // State for next program selection
   const [selectedBreakDuration, setSelectedBreakDuration] = useState('none');
@@ -11098,8 +11283,22 @@ export default function UpRepDemo() {
 
   // Function to change the workout program/split
   const changeProgram = (programId) => {
-    const newProgram = AVAILABLE_PROGRAMS.find(p => p.id === programId);
-    if (!newProgram) return;
+    // Check both AVAILABLE_PROGRAMS and PROGRAM_TEMPLATES
+    let newProgram = AVAILABLE_PROGRAMS.find(p => p.id === programId);
+    if (!newProgram) {
+      // Fall back to PROGRAM_TEMPLATES
+      const template = PROGRAM_TEMPLATES.find(t => t.id === programId);
+      if (!template) return;
+      // Convert template to program format
+      newProgram = {
+        id: template.id,
+        name: template.name,
+        desc: template.desc,
+        days: userData.daysPerWeek || 4,
+        weeks: 16,
+        schedule: template.cycle,
+      };
+    }
 
     // Get the scroll ref and saved position
     const scrollRef = activeTab === 'profile' ? profileTabScrollRef : workoutTabScrollRef;
@@ -14704,25 +14903,26 @@ export default function UpRepDemo() {
                     {/* Like and Comment buttons */}
                     <div className="flex items-center gap-4 px-3 pb-3 border-t pt-2" style={{ borderColor: COLORS.surface }}>
                       <button
-                        onClick={() => setLikedPosts(prev =>
-                          prev.includes(activity.id)
-                            ? prev.filter(id => id !== activity.id)
-                            : [...prev, activity.id]
-                        )}
+                        onClick={() => handleHomeActivityLike(activity.id, activity.friendId)}
                         className="flex items-center gap-1.5"
                       >
                         <Heart
                           size={16}
-                          color={likedPosts.includes(activity.id) ? COLORS.error : COLORS.textMuted}
-                          fill={likedPosts.includes(activity.id) ? COLORS.error : 'none'}
+                          color={userLikes[activity.id] ? COLORS.error : COLORS.textMuted}
+                          fill={userLikes[activity.id] ? COLORS.error : 'none'}
                         />
                         <span className="text-xs" style={{ color: COLORS.textMuted }}>
-                          {(activity.likes || 0) + (likedPosts.includes(activity.id) ? 1 : 0)}
+                          {(activity.likes || 0) + (userLikes[activity.id] ? 1 : 0)}
                         </span>
                       </button>
-                      <button className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => setShowCommentsModal(activity.id)}
+                        className="flex items-center gap-1.5"
+                      >
                         <MessageCircle size={16} color={COLORS.textMuted} />
-                        <span className="text-xs" style={{ color: COLORS.textMuted }}>Comment</span>
+                        <span className="text-xs" style={{ color: COLORS.textMuted }}>
+                          {activityCommentCounts[activity.id] > 0 ? activityCommentCounts[activity.id] : 'Comment'}
+                        </span>
                       </button>
                     </div>
                   </div>
@@ -18883,7 +19083,7 @@ export default function UpRepDemo() {
                 </div>
 
                 {/* Privacy Toggle */}
-                <button 
+                <button
                   onClick={() => setSocialEnabled(!socialEnabled)}
                   className="w-full p-3 rounded-xl mb-4 flex items-center justify-between"
                   style={{ backgroundColor: COLORS.surface }}
@@ -18892,19 +19092,227 @@ export default function UpRepDemo() {
                     <Eye size={16} color={COLORS.textMuted} />
                     <span className="text-sm" style={{ color: COLORS.textSecondary }}>Share my activity with followers</span>
                   </div>
-                  <div 
+                  <div
                     className="w-10 h-6 rounded-full p-0.5 transition-colors"
                     style={{ backgroundColor: socialEnabled ? COLORS.success : COLORS.surfaceLight }}
                   >
-                    <div 
+                    <div
                       className="w-5 h-5 rounded-full transition-transform"
-                      style={{ 
+                      style={{
                         backgroundColor: COLORS.text,
                         transform: socialEnabled ? 'translateX(16px)' : 'translateX(0)'
                       }}
                     />
                   </div>
                 </button>
+
+                {/* Weekly Leaderboard */}
+                {weeklyLeaderboard.length > 0 && (
+                  <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <Crown size={18} color={COLORS.warning} />
+                        <h3 className="font-bold text-sm" style={{ color: COLORS.text }}>This Week's Leaders</h3>
+                      </div>
+                      <div className="flex gap-1">
+                        {[
+                          { id: 'workouts', label: 'Workouts' },
+                          { id: 'volume', label: 'Volume' },
+                          { id: 'streak', label: 'Streak' },
+                        ].map(type => (
+                          <button
+                            key={type.id}
+                            onClick={async () => {
+                              setLeaderboardType(type.id);
+                              setLeaderboardLoading(true);
+                              const result = await competitionService.getFriendsLeaderboard(user?.id, type.id, 10);
+                              if (result?.data) setWeeklyLeaderboard(result.data);
+                              setLeaderboardLoading(false);
+                            }}
+                            className="px-2 py-1 rounded text-xs"
+                            style={{
+                              backgroundColor: leaderboardType === type.id ? COLORS.primary : 'transparent',
+                              color: leaderboardType === type.id ? COLORS.text : COLORS.textMuted
+                            }}
+                          >
+                            {type.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {leaderboardLoading ? (
+                      <div className="flex justify-center py-4">
+                        <Loader2 size={24} color={COLORS.primary} className="animate-spin" />
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {weeklyLeaderboard.slice(0, 5).map((entry, index) => {
+                          const entryName = entry.profile
+                            ? `${entry.profile.first_name || ''} ${entry.profile.last_name || ''}`.trim() || entry.profile.username || 'User'
+                            : 'User';
+                          const entryAvatar = entry.profile?.avatar_url || entry.profile?.first_name?.[0]?.toUpperCase() || 'U';
+
+                          return (
+                            <button
+                              key={entry.userId}
+                              onClick={() => {
+                                if (!entry.isCurrentUser) {
+                                  setShowFriendProfile({
+                                    id: entry.userId,
+                                    name: entryName,
+                                    username: entry.profile?.username || 'user',
+                                    avatar: entryAvatar,
+                                  });
+                                }
+                              }}
+                              className="w-full flex items-center gap-3 p-2 rounded-lg"
+                              style={{ backgroundColor: entry.isCurrentUser ? COLORS.primary + '15' : COLORS.surfaceLight }}
+                            >
+                              {/* Rank */}
+                              <div
+                                className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
+                                style={{
+                                  backgroundColor: entry.rank === 1 ? COLORS.warning + '30' : entry.rank === 2 ? '#C0C0C0' + '30' : entry.rank === 3 ? '#CD7F32' + '30' : COLORS.surfaceLight,
+                                  color: entry.rank === 1 ? COLORS.warning : entry.rank === 2 ? '#C0C0C0' : entry.rank === 3 ? '#CD7F32' : COLORS.textMuted
+                                }}
+                              >
+                                {entry.rank === 1 ? <Crown size={14} /> : entry.rank}
+                              </div>
+
+                              {/* Avatar */}
+                              <div
+                                className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold"
+                                style={{ backgroundColor: COLORS.primary + '30', color: COLORS.primary }}
+                              >
+                                {typeof entryAvatar === 'string' && entryAvatar.length === 1 ? entryAvatar : entryName[0]?.toUpperCase()}
+                              </div>
+
+                              {/* Name */}
+                              <div className="flex-1 min-w-0 text-left">
+                                <p className="text-sm font-medium truncate" style={{ color: COLORS.text }}>
+                                  {entry.isCurrentUser ? 'You' : entryName}
+                                </p>
+                                {entry.isCurrentUser && (
+                                  <p className="text-xs" style={{ color: COLORS.primary }}>Your position</p>
+                                )}
+                              </div>
+
+                              {/* Score */}
+                              <div className="text-right">
+                                <p className="font-bold" style={{ color: COLORS.text }}>
+                                  {leaderboardType === 'volume' ? `${(entry.score / 1000).toFixed(1)}k` : entry.score}
+                                </p>
+                                <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                                  {leaderboardType === 'volume' ? 'kg' : leaderboardType === 'streak' ? 'days' : 'sessions'}
+                                </p>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Workout Buddy Card */}
+                {workoutBuddy?.buddy && (
+                  <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
+                    <div className="flex items-center gap-2 mb-3">
+                      <Users size={18} color={COLORS.success} />
+                      <h3 className="font-bold text-sm" style={{ color: COLORS.text }}>Workout Buddy</h3>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const buddy = workoutBuddy.buddy;
+                        setShowFriendProfile({
+                          id: buddy.id,
+                          name: `${buddy.first_name || ''} ${buddy.last_name || ''}`.trim() || buddy.username || 'User',
+                          username: buddy.username || 'user',
+                          avatar: buddy.avatar_url || buddy.first_name?.[0]?.toUpperCase() || 'U',
+                          bio: buddy.bio,
+                        });
+                      }}
+                      className="w-full flex items-center gap-3 p-3 rounded-lg"
+                      style={{ backgroundColor: COLORS.success + '15' }}
+                    >
+                      <div
+                        className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold"
+                        style={{ backgroundColor: COLORS.success + '30', color: COLORS.success }}
+                      >
+                        {workoutBuddy.buddy.avatar_url || workoutBuddy.buddy.first_name?.[0]?.toUpperCase() || 'U'}
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className="font-semibold" style={{ color: COLORS.text }}>
+                          {`${workoutBuddy.buddy.first_name || ''} ${workoutBuddy.buddy.last_name || ''}`.trim() || workoutBuddy.buddy.username || 'Buddy'}
+                        </p>
+                        <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                          Buddies since {workoutBuddy.matched_at ? new Date(workoutBuddy.matched_at).toLocaleDateString() : 'recently'}
+                        </p>
+                      </div>
+                      <ChevronRight size={20} color={COLORS.textMuted} />
+                    </button>
+                  </div>
+                )}
+
+                {/* Pending Buddy Requests */}
+                {buddyRequests.length > 0 && (
+                  <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
+                    <div className="flex items-center gap-2 mb-3">
+                      <UserPlus size={18} color={COLORS.primary} />
+                      <h3 className="font-bold text-sm" style={{ color: COLORS.text }}>Buddy Requests</h3>
+                      <span className="px-2 py-0.5 rounded-full text-xs font-bold" style={{ backgroundColor: COLORS.primary, color: COLORS.text }}>
+                        {buddyRequests.length}
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      {buddyRequests.map(request => {
+                        const requester = request.user_a;
+                        const requesterName = `${requester?.first_name || ''} ${requester?.last_name || ''}`.trim() || requester?.username || 'User';
+
+                        return (
+                          <div key={request.id} className="flex items-center gap-3 p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
+                            <div
+                              className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold"
+                              style={{ backgroundColor: COLORS.primary + '30', color: COLORS.primary }}
+                            >
+                              {requester?.avatar_url || requester?.first_name?.[0]?.toUpperCase() || 'U'}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium" style={{ color: COLORS.text }}>{requesterName}</p>
+                              <p className="text-xs" style={{ color: COLORS.textMuted }}>wants to be your workout buddy</p>
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={async () => {
+                                  await accountabilityService.acceptBuddy(request.id, user?.id);
+                                  setBuddyRequests(prev => prev.filter(r => r.id !== request.id));
+                                  // Reload buddy data
+                                  const result = await accountabilityService.getBuddy(user?.id);
+                                  if (result?.data) setWorkoutBuddy(result.data);
+                                }}
+                                className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                                style={{ backgroundColor: COLORS.success, color: COLORS.text }}
+                              >
+                                Accept
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  await accountabilityService.declineBuddy(request.id, user?.id);
+                                  setBuddyRequests(prev => prev.filter(r => r.id !== request.id));
+                                }}
+                                className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                                style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.textMuted }}
+                              >
+                                Decline
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {/* Activity Feed */}
                 <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>ACTIVITY FEED</p>
@@ -19059,26 +19467,27 @@ export default function UpRepDemo() {
                             
                             {/* Actions */}
                             <div className="flex items-center gap-4">
-                              <button 
-                                onClick={() => setLikedPosts(prev => 
-                                  prev.includes(activity.id) 
-                                    ? prev.filter(id => id !== activity.id)
-                                    : [...prev, activity.id]
-                                )}
+                              <button
+                                onClick={() => handleActivityLike(activity.id, activity.friendId)}
                                 className="flex items-center gap-1"
                               >
-                                <Heart 
-                                  size={18} 
-                                  color={likedPosts.includes(activity.id) ? COLORS.error : COLORS.textMuted}
-                                  fill={likedPosts.includes(activity.id) ? COLORS.error : 'none'}
+                                <Heart
+                                  size={18}
+                                  color={userLikes[activity.id] ? COLORS.error : COLORS.textMuted}
+                                  fill={userLikes[activity.id] ? COLORS.error : 'none'}
                                 />
                                 <span className="text-sm" style={{ color: COLORS.textMuted }}>
-                                  {activity.likes + (likedPosts.includes(activity.id) ? 1 : 0)}
+                                  {activity.likes + (userLikes[activity.id] ? 1 : 0)}
                                 </span>
                               </button>
-                              <button className="flex items-center gap-1">
+                              <button
+                                onClick={() => setShowCommentsModal(activity.id)}
+                                className="flex items-center gap-1"
+                              >
                                 <MessageCircle size={18} color={COLORS.textMuted} />
-                                <span className="text-sm" style={{ color: COLORS.textMuted }}>Comment</span>
+                                <span className="text-sm" style={{ color: COLORS.textMuted }}>
+                                  {activityCommentCounts[activity.id] > 0 ? activityCommentCounts[activity.id] : 'Comment'}
+                                </span>
                               </button>
                             </div>
                           </div>
@@ -19170,26 +19579,27 @@ export default function UpRepDemo() {
                             
                             {/* Actions */}
                             <div className="flex items-center gap-4">
-                              <button 
-                                onClick={() => setLikedPosts(prev => 
-                                  prev.includes(activity.id) 
-                                    ? prev.filter(id => id !== activity.id)
-                                    : [...prev, activity.id]
-                                )}
+                              <button
+                                onClick={() => handleActivityLike(activity.id, activity.friendId)}
                                 className="flex items-center gap-1"
                               >
-                                <Heart 
-                                  size={18} 
-                                  color={likedPosts.includes(activity.id) ? COLORS.error : COLORS.textMuted}
-                                  fill={likedPosts.includes(activity.id) ? COLORS.error : 'none'}
+                                <Heart
+                                  size={18}
+                                  color={userLikes[activity.id] ? COLORS.error : COLORS.textMuted}
+                                  fill={userLikes[activity.id] ? COLORS.error : 'none'}
                                 />
                                 <span className="text-sm" style={{ color: COLORS.textMuted }}>
-                                  {activity.likes + (likedPosts.includes(activity.id) ? 1 : 0)}
+                                  {activity.likes + (userLikes[activity.id] ? 1 : 0)}
                                 </span>
                               </button>
-                              <button className="flex items-center gap-1">
+                              <button
+                                onClick={() => setShowCommentsModal(activity.id)}
+                                className="flex items-center gap-1"
+                              >
                                 <MessageCircle size={18} color={COLORS.textMuted} />
-                                <span className="text-sm" style={{ color: COLORS.textMuted }}>Congratulate</span>
+                                <span className="text-sm" style={{ color: COLORS.textMuted }}>
+                                  {activityCommentCounts[activity.id] > 0 ? activityCommentCounts[activity.id] : 'Congratulate'}
+                                </span>
                               </button>
                             </div>
                           </div>
@@ -19222,17 +19632,11 @@ export default function UpRepDemo() {
                                 </div>
                                 <p className="text-xs" style={{ color: COLORS.textMuted }}>{activity.time}</p>
                               </div>
-                              <button 
-                                onClick={() => setLikedPosts(prev => 
-                                  prev.includes(activity.id) 
-                                    ? prev.filter(id => id !== activity.id)
-                                    : [...prev, activity.id]
-                                )}
-                              >
-                                <Heart 
-                                  size={18} 
-                                  color={likedPosts.includes(activity.id) ? COLORS.error : COLORS.textMuted}
-                                  fill={likedPosts.includes(activity.id) ? COLORS.error : 'none'}
+                              <button onClick={() => handleActivityLike(activity.id, activity.friendId)}>
+                                <Heart
+                                  size={18}
+                                  color={userLikes[activity.id] ? COLORS.error : COLORS.textMuted}
+                                  fill={userLikes[activity.id] ? COLORS.error : 'none'}
                                 />
                               </button>
                             </div>
@@ -20496,6 +20900,7 @@ export default function UpRepDemo() {
 
           const applyGoalChange = async () => {
             setGoalChangeSaving(true);
+            goalChangeInProgressRef.current = true; // Prevent profile sync from overwriting during save
             try {
               // Calculate new nutrition targets
               const nutritionTargets = generateNutritionTargets({
@@ -20531,11 +20936,18 @@ export default function UpRepDemo() {
               // Save to database if logged in
               if (user?.id) {
                 try {
-                  await updateGoals({
+                  console.log('Saving goal change:', { goal: goalData.goal, current_weight: currentW, goal_weight: goalW, program_weeks: goalData.programWeeks });
+                  const goalsResult = await updateGoals({
                     goal: goalData.goal,
                     current_weight: currentW,
                     goal_weight: goalW,
+                    program_weeks: goalData.programWeeks,
                   });
+                  if (goalsResult?.error) {
+                    console.error('Failed to save goal:', goalsResult.error);
+                    alert('Failed to save goal changes. Please try again.');
+                    return;
+                  }
                   await nutritionService.updateNutritionGoals(user.id, {
                     calories: nutritionTargets.calories,
                     protein: nutritionTargets.protein,
@@ -20546,8 +20958,12 @@ export default function UpRepDemo() {
                   // Log the new weight
                   await profileService.logWeight(user.id, currentW);
                 } catch (err) {
-                  console.warn('Error saving goal change:', err);
+                  console.error('Error saving goal change:', err);
+                  alert('Failed to save goal changes. Please try again.');
+                  return;
                 }
+              } else {
+                console.warn('User not logged in, goal changes will not persist');
               }
 
               // Reset and close
@@ -20562,6 +20978,10 @@ export default function UpRepDemo() {
               });
             } finally {
               setGoalChangeSaving(false);
+              // Allow profile sync to resume after a short delay to ensure state is settled
+              setTimeout(() => {
+                goalChangeInProgressRef.current = false;
+              }, 500);
             }
           };
 
@@ -20645,10 +21065,18 @@ export default function UpRepDemo() {
                         <input
                           type="text"
                           inputMode="decimal"
-                          defaultValue={goalData.currentWeight}
+                          key="current-weight-input"
+                          defaultValue={goalData.currentWeight || ''}
                           onBlur={e => {
                             const val = e.target.value.replace(/[^0-9.]/g, '');
-                            setPendingGoalData(prev => ({ ...prev, currentWeight: val }));
+                            setPendingGoalData(prev => ({ ...(prev || goalData), currentWeight: val }));
+                          }}
+                          onChange={e => {
+                            // Update on change but don't trigger re-render
+                            const val = e.target.value.replace(/[^0-9.]/g, '');
+                            if (pendingGoalData) {
+                              pendingGoalData.currentWeight = val;
+                            }
                           }}
                           placeholder="e.g. 80"
                           className="w-full p-4 rounded-xl text-xl font-bold text-center"
@@ -20661,10 +21089,18 @@ export default function UpRepDemo() {
                         <input
                           type="text"
                           inputMode="decimal"
-                          defaultValue={goalData.goalWeight}
+                          key="goal-weight-input"
+                          defaultValue={goalData.goalWeight || ''}
                           onBlur={e => {
                             const val = e.target.value.replace(/[^0-9.]/g, '');
-                            setPendingGoalData(prev => ({ ...prev, goalWeight: val }));
+                            setPendingGoalData(prev => ({ ...(prev || goalData), goalWeight: val }));
+                          }}
+                          onChange={e => {
+                            // Update on change but don't trigger re-render
+                            const val = e.target.value.replace(/[^0-9.]/g, '');
+                            if (pendingGoalData) {
+                              pendingGoalData.goalWeight = val;
+                            }
                           }}
                           placeholder="e.g. 75"
                           className="w-full p-4 rounded-xl text-xl font-bold text-center"
@@ -21679,6 +22115,189 @@ export default function UpRepDemo() {
                 </div>
               </div>
 
+              {/* Head-to-Head Comparison */}
+              <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
+                <div className="flex items-center justify-between mb-3">
+                  <h5 className="font-semibold" style={{ color: COLORS.text }}>Head-to-Head</h5>
+                  <div className="flex gap-1">
+                    {['week', 'month', 'all'].map(period => (
+                      <button
+                        key={period}
+                        onClick={async () => {
+                          setHeadToHeadPeriod(period);
+                          setHeadToHeadLoading(true);
+                          const result = await competitionService.getHeadToHead(user?.id, showFriendProfile.id, period);
+                          if (result?.data) setHeadToHeadData(result.data);
+                          setHeadToHeadLoading(false);
+                        }}
+                        className="px-2 py-1 rounded text-xs"
+                        style={{
+                          backgroundColor: headToHeadPeriod === period ? COLORS.primary : COLORS.surfaceLight,
+                          color: headToHeadPeriod === period ? COLORS.text : COLORS.textMuted
+                        }}
+                      >
+                        {period === 'week' ? '7D' : period === 'month' ? '30D' : 'All'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {headToHeadLoading ? (
+                  <div className="flex justify-center py-4">
+                    <Loader2 size={24} color={COLORS.primary} className="animate-spin" />
+                  </div>
+                ) : headToHeadData ? (
+                  <div className="space-y-3">
+                    {/* Workouts comparison */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 text-right pr-3">
+                        <span className="text-lg font-bold" style={{ color: headToHeadData.user.workouts >= headToHeadData.friend.workouts ? COLORS.success : COLORS.text }}>
+                          {headToHeadData.user.workouts}
+                        </span>
+                      </div>
+                      <div className="w-20 text-center">
+                        <Dumbbell size={16} color={COLORS.primary} className="mx-auto" />
+                        <p className="text-xs" style={{ color: COLORS.textMuted }}>Workouts</p>
+                      </div>
+                      <div className="flex-1 pl-3">
+                        <span className="text-lg font-bold" style={{ color: headToHeadData.friend.workouts > headToHeadData.user.workouts ? COLORS.success : COLORS.text }}>
+                          {headToHeadData.friend.workouts}
+                        </span>
+                      </div>
+                    </div>
+                    {/* Volume comparison */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 text-right pr-3">
+                        <span className="text-lg font-bold" style={{ color: headToHeadData.user.volume >= headToHeadData.friend.volume ? COLORS.success : COLORS.text }}>
+                          {(headToHeadData.user.volume / 1000).toFixed(1)}k
+                        </span>
+                      </div>
+                      <div className="w-20 text-center">
+                        <BarChart3 size={16} color={COLORS.accent} className="mx-auto" />
+                        <p className="text-xs" style={{ color: COLORS.textMuted }}>Volume (kg)</p>
+                      </div>
+                      <div className="flex-1 pl-3">
+                        <span className="text-lg font-bold" style={{ color: headToHeadData.friend.volume > headToHeadData.user.volume ? COLORS.success : COLORS.text }}>
+                          {(headToHeadData.friend.volume / 1000).toFixed(1)}k
+                        </span>
+                      </div>
+                    </div>
+                    {/* PRs comparison */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 text-right pr-3">
+                        <span className="text-lg font-bold" style={{ color: headToHeadData.user.prs >= headToHeadData.friend.prs ? COLORS.success : COLORS.text }}>
+                          {headToHeadData.user.prs}
+                        </span>
+                      </div>
+                      <div className="w-20 text-center">
+                        <Trophy size={16} color={COLORS.warning} className="mx-auto" />
+                        <p className="text-xs" style={{ color: COLORS.textMuted }}>PRs</p>
+                      </div>
+                      <div className="flex-1 pl-3">
+                        <span className="text-lg font-bold" style={{ color: headToHeadData.friend.prs > headToHeadData.user.prs ? COLORS.success : COLORS.text }}>
+                          {headToHeadData.friend.prs}
+                        </span>
+                      </div>
+                    </div>
+                    {/* Streak comparison */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 text-right pr-3">
+                        <span className="text-lg font-bold" style={{ color: headToHeadData.user.streak >= headToHeadData.friend.streak ? COLORS.success : COLORS.text }}>
+                          {headToHeadData.user.streak}
+                        </span>
+                      </div>
+                      <div className="w-20 text-center">
+                        <Flame size={16} color={COLORS.error} className="mx-auto" />
+                        <p className="text-xs" style={{ color: COLORS.textMuted }}>Streak</p>
+                      </div>
+                      <div className="flex-1 pl-3">
+                        <span className="text-lg font-bold" style={{ color: headToHeadData.friend.streak > headToHeadData.user.streak ? COLORS.success : COLORS.text }}>
+                          {headToHeadData.friend.streak}
+                        </span>
+                      </div>
+                    </div>
+                    {/* Labels */}
+                    <div className="flex items-center justify-between pt-2 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+                      <span className="text-xs font-medium" style={{ color: COLORS.primary }}>You</span>
+                      <span className="text-xs font-medium" style={{ color: COLORS.primary }}>{showFriendProfile.name?.split(' ')[0] || 'Friend'}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={async () => {
+                      setHeadToHeadLoading(true);
+                      const result = await competitionService.getHeadToHead(user?.id, showFriendProfile.id, headToHeadPeriod);
+                      if (result?.data) setHeadToHeadData(result.data);
+                      setHeadToHeadLoading(false);
+                    }}
+                    className="w-full py-3 rounded-lg text-sm font-medium"
+                    style={{ backgroundColor: COLORS.primary + '20', color: COLORS.primary }}
+                  >
+                    Compare Stats
+                  </button>
+                )}
+              </div>
+
+              {/* Action Buttons (Nudge & Workout Buddy) */}
+              <div className="flex gap-3 mb-4">
+                {/* Nudge Button */}
+                <button
+                  onClick={async () => {
+                    if (nudgeSent || nudgeSending) return;
+                    setNudgeSending(true);
+                    const result = await accountabilityService.sendNudge(user?.id, showFriendProfile.id);
+                    setNudgeSending(false);
+                    if (result.error?.message?.includes('Already nudged') || result.alreadyNudged) {
+                      setCanNudge(false);
+                    } else if (!result.error) {
+                      setNudgeSent(true);
+                      setTimeout(() => setNudgeSent(false), 3000);
+                    }
+                  }}
+                  disabled={!canNudge || nudgeSending || nudgeSent}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-medium text-sm"
+                  style={{
+                    backgroundColor: nudgeSent ? COLORS.success + '20' : (!canNudge ? COLORS.surfaceLight : COLORS.warning + '20'),
+                    color: nudgeSent ? COLORS.success : (!canNudge ? COLORS.textMuted : COLORS.warning)
+                  }}
+                >
+                  {nudgeSending ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : nudgeSent ? (
+                    <>
+                      <Check size={18} />
+                      <span>Nudged!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Bell size={18} />
+                      <span>{canNudge ? 'Nudge' : 'Nudged Today'}</span>
+                    </>
+                  )}
+                </button>
+
+                {/* Workout Buddy Button */}
+                <button
+                  onClick={async () => {
+                    if (buddyRequestSent) return;
+                    const result = await accountabilityService.requestBuddy(user?.id, showFriendProfile.id);
+                    if (!result.error || result.alreadyExists) {
+                      setBuddyRequestSent(true);
+                    }
+                  }}
+                  disabled={buddyRequestSent || (workoutBuddy?.buddy?.id === showFriendProfile.id)}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-medium text-sm"
+                  style={{
+                    backgroundColor: buddyRequestSent || (workoutBuddy?.buddy?.id === showFriendProfile.id) ? COLORS.success + '20' : COLORS.primary + '20',
+                    color: buddyRequestSent || (workoutBuddy?.buddy?.id === showFriendProfile.id) ? COLORS.success : COLORS.primary
+                  }}
+                >
+                  <Users size={18} />
+                  <span>
+                    {workoutBuddy?.buddy?.id === showFriendProfile.id ? 'Workout Buddy' : buddyRequestSent ? 'Request Sent' : 'Be Buddies'}
+                  </span>
+                </button>
+              </div>
+
               {/* Recent Activity */}
               <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
                 <h5 className="font-semibold mb-3" style={{ color: COLORS.text }}>Recent Activity</h5>
@@ -22017,6 +22636,153 @@ export default function UpRepDemo() {
               >
                 Close
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* Activity Comments Modal */}
+        {showCommentsModal && (
+          <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
+            <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
+              <button onClick={() => { setShowCommentsModal(null); setActivityCommentsData([]); setNewActivityComment(''); }}>
+                <X size={24} color={COLORS.text} />
+              </button>
+              <h3 className="text-lg font-bold" style={{ color: COLORS.text }}>Comments</h3>
+            </div>
+
+            <div className="flex-1 overflow-auto p-4">
+              {activityCommentsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 size={32} color={COLORS.primary} className="animate-spin" />
+                </div>
+              ) : activityCommentsData.length === 0 ? (
+                <div className="text-center py-12">
+                  <MessageCircle size={48} color={COLORS.textMuted} className="mx-auto mb-3" style={{ opacity: 0.5 }} />
+                  <p className="text-sm" style={{ color: COLORS.textMuted }}>No comments yet</p>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>Be the first to leave a comment!</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {activityCommentsData.map((comment) => {
+                    const commentUser = comment.user;
+                    const commentName = commentUser
+                      ? `${commentUser.first_name || ''} ${commentUser.last_name || ''}`.trim() || commentUser.username || 'User'
+                      : 'User';
+                    const commentAvatar = commentUser?.avatar_url || commentUser?.first_name?.[0]?.toUpperCase() || 'U';
+                    const isOwnComment = comment.user_id === user?.id;
+
+                    return (
+                      <div key={comment.id} className="flex gap-3">
+                        <div
+                          className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-sm font-bold"
+                          style={{ backgroundColor: COLORS.primary + '30', color: COLORS.primary }}
+                        >
+                          {typeof commentAvatar === 'string' && commentAvatar.length === 1 ? commentAvatar : commentName[0]?.toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-sm" style={{ color: COLORS.text }}>{commentName}</span>
+                            <span className="text-xs" style={{ color: COLORS.textMuted }}>
+                              {formatActivityTime(comment.created_at)}
+                            </span>
+                          </div>
+                          <p className="text-sm mt-1" style={{ color: COLORS.textSecondary }}>{comment.content}</p>
+                          {isOwnComment && (
+                            <button
+                              onClick={async () => {
+                                if (confirm('Delete this comment?')) {
+                                  await socialService.deleteComment(comment.id, user?.id);
+                                  setActivityCommentsData(prev => prev.filter(c => c.id !== comment.id));
+                                  setActivityCommentCounts(prev => ({
+                                    ...prev,
+                                    [showCommentsModal]: Math.max(0, (prev[showCommentsModal] || 1) - 1)
+                                  }));
+                                }
+                              }}
+                              className="text-xs mt-1"
+                              style={{ color: COLORS.error }}
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Comment Input */}
+            <div className="p-4 border-t" style={{ borderColor: COLORS.surfaceLight, backgroundColor: COLORS.surface }}>
+              <div className="flex gap-3">
+                <div
+                  className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-sm font-bold"
+                  style={{ backgroundColor: COLORS.primary + '30', color: COLORS.primary }}
+                >
+                  {profile?.first_name?.[0]?.toUpperCase() || 'U'}
+                </div>
+                <div className="flex-1 flex gap-2">
+                  <input
+                    type="text"
+                    value={newActivityComment}
+                    onChange={(e) => setNewActivityComment(e.target.value)}
+                    placeholder="Write a comment..."
+                    className="flex-1 px-4 py-2 rounded-xl text-sm"
+                    style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none', outline: 'none' }}
+                    onKeyDown={async (e) => {
+                      if (e.key === 'Enter' && !e.shiftKey && newActivityComment.trim()) {
+                        e.preventDefault();
+                        const content = newActivityComment.trim();
+                        setNewActivityComment('');
+                        const { data } = await socialService.addComment(showCommentsModal, user?.id, content);
+                        if (data) {
+                          setActivityCommentsData(prev => [...prev, data]);
+                          setActivityCommentCounts(prev => ({
+                            ...prev,
+                            [showCommentsModal]: (prev[showCommentsModal] || 0) + 1
+                          }));
+                          // Notify the activity owner
+                          const activity = activityFeed.find(a => a.id === showCommentsModal);
+                          if (activity?.friendId && activity.friendId !== user?.id) {
+                            const userName = `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() || profile?.username || 'Someone';
+                            notificationService.notifyComment(activity.friendId, user?.id, userName, showCommentsModal);
+                          }
+                        }
+                      }
+                    }}
+                  />
+                  <button
+                    onClick={async () => {
+                      if (!newActivityComment.trim()) return;
+                      const content = newActivityComment.trim();
+                      setNewActivityComment('');
+                      const { data } = await socialService.addComment(showCommentsModal, user?.id, content);
+                      if (data) {
+                        setActivityCommentsData(prev => [...prev, data]);
+                        setActivityCommentCounts(prev => ({
+                          ...prev,
+                          [showCommentsModal]: (prev[showCommentsModal] || 0) + 1
+                        }));
+                        // Notify the activity owner
+                        const activity = activityFeed.find(a => a.id === showCommentsModal);
+                        if (activity?.friendId && activity.friendId !== user?.id) {
+                          const userName = `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() || profile?.username || 'Someone';
+                          notificationService.notifyComment(activity.friendId, user?.id, userName, showCommentsModal);
+                        }
+                      }
+                    }}
+                    disabled={!newActivityComment.trim()}
+                    className="px-4 py-2 rounded-xl font-semibold text-sm"
+                    style={{
+                      backgroundColor: newActivityComment.trim() ? COLORS.primary : COLORS.surfaceLight,
+                      color: newActivityComment.trim() ? COLORS.text : COLORS.textMuted
+                    }}
+                  >
+                    Post
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -22945,7 +23711,7 @@ export default function UpRepDemo() {
                 </div>
                 <button
                   onClick={() => {
-                    if (window.confirm('Reset program to Week 1? This will clear all workout completion history for this program.')) {
+                    if (window.confirm('Reset program to Day 1? This will restart your workout rotation from the beginning.')) {
                       // Reset all completed workouts in masterSchedule
                       setMasterSchedule(prev => {
                         const newSchedule = {};
@@ -22961,7 +23727,7 @@ export default function UpRepDemo() {
                   className="w-full py-2 rounded-lg text-sm font-medium"
                   style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.textMuted }}
                 >
-                  Reset to Week 1
+                  Reset to Day 1
                 </button>
               </div>
 

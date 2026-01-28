@@ -1,6 +1,190 @@
 import { supabase } from '../lib/supabase';
 
 export const socialService = {
+  // =====================================================
+  // ACTIVITY LIKES & REACTIONS
+  // =====================================================
+
+  // Like an activity (workout post)
+  async likeActivity(activityId, userId, reactionType = 'like') {
+    try {
+      if (!activityId || !userId) return { data: null, error: new Error('Missing required parameters') };
+
+      const { data, error } = await supabase
+        .from('activity_likes')
+        .upsert({
+          activity_id: activityId,
+          user_id: userId,
+          reaction_type: reactionType,
+        }, { onConflict: 'activity_id,user_id' })
+        .select()
+        .single();
+
+      return { data, error };
+    } catch (err) {
+      console.warn('Error liking activity:', err?.message);
+      return { data: null, error: err };
+    }
+  },
+
+  // Unlike an activity
+  async unlikeActivity(activityId, userId) {
+    try {
+      if (!activityId || !userId) return { error: new Error('Missing required parameters') };
+
+      const { error } = await supabase
+        .from('activity_likes')
+        .delete()
+        .eq('activity_id', activityId)
+        .eq('user_id', userId);
+
+      return { error };
+    } catch (err) {
+      console.warn('Error unliking activity:', err?.message);
+      return { error: err };
+    }
+  },
+
+  // Get user's likes (for syncing UI state)
+  async getUserLikes(userId) {
+    try {
+      if (!userId) return { data: [], error: null };
+
+      const { data, error } = await supabase
+        .from('activity_likes')
+        .select('activity_id, reaction_type')
+        .eq('user_id', userId);
+
+      if (error) {
+        console.warn('getUserLikes error:', error?.message);
+        return { data: [], error: null };
+      }
+
+      return { data: data || [], error: null };
+    } catch (err) {
+      console.warn('Error getting user likes:', err?.message);
+      return { data: [], error: null };
+    }
+  },
+
+  // Get likes for an activity
+  async getActivityLikes(activityId) {
+    try {
+      if (!activityId) return { data: [], count: 0, error: null };
+
+      const { data, error, count } = await supabase
+        .from('activity_likes')
+        .select('*, user:profiles(id, username, first_name, last_name, avatar_url)', { count: 'exact' })
+        .eq('activity_id', activityId);
+
+      if (error) {
+        console.warn('getActivityLikes error:', error?.message);
+        return { data: [], count: 0, error: null };
+      }
+
+      return { data: data || [], count: count || 0, error: null };
+    } catch (err) {
+      console.warn('Error getting activity likes:', err?.message);
+      return { data: [], count: 0, error: null };
+    }
+  },
+
+  // =====================================================
+  // ACTIVITY COMMENTS
+  // =====================================================
+
+  // Add a comment to an activity
+  async addComment(activityId, userId, content) {
+    try {
+      if (!activityId || !userId || !content?.trim()) {
+        return { data: null, error: new Error('Missing required parameters') };
+      }
+
+      const { data, error } = await supabase
+        .from('activity_comments')
+        .insert({
+          activity_id: activityId,
+          user_id: userId,
+          content: content.trim(),
+        })
+        .select('*, user:profiles(id, username, first_name, last_name, avatar_url)')
+        .single();
+
+      return { data, error };
+    } catch (err) {
+      console.warn('Error adding comment:', err?.message);
+      return { data: null, error: err };
+    }
+  },
+
+  // Get comments for an activity
+  async getActivityComments(activityId, limit = 50) {
+    try {
+      if (!activityId) return { data: [], error: null };
+
+      const { data, error } = await supabase
+        .from('activity_comments')
+        .select('*, user:profiles(id, username, first_name, last_name, avatar_url)')
+        .eq('activity_id', activityId)
+        .order('created_at', { ascending: true })
+        .limit(limit);
+
+      if (error) {
+        console.warn('getActivityComments error:', error?.message);
+        return { data: [], error: null };
+      }
+
+      return { data: data || [], error: null };
+    } catch (err) {
+      console.warn('Error getting comments:', err?.message);
+      return { data: [], error: null };
+    }
+  },
+
+  // Delete a comment
+  async deleteComment(commentId, userId) {
+    try {
+      if (!commentId || !userId) return { error: new Error('Missing required parameters') };
+
+      const { error } = await supabase
+        .from('activity_comments')
+        .delete()
+        .eq('id', commentId)
+        .eq('user_id', userId);
+
+      return { error };
+    } catch (err) {
+      console.warn('Error deleting comment:', err?.message);
+      return { error: err };
+    }
+  },
+
+  // Get comment count for an activity
+  async getCommentCount(activityId) {
+    try {
+      if (!activityId) return { count: 0, error: null };
+
+      const { count, error } = await supabase
+        .from('activity_comments')
+        .select('*', { count: 'exact', head: true })
+        .eq('activity_id', activityId);
+
+      if (error) {
+        console.warn('getCommentCount error:', error?.message);
+        return { count: 0, error: null };
+      }
+
+      return { count: count || 0, error: null };
+    } catch (err) {
+      console.warn('Error getting comment count:', err?.message);
+      return { count: 0, error: null };
+    }
+  },
+
+  // =====================================================
+  // ORIGINAL METHODS
+  // =====================================================
+
   // Get top followed users (most subscribers)
   // Returns empty array until real follower tracking is implemented
   async getTopFollowed(period = 'all', limit = 20) {
