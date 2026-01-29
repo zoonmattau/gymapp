@@ -13602,6 +13602,24 @@ export default function UpRepDemo() {
   // Home Tab scroll ref
   const homeScrollRef = React.useRef(null);
   const homeScrollPos = React.useRef(0);
+  const homeTabMounted = React.useRef(false);
+
+  // Restore home tab scroll position after re-renders (prevents jump to top on data load)
+  React.useEffect(() => {
+    if (activeTab === 'home' && homeScrollRef.current && homeTabMounted.current) {
+      const savedPos = homeScrollPos.current;
+      if (savedPos > 0) {
+        requestAnimationFrame(() => {
+          if (homeScrollRef.current) {
+            homeScrollRef.current.scrollTop = savedPos;
+          }
+        });
+      }
+    }
+    if (activeTab === 'home') {
+      homeTabMounted.current = true;
+    }
+  });
 
   // Toggle trending workout with scroll preservation
   const toggleTrendingWorkoutWithScroll = (workoutId) => {
