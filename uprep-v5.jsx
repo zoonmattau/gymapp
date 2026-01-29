@@ -220,7 +220,13 @@ import { foodService } from './src/services/foodService';
 import { exerciseService } from './src/services/exerciseService';
 import { competitionService } from './src/services/competitionService';
 import { accountabilityService } from './src/services/accountabilityService';
+import { prLeaderboardService } from './src/services/prLeaderboardService';
 import { generateNutritionTargets, projectWeightProgress, generateWorkoutSchedule } from './src/utils/fitnessCalculations';
+
+// Helper function to get local date string in YYYY-MM-DD format (avoids UTC timezone issues)
+const getLocalDateString = (date = new Date()) => {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+};
 
 // Format date as relative time (Today at 2:30 PM, Yesterday, 3 days ago, etc.)
 const formatRelativeDate = (dateString) => {
@@ -2379,36 +2385,24 @@ const EditProfileModal = ({ userData, setUserData, COLORS, onClose, user, update
 
 // Meal Entry Modal - separate component to prevent input focus loss
 const MealEntryModal = ({ COLORS, onClose, onSave, userId }) => {
+  // All state is local to prevent re-render issues with parent
   const [name, setName] = React.useState('');
   const [calories, setCalories] = React.useState('');
   const [protein, setProtein] = React.useState('');
   const [carbs, setCarbs] = React.useState('');
-  const [fats, setFats] = React.useState('');
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const [servingMultiplier, setServingMultiplier] = React.useState(1);
   const [capturedImage, setCapturedImage] = React.useState(null);
   const [analyzing, setAnalyzing] = React.useState(false);
   const [recognitionResult, setRecognitionResult] = React.useState(null);
-  const [searchQuery, setSearchQuery] = React.useState('');
   const [searchResults, setSearchResults] = React.useState([]);
   const [searching, setSearching] = React.useState(false);
-  const [servingMultiplier, setServingMultiplier] = React.useState(1);
   const [frequentMeals, setFrequentMeals] = React.useState([]);
   const [loadingFrequent, setLoadingFrequent] = React.useState(false);
   const fileInputRef = React.useRef(null);
+  const modalRef = React.useRef(null);
 
-  // Prevent body scroll when modal is open
-  React.useEffect(() => {
-    const scrollY = window.scrollY;
-    document.body.style.position = 'fixed';
-    document.body.style.top = `-${scrollY}px`;
-    document.body.style.width = '100%';
-
-    return () => {
-      document.body.style.position = '';
-      document.body.style.top = '';
-      document.body.style.width = '';
-      window.scrollTo(0, scrollY);
-    };
-  }, []);
+  // Modal overlay handles scroll blocking via fixed positioning
 
   // Load user's frequent meals on mount
   React.useEffect(() => {
@@ -2494,7 +2488,6 @@ const MealEntryModal = ({ COLORS, onClose, onSave, userId }) => {
       setCalories(data.nutrition.calories.toString());
       setProtein(data.nutrition.protein.toString());
       setCarbs((data.nutrition.carbs || 0).toString());
-      setFats((data.nutrition.fats || 0).toString());
       setRecognitionResult(data);
     } catch (err) {
       console.error('Food analysis error:', err);
@@ -2575,7 +2568,6 @@ const MealEntryModal = ({ COLORS, onClose, onSave, userId }) => {
     setCalories(Math.round(food.calories * servingMultiplier).toString());
     setProtein(Math.round(food.protein * servingMultiplier).toString());
     setCarbs(Math.round(food.carbs * servingMultiplier).toString());
-    setFats(Math.round(food.fats * servingMultiplier).toString());
     setSearchResults([]);
     setSearchQuery('');
   };
@@ -2591,7 +2583,7 @@ const MealEntryModal = ({ COLORS, onClose, onSave, userId }) => {
       calories: parseInt(calories) || 0,
       protein: parseInt(protein) || 0,
       carbs: parseInt(carbs) || 0,
-      fats: parseInt(fats) || 0,
+      fats: 0, // Not tracking fats
     };
     onSave(mealData);
   };
@@ -2599,14 +2591,13 @@ const MealEntryModal = ({ COLORS, onClose, onSave, userId }) => {
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: 'rgba(0,0,0,0.2)' }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          onClose();
-        }
-      }}
+      style={{ backgroundColor: 'rgba(0,0,0,0.2)', isolation: 'isolate', pointerEvents: 'none' }}
     >
-      <div className="w-full max-w-md rounded-t-3xl p-6 max-h-[85vh] overflow-auto" style={{ backgroundColor: COLORS.surface }}>
+      <div
+        ref={modalRef}
+        className="w-full max-w-md rounded-t-3xl p-6 max-h-[85vh] overflow-auto"
+        style={{ backgroundColor: COLORS.surface, WebkitOverflowScrolling: 'touch', pointerEvents: 'auto' }}
+      >
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-bold" style={{ color: COLORS.text }}>Add Meal</h3>
           <button onClick={onClose} className="p-2 rounded-full" style={{ backgroundColor: COLORS.surfaceLight }}>
@@ -2644,8 +2635,21 @@ const MealEntryModal = ({ COLORS, onClose, onSave, userId }) => {
               onChange={e => setSearchQuery(e.target.value)}
               onKeyPress={e => e.key === 'Enter' && handleSearch()}
               placeholder="Search for food..."
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck="false"
+              autoFocus
               className="flex-1 p-3 rounded-xl text-sm"
-              style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+              style={{
+                backgroundColor: COLORS.surfaceLight,
+                color: COLORS.text,
+                border: 'none',
+                outline: 'none',
+                WebkitAppearance: 'none',
+                touchAction: 'manipulation',
+                fontSize: '16px'
+              }}
             />
             <button
               onClick={handleSearch}
@@ -2720,7 +2724,6 @@ const MealEntryModal = ({ COLORS, onClose, onSave, userId }) => {
                   <span>{Math.round(food.calories * servingMultiplier)} cal</span>
                   <span>P: {Math.round(food.protein * servingMultiplier)}g</span>
                   <span>C: {Math.round(food.carbs * servingMultiplier)}g</span>
-                  <span>F: {Math.round(food.fats * servingMultiplier)}g</span>
                 </div>
               </button>
             ))}
@@ -2771,8 +2774,20 @@ const MealEntryModal = ({ COLORS, onClose, onSave, userId }) => {
               value={name}
               onChange={e => setName(e.target.value)}
               placeholder="e.g. Chicken & Rice"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck="false"
               className="w-full p-3 rounded-xl text-sm"
-              style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+              style={{
+                backgroundColor: COLORS.surfaceLight,
+                color: COLORS.text,
+                border: 'none',
+                outline: 'none',
+                WebkitAppearance: 'none',
+                touchAction: 'manipulation',
+                fontSize: '16px'
+              }}
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -2781,11 +2796,21 @@ const MealEntryModal = ({ COLORS, onClose, onSave, userId }) => {
               <input
                 type="text"
                 inputMode="numeric"
+                pattern="[0-9]*"
                 value={calories}
                 onChange={e => setCalories(e.target.value.replace(/\D/g, ''))}
                 placeholder="0"
+                autoComplete="off"
                 className="w-full p-3 rounded-xl text-sm text-center"
-                style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+                style={{
+                  backgroundColor: COLORS.surfaceLight,
+                  color: COLORS.text,
+                  border: 'none',
+                  outline: 'none',
+                  WebkitAppearance: 'none',
+                  touchAction: 'manipulation',
+                  fontSize: '16px'
+                }}
               />
             </div>
             <div>
@@ -2793,39 +2818,45 @@ const MealEntryModal = ({ COLORS, onClose, onSave, userId }) => {
               <input
                 type="text"
                 inputMode="numeric"
+                pattern="[0-9]*"
                 value={protein}
                 onChange={e => setProtein(e.target.value.replace(/\D/g, ''))}
                 placeholder="0"
+                autoComplete="off"
                 className="w-full p-3 rounded-xl text-sm text-center"
-                style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+                style={{
+                  backgroundColor: COLORS.surfaceLight,
+                  color: COLORS.text,
+                  border: 'none',
+                  outline: 'none',
+                  WebkitAppearance: 'none',
+                  touchAction: 'manipulation',
+                  fontSize: '16px'
+                }}
               />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-sm mb-1 block" style={{ color: COLORS.textMuted }}>Carbs (g)</label>
-              <input
-                type="text"
-                inputMode="numeric"
-                value={carbs}
-                onChange={e => setCarbs(e.target.value.replace(/\D/g, ''))}
-                placeholder="0"
-                className="w-full p-3 rounded-xl text-sm text-center"
-                style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
-              />
-            </div>
-            <div>
-              <label className="text-sm mb-1 block" style={{ color: COLORS.textMuted }}>Fats (g)</label>
-              <input
-                type="text"
-                inputMode="numeric"
-                value={fats}
-                onChange={e => setFats(e.target.value.replace(/\D/g, ''))}
-                placeholder="0"
-                className="w-full p-3 rounded-xl text-sm text-center"
-                style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
-              />
-            </div>
+          <div>
+            <label className="text-sm mb-1 block" style={{ color: COLORS.textMuted }}>Carbs (g)</label>
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={carbs}
+              onChange={e => setCarbs(e.target.value.replace(/\D/g, ''))}
+              placeholder="0"
+              autoComplete="off"
+              className="w-full p-3 rounded-xl text-sm text-center"
+              style={{
+                backgroundColor: COLORS.surfaceLight,
+                color: COLORS.text,
+                border: 'none',
+                outline: 'none',
+                WebkitAppearance: 'none',
+                touchAction: 'manipulation',
+                fontSize: '16px'
+              }}
+            />
           </div>
         </div>
 
@@ -2855,20 +2886,7 @@ const WaterEntryModal = ({ COLORS, onClose, onSave }) => {
   const [amount, setAmount] = React.useState('');
   const [saving, setSaving] = React.useState(false);
 
-  // Prevent body scroll when modal is open
-  React.useEffect(() => {
-    const scrollY = window.scrollY;
-    document.body.style.position = 'fixed';
-    document.body.style.top = `-${scrollY}px`;
-    document.body.style.width = '100%';
-
-    return () => {
-      document.body.style.position = '';
-      document.body.style.top = '';
-      document.body.style.width = '';
-      window.scrollTo(0, scrollY);
-    };
-  }, []);
+  // Modal overlay handles scroll blocking via fixed positioning
 
   const handleSave = async (e) => {
     if (e) {
@@ -2892,14 +2910,12 @@ const WaterEntryModal = ({ COLORS, onClose, onSave }) => {
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: 'rgba(0,0,0,0.2)' }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !saving) {
-          onClose();
-        }
-      }}
+      style={{ backgroundColor: 'rgba(0,0,0,0.2)', isolation: 'isolate', pointerEvents: 'none' }}
     >
-      <div className="w-full max-w-md rounded-t-3xl p-6" style={{ backgroundColor: COLORS.surface }}>
+      <div
+        className="w-full max-w-md rounded-t-3xl p-6"
+        style={{ backgroundColor: COLORS.surface, WebkitOverflowScrolling: 'touch', pointerEvents: 'auto' }}
+      >
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-bold" style={{ color: COLORS.text }}>Add Water</h3>
           <button onClick={onClose} disabled={saving} className="p-2 rounded-full" style={{ backgroundColor: COLORS.surfaceLight }}>
@@ -2930,12 +2946,24 @@ const WaterEntryModal = ({ COLORS, onClose, onSave }) => {
           <input
             type="text"
             inputMode="numeric"
+            pattern="[0-9]*"
             value={amount}
             onChange={e => setAmount(e.target.value.replace(/\D/g, ''))}
             disabled={saving}
             placeholder="Enter ml"
+            autoComplete="off"
+            autoFocus
             className="w-full p-3 rounded-xl text-center text-xl font-bold"
-            style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none', opacity: saving ? 0.5 : 1 }}
+            style={{
+              backgroundColor: COLORS.surfaceLight,
+              color: COLORS.text,
+              border: 'none',
+              outline: 'none',
+              WebkitAppearance: 'none',
+              touchAction: 'manipulation',
+              fontSize: '20px',
+              opacity: saving ? 0.5 : 1
+            }}
           />
         </div>
 
@@ -8803,7 +8831,7 @@ export default function UpRepDemo() {
   const [selectedSleepDate, setSelectedSleepDate] = useState(() => {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
-    return yesterday.toISOString().split('T')[0];
+    return getLocalDateString(yesterday);
   });
 
   // Update screen when auth state changes
@@ -8998,8 +9026,9 @@ export default function UpRepDemo() {
   }, [isAuthenticated]);
 
   // Dynamic today's date - defined early for use in useEffects
+  // Use local date, not UTC, to avoid timezone issues
   const today = new Date();
-  const TODAY_DATE_KEY = today.toISOString().split('T')[0];
+  const TODAY_DATE_KEY = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   const currentYear = today.getFullYear();
   const currentMonth = today.getMonth();
 
@@ -10087,19 +10116,21 @@ export default function UpRepDemo() {
   };
 
   // Like/unlike activity with scroll preservation (Friends tab)
-  const handleActivityLike = async (activityId, friendId) => {
+  const handleActivityLike = async (activityId, friendId, reactionType = 'like') => {
     const scrollTop = friendsTabScrollRef.current?.scrollTop;
     const isLiked = userLikes[activityId];
 
-    if (isLiked) {
+    if (isLiked && reactionType === userLikes[activityId]) {
+      // Unlike if same reaction
       setUserLikes(prev => { const newLikes = { ...prev }; delete newLikes[activityId]; return newLikes; });
       setLikedPosts(prev => prev.filter(id => id !== activityId));
       await socialService.unlikeActivity(activityId, user?.id);
     } else {
-      setUserLikes(prev => ({ ...prev, [activityId]: 'like' }));
-      setLikedPosts(prev => [...prev, activityId]);
-      await socialService.likeActivity(activityId, user?.id, 'like');
-      if (friendId && friendId !== user?.id) {
+      // Add new reaction or change existing
+      setUserLikes(prev => ({ ...prev, [activityId]: reactionType }));
+      if (!isLiked) setLikedPosts(prev => [...prev, activityId]);
+      await socialService.likeActivity(activityId, user?.id, reactionType);
+      if (friendId && friendId !== user?.id && !isLiked) {
         const userName = `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() || profile?.username || 'Someone';
         notificationService.notifyWorkoutLike(friendId, user?.id, userName, activityId);
       }
@@ -10112,22 +10143,83 @@ export default function UpRepDemo() {
     });
   };
 
+  // State for reaction picker
+  const [showReactionPicker, setShowReactionPicker] = useState(null); // activityId or null
+
   // Like/unlike activity with scroll preservation (Home tab)
-  const handleHomeActivityLike = async (activityId, friendId) => {
+  const handleHomeActivityLike = async (activityId, friendId, reactionType = 'like') => {
     const isLiked = userLikes[activityId];
 
-    if (isLiked) {
+    if (isLiked && reactionType === userLikes[activityId]) {
+      // Unlike if same reaction
       setUserLikes(prev => { const newLikes = { ...prev }; delete newLikes[activityId]; return newLikes; });
       setLikedPosts(prev => prev.filter(id => id !== activityId));
       await socialService.unlikeActivity(activityId, user?.id);
     } else {
-      setUserLikes(prev => ({ ...prev, [activityId]: 'like' }));
-      setLikedPosts(prev => [...prev, activityId]);
-      await socialService.likeActivity(activityId, user?.id, 'like');
-      if (friendId && friendId !== user?.id) {
+      // Add new reaction or change existing
+      setUserLikes(prev => ({ ...prev, [activityId]: reactionType }));
+      if (!isLiked) setLikedPosts(prev => [...prev, activityId]);
+      await socialService.likeActivity(activityId, user?.id, reactionType);
+      if (friendId && friendId !== user?.id && !isLiked) {
         const userName = `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() || profile?.username || 'Someone';
         notificationService.notifyWorkoutLike(friendId, user?.id, userName, activityId);
       }
+    }
+  };
+
+  // Load head-to-head data when friend profile is opened
+  const loadHeadToHead = async (friendId) => {
+    if (!user?.id || !friendId) return;
+    setHeadToHeadLoading(true);
+    try {
+      const result = await competitionService.getHeadToHead(user.id, friendId, headToHeadPeriod);
+      if (result?.data) {
+        setHeadToHeadData(result.data);
+      }
+    } catch (err) {
+      console.warn('Error loading head-to-head:', err?.message);
+    } finally {
+      setHeadToHeadLoading(false);
+    }
+  };
+
+  // Load PR leaderboard data
+  const loadPRLeaderboard = async () => {
+    if (!user?.id) return;
+    setPrLeaderboardLoading(true);
+    try {
+      const result = await prLeaderboardService.getMyPRsWithRankings(user.id);
+      if (result?.data) {
+        // Also load demographic rankings for each PR
+        const prsWithDemographics = await Promise.all(
+          result.data.map(async (pr) => {
+            const demographicRanking = await prLeaderboardService.getPRRankingByDemographic(
+              user.id,
+              pr.exercise_name,
+              prLeaderboardFilter === 'global' ? 'age' : prLeaderboardFilter
+            );
+            return { ...pr, demographicRanking };
+          })
+        );
+        setPrLeaderboardData(prsWithDemographics);
+      }
+    } catch (err) {
+      console.warn('Error loading PR leaderboard:', err?.message);
+    } finally {
+      setPrLeaderboardLoading(false);
+    }
+  };
+
+  // Load exercise leaderboard when exercise is selected
+  const loadExerciseLeaderboard = async (exerciseName) => {
+    if (!exerciseName) return;
+    try {
+      const result = await prLeaderboardService.getExerciseLeaderboard(exerciseName, 20);
+      if (result?.data) {
+        setExerciseLeaderboard(result.data);
+      }
+    } catch (err) {
+      console.warn('Error loading exercise leaderboard:', err?.message);
     }
   };
 
@@ -10936,6 +11028,14 @@ export default function UpRepDemo() {
   // Shared goals state
   const [sharedGoals, setSharedGoals] = useState([]);
 
+  // PR Leaderboard state
+  const [showPRLeaderboard, setShowPRLeaderboard] = useState(false);
+  const [prLeaderboardData, setPrLeaderboardData] = useState(null);
+  const [prLeaderboardFilter, setPrLeaderboardFilter] = useState('global'); // 'global', 'age', 'weight'
+  const [prLeaderboardLoading, setPrLeaderboardLoading] = useState(false);
+  const [selectedPRExercise, setSelectedPRExercise] = useState(null);
+  const [exerciseLeaderboard, setExerciseLeaderboard] = useState([]);
+
   const [userData, setUserData] = useState({
     firstName: '', lastName: '', email: '', goal: null, experience: null,
     daysPerWeek: 4, sessionDuration: 60, dob: '', weight: '',
@@ -10994,6 +11094,7 @@ export default function UpRepDemo() {
   const [waterLogs, setWaterLogs] = useState([]); // Today's water logs
 
   const [selectedChart, setSelectedChart] = useState('weight');
+  const [chartTimeFrame, setChartTimeFrame] = useState('all'); // '7d', '30d', '90d', 'all'
   const [chartData, setChartData] = useState({
     weight: [],
     workouts: [],
@@ -11263,7 +11364,7 @@ export default function UpRepDemo() {
     for (let i = 0; i < 395; i++) {
       const date = new Date(scheduleStart);
       date.setDate(scheduleStart.getDate() + i);
-      const dateKey = date.toISOString().split('T')[0];
+      const dateKey = getLocalDateString(date);
       // Convert to Monday=0 format: (getDay() + 6) % 7
       const dayOfWeek = (date.getDay() + 6) % 7;
 
@@ -11338,7 +11439,7 @@ export default function UpRepDemo() {
       const date = new Date(scheduleStart);
       date.setDate(scheduleStart.getDate() + i);
       const dayOfWeek = (date.getDay() + 6) % 7; // Convert to Mon=0
-      const dateKey = date.toISOString().split('T')[0];
+      const dateKey = getLocalDateString(date);
 
       // Preserve completed workouts from the old schedule
       const existingEntry = masterSchedule[dateKey];
@@ -11639,7 +11740,7 @@ export default function UpRepDemo() {
     for (let i = 0; i < 395; i++) {
       const date = new Date(scheduleStart);
       date.setDate(scheduleStart.getDate() + i);
-      const dateKey = date.toISOString().split('T')[0];
+      const dateKey = getLocalDateString(date);
       const dayOfWeek = (date.getDay() + 6) % 7; // Monday=0
 
       // Preserve completed workouts from old schedule
@@ -11914,7 +12015,7 @@ export default function UpRepDemo() {
     for (let i = 0; i < 7; i++) {
       const date = new Date(startOfWeek);
       date.setDate(startOfWeek.getDate() + i);
-      const dateKey = date.toISOString().split('T')[0];
+      const dateKey = getLocalDateString(date);
       const scheduleEntry = masterSchedule[dateKey] || { workoutType: null, completed: false };
       const isPast = date < todayStart;
       // Generate workout if there's a workout type scheduled
@@ -11988,7 +12089,7 @@ export default function UpRepDemo() {
     for (let i = 1; i <= 14 && upcoming.length < 3; i++) {
       const date = new Date(today);
       date.setDate(today.getDate() + i);
-      const dateKey = date.toISOString().split('T')[0];
+      const dateKey = getLocalDateString(date);
       const entry = masterSchedule[dateKey];
       if (entry?.workoutType) {
         const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -13502,14 +13603,57 @@ export default function UpRepDemo() {
   const homeScrollRef = React.useRef(null);
   const homeScrollPos = React.useRef(0);
 
+  // Toggle trending workout with scroll preservation
+  const toggleTrendingWorkoutWithScroll = (workoutId) => {
+    const scrollTop = homeScrollRef.current?.scrollTop;
+    setExpandedTrendingWorkoutId(prev => prev === workoutId ? null : workoutId);
+    requestAnimationFrame(() => {
+      if (homeScrollRef.current && scrollTop !== undefined) {
+        homeScrollRef.current.scrollTop = scrollTop;
+      }
+    });
+  };
+
+  // Open comments with home tab scroll preservation
+  const openCommentsWithScroll = async (workoutId) => {
+    const scrollTop = homeScrollRef.current?.scrollTop;
+    setShowCommentsFor(workoutId);
+    await loadComments(workoutId);
+    requestAnimationFrame(() => {
+      if (homeScrollRef.current && scrollTop !== undefined) {
+        homeScrollRef.current.scrollTop = scrollTop;
+      }
+    });
+  };
+
+  // Close comments with home tab scroll preservation
+  const closeCommentsWithScroll = () => {
+    const scrollTop = homeScrollRef.current?.scrollTop;
+    setShowCommentsFor(null);
+    setWorkoutComments([]);
+    requestAnimationFrame(() => {
+      if (homeScrollRef.current && scrollTop !== undefined) {
+        homeScrollRef.current.scrollTop = scrollTop;
+      }
+    });
+  };
+
+  // Toggle warmup/cooldown with home tab scroll preservation
+  const toggleWarmupCooldownHomeTab = (workoutId, type) => {
+    const scrollTop = homeScrollRef.current?.scrollTop;
+    setWorkoutWarmupCooldown(prev => ({
+      ...prev,
+      [workoutId]: { ...prev[workoutId], [type]: !(prev[workoutId]?.[type] ?? true) }
+    }));
+    requestAnimationFrame(() => {
+      if (homeScrollRef.current && scrollTop !== undefined) {
+        homeScrollRef.current.scrollTop = scrollTop;
+      }
+    });
+  };
+
   // Home Tab - SLEEK REDESIGN
   const HomeTab = () => {
-    React.useEffect(() => {
-      if (homeScrollRef.current) {
-        homeScrollRef.current.scrollTop = homeScrollPos.current;
-      }
-    }, []);
-
     const handleScroll = (e) => {
       homeScrollPos.current = e.target.scrollTop;
     };
@@ -14275,37 +14419,79 @@ export default function UpRepDemo() {
         <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>TRENDS</p>
       </div>
       <div className="mx-4 p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
-        {/* Chart Selector Tabs */}
-        <div className="flex flex-wrap gap-1.5 mb-3">
-          {[
-            { id: 'weight', label: 'Weight', color: COLORS.primary },
-            { id: 'calories', label: 'Cals', color: COLORS.accent },
-            { id: 'protein', label: 'Protein', color: COLORS.protein || COLORS.primary },
-            { id: 'water', label: 'Water', color: COLORS.water },
-            { id: 'sleep', label: 'Sleep', color: COLORS.sleep },
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setSelectedChart(tab.id)}
-              className="px-2.5 py-1 rounded-lg text-xs font-semibold transition-all"
-              style={{
-                backgroundColor: selectedChart === tab.id ? tab.color + '20' : 'transparent',
-                color: selectedChart === tab.id ? tab.color : COLORS.textMuted,
-                border: `1px solid ${selectedChart === tab.id ? tab.color : 'transparent'}`
-              }}
-            >
-              {tab.label}
-            </button>
-          ))}
+        {/* Chart Selector and Time Frame */}
+        <div className="flex items-center justify-between mb-3">
+          {/* Chart Type Tabs */}
+          <div className="flex flex-wrap gap-1.5">
+            {[
+              { id: 'weight', label: 'Weight', color: COLORS.primary },
+              { id: 'calories', label: 'Cals', color: COLORS.accent },
+              { id: 'protein', label: 'Protein', color: COLORS.protein || COLORS.primary },
+              { id: 'water', label: 'Water', color: COLORS.water },
+              { id: 'sleep', label: 'Sleep', color: COLORS.sleep },
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setSelectedChart(tab.id)}
+                className="px-2.5 py-1 rounded-lg text-xs font-semibold transition-all"
+                style={{
+                  backgroundColor: selectedChart === tab.id ? tab.color + '20' : 'transparent',
+                  color: selectedChart === tab.id ? tab.color : COLORS.textMuted,
+                  border: `1px solid ${selectedChart === tab.id ? tab.color : 'transparent'}`
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          {/* Time Frame Toggle */}
+          <div className="flex gap-1">
+            {[
+              { id: '7d', label: '7D' },
+              { id: '30d', label: '30D' },
+              { id: '90d', label: '90D' },
+              { id: 'all', label: 'All' },
+            ].map(tf => (
+              <button
+                key={tf.id}
+                onClick={() => setChartTimeFrame(tf.id)}
+                className="px-1.5 py-0.5 rounded text-xs"
+                style={{
+                  backgroundColor: chartTimeFrame === tf.id ? COLORS.primary : 'transparent',
+                  color: chartTimeFrame === tf.id ? COLORS.text : COLORS.textMuted
+                }}
+              >
+                {tf.label}
+              </button>
+            ))}
+          </div>
         </div>
 
+        {/* Helper to filter data by time frame */}
+        {(() => {
+          const getFilteredData = (data, timeFrame) => {
+            if (!data || data.length === 0) return data;
+            const weeksToShow = timeFrame === '7d' ? 1 : timeFrame === '30d' ? 4 : timeFrame === '90d' ? 13 : data.length;
+            return data.slice(-weeksToShow);
+          };
+
+          const filteredWeightData = getFilteredData(chartData?.weight, chartTimeFrame);
+          const filteredNutritionData = getFilteredData(weeklyNutrition, chartTimeFrame);
+          const filteredSleepData = getFilteredData(sleepChartData, chartTimeFrame);
+
+          return null;
+        })()}
+
         {/* Weight Chart */}
-        {selectedChart === 'weight' && (
+        {selectedChart === 'weight' && (() => {
+          const weeksToShow = chartTimeFrame === '7d' ? 1 : chartTimeFrame === '30d' ? 4 : chartTimeFrame === '90d' ? 13 : chartData?.weight?.length || 16;
+          const filteredData = chartData?.weight?.slice(-weeksToShow) || [];
+          return (
           <div style={{ height: 110 }}>
-            {chartData?.weight?.length > 0 ? (
+            {filteredData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData.weight.map(d => ({ date: `W${d.week}`, actual: d.value, goal: d.expected }))}>
-                  <XAxis dataKey="date" tick={{ fill: COLORS.textMuted, fontSize: 9 }} axisLine={false} tickLine={false} interval={Math.ceil(chartData.weight.length / 6)} />
+                <LineChart data={filteredData.map(d => ({ date: `W${d.week}`, actual: d.value, goal: d.expected }))}>
+                  <XAxis dataKey="date" tick={{ fill: COLORS.textMuted, fontSize: 9 }} axisLine={false} tickLine={false} interval={Math.ceil(filteredData.length / 6)} />
                   <YAxis tick={{ fill: COLORS.textMuted, fontSize: 9 }} axisLine={false} tickLine={false} width={32} domain={['dataMin - 2', 'dataMax + 2']} tickFormatter={(v) => Math.round(v)} allowDecimals={false} />
                   <Tooltip
                     contentStyle={{ backgroundColor: COLORS.surface, border: `1px solid ${COLORS.surfaceLight}`, borderRadius: 8, padding: '6px 10px' }}
@@ -14322,15 +14508,19 @@ export default function UpRepDemo() {
               </div>
             )}
           </div>
-        )}
+          );
+        })()}
 
         {/* Calories Chart */}
-        {selectedChart === 'calories' && (
+        {selectedChart === 'calories' && (() => {
+          const weeksToShow = chartTimeFrame === '7d' ? 1 : chartTimeFrame === '30d' ? 4 : chartTimeFrame === '90d' ? 13 : weeklyNutrition?.length || 16;
+          const filteredData = weeklyNutrition?.slice(-weeksToShow) || [];
+          return (
           <div style={{ height: 110 }}>
-            {weeklyNutrition?.length > 0 ? (
+            {filteredData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={weeklyNutrition.map((d, i) => ({ ...d, week: `W${i + 1}`, actual: d.calories }))}>
-                  <XAxis dataKey="week" tick={{ fill: COLORS.textMuted, fontSize: 9 }} axisLine={false} tickLine={false} interval={Math.ceil(weeklyNutrition.length / 6)} />
+                <LineChart data={filteredData.map((d, i) => ({ ...d, week: `W${weeklyNutrition.length - filteredData.length + i + 1}`, actual: d.calories }))}>
+                  <XAxis dataKey="week" tick={{ fill: COLORS.textMuted, fontSize: 9 }} axisLine={false} tickLine={false} interval={Math.ceil(filteredData.length / 6)} />
                   <YAxis tick={{ fill: COLORS.textMuted, fontSize: 9 }} axisLine={false} tickLine={false} width={32} domain={['dataMin - 200', 'dataMax + 200']} tickFormatter={(v) => Math.round(v)} allowDecimals={false} />
                   <Tooltip
                     contentStyle={{ backgroundColor: COLORS.surface, border: `1px solid ${COLORS.surfaceLight}`, borderRadius: 8, padding: '6px 10px' }}
@@ -14347,15 +14537,19 @@ export default function UpRepDemo() {
               </div>
             )}
           </div>
-        )}
+          );
+        })()}
 
         {/* Protein Chart */}
-        {selectedChart === 'protein' && (
+        {selectedChart === 'protein' && (() => {
+          const weeksToShow = chartTimeFrame === '7d' ? 1 : chartTimeFrame === '30d' ? 4 : chartTimeFrame === '90d' ? 13 : weeklyNutrition?.length || 16;
+          const filteredData = weeklyNutrition?.slice(-weeksToShow) || [];
+          return (
           <div style={{ height: 110 }}>
-            {weeklyNutrition?.length > 0 ? (
+            {filteredData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={weeklyNutrition.map((d, i) => ({ week: `W${i + 1}`, actual: d.protein || 0, goal: d.proteinGoal || 150 }))}>
-                  <XAxis dataKey="week" tick={{ fill: COLORS.textMuted, fontSize: 9 }} axisLine={false} tickLine={false} interval={Math.ceil(weeklyNutrition.length / 6)} />
+                <LineChart data={filteredData.map((d, i) => ({ week: `W${weeklyNutrition.length - filteredData.length + i + 1}`, actual: d.protein || 0, goal: d.proteinGoal || 150 }))}>
+                  <XAxis dataKey="week" tick={{ fill: COLORS.textMuted, fontSize: 9 }} axisLine={false} tickLine={false} interval={Math.ceil(filteredData.length / 6)} />
                   <YAxis tick={{ fill: COLORS.textMuted, fontSize: 9 }} axisLine={false} tickLine={false} width={32} domain={[0, 'auto']} tickFormatter={(v) => Math.round(v)} allowDecimals={false} />
                   <Tooltip
                     contentStyle={{ backgroundColor: COLORS.surface, border: `1px solid ${COLORS.surfaceLight}`, borderRadius: 8, padding: '6px 10px' }}
@@ -14372,15 +14566,19 @@ export default function UpRepDemo() {
               </div>
             )}
           </div>
-        )}
+          );
+        })()}
 
         {/* Water Chart */}
-        {selectedChart === 'water' && (
+        {selectedChart === 'water' && (() => {
+          const weeksToShow = chartTimeFrame === '7d' ? 1 : chartTimeFrame === '30d' ? 4 : chartTimeFrame === '90d' ? 13 : weeklyNutrition?.length || 16;
+          const filteredData = weeklyNutrition?.slice(-weeksToShow) || [];
+          return (
           <div style={{ height: 110 }}>
-            {weeklyNutrition?.length > 0 ? (
+            {filteredData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={weeklyNutrition.map((d, i) => ({ week: `W${i + 1}`, actual: d.water, goal: d.waterGoal }))}>
-                  <XAxis dataKey="week" tick={{ fill: COLORS.textMuted, fontSize: 9 }} axisLine={false} tickLine={false} interval={Math.ceil(weeklyNutrition.length / 6)} />
+                <LineChart data={filteredData.map((d, i) => ({ week: `W${weeklyNutrition.length - filteredData.length + i + 1}`, actual: d.water, goal: d.waterGoal }))}>
+                  <XAxis dataKey="week" tick={{ fill: COLORS.textMuted, fontSize: 9 }} axisLine={false} tickLine={false} interval={Math.ceil(filteredData.length / 6)} />
                   <YAxis tick={{ fill: COLORS.textMuted, fontSize: 9 }} axisLine={false} tickLine={false} width={32} domain={['dataMin - 500', 'dataMax + 500']} tickFormatter={(v) => `${(v/1000).toFixed(1)}`} />
                   <Tooltip
                     contentStyle={{ backgroundColor: COLORS.surface, border: `1px solid ${COLORS.surfaceLight}`, borderRadius: 8, padding: '6px 10px' }}
@@ -14397,15 +14595,17 @@ export default function UpRepDemo() {
               </div>
             )}
           </div>
-        )}
+          );
+        })()}
 
         {/* Sleep Chart */}
         {selectedChart === 'sleep' && (
           <div style={{ height: 110 }}>
             {sleepChartData?.length > 0 ? (() => {
               // Group sleep data by week and calculate weekly averages
+              const daysToShow = chartTimeFrame === '7d' ? 7 : chartTimeFrame === '30d' ? 28 : chartTimeFrame === '90d' ? 90 : sleepChartData.length;
               const weeklySleepData = [];
-              const data = sleepChartData.slice(-28); // Last 4 weeks
+              const data = sleepChartData.slice(-daysToShow);
               for (let i = 0; i < data.length; i += 7) {
                 const weekData = data.slice(i, i + 7);
                 const avgHours = weekData.reduce((sum, d) => sum + (d.hours || 0), 0) / weekData.length;
@@ -14479,7 +14679,7 @@ export default function UpRepDemo() {
             return (
               <button
                 key={workout.id || idx}
-                onClick={() => setExpandedTrendingWorkoutId(isExpanded ? null : workout.id)}
+                onClick={() => toggleTrendingWorkoutWithScroll(workout.id)}
                 className="flex-shrink-0 p-4 rounded-xl text-left"
                 style={{
                   backgroundColor: isExpanded ? COLORS.primary + '25' : COLORS.primary + '15',
@@ -14549,8 +14749,7 @@ export default function UpRepDemo() {
                   <div
                     onClick={(e) => {
                       e.stopPropagation();
-                      setShowCommentsFor(workout.id);
-                      loadComments(workout.id);
+                      openCommentsWithScroll(workout.id);
                     }}
                     className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg cursor-pointer"
                     style={{ backgroundColor: COLORS.surface }}
@@ -14611,10 +14810,7 @@ export default function UpRepDemo() {
             {/* Warmup/Cooldown Toggles */}
             <div className="flex items-center gap-3 px-4 pb-3">
               <button
-                onClick={() => setWorkoutWarmupCooldown(prev => ({
-                  ...prev,
-                  [workout.id]: { ...prev[workout.id], warmup: !(prev[workout.id]?.warmup ?? true) }
-                }))}
+                onClick={() => toggleWarmupCooldownHomeTab(workout.id, 'warmup')}
                 className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold"
                 style={{
                   backgroundColor: hasWarmup ? COLORS.primary + '20' : COLORS.surfaceLight,
@@ -14626,10 +14822,7 @@ export default function UpRepDemo() {
                 {hasWarmup ? <Check size={12} /> : null}
               </button>
               <button
-                onClick={() => setWorkoutWarmupCooldown(prev => ({
-                  ...prev,
-                  [workout.id]: { ...prev[workout.id], cooldown: !(prev[workout.id]?.cooldown ?? true) }
-                }))}
+                onClick={() => toggleWarmupCooldownHomeTab(workout.id, 'cooldown')}
                 className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold"
                 style={{
                   backgroundColor: hasCooldown ? COLORS.primary + '20' : COLORS.surfaceLight,
@@ -15021,83 +15214,6 @@ export default function UpRepDemo() {
 
       {/* Bottom padding */}
       <div className="h-8" />
-
-      {/* Modals */}
-      {showMealEntry && (
-        <MealEntryModal
-          COLORS={COLORS}
-          userId={user?.id}
-          onClose={() => setShowMealEntry(false)}
-          onSave={async (mealData) => {
-            const mealTime = mealData.time || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-            const mealName = mealData.name || 'Quick entry';
-
-            // Save to Supabase if logged in
-            if (user?.id) {
-              const { data } = await nutritionService.logMeal(user.id, {
-                name: mealName,
-                time: mealTime,
-                calories: mealData.calories || 0,
-                protein: mealData.protein || 0,
-                carbs: mealData.carbs || 0,
-                fats: mealData.fats || 0,
-              });
-              const savedMeal = data ? {
-                id: data.id,
-                name: data.meal_name,
-                time: data.meal_time,
-                calories: data.calories,
-                protein: data.protein,
-                carbs: data.carbs,
-                fats: data.fats,
-              } : {
-                id: Date.now(),
-                name: mealName,
-                time: mealTime,
-                calories: mealData.calories || 0,
-                protein: mealData.protein || 0,
-                carbs: mealData.carbs || 0,
-                fats: mealData.fats || 0,
-              };
-              setMealLog(prev => [...prev, savedMeal]);
-            } else {
-              // Not logged in - still add to local mealLog
-              setMealLog(prev => [...prev, {
-                id: Date.now(),
-                name: mealName,
-                time: mealTime,
-                calories: mealData.calories || 0,
-                protein: mealData.protein || 0,
-                carbs: mealData.carbs || 0,
-                fats: mealData.fats || 0,
-              }]);
-            }
-            setCaloriesIntake(prev => prev + (mealData.calories || 0));
-            setProteinIntake(prev => prev + (mealData.protein || 0));
-            setCarbsIntake(prev => prev + (mealData.carbs || 0));
-            setFatsIntake(prev => prev + (mealData.fats || 0));
-            setShowMealEntry(false);
-          }}
-        />
-      )}
-
-      {showWaterEntry && (
-        <WaterEntryModal
-          COLORS={COLORS}
-          onClose={() => setShowWaterEntry(false)}
-          onSave={async (amount) => {
-            // Save to Supabase first, then update local state
-            setWaterIntake(prev => Math.min(prev + amount, 10000));
-            if (user?.id) {
-              const { data } = await nutritionService.logWater(user.id, amount);
-              if (data) {
-                setWaterLogs(prev => [...prev, data]);
-              }
-            }
-            setShowWaterEntry(false);
-          }}
-        />
-      )}
 
       {/* Missed Day Nutrition Prompt */}
       {showMissedDayPrompt && missedDayData && (
@@ -16035,15 +16151,27 @@ export default function UpRepDemo() {
             {/* Personal Records Preview */}
             <div className="flex justify-between items-center mb-3">
               <p className="text-xs font-semibold" style={{ color: COLORS.textMuted }}>PERSONAL RECORDS</p>
-              {personalRecords.length > 0 && (
-                <button
-                  onClick={() => setShowPersonalRecords(true)}
-                  className="text-xs"
-                  style={{ color: COLORS.primary }}
-                >
-                  View All
-                </button>
-              )}
+              <div className="flex items-center gap-3">
+                {personalRecords.length > 0 && (
+                  <button
+                    onClick={() => { setShowPRLeaderboard(true); loadPRLeaderboard(); }}
+                    className="text-xs flex items-center gap-1"
+                    style={{ color: COLORS.warning }}
+                  >
+                    <Trophy size={12} />
+                    Rankings
+                  </button>
+                )}
+                {personalRecords.length > 0 && (
+                  <button
+                    onClick={() => setShowPersonalRecords(true)}
+                    className="text-xs"
+                    style={{ color: COLORS.primary }}
+                  >
+                    View All
+                  </button>
+                )}
+              </div>
             </div>
             <div className="mb-6">
               {personalRecords.length === 0 ? (
@@ -16274,7 +16402,7 @@ export default function UpRepDemo() {
                     const minDate = new Date();
                     minDate.setDate(minDate.getDate() - 7); // Max 7 days back
                     if (currentDate >= minDate) {
-                      setNutritionSelectedDate(currentDate.toISOString().split('T')[0]);
+                      setNutritionSelectedDate(getLocalDateString(currentDate));
                     }
                   }}
                   className="p-2 rounded-lg"
@@ -16307,7 +16435,7 @@ export default function UpRepDemo() {
                     const nextDate = new Date(currentDate);
                     nextDate.setHours(0, 0, 0, 0);
                     if (nextDate <= today) {
-                      setNutritionSelectedDate(currentDate.toISOString().split('T')[0]);
+                      setNutritionSelectedDate(getLocalDateString(currentDate));
                     }
                   }}
                   disabled={nutritionSelectedDate === TODAY_DATE_KEY}
@@ -16338,7 +16466,7 @@ export default function UpRepDemo() {
 
                       const date = new Date();
                       date.setDate(date.getDate() - dayIndex);
-                      const dateStr = date.toISOString().split('T')[0];
+                      const dateStr = getLocalDateString(date);
                       const isSelected = nutritionSelectedDate === dateStr;
                       const isToday = dayIndex === 0;
 
@@ -16392,38 +16520,61 @@ export default function UpRepDemo() {
             </div>
 
             {/* OVERVIEW TAB */}
-            {nutritionTab === 'overview' && (
+            {nutritionTab === 'overview' && (() => {
+              // Get weight values from multiple sources for reliability
+              const currentW = parseFloat(userData.currentWeight) || overviewStats.currentWeight || 0;
+              const goalW = parseFloat(userData.goalWeight) || overviewStats.targetWeight || 0;
+
+              // Always infer from weight targets first - this is more reliable than stored goal
+              let effectiveGoal = 'fitness'; // default
+
+              if (goalW > 0 && currentW > 0) {
+                // Weight targets are set - use them to determine goal
+                if (goalW < currentW) {
+                  effectiveGoal = 'lose_fat';
+                } else if (goalW > currentW) {
+                  effectiveGoal = 'build_muscle';
+                } else {
+                  // Weights are equal - check stored goal
+                  effectiveGoal = userData.goal || 'fitness';
+                }
+              } else if (userData.goal && ['lose_fat', 'build_muscle', 'strength'].includes(userData.goal)) {
+                // No weight data but has explicit goal
+                effectiveGoal = userData.goal;
+              }
+
+              return (
               <>
                 {/* Goal Overview Banner */}
-                <div className="p-4 rounded-xl mb-4" style={{ 
-                  backgroundColor: userData.goal === 'lose_fat' ? COLORS.error + '15' : 
-                                   userData.goal === 'build_muscle' ? COLORS.success + '15' : 
-                                   userData.goal === 'strength' ? COLORS.primary + '15' : COLORS.accent + '15',
-                  border: `1px solid ${userData.goal === 'lose_fat' ? COLORS.error + '40' : 
-                                       userData.goal === 'build_muscle' ? COLORS.success + '40' : 
-                                       userData.goal === 'strength' ? COLORS.primary + '40' : COLORS.accent + '40'}`
+                <div className="p-4 rounded-xl mb-4" style={{
+                  backgroundColor: effectiveGoal === 'lose_fat' ? COLORS.error + '15' :
+                                   effectiveGoal === 'build_muscle' ? COLORS.success + '15' :
+                                   effectiveGoal === 'strength' ? COLORS.primary + '15' : COLORS.accent + '15',
+                  border: `1px solid ${effectiveGoal === 'lose_fat' ? COLORS.error + '40' :
+                                       effectiveGoal === 'build_muscle' ? COLORS.success + '40' :
+                                       effectiveGoal === 'strength' ? COLORS.primary + '40' : COLORS.accent + '40'}`
                 }}>
                   <div className="flex items-center gap-3 mb-2">
                     <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{
-                      backgroundColor: userData.goal === 'lose_fat' ? COLORS.error + '30' :
-                                       userData.goal === 'build_muscle' ? COLORS.success + '30' :
-                                       userData.goal === 'strength' ? COLORS.primary + '30' : COLORS.accent + '30'
+                      backgroundColor: effectiveGoal === 'lose_fat' ? COLORS.error + '30' :
+                                       effectiveGoal === 'build_muscle' ? COLORS.success + '30' :
+                                       effectiveGoal === 'strength' ? COLORS.primary + '30' : COLORS.accent + '30'
                     }}>
-                      {userData.goal === 'lose_fat' && <Flame size={20} color={COLORS.error} />}
-                      {userData.goal === 'build_muscle' && <Target size={20} color={COLORS.success} />}
-                      {userData.goal === 'strength' && <Dumbbell size={20} color={COLORS.primary} />}
-                      {!['lose_fat', 'build_muscle', 'strength'].includes(userData.goal) && <Heart size={20} color={COLORS.accent} />}
+                      {effectiveGoal === 'lose_fat' && <Flame size={20} color={COLORS.error} />}
+                      {effectiveGoal === 'build_muscle' && <Target size={20} color={COLORS.success} />}
+                      {effectiveGoal === 'strength' && <Dumbbell size={20} color={COLORS.primary} />}
+                      {!['lose_fat', 'build_muscle', 'strength'].includes(effectiveGoal) && <Heart size={20} color={COLORS.accent} />}
                     </div>
                     <div>
                       <p className="font-bold" style={{ color: COLORS.text }}>
-                        {userData.goal === 'lose_fat' ? 'Fat Loss Mode' : 
-                         userData.goal === 'build_muscle' ? 'Muscle Building Mode' : 
-                         userData.goal === 'strength' ? 'Strength Building Mode' : 'General Fitness'}
+                        {effectiveGoal === 'lose_fat' ? 'Fat Loss Mode' :
+                         effectiveGoal === 'build_muscle' ? 'Muscle Building Mode' :
+                         effectiveGoal === 'strength' ? 'Strength Building Mode' : 'General Fitness'}
                       </p>
                       <p className="text-xs" style={{ color: COLORS.textSecondary }}>
-                        {userData.goal === 'lose_fat' ? 'Stay in a calorie deficit to lose fat' : 
-                         userData.goal === 'build_muscle' ? 'Eat in a surplus to support muscle growth' : 
-                         userData.goal === 'strength' ? 'Fuel your training with adequate calories' : 'Maintain balanced nutrition'}
+                        {effectiveGoal === 'lose_fat' ? 'Stay in a calorie deficit to lose fat' :
+                         effectiveGoal === 'build_muscle' ? 'Eat in a surplus to support muscle growth' :
+                         effectiveGoal === 'strength' ? 'Fuel your training with adequate calories' : 'Maintain balanced nutrition'}
                       </p>
                     </div>
                   </div>
@@ -16433,7 +16584,7 @@ export default function UpRepDemo() {
                         Daily Target{adjustedNutritionGoals.adjustments?.calories > 0 ? ' (adjusted)' : ''}
                       </p>
                       <p className="text-lg font-bold" style={{ color: COLORS.text }}>{adjustedNutritionGoals.calories} kcal</p>
-                      {adjustedNutritionGoals.adjustments?.calories > 0 && (
+                      {adjustedNutritionGoals.adjustments?.calories > 0 && effectiveGoal !== 'lose_fat' && (
                         <p className="text-xs" style={{ color: COLORS.primary }}>
                           +{adjustedNutritionGoals.adjustments.calories} catch-up
                         </p>
@@ -16443,23 +16594,23 @@ export default function UpRepDemo() {
                       <p className="text-xs" style={{ color: COLORS.textMuted }}>Remaining</p>
                       <p className="text-lg font-bold" style={{
                         color: (adjustedNutritionGoals.calories - (nutritionSelectedDate === TODAY_DATE_KEY ? caloriesIntake : (backdateNutrition?.calories || 0))) < 0
-                          ? (userData.goal === 'lose_fat' ? COLORS.error : COLORS.success)
-                          : (userData.goal === 'lose_fat' ? COLORS.success : COLORS.warning)
+                          ? (effectiveGoal === 'lose_fat' ? COLORS.error : COLORS.success)
+                          : (effectiveGoal === 'lose_fat' ? COLORS.success : COLORS.warning)
                       }}>
                         {adjustedNutritionGoals.calories - (nutritionSelectedDate === TODAY_DATE_KEY ? caloriesIntake : (backdateNutrition?.calories || 0))} kcal
                       </p>
                     </div>
                     <div className="px-3 py-1 rounded-full" style={{
-                      backgroundColor: userData.goal === 'lose_fat'
+                      backgroundColor: effectiveGoal === 'lose_fat'
                         ? ((nutritionSelectedDate === TODAY_DATE_KEY ? caloriesIntake : (backdateNutrition?.calories || 0)) <= adjustedNutritionGoals.calories ? COLORS.success + '30' : COLORS.error + '30')
                         : ((nutritionSelectedDate === TODAY_DATE_KEY ? caloriesIntake : (backdateNutrition?.calories || 0)) >= adjustedNutritionGoals.calories * 0.9 ? COLORS.success + '30' : COLORS.warning + '30')
                     }}>
                       <p className="text-xs font-semibold" style={{
-                        color: userData.goal === 'lose_fat'
+                        color: effectiveGoal === 'lose_fat'
                           ? ((nutritionSelectedDate === TODAY_DATE_KEY ? caloriesIntake : (backdateNutrition?.calories || 0)) <= adjustedNutritionGoals.calories ? COLORS.success : COLORS.error)
                           : ((nutritionSelectedDate === TODAY_DATE_KEY ? caloriesIntake : (backdateNutrition?.calories || 0)) >= adjustedNutritionGoals.calories * 0.9 ? COLORS.success : COLORS.warning)
                       }}>
-                        {userData.goal === 'lose_fat'
+                        {effectiveGoal === 'lose_fat'
                           ? ((nutritionSelectedDate === TODAY_DATE_KEY ? caloriesIntake : (backdateNutrition?.calories || 0)) <= adjustedNutritionGoals.calories ? '✓ On Track' : '⚠️ Over')
                           : ((nutritionSelectedDate === TODAY_DATE_KEY ? caloriesIntake : (backdateNutrition?.calories || 0)) >= adjustedNutritionGoals.calories * 0.9 ? '✓ On Track' : '⚠️ Eat More')}
                       </p>
@@ -16490,11 +16641,10 @@ export default function UpRepDemo() {
                         <span className="text-xs font-semibold" style={{ color: COLORS.accent }}>Log Meal</span>
                       </button>
                       {/* Macro Rings */}
-                      <div className="flex justify-between gap-1">
+                      <div className="flex justify-around gap-2">
                         {[
                           { name: 'Protein', key: 'P', id: 'protein', current: nutritionSelectedDate === TODAY_DATE_KEY ? proteinIntake : (backdateNutrition?.protein || 0), target: adjustedNutritionGoals.protein, unit: 'g', color: COLORS.primary },
                           { name: 'Carbs', key: 'C', id: 'carbs', current: nutritionSelectedDate === TODAY_DATE_KEY ? carbsIntake : (backdateNutrition?.carbs || 0), target: nutritionGoals.carbs, unit: 'g', color: COLORS.warning },
-                          { name: 'Fats', key: 'F', id: 'fats', current: nutritionSelectedDate === TODAY_DATE_KEY ? fatsIntake : (backdateNutrition?.fats || 0), target: nutritionGoals.fats, unit: 'g', color: COLORS.sleep },
                         ].map(macro => {
                           const percentage = Math.min(100, (macro.current / macro.target) * 100);
                           const circumference = 2 * Math.PI * 16;
@@ -16967,7 +17117,7 @@ export default function UpRepDemo() {
                       for (let i = 27; i >= 0; i--) {
                         const date = new Date(today);
                         date.setDate(today.getDate() - i);
-                        const dateKey = date.toISOString().split('T')[0];
+                        const dateKey = getLocalDateString(date);
                         const data = monthlyTracking?.nutrition?.[dateKey];
                         const isToday = i === 0;
                         const isFuture = false;
@@ -17011,7 +17161,8 @@ export default function UpRepDemo() {
                 </div>
 
               </>
-            )}
+              );
+            })()}
 
             {/* MEALS TAB */}
             {nutritionTab === 'meals' && (
@@ -17042,7 +17193,7 @@ export default function UpRepDemo() {
                   </div>
                   
                   {/* Current intake row */}
-                  <div className="grid grid-cols-4 gap-2 text-center pt-3 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+                  <div className="grid grid-cols-3 gap-2 text-center pt-3 border-t" style={{ borderColor: COLORS.surfaceLight }}>
                     <div>
                       <p className="text-sm font-semibold" style={{ color: COLORS.text }}>{caloriesIntake}</p>
                       <p className="text-xs" style={{ color: COLORS.textMuted }}>eaten</p>
@@ -17054,10 +17205,6 @@ export default function UpRepDemo() {
                     <div>
                       <p className="text-sm font-semibold" style={{ color: COLORS.text }}>{carbsIntake}g</p>
                       <p className="text-xs" style={{ color: COLORS.textMuted }}>carbs</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold" style={{ color: COLORS.text }}>{fatsIntake}g</p>
-                      <p className="text-xs" style={{ color: COLORS.textMuted }}>fats</p>
                     </div>
                   </div>
                 </div>
@@ -17080,7 +17227,17 @@ export default function UpRepDemo() {
                       <div className="flex justify-between items-start mb-2">
                         <div>
                           <p className="font-semibold" style={{ color: COLORS.text }}>{meal.name}</p>
-                          <p className="text-xs" style={{ color: COLORS.textMuted }}>{meal.time}</p>
+                          <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                            {(() => {
+                              // Format time to 12-hour format with am/pm
+                              if (!meal.time) return '';
+                              const [hours, minutes] = meal.time.split(':');
+                              const h = parseInt(hours, 10);
+                              const ampm = h >= 12 ? 'pm' : 'am';
+                              const h12 = h % 12 || 12;
+                              return `${h12}:${minutes} ${ampm}`;
+                            })()}
+                          </p>
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="text-lg font-bold" style={{ color: COLORS.accent }}>{meal.calories}</span>
@@ -17095,10 +17252,6 @@ export default function UpRepDemo() {
                         <div className="flex items-center gap-1">
                           <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS.warning }} />
                           <span className="text-xs" style={{ color: COLORS.textSecondary }}>{meal.carbs}g C</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS.sleep }} />
-                          <span className="text-xs" style={{ color: COLORS.textSecondary }}>{meal.fats}g F</span>
                         </div>
                       </div>
                     </div>
@@ -17122,7 +17275,7 @@ export default function UpRepDemo() {
                       for (let i = 27; i >= 0; i--) {
                         const date = new Date(today);
                         date.setDate(today.getDate() - i);
-                        const dateKey = date.toISOString().split('T')[0];
+                        const dateKey = getLocalDateString(date);
                         const data = monthlyTracking?.nutrition?.[dateKey];
                         const isToday = i === 0;
                         const proteinGoalMet = data && data.protein >= (nutritionGoals.protein * 0.85);
@@ -17506,7 +17659,7 @@ export default function UpRepDemo() {
                       for (let i = 27; i >= 0; i--) {
                         const date = new Date(today);
                         date.setDate(today.getDate() - i);
-                        const dateKey = date.toISOString().split('T')[0];
+                        const dateKey = getLocalDateString(date);
                         // Check supplementHistory for this day
                         const dayData = supplementHistory.find(h => h.date === dateKey);
                         const isToday = i === 0;
@@ -18014,7 +18167,7 @@ export default function UpRepDemo() {
                       for (let i = 27; i >= 0; i--) {
                         const date = new Date(today);
                         date.setDate(today.getDate() - i);
-                        const dateKey = date.toISOString().split('T')[0];
+                        const dateKey = getLocalDateString(date);
                         const dateNum = date.getDate();
                         const data = monthlyTracking?.sleep?.[dateKey];
                         const isToday = i === 0;
@@ -18072,7 +18225,6 @@ export default function UpRepDemo() {
             const macros = {
               protein: { name: 'Protein', key: 'protein', current: nutritionSelectedDate === TODAY_DATE_KEY ? proteinIntake : (backdateNutrition?.protein || 0), target: adjustedNutritionGoals.protein, color: COLORS.primary },
               carbs: { name: 'Carbs', key: 'carbs', current: nutritionSelectedDate === TODAY_DATE_KEY ? carbsIntake : (backdateNutrition?.carbs || 0), target: nutritionGoals.carbs, color: COLORS.warning },
-              fats: { name: 'Fats', key: 'fats', current: nutritionSelectedDate === TODAY_DATE_KEY ? fatsIntake : (backdateNutrition?.fats || 0), target: nutritionGoals.fats, color: COLORS.sleep },
             };
             const macro = macros[showMacroDetail];
             if (!macro) return null;
@@ -22640,6 +22792,83 @@ export default function UpRepDemo() {
           </div>
         )}
 
+        {/* Meal Entry Modal - at root level to persist across tab changes */}
+        {showMealEntry && (
+          <MealEntryModal
+            COLORS={COLORS}
+            userId={user?.id}
+            onClose={() => setShowMealEntry(false)}
+            onSave={async (mealData) => {
+              const mealTime = mealData.time || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+              const mealName = mealData.name || 'Quick entry';
+
+              // Save to Supabase if logged in
+              if (user?.id) {
+                const { data } = await nutritionService.logMeal(user.id, {
+                  name: mealName,
+                  time: mealTime,
+                  calories: mealData.calories || 0,
+                  protein: mealData.protein || 0,
+                  carbs: mealData.carbs || 0,
+                  fats: mealData.fats || 0,
+                });
+                const savedMeal = data ? {
+                  id: data.id,
+                  name: data.meal_name,
+                  time: data.meal_time,
+                  calories: data.calories,
+                  protein: data.protein,
+                  carbs: data.carbs,
+                  fats: data.fats,
+                } : {
+                  id: Date.now(),
+                  name: mealName,
+                  time: mealTime,
+                  calories: mealData.calories || 0,
+                  protein: mealData.protein || 0,
+                  carbs: mealData.carbs || 0,
+                  fats: mealData.fats || 0,
+                };
+                setMealLog(prev => [...prev, savedMeal]);
+              } else {
+                // Not logged in - still add to local mealLog
+                setMealLog(prev => [...prev, {
+                  id: Date.now(),
+                  name: mealName,
+                  time: mealTime,
+                  calories: mealData.calories || 0,
+                  protein: mealData.protein || 0,
+                  carbs: mealData.carbs || 0,
+                  fats: mealData.fats || 0,
+                }]);
+              }
+              setCaloriesIntake(prev => prev + (mealData.calories || 0));
+              setProteinIntake(prev => prev + (mealData.protein || 0));
+              setCarbsIntake(prev => prev + (mealData.carbs || 0));
+              setShowMealEntry(false);
+            }}
+          />
+        )}
+
+        {/* Water Entry Modal - at root level to persist across tab changes */}
+        {showWaterEntry && (
+          <WaterEntryModal
+            COLORS={COLORS}
+            onClose={() => setShowWaterEntry(false)}
+            onSave={async (amount) => {
+              // Save to Supabase first, then update local state
+              setWaterIntake(prev => Math.min(prev + amount, 10000));
+              if (user?.id) {
+                const { data } = await nutritionService.logWater(user.id, amount);
+                if (data) {
+                  setWaterLogs(prev => [...prev, data]);
+                }
+              }
+              setShowWaterEntry(false);
+            }}
+          />
+        )}
+
         {/* Activity Comments Modal */}
         {showCommentsModal && (
           <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
@@ -24381,6 +24610,232 @@ export default function UpRepDemo() {
         </div>
       )}
 
+      {/* PR Leaderboard Screen */}
+      {showPRLeaderboard && (
+        <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
+          <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
+            <button onClick={() => { setShowPRLeaderboard(false); setSelectedPRExercise(null); }}>
+              <X size={24} color={COLORS.text} />
+            </button>
+            <h2 className="text-lg font-bold" style={{ color: COLORS.text }}>
+              {selectedPRExercise ? selectedPRExercise : 'My PRs & Rankings'}
+            </h2>
+            {selectedPRExercise && (
+              <button
+                onClick={() => { setSelectedPRExercise(null); setExerciseLeaderboard([]); }}
+                className="ml-auto text-sm"
+                style={{ color: COLORS.primary }}
+              >
+                Back to PRs
+              </button>
+            )}
+          </div>
+
+          {/* Filter Tabs */}
+          {!selectedPRExercise && (
+            <div className="p-4 pb-0">
+              <div className="flex gap-2 p-1 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+                {[
+                  { id: 'global', label: 'Global' },
+                  { id: 'age', label: 'My Age Group' },
+                  { id: 'weight', label: 'My Weight Class' },
+                ].map(filter => (
+                  <button
+                    key={filter.id}
+                    onClick={async () => {
+                      setPrLeaderboardFilter(filter.id);
+                      // Reload with new filter
+                      if (user?.id) {
+                        setPrLeaderboardLoading(true);
+                        const result = await prLeaderboardService.getMyPRsWithRankings(user.id);
+                        if (result?.data) {
+                          const prsWithDemographics = await Promise.all(
+                            result.data.map(async (pr) => {
+                              const demographicRanking = await prLeaderboardService.getPRRankingByDemographic(
+                                user.id, pr.exercise_name, filter.id === 'global' ? 'age' : filter.id
+                              );
+                              return { ...pr, demographicRanking };
+                            })
+                          );
+                          setPrLeaderboardData(prsWithDemographics);
+                        }
+                        setPrLeaderboardLoading(false);
+                      }
+                    }}
+                    className="flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors"
+                    style={{
+                      backgroundColor: prLeaderboardFilter === filter.id ? COLORS.primary : 'transparent',
+                      color: prLeaderboardFilter === filter.id ? COLORS.text : COLORS.textMuted
+                    }}
+                  >
+                    {filter.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex-1 overflow-auto p-4">
+            {prLeaderboardLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 size={32} color={COLORS.primary} className="animate-spin" />
+              </div>
+            ) : selectedPRExercise ? (
+              /* Exercise Leaderboard View */
+              <div>
+                <div className="text-center mb-4">
+                  <Trophy size={32} color={COLORS.warning} className="mx-auto mb-2" />
+                  <h3 className="font-bold text-lg" style={{ color: COLORS.text }}>Top Lifters</h3>
+                  <p className="text-sm" style={{ color: COLORS.textMuted }}>{selectedPRExercise}</p>
+                </div>
+                {exerciseLeaderboard.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p style={{ color: COLORS.textMuted }}>No data available</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {exerciseLeaderboard.map((entry, index) => {
+                      const isCurrentUser = entry.userId === user?.id;
+                      return (
+                        <div
+                          key={entry.userId}
+                          className="p-3 rounded-xl flex items-center gap-3"
+                          style={{
+                            backgroundColor: isCurrentUser ? COLORS.primary + '20' : COLORS.surface,
+                            border: isCurrentUser ? `2px solid ${COLORS.primary}` : 'none'
+                          }}
+                        >
+                          <div
+                            className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm"
+                            style={{
+                              backgroundColor: index < 3 ? [COLORS.warning, '#C0C0C0', '#CD7F32'][index] + '30' : COLORS.surfaceLight,
+                              color: index < 3 ? [COLORS.warning, '#888', '#CD7F32'][index] : COLORS.textMuted
+                            }}
+                          >
+                            {index < 3 ? ['🥇', '🥈', '🥉'][index] : entry.rank}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold truncate" style={{ color: COLORS.text }}>
+                              {entry.profile?.first_name || entry.profile?.username || 'User'}
+                              {isCurrentUser && <span style={{ color: COLORS.primary }}> (You)</span>}
+                            </p>
+                            <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                              @{entry.profile?.username || 'user'}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-lg" style={{ color: COLORS.text }}>{entry.e1rm?.toFixed(0) || entry.weight}kg</p>
+                            <p className="text-xs" style={{ color: COLORS.textMuted }}>e1RM</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ) : !prLeaderboardData || prLeaderboardData.length === 0 ? (
+              /* Empty State */
+              <div className="flex flex-col items-center justify-center h-full text-center px-6">
+                <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4" style={{ backgroundColor: COLORS.warning + '20' }}>
+                  <Trophy size={32} color={COLORS.warning} />
+                </div>
+                <h3 className="text-lg font-semibold mb-2" style={{ color: COLORS.text }}>No PRs Yet</h3>
+                <p className="text-sm mb-4" style={{ color: COLORS.textMuted }}>
+                  Complete workouts and lift heavier to set personal records and see how you rank!
+                </p>
+                <button
+                  onClick={() => { setShowPRLeaderboard(false); setActiveTab('workouts'); }}
+                  className="px-6 py-3 rounded-xl font-semibold"
+                  style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+                >
+                  Start Training
+                </button>
+              </div>
+            ) : (
+              /* PR List with Rankings */
+              <div className="space-y-3">
+                {prLeaderboardData.map((pr, index) => {
+                  const ranking = prLeaderboardFilter === 'global'
+                    ? { rank: pr.globalRank, total: pr.totalUsers, percentile: pr.percentile }
+                    : pr.demographicRanking || { rank: 0, total: 0, percentile: 0 };
+
+                  return (
+                    <button
+                      key={pr.id || index}
+                      onClick={async () => {
+                        setSelectedPRExercise(pr.exercise_name);
+                        const result = await prLeaderboardService.getExerciseLeaderboard(pr.exercise_name, 20);
+                        if (result?.data) setExerciseLeaderboard(result.data);
+                      }}
+                      className="w-full p-4 rounded-xl text-left"
+                      style={{ backgroundColor: COLORS.surface }}
+                    >
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.warning + '20' }}>
+                          <Trophy size={18} color={COLORS.warning} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold truncate" style={{ color: COLORS.text }}>{pr.exercise_name}</p>
+                          <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                            {pr.weight}kg × {pr.reps} reps
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xl font-bold" style={{ color: COLORS.primary }}>{pr.e1rm?.toFixed(0) || '—'}kg</p>
+                          <p className="text-xs" style={{ color: COLORS.textMuted }}>e1RM</p>
+                        </div>
+                      </div>
+
+                      {/* Ranking Info */}
+                      <div className="flex items-center justify-between pt-3 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+                        <div className="flex items-center gap-2">
+                          <Crown size={14} color={ranking.percentile >= 90 ? COLORS.warning : COLORS.textMuted} />
+                          <span className="text-sm font-semibold" style={{ color: COLORS.text }}>
+                            #{ranking.rank || '—'}
+                          </span>
+                          <span className="text-xs" style={{ color: COLORS.textMuted }}>
+                            of {ranking.total || 0} {prLeaderboardFilter === 'global' ? 'users' : prLeaderboardFilter === 'age' ? 'in age group' : 'in weight class'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {ranking.percentile >= 90 && (
+                            <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ backgroundColor: COLORS.warning + '20', color: COLORS.warning }}>
+                              Top {100 - ranking.percentile}%
+                            </span>
+                          )}
+                          {ranking.percentile >= 50 && ranking.percentile < 90 && (
+                            <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: COLORS.success + '20', color: COLORS.success }}>
+                              Top {100 - ranking.percentile}%
+                            </span>
+                          )}
+                          {ranking.percentile > 0 && ranking.percentile < 50 && (
+                            <span className="text-xs" style={{ color: COLORS.textMuted }}>
+                              Top {100 - ranking.percentile}%
+                            </span>
+                          )}
+                          <ChevronRight size={16} color={COLORS.textMuted} />
+                        </div>
+                      </div>
+
+                      {/* Percentile Bar */}
+                      <div className="mt-2 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: COLORS.surfaceLight }}>
+                        <div
+                          className="h-full rounded-full transition-all"
+                          style={{
+                            width: `${ranking.percentile || 0}%`,
+                            backgroundColor: ranking.percentile >= 90 ? COLORS.warning : ranking.percentile >= 50 ? COLORS.success : COLORS.primary
+                          }}
+                        />
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Custom Workout Modal */}
       {showCustomWorkout && (
         <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
@@ -25188,50 +25643,6 @@ export default function UpRepDemo() {
         />
       )}
 
-      {/* Simple Meal Entry Modal */}
-      {showMealEntry && (
-        <MealEntryModal
-          COLORS={COLORS}
-          userId={user?.id}
-          onClose={() => setShowMealEntry(false)}
-          onSave={(mealData) => {
-            setCaloriesIntake(prev => prev + (mealData.calories || 0));
-            setProteinIntake(prev => prev + (mealData.protein || 0));
-            setCarbsIntake(prev => prev + (mealData.carbs || 0));
-            setFatsIntake(prev => prev + (mealData.fats || 0));
-            setShowMealEntry(false);
-          }}
-        />
-      )}
-
-      {/* Water Entry Modal */}
-      {showWaterEntry && (
-        <WaterEntryModal
-          COLORS={COLORS}
-          onClose={() => setShowWaterEntry(false)}
-          onSave={async (amount) => {
-            const targetDate = nutritionSelectedDate !== TODAY_DATE_KEY ? nutritionSelectedDate : null;
-            if (targetDate) {
-              // Backdate water entry
-              if (user?.id) {
-                await nutritionService.logWater(user.id, amount, targetDate);
-                setBackdateNutrition(prev => prev ? {
-                  ...prev,
-                  water: (prev.water || 0) + amount,
-                } : { water: amount, calories: 0, protein: 0, carbs: 0, fats: 0, meals: [] });
-              }
-            } else {
-              // Today's water
-              setWaterIntake(prev => Math.min(prev + amount, 10000));
-              if (user?.id) {
-                await nutritionService.logWater(user.id, amount);
-              }
-            }
-            setShowWaterEntry(false);
-          }}
-        />
-      )}
-
       {/* Meal History Modal */}
       {showMealHistory && (
         <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }}>
@@ -25253,12 +25664,20 @@ export default function UpRepDemo() {
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
                         <p className="font-semibold" style={{ color: COLORS.text }}>{meal.name}</p>
-                        <p className="text-xs" style={{ color: COLORS.textMuted }}>{meal.time}</p>
+                        <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                          {(() => {
+                            if (!meal.time) return '';
+                            const [hours, minutes] = meal.time.split(':');
+                            const h = parseInt(hours, 10);
+                            const ampm = h >= 12 ? 'pm' : 'am';
+                            const h12 = h % 12 || 12;
+                            return `${h12}:${minutes} ${ampm}`;
+                          })()}
+                        </p>
                         <div className="flex gap-3 mt-2">
                           <span className="text-xs" style={{ color: COLORS.accent }}>{meal.calories} cal</span>
                           <span className="text-xs" style={{ color: COLORS.primary }}>{meal.protein}g P</span>
                           <span className="text-xs" style={{ color: COLORS.warning }}>{meal.carbs}g C</span>
-                          <span className="text-xs" style={{ color: COLORS.sleep }}>{meal.fats}g F</span>
                         </div>
                       </div>
                       <button
@@ -25937,7 +26356,7 @@ export default function UpRepDemo() {
       {showCommentsFor && (
         <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
           <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
-            <button onClick={() => { setShowCommentsFor(null); setWorkoutComments([]); }}>
+            <button onClick={closeCommentsWithScroll}>
               <X size={24} color={COLORS.text} />
             </button>
             <h2 className="text-lg font-bold" style={{ color: COLORS.text }}>Comments</h2>

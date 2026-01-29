@@ -11,3 +11,4 @@ export { exerciseService } from './exerciseService';
 export { notificationService } from './notificationService';
 export { competitionService } from './competitionService';
 export { accountabilityService } from './accountabilityService';
+export { prLeaderboardService } from './prLeaderboardService';
