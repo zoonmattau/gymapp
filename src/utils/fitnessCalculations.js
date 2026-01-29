@@ -134,6 +134,9 @@ export function calculateWaterTarget(weight, workoutsPerWeek) {
   const extraForWorkouts = (workoutsPerWeek / 7) * 500; // 500ml extra on workout days
   waterMl += extraForWorkouts;
 
+  // Cap at reasonable limits (2L min, 4L max for most people)
+  waterMl = Math.max(2000, Math.min(4000, waterMl));
+
   // Round to nearest 100ml
   return Math.round(waterMl / 100) * 100;
 }
@@ -290,6 +293,279 @@ function getWorkoutTemplates(daysPerWeek, goal, experience) {
     { id: 'upper', name: 'Upper Body', type: 'Upper', focus: 'Push & Pull' },
     { id: 'lower', name: 'Lower Body', type: 'Lower', focus: 'Legs & Core' },
   ];
+}
+
+/**
+ * Calculate suggested starting weight for an exercise
+ * Based on user's body weight, experience level, and target reps
+ * @param {string} exerciseName - Name of the exercise
+ * @param {Object} userStats - User statistics
+ * @param {number} targetReps - Target reps for the set
+ * @returns {number} Suggested weight in kg
+ */
+export function calculateSuggestedWeight(exerciseName, userStats, targetReps = 10) {
+  const {
+    bodyWeight = 70, // Default to 70kg if not provided
+    experience = 'beginner',
+    gender = 'male',
+    goal = 'fitness',
+  } = userStats;
+
+  const name = exerciseName.toLowerCase();
+
+  // Base weight as percentage of bodyweight for an intermediate male doing 8-10 reps
+  const exerciseBaseWeights = {
+    // Barbell Compounds
+    'barbell bench press': { base: 0.65, type: 'upper', equipment: 'barbell' },
+    'bench press': { base: 0.65, type: 'upper', equipment: 'barbell' },
+    'incline barbell press': { base: 0.55, type: 'upper', equipment: 'barbell' },
+    'incline bench press': { base: 0.55, type: 'upper', equipment: 'barbell' },
+    'decline bench press': { base: 0.70, type: 'upper', equipment: 'barbell' },
+    'barbell squat': { base: 0.85, type: 'lower', equipment: 'barbell' },
+    'squat': { base: 0.85, type: 'lower', equipment: 'barbell' },
+    'back squat': { base: 0.85, type: 'lower', equipment: 'barbell' },
+    'front squat': { base: 0.65, type: 'lower', equipment: 'barbell' },
+    'deadlift': { base: 1.0, type: 'lower', equipment: 'barbell' },
+    'conventional deadlift': { base: 1.0, type: 'lower', equipment: 'barbell' },
+    'romanian deadlift': { base: 0.60, type: 'lower', equipment: 'barbell' },
+    'sumo deadlift': { base: 0.95, type: 'lower', equipment: 'barbell' },
+    'overhead press': { base: 0.40, type: 'upper', equipment: 'barbell' },
+    'barbell overhead press': { base: 0.40, type: 'upper', equipment: 'barbell' },
+    'military press': { base: 0.40, type: 'upper', equipment: 'barbell' },
+    'bent over row': { base: 0.55, type: 'upper', equipment: 'barbell' },
+    'barbell row': { base: 0.55, type: 'upper', equipment: 'barbell' },
+    'pendlay row': { base: 0.50, type: 'upper', equipment: 'barbell' },
+    'barbell curl': { base: 0.25, type: 'upper', equipment: 'barbell' },
+    'ez bar curl': { base: 0.22, type: 'upper', equipment: 'barbell' },
+    'skull crusher': { base: 0.20, type: 'upper', equipment: 'barbell' },
+    'close grip bench press': { base: 0.55, type: 'upper', equipment: 'barbell' },
+    'barbell hip thrust': { base: 0.80, type: 'lower', equipment: 'barbell' },
+    'hip thrust': { base: 0.80, type: 'lower', equipment: 'barbell' },
+    'barbell lunge': { base: 0.40, type: 'lower', equipment: 'barbell' },
+    'barbell shrug': { base: 0.65, type: 'upper', equipment: 'barbell' },
+    'upright row': { base: 0.30, type: 'upper', equipment: 'barbell' },
+
+    // Dumbbell Compounds
+    'dumbbell bench press': { base: 0.25, type: 'upper', equipment: 'dumbbell', perHand: true },
+    'flat dumbbell press': { base: 0.25, type: 'upper', equipment: 'dumbbell', perHand: true },
+    'incline dumbbell press': { base: 0.22, type: 'upper', equipment: 'dumbbell', perHand: true },
+    'dumbbell shoulder press': { base: 0.18, type: 'upper', equipment: 'dumbbell', perHand: true },
+    'seated dumbbell press': { base: 0.18, type: 'upper', equipment: 'dumbbell', perHand: true },
+    'arnold press': { base: 0.16, type: 'upper', equipment: 'dumbbell', perHand: true },
+    'dumbbell row': { base: 0.28, type: 'upper', equipment: 'dumbbell', perHand: true },
+    'one arm dumbbell row': { base: 0.28, type: 'upper', equipment: 'dumbbell', perHand: true },
+    'dumbbell lunge': { base: 0.18, type: 'lower', equipment: 'dumbbell', perHand: true },
+    'goblet squat': { base: 0.30, type: 'lower', equipment: 'dumbbell' },
+    'dumbbell romanian deadlift': { base: 0.22, type: 'lower', equipment: 'dumbbell', perHand: true },
+    'dumbbell deadlift': { base: 0.25, type: 'lower', equipment: 'dumbbell', perHand: true },
+    'dumbbell step up': { base: 0.15, type: 'lower', equipment: 'dumbbell', perHand: true },
+
+    // Dumbbell Isolation
+    'dumbbell curl': { base: 0.12, type: 'upper', equipment: 'dumbbell', perHand: true },
+    'bicep curl': { base: 0.12, type: 'upper', equipment: 'dumbbell', perHand: true },
+    'hammer curl': { base: 0.13, type: 'upper', equipment: 'dumbbell', perHand: true },
+    'concentration curl': { base: 0.10, type: 'upper', equipment: 'dumbbell', perHand: true },
+    'incline dumbbell curl': { base: 0.10, type: 'upper', equipment: 'dumbbell', perHand: true },
+    'preacher curl': { base: 0.11, type: 'upper', equipment: 'dumbbell', perHand: true },
+    'lateral raise': { base: 0.08, type: 'upper', equipment: 'dumbbell', perHand: true },
+    'lateral raises': { base: 0.08, type: 'upper', equipment: 'dumbbell', perHand: true },
+    'side lateral raise': { base: 0.08, type: 'upper', equipment: 'dumbbell', perHand: true },
+    'front raise': { base: 0.09, type: 'upper', equipment: 'dumbbell', perHand: true },
+    'front raises': { base: 0.09, type: 'upper', equipment: 'dumbbell', perHand: true },
+    'rear delt fly': { base: 0.07, type: 'upper', equipment: 'dumbbell', perHand: true },
+    'reverse fly': { base: 0.07, type: 'upper', equipment: 'dumbbell', perHand: true },
+    'bent over fly': { base: 0.07, type: 'upper', equipment: 'dumbbell', perHand: true },
+    'dumbbell fly': { base: 0.15, type: 'upper', equipment: 'dumbbell', perHand: true },
+    'chest fly': { base: 0.15, type: 'upper', equipment: 'dumbbell', perHand: true },
+    'incline dumbbell fly': { base: 0.13, type: 'upper', equipment: 'dumbbell', perHand: true },
+    'tricep kickback': { base: 0.08, type: 'upper', equipment: 'dumbbell', perHand: true },
+    'overhead tricep extension': { base: 0.18, type: 'upper', equipment: 'dumbbell' },
+    'dumbbell overhead extension': { base: 0.18, type: 'upper', equipment: 'dumbbell' },
+    'dumbbell pullover': { base: 0.22, type: 'upper', equipment: 'dumbbell' },
+    'dumbbell shrug': { base: 0.30, type: 'upper', equipment: 'dumbbell', perHand: true },
+
+    // Cable Exercises
+    'cable fly': { base: 0.12, type: 'upper', equipment: 'cable' },
+    'cable crossover': { base: 0.12, type: 'upper', equipment: 'cable' },
+    'high cable fly': { base: 0.10, type: 'upper', equipment: 'cable' },
+    'low cable fly': { base: 0.12, type: 'upper', equipment: 'cable' },
+    'cable row': { base: 0.45, type: 'upper', equipment: 'cable' },
+    'seated cable row': { base: 0.45, type: 'upper', equipment: 'cable' },
+    'face pull': { base: 0.18, type: 'upper', equipment: 'cable' },
+    'face pulls': { base: 0.18, type: 'upper', equipment: 'cable' },
+    'cable lateral raise': { base: 0.08, type: 'upper', equipment: 'cable' },
+    'cable curl': { base: 0.20, type: 'upper', equipment: 'cable' },
+    'cable hammer curl': { base: 0.22, type: 'upper', equipment: 'cable' },
+    'tricep pushdown': { base: 0.25, type: 'upper', equipment: 'cable' },
+    'tricep pushdowns': { base: 0.25, type: 'upper', equipment: 'cable' },
+    'rope pushdown': { base: 0.22, type: 'upper', equipment: 'cable' },
+    'rope tricep pushdown': { base: 0.22, type: 'upper', equipment: 'cable' },
+    'overhead cable extension': { base: 0.20, type: 'upper', equipment: 'cable' },
+    'cable tricep extension': { base: 0.20, type: 'upper', equipment: 'cable' },
+    'straight arm pulldown': { base: 0.20, type: 'upper', equipment: 'cable' },
+    'cable pull through': { base: 0.30, type: 'lower', equipment: 'cable' },
+    'cable kickback': { base: 0.15, type: 'lower', equipment: 'cable' },
+
+    // Machine Exercises
+    'lat pulldown': { base: 0.55, type: 'upper', equipment: 'machine' },
+    'wide grip lat pulldown': { base: 0.55, type: 'upper', equipment: 'machine' },
+    'close grip lat pulldown': { base: 0.50, type: 'upper', equipment: 'machine' },
+    'machine row': { base: 0.50, type: 'upper', equipment: 'machine' },
+    'machine chest press': { base: 0.50, type: 'upper', equipment: 'machine' },
+    'chest press machine': { base: 0.50, type: 'upper', equipment: 'machine' },
+    'pec deck': { base: 0.35, type: 'upper', equipment: 'machine' },
+    'pec deck fly': { base: 0.35, type: 'upper', equipment: 'machine' },
+    'machine shoulder press': { base: 0.35, type: 'upper', equipment: 'machine' },
+    'machine lateral raise': { base: 0.18, type: 'upper', equipment: 'machine' },
+    'reverse pec deck': { base: 0.25, type: 'upper', equipment: 'machine' },
+    'leg press': { base: 1.3, type: 'lower', equipment: 'machine' },
+    'leg extension': { base: 0.40, type: 'lower', equipment: 'machine' },
+    'leg extensions': { base: 0.40, type: 'lower', equipment: 'machine' },
+    'leg curl': { base: 0.30, type: 'lower', equipment: 'machine' },
+    'lying leg curl': { base: 0.30, type: 'lower', equipment: 'machine' },
+    'seated leg curl': { base: 0.28, type: 'lower', equipment: 'machine' },
+    'hack squat': { base: 0.80, type: 'lower', equipment: 'machine' },
+    'smith machine squat': { base: 0.70, type: 'lower', equipment: 'machine' },
+    'smith machine bench press': { base: 0.55, type: 'upper', equipment: 'machine' },
+    'calf raise machine': { base: 0.90, type: 'lower', equipment: 'machine' },
+    'seated calf raise': { base: 0.50, type: 'lower', equipment: 'machine' },
+    'standing calf raise': { base: 0.90, type: 'lower', equipment: 'machine' },
+    'hip abductor': { base: 0.40, type: 'lower', equipment: 'machine' },
+    'hip adductor': { base: 0.40, type: 'lower', equipment: 'machine' },
+    'glute machine': { base: 0.45, type: 'lower', equipment: 'machine' },
+    'assisted pull up': { base: -0.30, type: 'upper', equipment: 'machine' }, // Negative = assistance
+    'assisted dip': { base: -0.25, type: 'upper', equipment: 'machine' },
+
+    // Bodyweight (return 0 weight but may have weighted versions)
+    'pull up': { base: 0, type: 'upper', equipment: 'bodyweight' },
+    'pull ups': { base: 0, type: 'upper', equipment: 'bodyweight' },
+    'chin up': { base: 0, type: 'upper', equipment: 'bodyweight' },
+    'chin ups': { base: 0, type: 'upper', equipment: 'bodyweight' },
+    'dip': { base: 0, type: 'upper', equipment: 'bodyweight' },
+    'dips': { base: 0, type: 'upper', equipment: 'bodyweight' },
+    'push up': { base: 0, type: 'upper', equipment: 'bodyweight' },
+    'push ups': { base: 0, type: 'upper', equipment: 'bodyweight' },
+    'bodyweight squat': { base: 0, type: 'lower', equipment: 'bodyweight' },
+    'lunge': { base: 0, type: 'lower', equipment: 'bodyweight' },
+    'lunges': { base: 0, type: 'lower', equipment: 'bodyweight' },
+    'glute bridge': { base: 0, type: 'lower', equipment: 'bodyweight' },
+    'single leg glute bridge': { base: 0, type: 'lower', equipment: 'bodyweight' },
+    'calf raise': { base: 0, type: 'lower', equipment: 'bodyweight' },
+    'plank': { base: 0, type: 'core', equipment: 'bodyweight' },
+    'side plank': { base: 0, type: 'core', equipment: 'bodyweight' },
+    'crunch': { base: 0, type: 'core', equipment: 'bodyweight' },
+    'crunches': { base: 0, type: 'core', equipment: 'bodyweight' },
+    'bicycle crunch': { base: 0, type: 'core', equipment: 'bodyweight' },
+    'leg raise': { base: 0, type: 'core', equipment: 'bodyweight' },
+    'hanging leg raise': { base: 0, type: 'core', equipment: 'bodyweight' },
+    'hanging leg raises': { base: 0, type: 'core', equipment: 'bodyweight' },
+    'mountain climber': { base: 0, type: 'core', equipment: 'bodyweight' },
+    'mountain climbers': { base: 0, type: 'core', equipment: 'bodyweight' },
+    'russian twist': { base: 0, type: 'core', equipment: 'bodyweight' },
+    'dead bug': { base: 0, type: 'core', equipment: 'bodyweight' },
+    'bird dog': { base: 0, type: 'core', equipment: 'bodyweight' },
+    'hollow hold': { base: 0, type: 'core', equipment: 'bodyweight' },
+    'v-up': { base: 0, type: 'core', equipment: 'bodyweight' },
+    'ab wheel rollout': { base: 0, type: 'core', equipment: 'bodyweight' },
+    'superman': { base: 0, type: 'core', equipment: 'bodyweight' },
+  };
+
+  // Find matching exercise (partial match)
+  let exerciseData = null;
+  for (const [key, data] of Object.entries(exerciseBaseWeights)) {
+    if (name.includes(key) || key.includes(name)) {
+      exerciseData = data;
+      break;
+    }
+  }
+
+  // Default to a moderate weight if exercise not found
+  if (!exerciseData) {
+    // Try to guess based on name patterns
+    if (name.includes('curl')) {
+      exerciseData = { base: 0.12, type: 'upper', equipment: 'dumbbell', perHand: true };
+    } else if (name.includes('raise') || name.includes('fly')) {
+      exerciseData = { base: 0.08, type: 'upper', equipment: 'dumbbell', perHand: true };
+    } else if (name.includes('press')) {
+      exerciseData = { base: 0.40, type: 'upper', equipment: 'barbell' };
+    } else if (name.includes('row')) {
+      exerciseData = { base: 0.45, type: 'upper', equipment: 'cable' };
+    } else if (name.includes('squat') || name.includes('lunge')) {
+      exerciseData = { base: 0.60, type: 'lower', equipment: 'barbell' };
+    } else if (name.includes('extension') || name.includes('pushdown')) {
+      exerciseData = { base: 0.20, type: 'upper', equipment: 'cable' };
+    } else {
+      exerciseData = { base: 0.25, type: 'upper', equipment: 'dumbbell' };
+    }
+  }
+
+  // If bodyweight exercise, return 0
+  if (exerciseData.equipment === 'bodyweight' || exerciseData.base === 0) {
+    return 0;
+  }
+
+  // Experience multiplier
+  const experienceMultipliers = {
+    beginner: 0.6,
+    intermediate: 1.0,
+    experienced: 1.2,
+    advanced: 1.35,
+    expert: 1.5,
+  };
+  const expMultiplier = experienceMultipliers[experience] || experienceMultipliers.beginner;
+
+  // Gender multiplier (applied to upper body mainly)
+  let genderMultiplier = 1.0;
+  if (gender === 'female') {
+    genderMultiplier = exerciseData.type === 'upper' ? 0.55 : 0.75;
+  }
+
+  // Rep adjustment (heavier for low reps, lighter for high reps)
+  // Baseline is 8-10 reps
+  let repMultiplier = 1.0;
+  if (targetReps <= 5) {
+    repMultiplier = 1.15; // Heavier for strength
+  } else if (targetReps <= 7) {
+    repMultiplier = 1.08;
+  } else if (targetReps >= 12 && targetReps <= 15) {
+    repMultiplier = 0.85;
+  } else if (targetReps > 15) {
+    repMultiplier = 0.70;
+  }
+
+  // Goal adjustment
+  const goalMultipliers = {
+    strength: 1.1,
+    build_muscle: 1.0,
+    bulk: 1.0,
+    recomp: 0.95,
+    fitness: 0.90,
+    lose_fat: 0.85,
+    lean: 0.85,
+  };
+  const goalMultiplier = goalMultipliers[goal] || 1.0;
+
+  // Calculate final weight
+  let suggestedWeight = bodyWeight * exerciseData.base * expMultiplier * genderMultiplier * repMultiplier * goalMultiplier;
+
+  // Round to nearest 2.5kg (standard plate increment)
+  suggestedWeight = Math.round(suggestedWeight / 2.5) * 2.5;
+
+  // Minimum weights
+  const minWeights = {
+    barbell: 20, // Empty olympic bar
+    dumbbell: 2.5,
+    cable: 5,
+    machine: 10,
+  };
+  const minWeight = minWeights[exerciseData.equipment] || 5;
+
+  // Make sure we don't go below minimum
+  suggestedWeight = Math.max(minWeight, suggestedWeight);
+
+  // For per-hand exercises (dumbbells), this is already per hand
+  // For barbell exercises, this is total weight
+  return suggestedWeight;
 }
 
 /**

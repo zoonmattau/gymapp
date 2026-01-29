@@ -221,7 +221,7 @@ import { exerciseService } from './src/services/exerciseService';
 import { competitionService } from './src/services/competitionService';
 import { accountabilityService } from './src/services/accountabilityService';
 import { prLeaderboardService } from './src/services/prLeaderboardService';
-import { generateNutritionTargets, projectWeightProgress, generateWorkoutSchedule } from './src/utils/fitnessCalculations';
+import { generateNutritionTargets, projectWeightProgress, generateWorkoutSchedule, calculateSuggestedWeight } from './src/utils/fitnessCalculations';
 
 // Helper function to get local date string in YYYY-MM-DD format (avoids UTC timezone issues)
 const getLocalDateString = (date = new Date()) => {
@@ -5861,7 +5861,7 @@ const TEMPLATE_TO_WORKOUT_TYPE = {
 };
 
 // Generate a complete dynamic workout
-const generateDynamicWorkout = (workoutType, userGoal = 'build_muscle', recentlyUsedExercises = [], userExperience = 'beginner', allExercises = []) => {
+const generateDynamicWorkout = (workoutType, userGoal = 'build_muscle', recentlyUsedExercises = [], userExperience = 'beginner', allExercises = [], userStats = {}) => {
   // Map old template IDs to new workout types for backwards compatibility
   const mappedType = TEMPLATE_TO_WORKOUT_TYPE[workoutType] || workoutType;
   const structure = WORKOUT_STRUCTURES[mappedType];
@@ -5915,12 +5915,21 @@ const generateDynamicWorkout = (workoutType, userGoal = 'build_muscle', recently
     // Compounds get longer rest, isolations get shorter
     const adjustedRest = ex.type === 'compound' ? rest + 30 : rest - 15;
 
+    // Calculate suggested weight based on user stats
+    const weightStats = {
+      bodyWeight: parseFloat(userStats.currentWeight) || parseFloat(userStats.weight) || 70,
+      experience: userExperience,
+      gender: userStats.gender || 'male',
+      goal: userGoal,
+    };
+    const calculatedWeight = calculateSuggestedWeight(ex.name, weightStats, reps);
+
     exercises.push({
       id: generateExerciseId(ex.name),
       name: ex.name,
       sets: sets,
       targetReps: reps,
-      suggestedWeight: 0, // Will be calculated based on user history
+      suggestedWeight: calculatedWeight,
       lastWeight: 0,
       lastReps: Array(sets).fill(reps),
       restTime: Math.max(30, adjustedRest),
@@ -5943,12 +5952,22 @@ const generateDynamicWorkout = (workoutType, userGoal = 'build_muscle', recently
   if (coreExercises.length > 0) {
     const coreEx = coreExercises[0];
     const isHold = coreEx.name.includes('Plank') || coreEx.name.includes('Hold') || coreEx.name.includes('L-Sit');
+    const coreReps = isHold ? 45 : 15;
+    // Calculate core exercise weight (most are bodyweight so will return 0)
+    const coreWeightStats = {
+      bodyWeight: parseFloat(userStats.currentWeight) || parseFloat(userStats.weight) || 70,
+      experience: userExperience,
+      gender: userStats.gender || 'male',
+      goal: userGoal,
+    };
+    const coreWeight = calculateSuggestedWeight(coreEx.name, coreWeightStats, coreReps);
+
     exercises.push({
       id: generateExerciseId(coreEx.name),
       name: coreEx.name,
       sets: 3,
-      targetReps: isHold ? 45 : 15, // Seconds for holds, reps for movements
-      suggestedWeight: 0,
+      targetReps: coreReps, // Seconds for holds, reps for movements
+      suggestedWeight: coreWeight,
       lastWeight: 0,
       lastReps: isHold ? [45, 40, 35] : [15, 12, 10],
       restTime: 45,
@@ -11825,8 +11844,8 @@ export default function UpRepDemo() {
       return cached;
     }
 
-    // Generate new workout
-    const workout = generateDynamicWorkout(scheduleEntry.workoutType, userGoal, recentlyUsedExercises, userData.experience, ALL_EXERCISES);
+    // Generate new workout with user stats for weight calculation
+    const workout = generateDynamicWorkout(scheduleEntry.workoutType, userGoal, recentlyUsedExercises, userData.experience, ALL_EXERCISES, userData);
 
     // Cache it in ref (doesn't trigger re-render)
     if (workout) {
@@ -25385,7 +25404,7 @@ export default function UpRepDemo() {
                       key={typeId}
                       onClick={() => {
                         setWorkoutForDay(editingScheduleDay.dateKey, typeId);
-                        const newWorkout = generateDynamicWorkout(typeId, userGoal, recentlyUsedExercises, userData.experience, ALL_EXERCISES);
+                        const newWorkout = generateDynamicWorkout(typeId, userGoal, recentlyUsedExercises, userData.experience, ALL_EXERCISES, userData);
                         setEditingScheduleDay({ ...editingScheduleDay, workout: newWorkout, workoutType: typeId });
                       }}
                       className="w-full p-3 rounded-xl flex items-center gap-3"
@@ -25525,7 +25544,7 @@ export default function UpRepDemo() {
                       key={typeId}
                       onClick={() => {
                         setWorkoutForDay(editingScheduleDay.dateKey, typeId);
-                        const newWorkout = generateDynamicWorkout(typeId, userGoal, recentlyUsedExercises, userData.experience, ALL_EXERCISES);
+                        const newWorkout = generateDynamicWorkout(typeId, userGoal, recentlyUsedExercises, userData.experience, ALL_EXERCISES, userData);
                         setEditingScheduleDay({ ...editingScheduleDay, workout: newWorkout, workoutType: typeId });
                       }}
                       className="w-full p-3 rounded-xl flex items-center gap-3"
