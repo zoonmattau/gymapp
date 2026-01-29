@@ -1808,10 +1808,16 @@ const WeightGoalStep = ({ userData, setUserData, COLORS }) => {
   
   const warning = getWarning();
   
+  // Check if fields need attention (empty or invalid)
+  const currentWeightNeedsAttention = !userData.currentWeight || !isValidWeight(currentW);
+  const goalWeightNeedsAttention = !userData.goalWeight || !isValidWeight(goalW);
+
   return (
     <div className="space-y-4">
       <div>
-        <label className="text-sm mb-2 block" style={{ color: COLORS.textMuted }}>Current Weight (kg)</label>
+        <label className="text-sm mb-2 block" style={{ color: COLORS.textMuted }}>
+          Current Weight (kg) <span style={{ color: COLORS.error }}>*</span>
+        </label>
         <input
           ref={currentWeightRef}
           type="text"
@@ -1823,24 +1829,31 @@ const WeightGoalStep = ({ userData, setUserData, COLORS }) => {
           }}
           placeholder="e.g. 80"
           className="w-full p-4 rounded-xl text-xl font-bold text-center"
-          style={{ 
-            backgroundColor: COLORS.surface, 
-            color: COLORS.text, 
-            border: `2px solid ${!currentWeightValid ? COLORS.error : COLORS.surfaceLight}` 
+          style={{
+            backgroundColor: COLORS.surface,
+            color: COLORS.text,
+            border: `2px solid ${!currentWeightValid ? COLORS.error : COLORS.surfaceLight}`
           }}
         />
-        {!currentWeightValid && (
+        {!currentWeightValid && userData.currentWeight && (
           <p className="text-xs mt-1" style={{ color: COLORS.error }}>
             Please enter a realistic weight ({MIN_WEIGHT}-{MAX_WEIGHT}kg)
           </p>
         )}
+        {!userData.currentWeight && (
+          <p className="text-xs mt-1" style={{ color: COLORS.warning }}>
+            Required - enter your current weight
+          </p>
+        )}
       </div>
-      
+
       <div>
         <div className="flex justify-between items-center mb-2">
-          <label className="text-sm" style={{ color: COLORS.textMuted }}>Goal Weight (kg)</label>
+          <label className="text-sm" style={{ color: COLORS.textMuted }}>
+            Goal Weight (kg) <span style={{ color: COLORS.error }}>*</span>
+          </label>
           {userData.currentWeight && !userData.goalWeight && isValidWeight(currentW) && (
-            <button 
+            <button
               onClick={() => {
                 const suggested = getSuggestedGoal();
                 if (goalWeightRef.current) goalWeightRef.current.value = suggested;
@@ -1864,15 +1877,20 @@ const WeightGoalStep = ({ userData, setUserData, COLORS }) => {
           }}
           placeholder={userData.goal === 'build_muscle' || userData.goal === 'strength' ? 'e.g. 85' : 'e.g. 75'}
           className="w-full p-4 rounded-xl text-xl font-bold text-center"
-          style={{ 
-            backgroundColor: COLORS.surface, 
-            color: COLORS.text, 
-            border: `2px solid ${!goalWeightValid ? COLORS.error : COLORS.surfaceLight}` 
+          style={{
+            backgroundColor: COLORS.surface,
+            color: COLORS.text,
+            border: `2px solid ${!goalWeightValid ? COLORS.error : COLORS.surfaceLight}`
           }}
         />
-        {!goalWeightValid && (
+        {!goalWeightValid && userData.goalWeight && (
           <p className="text-xs mt-1" style={{ color: COLORS.error }}>
             Please enter a realistic weight ({MIN_WEIGHT}-{MAX_WEIGHT}kg)
+          </p>
+        )}
+        {!userData.goalWeight && (
+          <p className="text-xs mt-1" style={{ color: COLORS.warning }}>
+            Required - enter your target weight
           </p>
         )}
       </div>
@@ -3499,7 +3517,7 @@ const TodayActionCard = ({ COLORS, workout, isCompleted, isPaused, onStart, onRe
 // Weigh-In Modal - separate component to prevent input focus loss
 const WeighInModal = ({ COLORS, onClose, onSave, initialWeight, currentWeight, userGoal }) => {
   const [weight, setWeight] = React.useState(initialWeight.toString());
-  const [date, setDate] = React.useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = React.useState(getLocalDateString());
   const [bodyFat, setBodyFat] = React.useState('');
   const [muscleMass, setMuscleMass] = React.useState('');
   const [showBodyComp, setShowBodyComp] = React.useState(false);
@@ -6484,7 +6502,7 @@ function LoginScreen({ onBack, onLogin, COLORS }) {
 // RegisterScreen as separate component
 function RegisterScreen({ onBack, onRegister, COLORS }) {
   const [regData, setRegData] = useState({
-    firstName: '', lastName: '', email: '', password: '', confirmPassword: '', dob: '', weight: '', username: ''
+    firstName: '', lastName: '', email: '', password: '', confirmPassword: '', dob: '', weight: '', username: '', gender: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -6510,6 +6528,7 @@ function RegisterScreen({ onBack, onRegister, COLORS }) {
       lastName: regData.lastName,
       dob: regData.dob || null,
       username: regData.username.toLowerCase(),
+      gender: regData.gender || null,
     });
 
     if (authError) {
@@ -6610,6 +6629,28 @@ function RegisterScreen({ onBack, onRegister, COLORS }) {
               className="w-full p-4 rounded-xl outline-none"
               style={{ backgroundColor: COLORS.surface, color: COLORS.text, border: `1px solid ${COLORS.surfaceLight}` }} />
             <p className="text-xs mt-1" style={{ color: COLORS.textMuted }}>Used to calculate your fitness metrics</p>
+          </div>
+          <div>
+            <label className="text-sm mb-2 block" style={{ color: COLORS.textSecondary }}>Gender</label>
+            <div className="flex gap-3">
+              {['male', 'female', 'other'].map(g => (
+                <button
+                  key={g}
+                  type="button"
+                  onClick={() => setRegData(p => ({...p, gender: g}))}
+                  disabled={loading}
+                  className="flex-1 py-3 px-4 rounded-xl text-sm font-medium capitalize"
+                  style={{
+                    backgroundColor: regData.gender === g ? COLORS.primary : COLORS.surface,
+                    color: regData.gender === g ? COLORS.text : COLORS.textSecondary,
+                    border: `1px solid ${regData.gender === g ? COLORS.primary : COLORS.surfaceLight}`
+                  }}
+                >
+                  {g}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs mt-1" style={{ color: COLORS.textMuted }}>Used for personalized workout recommendations</p>
           </div>
         </div>
       </div>
@@ -8428,35 +8469,35 @@ function ActiveWorkoutScreen({ onClose, onComplete, onSaveProgress, COLORS, avai
         </div>
         <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
           <p className="text-sm font-semibold mb-3" style={{ color: COLORS.text }}>Log your actual performance:</p>
-          <div className="flex items-center gap-3 mb-3">
-            <div className="flex-1">
+          <div className="flex flex-col gap-3 mb-3">
+            <div>
               <label className="text-xs mb-1 block" style={{ color: COLORS.textMuted }}>Weight (kg)</label>
               <div className="flex items-center gap-2">
-                <button onClick={() => setCurrentSetData(prev => ({...prev, weight: Math.max(0, prev.weight - 2.5)}))} className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: COLORS.surfaceLight }}><Minus size={16} color={COLORS.text} /></button>
+                <button onClick={() => setCurrentSetData(prev => ({...prev, weight: Math.max(0, prev.weight - 2.5)}))} className="w-12 h-12 rounded-lg flex items-center justify-center" style={{ backgroundColor: COLORS.surfaceLight }}><Minus size={20} color={COLORS.text} /></button>
                 <input
                   type="number"
                   value={currentSetData.weight || ''}
                   onChange={e => setCurrentSetData(prev => ({...prev, weight: parseFloat(e.target.value) || 0}))}
                   onBlur={e => setCurrentSetData(prev => ({...prev, weight: Number(prev.weight) || 0}))}
-                  className="flex-1 p-3 rounded-lg text-center text-xl font-bold"
+                  className="flex-1 p-3 rounded-lg text-center text-2xl font-bold"
                   style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
                 />
-                <button onClick={() => setCurrentSetData(prev => ({...prev, weight: prev.weight + 2.5}))} className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: COLORS.surfaceLight }}><Plus size={16} color={COLORS.text} /></button>
+                <button onClick={() => setCurrentSetData(prev => ({...prev, weight: prev.weight + 2.5}))} className="w-12 h-12 rounded-lg flex items-center justify-center" style={{ backgroundColor: COLORS.surfaceLight }}><Plus size={20} color={COLORS.text} /></button>
               </div>
             </div>
-            <div className="flex-1">
+            <div>
               <label className="text-xs mb-1 block" style={{ color: COLORS.textMuted }}>Reps</label>
               <div className="flex items-center gap-2">
-                <button onClick={() => setCurrentSetData(prev => ({...prev, reps: Math.max(0, prev.reps - 1)}))} className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: COLORS.surfaceLight }}><Minus size={16} color={COLORS.text} /></button>
+                <button onClick={() => setCurrentSetData(prev => ({...prev, reps: Math.max(0, prev.reps - 1)}))} className="w-12 h-12 rounded-lg flex items-center justify-center" style={{ backgroundColor: COLORS.surfaceLight }}><Minus size={20} color={COLORS.text} /></button>
                 <input
                   type="number"
                   value={currentSetData.reps || ''}
                   onChange={e => setCurrentSetData(prev => ({...prev, reps: parseInt(e.target.value) || 0}))}
                   onBlur={e => setCurrentSetData(prev => ({...prev, reps: Number(prev.reps) || 0}))}
-                  className="flex-1 p-3 rounded-lg text-center text-xl font-bold"
+                  className="flex-1 p-3 rounded-lg text-center text-2xl font-bold"
                   style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
                 />
-                <button onClick={() => setCurrentSetData(prev => ({...prev, reps: prev.reps + 1}))} className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: COLORS.surfaceLight }}><Plus size={16} color={COLORS.text} /></button>
+                <button onClick={() => setCurrentSetData(prev => ({...prev, reps: prev.reps + 1}))} className="w-12 h-12 rounded-lg flex items-center justify-center" style={{ backgroundColor: COLORS.surfaceLight }}><Plus size={20} color={COLORS.text} /></button>
               </div>
             </div>
           </div>
@@ -8910,7 +8951,7 @@ export default function UpRepDemo() {
           targetWeight: goalW,
           weeklyTarget: parseFloat(weeklyTarget.toFixed(2)),
           programLength: weeks,
-          programStartDate: startDate.toISOString().split('T')[0],
+          programStartDate: getLocalDateString(startDate),
           programWeek: Math.max(1, currentProgramWeek),
         }));
 
@@ -9103,7 +9144,7 @@ export default function UpRepDemo() {
           startDate.setDate(startDate.getDate() - 27);
           const { data: supplementLogsRange } = await nutritionService.getSupplementLogsRange(
             user.id,
-            startDate.toISOString().split('T')[0],
+            getLocalDateString(startDate),
             TODAY_DATE_KEY
           );
 
@@ -9112,7 +9153,7 @@ export default function UpRepDemo() {
           for (let i = 0; i < 28; i++) {
             const date = new Date();
             date.setDate(date.getDate() - i);
-            const dateKey = date.toISOString().split('T')[0];
+            const dateKey = getLocalDateString(date);
             historyMap.set(dateKey, { date: dateKey, completed: 0, total: userSupplements.length, allTaken: false });
           }
 
@@ -9176,8 +9217,8 @@ export default function UpRepDemo() {
 
         const { data, error } = await nutritionService.getNutritionHistory(
           user.id,
-          startDate.toISOString().split('T')[0],
-          endDate.toISOString().split('T')[0]
+          getLocalDateString(startDate),
+          getLocalDateString(endDate)
         );
 
         if (error) {
@@ -9191,7 +9232,7 @@ export default function UpRepDemo() {
           // Check if yesterday's data is missing or unrealistically low
           const yesterday = new Date();
           yesterday.setDate(yesterday.getDate() - 1);
-          const yesterdayStr = yesterday.toISOString().split('T')[0];
+          const yesterdayStr = getLocalDateString(yesterday);
 
           // Find yesterday's entry in the data
           const yesterdayEntry = data.find(d => d.log_date === yesterdayStr);
@@ -9248,8 +9289,8 @@ export default function UpRepDemo() {
 
         const { data, error } = await nutritionService.getNutritionHistory(
           user.id,
-          startDate.toISOString().split('T')[0],
-          endDate.toISOString().split('T')[0]
+          getLocalDateString(startDate),
+          getLocalDateString(endDate)
         );
 
         if (error) {
@@ -9322,8 +9363,8 @@ export default function UpRepDemo() {
         const startDate = new Date();
         startDate.setDate(startDate.getDate() - 35);
 
-        const startStr = startDate.toISOString().split('T')[0];
-        const endStr = endDate.toISOString().split('T')[0];
+        const startStr = getLocalDateString(startDate);
+        const endStr = getLocalDateString(endDate);
 
         // Load nutrition, supplements, and sleep data in parallel
         const [nutritionResult, sleepResult] = await Promise.all([
@@ -9796,8 +9837,8 @@ export default function UpRepDemo() {
 
           const { data: nutritionData } = await nutritionService.getNutritionHistory(
             user.id,
-            startDate.toISOString().split('T')[0],
-            endDate.toISOString().split('T')[0]
+            getLocalDateString(startDate),
+            getLocalDateString(endDate)
           );
 
           if (nutritionData && nutritionData.length > 0) {
@@ -10064,6 +10105,24 @@ export default function UpRepDemo() {
     requestAnimationFrame(() => {
       if (friendsTabScrollRef.current && scrollTop !== undefined) {
         friendsTabScrollRef.current.scrollTop = scrollTop;
+      }
+    });
+  };
+
+  // Toggle equipment in profile settings with scroll preservation
+  const toggleProfileEquipmentWithScroll = (equipId) => {
+    const scrollTop = profileTabScrollRef.current?.scrollTop;
+    setUserData(p => {
+      const current = p.equipment || [];
+      if (current.includes(equipId)) {
+        return { ...p, equipment: current.filter(e => e !== equipId) };
+      } else {
+        return { ...p, equipment: [...current, equipId] };
+      }
+    });
+    requestAnimationFrame(() => {
+      if (profileTabScrollRef.current && scrollTop !== undefined) {
+        profileTabScrollRef.current.scrollTop = scrollTop;
       }
     });
   };
@@ -10434,6 +10493,10 @@ export default function UpRepDemo() {
 
   // Count of users who follow the current user
   const [followersCount, setFollowersCount] = useState(0);
+  const [followersList, setFollowersList] = useState([]);
+  const [followersLoading, setFollowersLoading] = useState(false);
+  const [followingList, setFollowingList] = useState([]);
+  const [followingLoading, setFollowingLoading] = useState(false);
 
   // Notifications
   const [notifications, setNotifications] = useState([]);
@@ -10446,6 +10509,51 @@ export default function UpRepDemo() {
       localStorage.setItem('uprep_social_enabled', JSON.stringify(socialEnabled));
     } catch { /* ignore */ }
   }, [socialEnabled]);
+
+  // Load followers/following list when tab is selected
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadFollowersList = async () => {
+      if (!user?.id || !isAuthenticated || friendsTab !== 'followers') return;
+
+      setFollowersLoading(true);
+      try {
+        const result = await socialService.getFollowersList(user.id);
+        if (isMounted && result?.data) {
+          setFollowersList(result.data);
+        }
+      } catch (err) {
+        console.warn('Followers list not available:', err?.message);
+      } finally {
+        if (isMounted) setFollowersLoading(false);
+      }
+    };
+
+    const loadFollowingList = async () => {
+      if (!user?.id || !isAuthenticated || friendsTab !== 'following') return;
+
+      setFollowingLoading(true);
+      try {
+        const result = await socialService.getFollowingList(user.id);
+        if (isMounted && result?.data) {
+          setFollowingList(result.data);
+        }
+      } catch (err) {
+        console.warn('Following list not available:', err?.message);
+      } finally {
+        if (isMounted) setFollowingLoading(false);
+      }
+    };
+
+    if (friendsTab === 'followers') {
+      loadFollowersList();
+    } else if (friendsTab === 'following') {
+      loadFollowingList();
+    }
+
+    return () => { isMounted = false; };
+  }, [user?.id, isAuthenticated, friendsTab]);
 
   // Load nutrition data for selected backdate (and water logs for any date)
   useEffect(() => {
@@ -12497,16 +12605,7 @@ export default function UpRepDemo() {
               return (
                 <button
                   key={equip.id}
-                  onClick={() => {
-                    setUserData(p => {
-                      const current = p.equipment || [];
-                      if (current.includes(equip.id)) {
-                        return { ...p, equipment: current.filter(e => e !== equip.id) };
-                      } else {
-                        return { ...p, equipment: [...current, equip.id] };
-                      }
-                    });
-                  }}
+                  onClick={() => toggleEquipmentWithScroll(equip.id)}
                   className="w-full p-4 rounded-xl text-left flex items-center gap-3"
                   style={{
                     backgroundColor: isSelected ? COLORS.primary + '20' : COLORS.surface,
@@ -12628,10 +12727,16 @@ export default function UpRepDemo() {
       return false;
     };
     
+    // Validate weights are real numbers in valid range
+    const isValidWeightValue = (w) => {
+      const num = parseFloat(w);
+      return !isNaN(num) && num >= 35 && num <= 250;
+    };
+
     const canProceed =
       onboardingStep === 0 ? (userData.username && userData.username.length >= 3) :
       onboardingStep === 1 ? userData.goal :
-      onboardingStep === 2 ? (userData.currentWeight && userData.goalWeight && !getWeightError()) :
+      onboardingStep === 2 ? (isValidWeightValue(userData.currentWeight) && isValidWeightValue(userData.goalWeight) && !getWeightError()) :
       onboardingStep === 3 ? userData.experience :
       onboardingStep === 4 ? (userData.equipment && userData.equipment.length > 0) :
       sleepHours >= 5 && sleepHours <= 10; // Sleep goal step
@@ -12649,20 +12754,20 @@ export default function UpRepDemo() {
             ))}
           </div>
         </div>
-        <div className="flex-1 overflow-auto px-6 pb-4">
+        <div ref={onboardingScrollRef} className="flex-1 overflow-auto px-6 pb-4">
           <h2 className="text-2xl font-bold mb-2" style={{ color: COLORS.text }}>{step.title}</h2>
           {step.subtitle && <p className="mb-6" style={{ color: COLORS.textSecondary }}>{step.subtitle}</p>}
           {onboardingStep === 0 ? (
-            <ProfileSetupStep 
-              userData={userData} 
-              setUserData={setUserData} 
-              COLORS={COLORS} 
+            <ProfileSetupStep
+              userData={userData}
+              setUserData={setUserData}
+              COLORS={COLORS}
             />
           ) : onboardingStep === 2 ? (
-            <WeightGoalStep 
-              userData={userData} 
-              setUserData={setUserData} 
-              COLORS={COLORS} 
+            <WeightGoalStep
+              userData={userData}
+              setUserData={setUserData}
+              COLORS={COLORS}
             />
           ) : step.content}
         </div>
@@ -12744,7 +12849,7 @@ export default function UpRepDemo() {
               }
 
               // Set program start date to today
-              const programStartDate = new Date().toISOString().split('T')[0];
+              const programStartDate = getLocalDateString();
 
               setOverviewStats(prev => ({
                 ...prev,
@@ -13217,7 +13322,7 @@ export default function UpRepDemo() {
         muscleGroup: selectedInjuryMuscle,
         severity: injurySeverity,
         notes: injuryNotes,
-        reportedDate: new Date().toISOString().split('T')[0],
+        reportedDate: getLocalDateString(),
         timeline: timeline,
       };
 
@@ -13597,6 +13702,27 @@ export default function UpRepDemo() {
         </div>
       </div>
     );
+  };
+
+  // Onboarding scroll ref for equipment selection
+  const onboardingScrollRef = React.useRef(null);
+
+  // Toggle equipment with scroll preservation
+  const toggleEquipmentWithScroll = (equipId) => {
+    const scrollTop = onboardingScrollRef.current?.scrollTop;
+    setUserData(p => {
+      const current = p.equipment || [];
+      if (current.includes(equipId)) {
+        return { ...p, equipment: current.filter(e => e !== equipId) };
+      } else {
+        return { ...p, equipment: [...current, equipId] };
+      }
+    });
+    requestAnimationFrame(() => {
+      if (onboardingScrollRef.current && scrollTop !== undefined) {
+        onboardingScrollRef.current.scrollTop = scrollTop;
+      }
+    });
   };
 
   // Home Tab scroll ref
@@ -17405,7 +17531,7 @@ export default function UpRepDemo() {
                             startDate.setDate(startDate.getDate() - 27);
                             const { data: supplementLogsRange } = await nutritionService.getSupplementLogsRange(
                               user.id,
-                              startDate.toISOString().split('T')[0],
+                              getLocalDateString(startDate),
                               TODAY_DATE_KEY
                             );
 
@@ -17417,7 +17543,7 @@ export default function UpRepDemo() {
                             for (let i = 0; i < 28; i++) {
                               const date = new Date();
                               date.setDate(date.getDate() - i);
-                              const dateKey = date.toISOString().split('T')[0];
+                              const dateKey = getLocalDateString(date);
                               historyMap.set(dateKey, { date: dateKey, completed: 0, total: totalSupps, allTaken: false });
                             }
 
@@ -17733,7 +17859,7 @@ export default function UpRepDemo() {
                       onClick={() => {
                         const newDate = new Date(selectedSleepDate);
                         newDate.setDate(newDate.getDate() - 1);
-                        setSelectedSleepDate(newDate.toISOString().split('T')[0]);
+                        setSelectedSleepDate(getLocalDateString(newDate));
                       }}
                       className="p-1.5 rounded-lg"
                       style={{ backgroundColor: COLORS.surfaceLight }}
@@ -17748,12 +17874,12 @@ export default function UpRepDemo() {
                         // Don't allow going forward past yesterday
                         if (newDate < yesterday) {
                           newDate.setDate(newDate.getDate() + 1);
-                          setSelectedSleepDate(newDate.toISOString().split('T')[0]);
+                          setSelectedSleepDate(getLocalDateString(newDate));
                         }
                       }}
                       className="p-1.5 rounded-lg"
                       style={{ backgroundColor: COLORS.surfaceLight }}
-                      disabled={selectedSleepDate >= new Date(new Date().setDate(new Date().getDate() - 1)).toISOString().split('T')[0]}
+                      disabled={(() => { const y = new Date(); y.setDate(y.getDate() - 1); return selectedSleepDate >= getLocalDateString(y); })()}
                     >
                       <ChevronRight size={16} color={COLORS.text} />
                     </button>
@@ -18068,7 +18194,7 @@ export default function UpRepDemo() {
                         for (let i = 7; i >= 1; i--) {
                           const date = new Date();
                           date.setDate(date.getDate() - i);
-                          const dateKey = date.toISOString().split('T')[0];
+                          const dateKey = getLocalDateString(date);
                           const dayName = weekDays[date.getDay()];
                           const sleepEntry = monthlyTracking.sleep[dateKey];
                           chartData.push({
@@ -18085,7 +18211,7 @@ export default function UpRepDemo() {
                           for (let day = 0; day < 7; day++) {
                             const date = new Date();
                             date.setDate(date.getDate() - (week * 7) + day);
-                            const dateKey = date.toISOString().split('T')[0];
+                            const dateKey = getLocalDateString(date);
                             const sleepEntry = monthlyTracking.sleep[dateKey];
                             if (sleepEntry?.hours) {
                               totalHours += sleepEntry.hours;
@@ -18374,6 +18500,7 @@ export default function UpRepDemo() {
               {[
                 { id: 'feed', label: 'Activity' },
                 { id: 'community_workouts', label: 'Workouts' },
+                { id: 'followers', label: 'Followers' },
                 { id: 'following', label: 'Following' },
                 { id: 'discover', label: 'Discover' },
                 { id: 'challenges', label: 'Challenges' },
@@ -19816,6 +19943,83 @@ export default function UpRepDemo() {
                     );
                   })}
                 </div>
+                )}
+              </>
+            )}
+
+            {/* FOLLOWERS LIST TAB */}
+            {friendsTab === 'followers' && (
+              <>
+                <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>
+                  PEOPLE WHO FOLLOW YOU ({followersList.length})
+                </p>
+
+                {followersLoading ? (
+                  <div className="p-6 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
+                    <div className="animate-spin w-8 h-8 border-2 rounded-full mx-auto mb-2"
+                         style={{ borderColor: COLORS.primary, borderTopColor: 'transparent' }} />
+                    <p className="text-sm" style={{ color: COLORS.textMuted }}>Loading followers...</p>
+                  </div>
+                ) : followersList.length === 0 ? (
+                  <div className="p-6 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
+                    <Users size={40} color={COLORS.primary} className="mx-auto mb-3" style={{ opacity: 0.7 }} />
+                    <p className="text-sm font-medium" style={{ color: COLORS.text }}>No followers yet</p>
+                    <p className="text-xs mt-1" style={{ color: COLORS.textMuted }}>
+                      Share your workouts and stay active to gain followers!
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {followersList.map(follower => (
+                      <button
+                        key={follower.id}
+                        onClick={() => {
+                          const friendData = {
+                            id: follower.id,
+                            name: follower.name,
+                            username: follower.username,
+                            avatar: follower.avatar || follower.name?.charAt(0) || '?',
+                            workouts: follower.workouts,
+                            followers: follower.followers,
+                          };
+                          setShowFriendProfile(friendData);
+                        }}
+                        className="w-full p-4 rounded-xl flex items-center justify-between"
+                        style={{ backgroundColor: COLORS.surface }}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="w-12 h-12 rounded-full flex items-center justify-center text-xl overflow-hidden"
+                            style={{ backgroundColor: COLORS.surfaceLight }}
+                          >
+                            {follower.avatar ? (
+                              typeof follower.avatar === 'string' && follower.avatar.startsWith('http') ? (
+                                <img src={follower.avatar} alt="" className="w-full h-full object-cover" />
+                              ) : (
+                                follower.name?.charAt(0) || '?'
+                              )
+                            ) : (
+                              follower.name?.charAt(0) || '?'
+                            )}
+                          </div>
+                          <div className="text-left">
+                            <p className="font-semibold" style={{ color: COLORS.text }}>{follower.name}</p>
+                            <p className="text-xs" style={{ color: COLORS.textMuted }}>@{follower.username}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="flex items-center gap-1 justify-end">
+                            <Dumbbell size={12} color={COLORS.textMuted} />
+                            <span className="text-xs" style={{ color: COLORS.textMuted }}>{follower.workouts} workouts</span>
+                          </div>
+                          <div className="flex items-center gap-1 justify-end mt-1">
+                            <Users size={12} color={COLORS.textMuted} />
+                            <span className="text-xs" style={{ color: COLORS.textMuted }}>{follower.followers} followers</span>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
                 )}
               </>
             )}
@@ -21516,16 +21720,7 @@ export default function UpRepDemo() {
                   return (
                     <button
                       key={equip.id}
-                      onClick={() => {
-                        setUserData(p => {
-                          const current = p.equipment || [];
-                          if (current.includes(equip.id)) {
-                            return { ...p, equipment: current.filter(e => e !== equip.id) };
-                          } else {
-                            return { ...p, equipment: [...current, equip.id] };
-                          }
-                        });
-                      }}
+                      onClick={() => toggleProfileEquipmentWithScroll(equip.id)}
                       className="w-full p-4 rounded-xl flex items-center gap-4 transition-all"
                       style={{
                         backgroundColor: isSelected ? COLORS.primary + '20' : COLORS.surfaceLight,
@@ -21982,7 +22177,23 @@ export default function UpRepDemo() {
                         style={{ backgroundColor: COLORS.surface }}
                       >
                         <div className="flex items-start justify-between">
-                          <div className="flex items-start gap-3 flex-1">
+                          <button
+                            onClick={() => {
+                              // Open profile modal with this user's data
+                              const friendData = {
+                                id: person.id,
+                                name: `${person.first_name || ''} ${person.last_name || ''}`.trim() || person.username || 'User',
+                                username: person.username || 'user',
+                                avatar: person.avatar_url || (person.first_name ? person.first_name[0].toUpperCase() : '?'),
+                                bio: person.bio,
+                                followers: person.follower_count || 0,
+                                workouts: person.published_workouts || 0,
+                                lastActive: person.last_active || 'Unknown',
+                              };
+                              setShowFriendProfile(friendData);
+                            }}
+                            className="flex items-start gap-3 flex-1 text-left"
+                          >
                             <div
                               className="w-12 h-12 rounded-full flex items-center justify-center text-xl flex-shrink-0"
                               style={{ backgroundColor: COLORS.surfaceLight }}
@@ -22012,9 +22223,10 @@ export default function UpRepDemo() {
                                 )}
                               </div>
                             </div>
-                          </div>
+                          </button>
                           <button
-                            onClick={async () => {
+                            onClick={async (e) => {
+                              e.stopPropagation();
                               if (user?.id) {
                                 const scrollTop = addFriendScrollRef.current?.scrollTop;
                                 try {
@@ -23342,12 +23554,12 @@ export default function UpRepDemo() {
                 // Get tomorrow's date
                 const tomorrow = new Date();
                 tomorrow.setDate(tomorrow.getDate() + 1);
-                const tomorrowKey = tomorrow.toISOString().split('T')[0];
+                const tomorrowKey = getLocalDateString(tomorrow);
                 const tomorrowSchedule = masterSchedule[tomorrowKey];
                 const tomorrowWorkoutType = tomorrowSchedule?.workoutType;
 
                 // Get today's date
-                const todayKey = new Date().toISOString().split('T')[0];
+                const todayKey = getLocalDateString();
                 const todaySchedule = masterSchedule[todayKey];
 
                 // Nutrition goals
@@ -23710,6 +23922,18 @@ export default function UpRepDemo() {
               {userData.bio && (
                 <p className="text-sm mb-3 px-4" style={{ color: COLORS.textMuted }}>{userData.bio}</p>
               )}
+              {/* Followers/Following Count */}
+              <div className="flex items-center justify-center gap-6 mb-4">
+                <div className="text-center">
+                  <p className="text-lg font-bold" style={{ color: COLORS.text }}>{followersCount}</p>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>followers</p>
+                </div>
+                <div className="w-px h-8" style={{ backgroundColor: COLORS.surfaceLight }} />
+                <div className="text-center">
+                  <p className="text-lg font-bold" style={{ color: COLORS.text }}>{followingIds.size}</p>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>following</p>
+                </div>
+              </div>
               <button
                 onClick={() => setShowEditProfile(true)}
                 className="px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 mx-auto"
@@ -24947,7 +25171,7 @@ export default function UpRepDemo() {
                 {[...Array(daysInMonth)].map((_, i) => {
                   const day = i + 1;
                   const date = new Date(fullScheduleYear, fullScheduleMonth, day);
-                  const dateKey = date.toISOString().split('T')[0];
+                  const dateKey = getLocalDateString(date);
                   const entry = masterSchedule[dateKey];
                   const isToday = fullScheduleYear === currentYear && fullScheduleMonth === currentMonth && day === today.getDate();
                   const isPast = date < today;
@@ -25199,7 +25423,7 @@ export default function UpRepDemo() {
                 <div className="flex gap-2 overflow-x-auto pb-2">
                   {[-3, -2, -1, 1, 2, 3].map(offset => {
                     const date = new Date(editingScheduleDay.year, editingScheduleDay.month, editingScheduleDay.date + offset);
-                    const dateKey = date.toISOString().split('T')[0];
+                    const dateKey = getLocalDateString(date);
                     const entry = masterSchedule[dateKey];
                     const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 

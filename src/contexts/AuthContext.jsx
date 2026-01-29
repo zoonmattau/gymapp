@@ -103,7 +103,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   // Sign up with email and password
-  const signUp = async ({ email, password, firstName, lastName, dob, username }) => {
+  const signUp = async ({ email, password, firstName, lastName, dob, username, gender }) => {
     setError(null);
     try {
       // First check if username is already taken
@@ -128,25 +128,57 @@ export function AuthProvider({ children }) {
             last_name: lastName,
             date_of_birth: dob,
             username: username?.toLowerCase(),
+            gender: gender,
           },
+          emailRedirectTo: `${window.location.origin}/`,
         },
       });
 
       if (error) throw error;
 
-      // Update the profile with the chosen username and email after the trigger creates it
+      // Update the profile with all user data after the trigger creates it
       if (data.user) {
-        // Wait a moment for the trigger to create the profile
-        setTimeout(async () => {
-          const updates = { email: email };
-          if (username) {
-            updates.username = username.toLowerCase();
+        const userId = data.user.id;
+
+        // Build profile data
+        const profileData = {
+          id: userId,
+          email: email,
+          first_name: firstName,
+          last_name: lastName,
+          username: username?.toLowerCase() || null,
+          date_of_birth: dob || null,
+          gender: gender || null,
+          updated_at: new Date().toISOString(),
+        };
+
+        // Try to update immediately (trigger may have already created profile)
+        const tryUpdateProfile = async (attempt = 1) => {
+          try {
+            // Use upsert to handle both cases (profile exists or doesn't)
+            const { error: upsertError } = await supabase
+              .from('profiles')
+              .upsert(profileData, { onConflict: 'id' });
+
+            if (upsertError) {
+              console.warn(`Profile upsert attempt ${attempt} failed:`, upsertError?.message);
+              // Retry up to 3 times with increasing delays
+              if (attempt < 3) {
+                setTimeout(() => tryUpdateProfile(attempt + 1), attempt * 1000);
+              }
+            } else {
+              console.log('Profile updated successfully');
+            }
+          } catch (err) {
+            console.warn('Profile update error:', err?.message);
+            if (attempt < 3) {
+              setTimeout(() => tryUpdateProfile(attempt + 1), attempt * 1000);
+            }
           }
-          await supabase
-            .from('profiles')
-            .update(updates)
-            .eq('id', data.user.id);
-        }, 1000);
+        };
+
+        // Start trying after a short delay to let trigger run first
+        setTimeout(() => tryUpdateProfile(1), 500);
       }
 
       return { data, error: null };
@@ -233,7 +265,11 @@ export function AuthProvider({ children }) {
 
   // Update user goals
   const updateGoals = async (goals) => {
-    if (!user) return { error: 'Not authenticated' };
+    console.log('updateGoals called with:', goals);
+    if (!user) {
+      console.error('updateGoals: User not authenticated');
+      return { error: 'Not authenticated' };
+    }
 
     try {
       // Check if record exists first
@@ -243,11 +279,14 @@ export function AuthProvider({ children }) {
         .eq('user_id', user.id)
         .maybeSingle();
 
+      console.log('Existing goal in DB:', existing?.goal);
+
       // Build a clean object with only valid, non-null values
       const cleanGoals = { user_id: user.id };
 
       // goal is required - use existing or default
       cleanGoals.goal = goals.goal || existing?.goal || 'fitness';
+      console.log('Will save goal as:', cleanGoals.goal, '(received:', goals.goal, ')');
 
       // Only add other fields that have actual values
       if (goals.experience) cleanGoals.experience = goals.experience;

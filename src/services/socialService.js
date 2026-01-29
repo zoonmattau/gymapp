@@ -360,6 +360,118 @@ export const socialService = {
     }
   },
 
+  // Get list of users who follow the current user with profile details
+  async getFollowersList(userId) {
+    try {
+      if (!userId) return { data: [], error: null };
+
+      const { data, error } = await supabase
+        .from('friendships')
+        .select(`
+          user_id,
+          follower:profiles!friendships_user_id_fkey(id, username, first_name, last_name, avatar_url, bio)
+        `)
+        .eq('friend_id', userId)
+        .eq('status', 'accepted');
+
+      if (error) {
+        console.warn('getFollowersList query error:', error?.message);
+        return { data: [], error: null };
+      }
+
+      // Get workout counts for each follower
+      const enriched = await Promise.all((data || []).map(async (item) => {
+        const profile = item.follower;
+        if (!profile) return null;
+
+        // Get workout count
+        const { count: workoutCount } = await supabase
+          .from('workout_sessions')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', profile.id)
+          .not('ended_at', 'is', null);
+
+        // Get follower count for this user
+        const { count: followerCount } = await supabase
+          .from('friendships')
+          .select('*', { count: 'exact', head: true })
+          .eq('friend_id', profile.id)
+          .eq('status', 'accepted');
+
+        return {
+          id: profile.id,
+          username: profile.username,
+          name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || profile.username || 'User',
+          avatar: profile.avatar_url,
+          bio: profile.bio,
+          workouts: workoutCount || 0,
+          followers: followerCount || 0,
+        };
+      }));
+
+      return { data: enriched.filter(Boolean), error: null };
+    } catch (err) {
+      console.warn('Error getting followers list:', err?.message);
+      return { data: [], error: null };
+    }
+  },
+
+  // Get list of users the current user is following with profile details
+  async getFollowingList(userId) {
+    try {
+      if (!userId) return { data: [], error: null };
+
+      const { data, error } = await supabase
+        .from('friendships')
+        .select(`
+          friend_id,
+          following:profiles!friendships_friend_id_fkey(id, username, first_name, last_name, avatar_url, bio)
+        `)
+        .eq('user_id', userId)
+        .eq('status', 'accepted');
+
+      if (error) {
+        console.warn('getFollowingList query error:', error?.message);
+        return { data: [], error: null };
+      }
+
+      // Get workout counts for each following
+      const enriched = await Promise.all((data || []).map(async (item) => {
+        const profile = item.following;
+        if (!profile) return null;
+
+        // Get workout count
+        const { count: workoutCount } = await supabase
+          .from('workout_sessions')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', profile.id)
+          .not('ended_at', 'is', null);
+
+        // Get follower count for this user
+        const { count: followerCount } = await supabase
+          .from('friendships')
+          .select('*', { count: 'exact', head: true })
+          .eq('friend_id', profile.id)
+          .eq('status', 'accepted');
+
+        return {
+          id: profile.id,
+          username: profile.username,
+          name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || profile.username || 'User',
+          avatar: profile.avatar_url,
+          bio: profile.bio,
+          workouts: workoutCount || 0,
+          followers: followerCount || 0,
+        };
+      }));
+
+      return { data: enriched.filter(Boolean), error: null };
+    } catch (err) {
+      console.warn('Error getting following list:', err?.message);
+      return { data: [], error: null };
+    }
+  },
+
   // Get activity feed from followed users
   async getActivityFeed(userId, limit = 20) {
     try {
