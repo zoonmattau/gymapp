@@ -99,12 +99,13 @@ CREATE TABLE IF NOT EXISTS nudges (
     message VARCHAR(100),
     nudge_type VARCHAR(20) DEFAULT 'workout',
     read BOOLEAN DEFAULT FALSE,
+    nudge_date DATE DEFAULT CURRENT_DATE,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Unique constraint on sender, recipient, and date (one nudge per day per pair)
 CREATE UNIQUE INDEX IF NOT EXISTS idx_nudges_daily_limit
-ON nudges(from_user_id, to_user_id, DATE(created_at));
+ON nudges(from_user_id, to_user_id, nudge_date);
 
 CREATE INDEX IF NOT EXISTS idx_nudges_to_user ON nudges(to_user_id);
 CREATE INDEX IF NOT EXISTS idx_nudges_created_at ON nudges(created_at DESC);
