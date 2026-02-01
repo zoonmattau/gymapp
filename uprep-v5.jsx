@@ -18882,6 +18882,9 @@ export default function UpRepDemo() {
     };
   });
 
+  // Track previous program to detect actual changes (not just initial load)
+  const prevProgramIdRef = useRef(currentProgram.id);
+
   // Update program when userData.programId changes (e.g., loaded from profile)
   useEffect(() => {
     if (userData.programId) {
@@ -18911,6 +18914,70 @@ export default function UpRepDemo() {
       }
     }
   }, [userData.programId, userData.goal]);
+
+  // Regenerate schedule when program changes (e.g., when userData.programId is loaded from database)
+  useEffect(() => {
+    const prevProgramId = prevProgramIdRef.current;
+    const newProgramId = currentProgram.id;
+
+    // Skip if program hasn't actually changed
+    if (prevProgramId === newProgramId) return;
+
+    // Update the ref
+    prevProgramIdRef.current = newProgramId;
+
+    // Find the program to get its workout cycle
+    let program = AVAILABLE_PROGRAMS.find(p => p.id === newProgramId);
+    if (!program) {
+      const template = PROGRAM_TEMPLATES.find(t => t.id === newProgramId);
+      if (template) {
+        program = {
+          id: template.id,
+          schedule: template.cycle,
+        };
+      }
+    }
+
+    if (!program?.schedule) return;
+
+    // Regenerate the schedule with the correct program rotation
+    const userRestDays = userData.restDays || [5, 6];
+    const workoutTypeRotation = program.schedule;
+
+    setMasterSchedule(prev => {
+      const newSchedule = {};
+      let workoutIndex = 0;
+
+      const now = new Date();
+      const scheduleStart = new Date(now);
+      scheduleStart.setDate(now.getDate() - 30);
+
+      for (let i = 0; i < 395; i++) {
+        const date = new Date(scheduleStart);
+        date.setDate(scheduleStart.getDate() + i);
+        const dateKey = getLocalDateString(date);
+        const dayOfWeek = (date.getDay() + 6) % 7;
+
+        // Preserve completed workouts
+        const existingEntry = prev[dateKey];
+        if (existingEntry?.completed) {
+          newSchedule[dateKey] = existingEntry;
+          continue;
+        }
+
+        if (userRestDays.includes(dayOfWeek)) {
+          newSchedule[dateKey] = { workoutType: null, completed: false };
+        } else {
+          newSchedule[dateKey] = {
+            workoutType: workoutTypeRotation[workoutIndex % workoutTypeRotation.length],
+            completed: false
+          };
+          workoutIndex++;
+        }
+      }
+      return newSchedule;
+    });
+  }, [currentProgram.id]);
 
   // Check follow status and load stats when viewing a friend's profile
   useEffect(() => {
@@ -19424,6 +19491,11 @@ export default function UpRepDemo() {
 
   // Ref-based cache for workouts (doesn't trigger re-renders)
   const workoutCacheRef = useRef({});
+
+  // Clear workout cache when program changes (to regenerate with new workout types)
+  useEffect(() => {
+    workoutCacheRef.current = {};
+  }, [currentProgram.id]);
 
   // Generate or retrieve cached workout for a date
   const getWorkoutForDate = (dateKey) => {
