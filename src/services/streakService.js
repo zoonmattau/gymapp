@@ -133,36 +133,14 @@ export const streakService = {
     // For fat loss: must be UNDER goal (but at least 50% to ensure healthy eating)
     // For other goals: within 10% margin
     const targetMin = isFatLossGoal ? goals.calories * 0.5 : goals.calories * 0.9;
-    const targetMax = isFatLossGoal ? goals.calories * 0.99 : goals.calories * 1.1; // For fat loss, must be strictly under
+    const targetMax = isFatLossGoal ? goals.calories * 0.99 : goals.calories * 1.1;
 
+    // Streak always counts from YESTERDAY backwards - today is always "in progress"
     let streak = 0;
-    const today = getLocalDateString();
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = getLocalDateString(yesterday);
-
     let checkDate = new Date();
+    checkDate.setDate(checkDate.getDate() - 1); // Start from yesterday
 
-    // Check if today has an entry
-    const todayEntry = nutrition.find(n => n.log_date === today);
-
-    if (todayEntry) {
-      // Today has an entry - check if it meets the goal
-      if (todayEntry.total_calories < targetMin || todayEntry.total_calories > targetMax) {
-        // Today doesn't meet goal - streak is broken
-        return { streak: 0, lastDate: today };
-      }
-      // Today meets goal, start counting from today
-    } else {
-      // No entry for today - allow starting from yesterday (day isn't over yet)
-      const yesterdayEntry = nutrition.find(n => n.log_date === yesterdayStr);
-      if (!yesterdayEntry) {
-        return { streak: 0, lastDate: null };
-      }
-      checkDate = yesterday;
-    }
-
-    // Count consecutive days meeting goal
+    // Count consecutive days meeting goal from yesterday backwards
     for (const entry of nutrition) {
       const dateStr = entry.log_date;
       const expectedDate = getLocalDateString(checkDate);
@@ -254,8 +232,10 @@ export const streakService = {
 
     const target = goals.water * 0.9; // 90% of goal
 
+    // Streak always counts from YESTERDAY backwards - today is always "in progress"
     let streak = 0;
     let checkDate = new Date();
+    checkDate.setDate(checkDate.getDate() - 1); // Start from yesterday
 
     for (const entry of nutrition) {
       const dateStr = entry.log_date;
