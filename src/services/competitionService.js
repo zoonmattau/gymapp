@@ -86,7 +86,7 @@ export const competitionService = {
         .from('workout_streaks')
         .select('current_streak')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
 
       return {
         workouts: workoutCount || 0,

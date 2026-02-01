@@ -114,7 +114,7 @@ export const prLeaderboardService = {
 
       // Get current user's profile and PR
       const [{ data: userProfile }, { data: userPR }] = await Promise.all([
-        supabase.from('profiles').select('date_of_birth, gender').eq('id', userId).single(),
+        supabase.from('profiles').select('date_of_birth, gender').eq('id', userId).maybeSingle(),
         supabase
           .from('personal_records')
           .select('e1rm')
@@ -122,7 +122,7 @@ export const prLeaderboardService = {
           .eq('exercise_name', exerciseName)
           .order('e1rm', { ascending: false })
           .limit(1)
-          .single(),
+          .maybeSingle(),
       ]);
 
       if (!userPR) {
@@ -136,7 +136,7 @@ export const prLeaderboardService = {
         .eq('user_id', userId)
         .order('log_date', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       const userWeight = weightLog?.weight;
       const userAge = userProfile?.date_of_birth

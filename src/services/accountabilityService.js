@@ -22,7 +22,7 @@ export const accountabilityService = {
         .eq('to_user_id', toUserId)
         .gte('created_at', today)
         .lt('created_at', today + 'T23:59:59.999Z')
-        .single();
+        .maybeSingle();
 
       if (existingNudge) {
         return { data: null, error: new Error('Already nudged this user today'), alreadyNudged: true };
@@ -148,7 +148,7 @@ export const accountabilityService = {
         .eq('to_user_id', toUserId)
         .gte('created_at', today)
         .lt('created_at', today + 'T23:59:59.999Z')
-        .single();
+        .maybeSingle();
 
       return { canNudge: !data, error: null };
     } catch (err) {
@@ -172,7 +172,7 @@ export const accountabilityService = {
         .from('workout_buddies')
         .select('id, status')
         .or(`and(user_a_id.eq.${userId},user_b_id.eq.${partnerId}),and(user_a_id.eq.${partnerId},user_b_id.eq.${userId})`)
-        .single();
+        .maybeSingle();
 
       if (existing) {
         return { data: existing, error: null, alreadyExists: true };
@@ -235,7 +235,7 @@ export const accountabilityService = {
         .eq('id', buddyId)
         .eq('user_b_id', userId)
         .select()
-        .single();
+        .maybeSingle();
 
       if (!error && data) {
         // Notify the requester that their request was accepted
@@ -296,9 +296,9 @@ export const accountabilityService = {
         `)
         .or(`user_a_id.eq.${userId},user_b_id.eq.${userId}`)
         .eq('status', 'accepted')
-        .single();
+        .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') {
+      if (error) {
         console.warn('getBuddy error:', error?.message);
         return { data: null, error: null };
       }
@@ -470,7 +470,7 @@ export const accountabilityService = {
         .from('shared_goals')
         .select('creator_id, partner_id')
         .eq('id', goalId)
-        .single();
+        .maybeSingle();
 
       if (!goal) {
         return { data: null, error: new Error('Goal not found') };
@@ -487,7 +487,7 @@ export const accountabilityService = {
         })
         .eq('id', goalId)
         .select()
-        .single();
+        .maybeSingle();
 
       return { data, error };
     } catch (err) {
@@ -507,7 +507,7 @@ export const accountabilityService = {
         })
         .eq('id', goalId)
         .select()
-        .single();
+        .maybeSingle();
 
       return { data, error };
     } catch (err) {
@@ -525,7 +525,7 @@ export const accountabilityService = {
         .eq('id', goalId)
         .eq('creator_id', userId)
         .select()
-        .single();
+        .maybeSingle();
 
       return { data, error };
     } catch (err) {

@@ -169,7 +169,7 @@ export const exerciseService = {
         .eq('created_by', userId)
         .eq('is_system', false)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.warn('updateCustomExercise error:', error?.message);

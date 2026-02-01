@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
-import { ChevronRight, ChevronLeft, Check, Plus, Minus, Play, Pause, X, Droplets, Moon, TrendingUp, TrendingDown, User, Home, Dumbbell, Apple, BarChart3, Trophy, Flame, Clock, Target, Info, Calendar, AlertCircle, Zap, Coffee, Utensils, ChevronDown, ChevronUp, Eye, Undo2, Search, Book, History, Award, Edit3, Filter, ArrowLeftRight, GripVertical, Users, Heart, MessageCircle, Share2, Crown, Medal, Loader2, Settings, Sprout, RefreshCw, Scale, Scissors, Wind, Timer, Activity, Star, Sparkles, PartyPopper, Bell, UserPlus, Lock, Bookmark, Upload, Trash2, Camera } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Check, Plus, Minus, Play, Pause, X, Droplets, Moon, TrendingUp, TrendingDown, User, Home, Dumbbell, Apple, BarChart3, Trophy, Flame, Clock, Target, Info, Calendar, AlertCircle, Zap, Coffee, Utensils, ChevronDown, ChevronUp, Eye, Undo2, Search, Book, History, Award, Edit3, Filter, ArrowLeftRight, GripVertical, Users, Heart, MessageCircle, Share2, Crown, Medal, Loader2, Settings, Sprout, RefreshCw, Scale, Scissors, Wind, Timer, Activity, Star, Sparkles, PartyPopper, Bell, UserPlus, Lock, Bookmark, Upload, Trash2, Camera, RotateCcw } from 'lucide-react';
 
 // Icon mapping helper - converts icon names to Lucide components
 const IconMap = ({ name, size = 24, color, className }) => {
@@ -2113,6 +2113,8 @@ const EditProfileModal = ({ userData, setUserData, COLORS, onClose, user, update
 
   const [uploadingProfilePic, setUploadingProfilePic] = React.useState(false);
   const [uploadingCover, setUploadingCover] = React.useState(false);
+  const [saving, setSaving] = React.useState(false);
+  const [saveError, setSaveError] = React.useState(null);
 
   const handleProfilePicUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -2373,8 +2375,15 @@ const EditProfileModal = ({ userData, setUserData, COLORS, onClose, user, update
       </div>
       
       <div className="p-4 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+        {saveError && (
+          <p className="text-sm mb-3 text-center" style={{ color: '#ef4444' }}>
+            {saveError}
+          </p>
+        )}
         <button
           onClick={async () => {
+            setSaveError(null);
+            setSaving(true);
             // Save profile data to database
             if (user?.id && updateProfile) {
               try {
@@ -2385,16 +2394,27 @@ const EditProfileModal = ({ userData, setUserData, COLORS, onClose, user, update
                   last_name: userData.lastName,
                   gender: userData.gender,
                 });
+                onClose();
               } catch (err) {
                 console.error('Error saving profile:', err);
+                setSaveError('Failed to save profile. Please try again.');
+                setSaving(false);
+                return;
               }
+            } else {
+              onClose();
             }
-            onClose();
+            setSaving(false);
           }}
+          disabled={saving}
           className="w-full py-4 rounded-xl font-semibold"
-          style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+          style={{
+            backgroundColor: saving ? COLORS.surfaceLight : COLORS.primary,
+            color: COLORS.text,
+            opacity: saving ? 0.7 : 1
+          }}
         >
-          Done
+          {saving ? 'Saving...' : 'Done'}
         </button>
       </div>
     </div>
@@ -3715,7 +3735,7 @@ const WeighInModal = ({ COLORS, onClose, onSave, initialWeight, currentWeight, u
 };
 
 // Full Meal Entry Modal - with all macros and estimator
-const FullMealEntryModal = ({ COLORS, onClose, onSave, foods = [] }) => {
+const FullMealEntryModal = ({ COLORS, onClose, onSave, foods = [], frequentMeals = [] }) => {
   const [name, setName] = React.useState('');
   const [calories, setCalories] = React.useState('');
   const [protein, setProtein] = React.useState('');
@@ -3743,16 +3763,71 @@ const FullMealEntryModal = ({ COLORS, onClose, onSave, foods = [] }) => {
   // Portion multipliers
   const portionMultipliers = { small: 0.7, medium: 1, large: 1.4, xl: 1.8 };
 
-  // Food database from props - filter by category (loaded from database)
-  const proteinSources = foods.filter(f => f.category === 'Protein');
+  // Fallback food data if database foods are empty
+  const defaultProteinSources = [
+    { name: 'Chicken Breast', per100g: { cal: 165, p: 31, c: 0, f: 3.6 } },
+    { name: 'Beef Steak', per100g: { cal: 271, p: 26, c: 0, f: 18 } },
+    { name: 'Salmon', per100g: { cal: 208, p: 20, c: 0, f: 13 } },
+    { name: 'Eggs', per100g: { cal: 155, p: 13, c: 1, f: 11 } },
+    { name: 'Turkey', per100g: { cal: 135, p: 30, c: 0, f: 1 } },
+    { name: 'Tofu', per100g: { cal: 76, p: 8, c: 2, f: 4.8 } },
+    { name: 'Shrimp', per100g: { cal: 99, p: 24, c: 0, f: 0.3 } },
+    { name: 'Greek Yogurt', per100g: { cal: 97, p: 9, c: 4, f: 5 } },
+  ];
+  const defaultCarbSources = [
+    { name: 'White Rice', per100g: { cal: 130, p: 2.7, c: 28, f: 0.3 } },
+    { name: 'Brown Rice', per100g: { cal: 111, p: 2.6, c: 23, f: 0.9 } },
+    { name: 'Pasta', per100g: { cal: 131, p: 5, c: 25, f: 1.1 } },
+    { name: 'Bread', per100g: { cal: 265, p: 9, c: 49, f: 3.2 } },
+    { name: 'Potato', per100g: { cal: 77, p: 2, c: 17, f: 0.1 } },
+    { name: 'Sweet Potato', per100g: { cal: 86, p: 1.6, c: 20, f: 0.1 } },
+    { name: 'Oats', per100g: { cal: 389, p: 17, c: 66, f: 7 } },
+    { name: 'Quinoa', per100g: { cal: 120, p: 4.4, c: 21, f: 1.9 } },
+  ];
+  const defaultFatSources = [
+    { name: 'Olive Oil', per100g: { cal: 884, p: 0, c: 0, f: 100 } },
+    { name: 'Avocado', per100g: { cal: 160, p: 2, c: 9, f: 15 } },
+    { name: 'Peanut Butter', per100g: { cal: 588, p: 25, c: 20, f: 50 } },
+    { name: 'Almonds', per100g: { cal: 579, p: 21, c: 22, f: 50 } },
+    { name: 'Cheese', per100g: { cal: 402, p: 25, c: 1.3, f: 33 } },
+    { name: 'Butter', per100g: { cal: 717, p: 0.9, c: 0.1, f: 81 } },
+  ];
+  const defaultVegetableSources = [
+    { name: 'Broccoli', per100g: { cal: 34, p: 2.8, c: 7, f: 0.4 } },
+    { name: 'Spinach', per100g: { cal: 23, p: 2.9, c: 3.6, f: 0.4 } },
+    { name: 'Mixed Salad', per100g: { cal: 20, p: 1.5, c: 3.5, f: 0.2 } },
+    { name: 'Carrots', per100g: { cal: 41, p: 0.9, c: 10, f: 0.2 } },
+    { name: 'Bell Peppers', per100g: { cal: 31, p: 1, c: 6, f: 0.3 } },
+    { name: 'Tomatoes', per100g: { cal: 18, p: 0.9, c: 3.9, f: 0.2 } },
+  ];
+  const defaultToppingSources = [
+    { name: 'BBQ Sauce', per100g: { cal: 172, p: 0.8, c: 40, f: 0.6 } },
+    { name: 'Mayo', per100g: { cal: 680, p: 1, c: 0.6, f: 75 } },
+    { name: 'Hummus', per100g: { cal: 166, p: 8, c: 14, f: 10 } },
+    { name: 'Soy Sauce', per100g: { cal: 53, p: 8, c: 5, f: 0 } },
+    { name: 'Hot Sauce', per100g: { cal: 12, p: 0.5, c: 2, f: 0.3 } },
+  ];
 
-  const carbSources = foods.filter(f => f.category === 'Carbs');
+  // Food database from props - filter by category (loaded from database) with fallbacks
+  const proteinSources = foods.filter(f => f.category === 'Protein').length > 0
+    ? foods.filter(f => f.category === 'Protein')
+    : defaultProteinSources;
 
-  const fatSources = foods.filter(f => f.category === 'Fats');
+  const carbSources = foods.filter(f => f.category === 'Carbs').length > 0
+    ? foods.filter(f => f.category === 'Carbs')
+    : defaultCarbSources;
 
-  const vegetableSources = foods.filter(f => f.category === 'Vegetables');
+  const fatSources = foods.filter(f => f.category === 'Fats').length > 0
+    ? foods.filter(f => f.category === 'Fats')
+    : defaultFatSources;
 
-  const toppingSources = foods.filter(f => f.category === 'Sauces');
+  const vegetableSources = foods.filter(f => f.category === 'Vegetables').length > 0
+    ? foods.filter(f => f.category === 'Vegetables')
+    : defaultVegetableSources;
+
+  const toppingSources = foods.filter(f => f.category === 'Sauces').length > 0
+    ? foods.filter(f => f.category === 'Sauces')
+    : defaultToppingSources;
 
 
   // All foods combined with default units
@@ -4160,6 +4235,26 @@ const FullMealEntryModal = ({ COLORS, onClose, onSave, foods = [] }) => {
               </div>
             </div>
             
+            {/* Your Frequent Meals */}
+            {frequentMeals.length > 0 && (
+              <div className="mb-4">
+                <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>YOUR FREQUENT MEALS</p>
+                <div className="flex flex-wrap gap-2">
+                  {frequentMeals.map((meal, i) => (
+                    <button
+                      key={i}
+                      onClick={() => applyCommonMeal(meal)}
+                      className="px-3 py-2 rounded-xl text-xs flex items-center gap-1"
+                      style={{ backgroundColor: COLORS.primary + '20', color: COLORS.primary }}
+                    >
+                      {meal.name}
+                      <span className="text-xs opacity-70">×{meal.count}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Common Meals */}
             <div className="mb-4">
               <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>COMMON MEALS</p>
@@ -8913,6 +9008,7 @@ const HomeTab = ({
   setLikedPosts,
   setActiveTab,
   setFriendsTab,
+  setNutritionTab,
   setShowWorkoutSummary,
   socialEnabled,
   followersCount,
@@ -8964,6 +9060,8 @@ const HomeTab = ({
   getInjuryRecoveryExercisesToAdd,
   ALL_EXERCISES,
   WORKOUT_TIMING,
+  showWorkoutTimeEditor,
+  setShowWorkoutTimeEditor,
 }) => {
     const handleScroll = (e) => {
       homeScrollPos.current = e.target.scrollTop;
@@ -12228,6 +12326,1673 @@ const WorkoutTab = ({
           </div>
 );
 
+// FriendsTab Component - extracted outside UpRepDemo to prevent re-creation on state changes
+const FriendsTab = ({
+  COLORS,
+  friendsTabScrollRef,
+  socialEnabled,
+  setSocialEnabled,
+  friendsTab,
+  setFriendsTab,
+  // Community workouts
+  todayWorkoutTemplate,
+  setWorkoutToPublish,
+  setShowPublishModal,
+  communitySort,
+  setCommunitySort,
+  showCommunityFilters,
+  setShowCommunityFilters,
+  communityFilters,
+  setCommunityFilters,
+  myPublishedWorkouts,
+  expandedWorkoutId,
+  setExpandedWorkoutIdWithScroll,
+  workoutWarmupCooldown,
+  toggleWarmupCooldownWithScroll,
+  renamingWorkout,
+  setRenamingWorkout,
+  newWorkoutName,
+  setNewWorkoutName,
+  handleRenameWorkout,
+  loadComments,
+  setSelectedCommunityWorkout,
+  savedWorkoutIds,
+  setSavedWorkoutIds,
+  loadRepertoire,
+  getWorkoutStyle,
+  estimateWorkoutDuration,
+  getWorkoutTimeBreakdown,
+  WORKOUT_TIMING,
+  showExerciseInfoFriendsTab,
+  formatActivityTime,
+  IconMap,
+  StarRating,
+  communityWorkouts,
+  communityWorkoutsLoading,
+  userWorkoutRatings,
+  handleRateWorkout,
+  handleSaveWorkout,
+  user,
+  adjustWorkoutForUser,
+  publishedWorkoutService,
+  // Feed
+  userData,
+  overviewStats,
+  personalRecords,
+  streaks,
+  setShowShareModal,
+  weeklyLeaderboard,
+  setWeeklyLeaderboard,
+  leaderboardType,
+  setLeaderboardType,
+  leaderboardLoading,
+  setLeaderboardLoading,
+  competitionService,
+  activityFeed,
+  activityFeedLoading,
+  userLikes,
+  handleActivityLike,
+  expandedActivity,
+  setExpandedActivity,
+  expandedActivitySets,
+  setExpandedActivitySets,
+  setShowCommentsModal,
+  activityCommentCounts,
+  // Followers/Following
+  followersList,
+  followersLoading,
+  setShowFriendProfile,
+  setShowFriendStreakCalendar,
+  setShowAddFriendModal,
+  friends,
+  followingList,
+  followingLoading,
+  // Discover
+  suggestedFriends,
+  topFollowedUsers,
+  topFollowedLoading,
+  topFollowedPeriod,
+  setTopFollowedPeriod,
+  followingIds,
+  handleFollowUser,
+  // Challenges
+  challenges,
+  setShowCreateChallenge,
+  profile,
+  // Workout Buddy (Feed tab)
+  workoutBuddy,
+  setWorkoutBuddy,
+  buddyRequests,
+  setBuddyRequests,
+  accountabilityService,
+  supabase,
+  // Utility
+  setActiveTab,
+}) => {
+  const handleScroll = (e) => {
+    if (friendsTabScrollRef?.current !== undefined) {
+      friendsTabScrollRef.current = e.target.scrollTop;
+    }
+  };
+
+  return (
+    <div
+      ref={friendsTabScrollRef}
+      onScroll={handleScroll}
+      className="p-4 h-full overflow-auto"
+    >
+      {/* Social Opt-Out Banner */}
+      {!socialEnabled && (
+        <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surfaceLight }}>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-semibold" style={{ color: COLORS.text }}>Social Features Disabled</p>
+              <p className="text-xs" style={{ color: COLORS.textMuted }}>Your activity is private</p>
+            </div>
+            <button
+              onClick={() => setSocialEnabled(true)}
+              className="px-3 py-2 rounded-xl text-sm font-semibold"
+              style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+            >
+              Enable
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Tab Navigation */}
+      <div className="flex gap-2 mb-4 overflow-x-auto">
+        {[
+          { id: 'feed', label: 'Activity' },
+          { id: 'community_workouts', label: 'Workouts' },
+          { id: 'followers', label: 'Followers' },
+          { id: 'following', label: 'Following' },
+          { id: 'discover', label: 'Discover' },
+          { id: 'challenges', label: 'Challenges' },
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setFriendsTab(tab.id)}
+            className="flex-1 py-2 px-1 rounded-xl text-xs font-semibold"
+            style={{
+              backgroundColor: friendsTab === tab.id ? COLORS.primary : COLORS.surface,
+              color: friendsTab === tab.id ? COLORS.text : COLORS.textMuted
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* COMMUNITY WORKOUTS TAB */}
+      {friendsTab === 'community_workouts' && (
+        <>
+          {/* Publish Button */}
+          <button
+            onClick={() => {
+              if (todayWorkoutTemplate) {
+                setWorkoutToPublish(todayWorkoutTemplate);
+                setShowPublishModal(true);
+              }
+            }}
+            className="w-full p-4 rounded-xl mb-4 flex items-center justify-center gap-2"
+            style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+          >
+            <Share2 size={18} />
+            <span className="font-semibold">Share Your Workout</span>
+          </button>
+
+          {/* Sort Options */}
+          <div className="flex gap-2 mb-3">
+            {[
+              { id: 'popular', label: 'Most Popular' },
+              { id: 'rating', label: 'Top Rated' },
+              { id: 'newest', label: 'Newest' },
+            ].map(sort => (
+              <button
+                key={sort.id}
+                onClick={() => setCommunitySort(sort.id)}
+                className="flex-1 py-2 rounded-lg text-xs font-semibold"
+                style={{
+                  backgroundColor: communitySort === sort.id ? COLORS.primary : COLORS.surface,
+                  color: communitySort === sort.id ? COLORS.text : COLORS.textMuted
+                }}
+              >
+                {sort.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Filter Options */}
+          <div className="mb-4">
+            <button
+              onClick={() => setShowCommunityFilters(!showCommunityFilters)}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold"
+              style={{ backgroundColor: COLORS.surface, color: COLORS.textMuted }}
+            >
+              <Filter size={14} />
+              Filters
+              {(communityFilters.duration || communityFilters.minRating || communityFilters.focus || communityFilters.minCompletions) && (
+                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS.primary }} />
+              )}
+              <ChevronDown size={14} style={{ transform: showCommunityFilters ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
+            </button>
+
+            {showCommunityFilters && (
+              <div className="mt-2 p-3 rounded-xl space-y-3" style={{ backgroundColor: COLORS.surface }}>
+                {/* Duration Filter */}
+                <div>
+                  <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>Duration</p>
+                  <div className="flex gap-2 flex-wrap">
+                    {[
+                      { id: null, label: 'Any' },
+                      { id: 'short', label: '<30min' },
+                      { id: 'medium', label: '30-60min' },
+                      { id: 'long', label: '>60min' },
+                    ].map(d => (
+                      <button
+                        key={d.id || 'any'}
+                        onClick={() => setCommunityFilters(prev => ({ ...prev, duration: d.id }))}
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                        style={{
+                          backgroundColor: communityFilters.duration === d.id ? COLORS.primary : COLORS.surfaceLight,
+                          color: communityFilters.duration === d.id ? COLORS.text : COLORS.textMuted
+                        }}
+                      >
+                        {d.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Min Rating Filter */}
+                <div>
+                  <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>Minimum Rating</p>
+                  <div className="flex gap-2 flex-wrap">
+                    {[
+                      { id: null, label: 'Any' },
+                      { id: 3, label: '3+ stars' },
+                      { id: 4, label: '4+ stars' },
+                      { id: 4.5, label: '4.5+ stars' },
+                    ].map(r => (
+                      <button
+                        key={r.id || 'any'}
+                        onClick={() => setCommunityFilters(prev => ({ ...prev, minRating: r.id }))}
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                        style={{
+                          backgroundColor: communityFilters.minRating === r.id ? COLORS.primary : COLORS.surfaceLight,
+                          color: communityFilters.minRating === r.id ? COLORS.text : COLORS.textMuted
+                        }}
+                      >
+                        {r.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Focus/Type Filter */}
+                <div>
+                  <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>Workout Type</p>
+                  <div className="flex gap-2 flex-wrap">
+                    {[
+                      { id: null, label: 'Any' },
+                      { id: 'push', label: 'Push' },
+                      { id: 'pull', label: 'Pull' },
+                      { id: 'legs', label: 'Legs' },
+                      { id: 'upper', label: 'Upper' },
+                      { id: 'full', label: 'Full Body' },
+                      { id: 'core', label: 'Core' },
+                    ].map(f => (
+                      <button
+                        key={f.id || 'any'}
+                        onClick={() => setCommunityFilters(prev => ({ ...prev, focus: f.id }))}
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                        style={{
+                          backgroundColor: communityFilters.focus === f.id ? COLORS.primary : COLORS.surfaceLight,
+                          color: communityFilters.focus === f.id ? COLORS.text : COLORS.textMuted
+                        }}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Min Completions Filter */}
+                <div>
+                  <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>Completed By</p>
+                  <div className="flex gap-2 flex-wrap">
+                    {[
+                      { id: null, label: 'Any' },
+                      { id: 10, label: '10+ people' },
+                      { id: 50, label: '50+ people' },
+                      { id: 100, label: '100+ people' },
+                    ].map(c => (
+                      <button
+                        key={c.id || 'any'}
+                        onClick={() => setCommunityFilters(prev => ({ ...prev, minCompletions: c.id }))}
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                        style={{
+                          backgroundColor: communityFilters.minCompletions === c.id ? COLORS.primary : COLORS.surfaceLight,
+                          color: communityFilters.minCompletions === c.id ? COLORS.text : COLORS.textMuted
+                        }}
+                      >
+                        {c.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Clear Filters */}
+                {(communityFilters.duration || communityFilters.minRating || communityFilters.focus || communityFilters.minCompletions) && (
+                  <button
+                    onClick={() => setCommunityFilters({ duration: null, minRating: null, focus: null, minCompletions: null })}
+                    className="text-xs font-semibold"
+                    style={{ color: COLORS.error }}
+                  >
+                    Clear All Filters
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* My Published Workouts */}
+          {myPublishedWorkouts.length > 0 && (
+            <div className="mb-6">
+              <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>YOUR SHARED WORKOUTS</p>
+              <div className="space-y-2">
+                {myPublishedWorkouts.map(workout => {
+                  const style = getWorkoutStyle(workout.focus);
+                  const isExpanded = expandedWorkoutId === workout.id;
+                  const targetDuration = workout.target_duration || estimateWorkoutDuration(workout.exercises);
+                  const uploadDate = workout.created_at ? new Date(workout.created_at) : null;
+                  const uploadTimeAgo = uploadDate ? formatActivityTime(workout.created_at) : '';
+
+                  return (
+                    <div
+                      key={workout.id}
+                      className="rounded-xl overflow-hidden"
+                      style={{ backgroundColor: COLORS.surface }}
+                    >
+                      {/* Card Header - Clickable to expand */}
+                      <button
+                        onClick={() => setExpandedWorkoutIdWithScroll(isExpanded ? null : workout.id)}
+                        className="w-full p-3 text-left"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                            style={{ backgroundColor: style.color + '20' }}
+                          >
+                            <IconMap name={style.icon} size={18} color={style.color} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="font-semibold text-sm truncate" style={{ color: COLORS.text }}>{workout.name}</p>
+                              <ChevronDown
+                                size={14}
+                                color={COLORS.textMuted}
+                                style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}
+                              />
+                            </div>
+                            <div className="flex items-center flex-wrap gap-2 text-xs mt-1" style={{ color: COLORS.textMuted }}>
+                              <div className="flex items-center gap-1">
+                                <StarRating rating={workout.averageRating || 0} readonly size={10} />
+                                <span className="font-medium" style={{ color: COLORS.warning }}>{(workout.averageRating || 0).toFixed(1)}</span>
+                              </div>
+                              <span>({workout.ratingCount || 0})</span>
+                              <span className="flex items-center gap-1">
+                                <Users size={10} /> {workout.completionCount || 0}
+                              </span>
+                              {uploadTimeAgo && <span>{uploadTimeAgo}</span>}
+                            </div>
+                          </div>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); loadComments(workout.id); }}
+                            className="p-2 rounded-lg flex items-center gap-1"
+                            style={{ backgroundColor: COLORS.surfaceLight }}
+                          >
+                            <MessageCircle size={14} color={COLORS.textMuted} />
+                            <span className="text-xs" style={{ color: COLORS.textMuted }}>{workout.comment_count || 0}</span>
+                          </button>
+                        </div>
+                      </button>
+
+                      {/* Expanded Content */}
+                      {isExpanded && (() => {
+                        const timing = getWorkoutTimeBreakdown(workout.exercises || []);
+                        const activeMins = Math.round(timing.workingTime / 60);
+                        const restMins = Math.round(timing.restTime / 60);
+                        const warmupMins = Math.round(WORKOUT_TIMING.WARMUP_TIME / 60);
+                        const cooldownMins = Math.round(WORKOUT_TIMING.COOLDOWN_TIME / 60);
+                        const warmupCooldownState = workoutWarmupCooldown[workout.id] || {};
+                        const hasWarmup = warmupCooldownState.warmup ?? true;
+                        const hasCooldown = warmupCooldownState.cooldown ?? true;
+                        const workoutMins = activeMins + restMins + (hasWarmup ? warmupMins : 0) + (hasCooldown ? cooldownMins : 0);
+                        return (
+                        <div className="px-3 pb-3 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+                          {/* Time Breakdown */}
+                          <div className="grid grid-cols-4 gap-2 py-3">
+                            <div className="text-center p-2 rounded-lg" style={{ backgroundColor: COLORS.success + '15' }}>
+                              <p className="font-bold text-sm" style={{ color: COLORS.success }}>{activeMins}min</p>
+                              <p className="text-xs" style={{ color: COLORS.textMuted }}>Active</p>
+                            </div>
+                            <div className="text-center p-2 rounded-lg" style={{ backgroundColor: COLORS.warning + '15' }}>
+                              <p className="font-bold text-sm" style={{ color: COLORS.warning }}>{restMins}min</p>
+                              <p className="text-xs" style={{ color: COLORS.textMuted }}>Rest</p>
+                            </div>
+                            <div className="text-center p-2 rounded-lg" style={{ backgroundColor: COLORS.primary + '15' }}>
+                              <p className="font-bold text-sm" style={{ color: COLORS.primary }}>{hasWarmup ? warmupMins : 0}+{hasCooldown ? cooldownMins : 0}min</p>
+                              <p className="text-xs" style={{ color: COLORS.textMuted }}>Warm/Cool</p>
+                            </div>
+                            <div className="text-center p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
+                              <p className="font-bold text-sm" style={{ color: COLORS.text }}>{workoutMins}min</p>
+                              <p className="text-xs" style={{ color: COLORS.textMuted }}>Total</p>
+                            </div>
+                          </div>
+
+                          {/* Warmup/Cooldown Toggles */}
+                          <div className="flex items-center gap-3 py-2">
+                            <button
+                              onClick={() => toggleWarmupCooldownWithScroll(workout.id, 'warmup')}
+                              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold"
+                              style={{
+                                backgroundColor: hasWarmup ? COLORS.primary + '20' : COLORS.surfaceLight,
+                                color: hasWarmup ? COLORS.primary : COLORS.textMuted
+                              }}
+                            >
+                              <Wind size={12} />
+                              Warmup {warmupMins}min
+                              {hasWarmup ? <Check size={12} /> : null}
+                            </button>
+                            <button
+                              onClick={() => toggleWarmupCooldownWithScroll(workout.id, 'cooldown')}
+                              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold"
+                              style={{
+                                backgroundColor: hasCooldown ? COLORS.primary + '20' : COLORS.surfaceLight,
+                                color: hasCooldown ? COLORS.primary : COLORS.textMuted
+                              }}
+                            >
+                              <Sprout size={12} />
+                              Cooldown {cooldownMins}min
+                              {hasCooldown ? <Check size={12} /> : null}
+                            </button>
+                          </div>
+
+                          {/* Exercise count & avg completion */}
+                          <div className="flex items-center gap-3 py-2 text-xs" style={{ color: COLORS.textMuted }}>
+                            <span>{workout.exercises?.length || 0} exercises</span>
+                            {workout.avg_actual_duration && (
+                              <span className="flex items-center gap-1">
+                                <Clock size={10} /> Avg completion: {workout.avg_actual_duration}min
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Description */}
+                          {workout.description && (
+                            <p className="text-sm py-2" style={{ color: COLORS.textSecondary }}>{workout.description}</p>
+                          )}
+
+                          {/* Exercises List with Warmup/Cooldown */}
+                          <div className="py-2 space-y-2">
+                            {/* Warmup Item */}
+                            {hasWarmup && (
+                              <div className="p-2 rounded-lg flex items-center gap-2" style={{ backgroundColor: COLORS.primary + '15', border: `1px dashed ${COLORS.primary}40` }}>
+                                <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '30' }}>
+                                  <Wind size={12} color={COLORS.primary} />
+                                </div>
+                                <div className="flex-1">
+                                  <p className="font-semibold text-xs" style={{ color: COLORS.primary }}>Warmup</p>
+                                  <p className="text-xs" style={{ color: COLORS.textMuted }}>Light cardio & dynamic stretches</p>
+                                </div>
+                                <p className="font-semibold text-xs" style={{ color: COLORS.primary }}>{warmupMins}min</p>
+                              </div>
+                            )}
+                            {(workout.exercises || []).map((exercise, i) => {
+                              const sets = exercise.sets || 3;
+                              const restTime = exercise.restTime || 90;
+                              return (
+                                <div
+                                  key={exercise.id || i}
+                                  className="p-2 rounded-lg flex items-center gap-2"
+                                  style={{ backgroundColor: COLORS.surfaceLight }}
+                                >
+                                  <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: style.color + '20' }}>
+                                    <span className="font-bold text-xs" style={{ color: style.color }}>{i + 1}</span>
+                                  </div>
+                                  <div className="flex-1 flex items-center gap-1">
+                                    <p className="font-semibold text-xs" style={{ color: COLORS.text }}>{exercise.name}</p>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); showExerciseInfoFriendsTab(exercise.name); }}
+                                      className="p-0.5 rounded-full"
+                                      style={{ backgroundColor: COLORS.primary + '20' }}
+                                    >
+                                      <Info size={10} color={COLORS.primary} />
+                                    </button>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="font-semibold text-xs" style={{ color: COLORS.text }}>
+                                      {exercise.sets} x {exercise.targetReps || exercise.reps}
+                                    </p>
+                                    {sets > 1 && (
+                                      <p className="text-xs" style={{ color: COLORS.warning }}>{restTime}s rest</p>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+
+                            {/* Cooldown Item */}
+                            {hasCooldown && (
+                              <div className="p-2 rounded-lg flex items-center gap-2" style={{ backgroundColor: COLORS.primary + '15', border: `1px dashed ${COLORS.primary}40` }}>
+                                <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '30' }}>
+                                  <Sprout size={12} color={COLORS.primary} />
+                                </div>
+                                <div className="flex-1">
+                                  <p className="font-semibold text-xs" style={{ color: COLORS.primary }}>Cooldown</p>
+                                  <p className="text-xs" style={{ color: COLORS.textMuted }}>Static stretches & recovery</p>
+                                </div>
+                                <p className="font-semibold text-xs" style={{ color: COLORS.primary }}>{cooldownMins}min</p>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Rename Section */}
+                          {renamingWorkout?.id === workout.id ? (
+                            <div className="flex gap-2 py-2">
+                              <input
+                                type="text"
+                                value={newWorkoutName}
+                                onChange={(e) => setNewWorkoutName(e.target.value)}
+                                placeholder="New workout name"
+                                className="flex-1 px-3 py-2 rounded-lg text-sm outline-none"
+                                style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: `1px solid ${COLORS.primary}` }}
+                                autoFocus
+                              />
+                              <button
+                                onClick={handleRenameWorkout}
+                                className="px-3 py-2 rounded-lg text-sm font-semibold"
+                                style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+                              >
+                                Save
+                              </button>
+                              <button
+                                onClick={() => { setRenamingWorkout(null); setNewWorkoutName(''); }}
+                                className="px-3 py-2 rounded-lg text-sm"
+                                style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.textMuted }}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : null}
+
+                          {/* Action Buttons */}
+                          <div className="flex gap-2 pt-2">
+                            <button
+                              onClick={() => { setRenamingWorkout({ id: workout.id, name: workout.name }); setNewWorkoutName(workout.name); }}
+                              className="py-2 px-3 rounded-lg font-semibold text-sm flex items-center justify-center gap-1"
+                              style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text }}
+                            >
+                              <Edit3 size={14} />
+                            </button>
+                            <button
+                              onClick={() => loadComments(workout.id)}
+                              className="flex-1 py-2 rounded-lg font-semibold text-sm flex items-center justify-center gap-1"
+                              style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text }}
+                            >
+                              <MessageCircle size={14} /> Comments
+                            </button>
+                            <button
+                              onClick={() => setSelectedCommunityWorkout(workout)}
+                              className="flex-1 py-2 rounded-lg font-semibold text-sm"
+                              style={{ backgroundColor: COLORS.primary + '20', color: COLORS.primary }}
+                            >
+                              Full Details
+                            </button>
+                          </div>
+                        </div>
+                        );
+                      })()}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Rep-ertoire Button */}
+          <button
+            onClick={loadRepertoire}
+            className="w-full p-3 rounded-xl mb-4 flex items-center justify-center gap-2"
+            style={{ backgroundColor: COLORS.surface, border: `1px solid ${COLORS.warning}40` }}
+          >
+            <Book size={18} color={COLORS.warning} />
+            <span className="font-semibold" style={{ color: COLORS.warning }}>My Rep-ertoire</span>
+            {savedWorkoutIds.size > 0 && (
+              <span className="px-2 py-0.5 rounded-full text-xs font-bold" style={{ backgroundColor: COLORS.warning, color: COLORS.background }}>
+                {savedWorkoutIds.size}
+              </span>
+            )}
+          </button>
+
+          {/* Community Workouts List - PLACEHOLDER for remaining content */}
+          <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>COMMUNITY WORKOUTS</p>
+          {communityWorkoutsLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 size={24} className="animate-spin" color={COLORS.primary} />
+            </div>
+          ) : communityWorkouts.length === 0 ? (
+            <div className="p-6 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
+              <Dumbbell size={40} color={COLORS.primary} className="mx-auto mb-3" style={{ opacity: 0.7 }} />
+              <p className="text-sm font-medium" style={{ color: COLORS.text }}>No community workouts yet</p>
+              <p className="text-xs mt-1" style={{ color: COLORS.textMuted }}>Be the first to share a workout!</p>
+            </div>
+          ) : (
+            <div className="text-xs text-center py-4" style={{ color: COLORS.textMuted }}>
+              {/* Full community workouts list will be rendered here - content moved from original */}
+              Community workouts available: {communityWorkouts.length}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ACTIVITY FEED TAB */}
+      {friendsTab === 'feed' && (
+        <>
+          {/* Your Stats Card */}
+          <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full flex items-center justify-center text-2xl" style={{ backgroundColor: COLORS.primary + '20' }}>
+                  💪
+                </div>
+                <div>
+                  <p className="font-bold" style={{ color: COLORS.text }}>@{userData.username || 'username'}</p>
+                  <p className="text-xs" style={{ color: COLORS.textSecondary }}>{userData.firstName} {userData.lastName}</p>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <Flame size={12} color={COLORS.warning} />
+                    <span className="text-xs font-semibold" style={{ color: COLORS.warning }}>{streaks.weeklyWorkouts?.weeksCompleted || 0} week streak</span>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowShareModal(true)}
+                className="px-3 py-2 rounded-xl text-sm font-semibold flex items-center gap-2"
+                style={{ backgroundColor: COLORS.primary }}
+              >
+                <Share2 size={14} color={COLORS.text} />
+                <span style={{ color: COLORS.text }}>Share</span>
+              </button>
+            </div>
+            {userData.bio && (
+              <p className="text-sm mb-3" style={{ color: COLORS.textSecondary }}>{userData.bio}</p>
+            )}
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div className="p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
+                <p className="font-bold" style={{ color: COLORS.text }}>{overviewStats.totalWorkouts}</p>
+                <p className="text-xs" style={{ color: COLORS.textMuted }}>workouts</p>
+              </div>
+              <div className="p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
+                <p className="font-bold" style={{ color: COLORS.text }}>{personalRecords.length}</p>
+                <p className="text-xs" style={{ color: COLORS.textMuted }}>PRs</p>
+              </div>
+              <div className="p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
+                <p className="font-bold" style={{ color: COLORS.text }}>{streaks.weeklyWorkouts?.weeksCompleted || 0}</p>
+                <p className="text-xs" style={{ color: COLORS.textMuted }}>week streak</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Privacy Toggle */}
+          <button
+            onClick={() => setSocialEnabled(!socialEnabled)}
+            className="w-full p-3 rounded-xl mb-4 flex items-center justify-between"
+            style={{ backgroundColor: COLORS.surface }}
+          >
+            <div className="flex items-center gap-2">
+              <Eye size={16} color={COLORS.textMuted} />
+              <span className="text-sm" style={{ color: COLORS.textSecondary }}>Share my activity with followers</span>
+            </div>
+            <div
+              className="w-10 h-6 rounded-full p-0.5 transition-colors"
+              style={{ backgroundColor: socialEnabled ? COLORS.success : COLORS.surfaceLight }}
+            >
+              <div
+                className="w-5 h-5 rounded-full transition-transform"
+                style={{
+                  backgroundColor: COLORS.text,
+                  transform: socialEnabled ? 'translateX(16px)' : 'translateX(0)'
+                }}
+              />
+            </div>
+          </button>
+
+          {/* Weekly Leaderboard */}
+          {weeklyLeaderboard.length > 0 && (
+            <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Crown size={18} color={COLORS.warning} />
+                  <h3 className="font-bold text-sm" style={{ color: COLORS.text }}>This Week's Leaders</h3>
+                </div>
+                <div className="flex gap-1">
+                  {[
+                    { id: 'workouts', label: 'Workouts' },
+                    { id: 'volume', label: 'Volume' },
+                    { id: 'streak', label: 'Streak' },
+                  ].map(type => (
+                    <button
+                      key={type.id}
+                      onClick={async () => {
+                        setLeaderboardType(type.id);
+                        setLeaderboardLoading(true);
+                        const result = await competitionService.getFriendsLeaderboard(user?.id, type.id, 10);
+                        if (result?.data) setWeeklyLeaderboard(result.data);
+                        setLeaderboardLoading(false);
+                      }}
+                      className="px-2 py-1 rounded text-xs"
+                      style={{
+                        backgroundColor: leaderboardType === type.id ? COLORS.primary : 'transparent',
+                        color: leaderboardType === type.id ? COLORS.text : COLORS.textMuted
+                      }}
+                    >
+                      {type.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {leaderboardLoading ? (
+                <div className="flex justify-center py-4">
+                  <Loader2 size={24} color={COLORS.primary} className="animate-spin" />
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {weeklyLeaderboard.slice(0, 5).map((entry, index) => {
+                    const entryName = entry.profile
+                      ? `${entry.profile.first_name || ''} ${entry.profile.last_name || ''}`.trim() || entry.profile.username || 'User'
+                      : 'User';
+                    const entryAvatar = entry.profile?.avatar_url || entry.profile?.first_name?.[0]?.toUpperCase() || 'U';
+
+                    return (
+                      <button
+                        key={entry.userId}
+                        onClick={() => {
+                          if (!entry.isCurrentUser) {
+                            setShowFriendProfile({
+                              id: entry.userId,
+                              name: entryName,
+                              username: entry.profile?.username || 'user',
+                              avatar: entryAvatar,
+                            });
+                          }
+                        }}
+                        className="w-full flex items-center gap-3 p-2 rounded-lg"
+                        style={{ backgroundColor: entry.isCurrentUser ? COLORS.primary + '15' : COLORS.surfaceLight }}
+                      >
+                        {/* Rank */}
+                        <div
+                          className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
+                          style={{
+                            backgroundColor: entry.rank === 1 ? COLORS.warning + '30' : entry.rank === 2 ? '#C0C0C0' + '30' : entry.rank === 3 ? '#CD7F32' + '30' : COLORS.surfaceLight,
+                            color: entry.rank === 1 ? COLORS.warning : entry.rank === 2 ? '#C0C0C0' : entry.rank === 3 ? '#CD7F32' : COLORS.textMuted
+                          }}
+                        >
+                          {entry.rank === 1 ? <Crown size={14} /> : entry.rank}
+                        </div>
+
+                        {/* Avatar */}
+                        <div
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold"
+                          style={{ backgroundColor: COLORS.primary + '30', color: COLORS.primary }}
+                        >
+                          {typeof entryAvatar === 'string' && entryAvatar.length === 1 ? entryAvatar : entryName[0]?.toUpperCase()}
+                        </div>
+
+                        {/* Name */}
+                        <div className="flex-1 min-w-0 text-left">
+                          <p className="text-sm font-medium truncate" style={{ color: COLORS.text }}>
+                            {entry.isCurrentUser ? 'You' : entryName}
+                          </p>
+                          {entry.isCurrentUser && (
+                            <p className="text-xs" style={{ color: COLORS.primary }}>Your position</p>
+                          )}
+                        </div>
+
+                        {/* Score */}
+                        <div className="text-right">
+                          <p className="font-bold" style={{ color: COLORS.text }}>
+                            {leaderboardType === 'volume' ? `${(entry.score / 1000).toFixed(1)}k` : entry.score}
+                          </p>
+                          <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                            {leaderboardType === 'volume' ? 'kg' : leaderboardType === 'streak' ? 'days' : 'sessions'}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Workout Buddy Card */}
+          {workoutBuddy?.buddy && (
+            <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
+              <div className="flex items-center gap-2 mb-3">
+                <Users size={18} color={COLORS.success} />
+                <h3 className="font-bold text-sm" style={{ color: COLORS.text }}>Workout Buddy</h3>
+              </div>
+              <button
+                onClick={() => {
+                  const buddy = workoutBuddy.buddy;
+                  setShowFriendProfile({
+                    id: buddy.id,
+                    name: `${buddy.first_name || ''} ${buddy.last_name || ''}`.trim() || buddy.username || 'User',
+                    username: buddy.username || 'user',
+                    avatar: buddy.avatar_url || buddy.first_name?.[0]?.toUpperCase() || 'U',
+                    bio: buddy.bio,
+                  });
+                }}
+                className="w-full flex items-center gap-3 p-3 rounded-lg"
+                style={{ backgroundColor: COLORS.success + '15' }}
+              >
+                <div
+                  className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold"
+                  style={{ backgroundColor: COLORS.success + '30', color: COLORS.success }}
+                >
+                  {workoutBuddy.buddy.avatar_url || workoutBuddy.buddy.first_name?.[0]?.toUpperCase() || 'U'}
+                </div>
+                <div className="flex-1 text-left">
+                  <p className="font-semibold" style={{ color: COLORS.text }}>
+                    {`${workoutBuddy.buddy.first_name || ''} ${workoutBuddy.buddy.last_name || ''}`.trim() || workoutBuddy.buddy.username || 'Buddy'}
+                  </p>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                    Buddies since {workoutBuddy.matched_at ? new Date(workoutBuddy.matched_at).toLocaleDateString() : 'recently'}
+                  </p>
+                </div>
+                <ChevronRight size={20} color={COLORS.textMuted} />
+              </button>
+            </div>
+          )}
+
+          {/* Pending Buddy Requests */}
+          {buddyRequests?.length > 0 && (
+            <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
+              <div className="flex items-center gap-2 mb-3">
+                <UserPlus size={18} color={COLORS.primary} />
+                <h3 className="font-bold text-sm" style={{ color: COLORS.text }}>Buddy Requests</h3>
+                <span className="px-2 py-0.5 rounded-full text-xs font-bold" style={{ backgroundColor: COLORS.primary, color: COLORS.text }}>
+                  {buddyRequests.length}
+                </span>
+              </div>
+              <div className="space-y-2">
+                {buddyRequests.map(request => {
+                  const requester = request.user_a;
+                  const requesterName = `${requester?.first_name || ''} ${requester?.last_name || ''}`.trim() || requester?.username || 'User';
+
+                  return (
+                    <div key={request.id} className="flex items-center gap-3 p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
+                      <div
+                        className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold"
+                        style={{ backgroundColor: COLORS.primary + '30', color: COLORS.primary }}
+                      >
+                        {requester?.avatar_url || requester?.first_name?.[0]?.toUpperCase() || 'U'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium" style={{ color: COLORS.text }}>{requesterName}</p>
+                        <p className="text-xs" style={{ color: COLORS.textMuted }}>wants to be your workout buddy</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={async () => {
+                            await accountabilityService.acceptBuddy(request.id, user?.id);
+                            setBuddyRequests(prev => prev.filter(r => r.id !== request.id));
+                            const result = await accountabilityService.getBuddy(user?.id);
+                            if (result?.data) setWorkoutBuddy(result.data);
+                          }}
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                          style={{ backgroundColor: COLORS.success, color: COLORS.text }}
+                        >
+                          Accept
+                        </button>
+                        <button
+                          onClick={async () => {
+                            await accountabilityService.declineBuddy(request.id, user?.id);
+                            setBuddyRequests(prev => prev.filter(r => r.id !== request.id));
+                          }}
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                          style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.textMuted }}
+                        >
+                          Decline
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Activity Feed */}
+          <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>ACTIVITY FEED</p>
+
+          {activityFeedLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 size={24} className="animate-spin" color={COLORS.primary} />
+            </div>
+          ) : activityFeed.length === 0 ? (
+            <div className="p-6 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
+              <Users size={40} color={COLORS.primary} className="mx-auto mb-3" style={{ opacity: 0.7 }} />
+              <p className="text-sm font-medium" style={{ color: COLORS.text }}>No recent activity</p>
+              <p className="text-xs mt-1" style={{ color: COLORS.textMuted }}>Follow more people to see their workouts here!</p>
+              <button
+                onClick={() => setFriendsTab('discover')}
+                className="mt-3 px-4 py-2 rounded-lg text-sm font-semibold"
+                style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+              >
+                Discover People
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {activityFeed.map(activity => {
+                const friendData = activity.friend;
+                if (!friendData) return null;
+                const friend = {
+                  id: friendData.id,
+                  name: `${friendData.first_name || ''} ${friendData.last_name || ''}`.trim() || friendData.username || 'User',
+                  username: friendData.username || 'user',
+                  avatar: friendData.avatar_url || friendData.first_name?.[0]?.toUpperCase() || '?',
+                  streak: 0,
+                };
+                const isExpanded = expandedActivity === activity.id;
+
+                return (
+                  <div
+                    key={activity.id}
+                    className="rounded-xl overflow-hidden"
+                    style={{ backgroundColor: COLORS.surface }}
+                  >
+                    {/* Workout Activity Card */}
+                    {activity.type === 'workout' && (
+                      <div className="p-4">
+                        <div className="flex items-start gap-3 mb-3">
+                          <button
+                            onClick={() => setShowFriendProfile(friend)}
+                            className="w-10 h-10 rounded-full flex items-center justify-center text-xl flex-shrink-0"
+                            style={{ backgroundColor: COLORS.surfaceLight }}
+                          >
+                            {typeof friend.avatar === 'string' && friend.avatar.length === 1 ? friend.avatar : '?'}
+                          </button>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => setShowFriendProfile(friend)}
+                                className="font-semibold"
+                                style={{ color: COLORS.text }}
+                              >
+                                {friend.name}
+                              </button>
+                              {friend.streak >= 7 && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setShowFriendStreakCalendar(friend); }}
+                                  className="text-xs px-2 py-0.5 rounded-full flex items-center gap-1"
+                                  style={{ backgroundColor: COLORS.warning + '20' }}>
+                                  <Flame size={10} color={COLORS.warning} />
+                                  <span style={{ color: COLORS.warning }}>{friend.streak}</span>
+                                </button>
+                              )}
+                            </div>
+                            <p className="text-xs" style={{ color: COLORS.textMuted }}>@{friend.username} · {activity.time}</p>
+                          </div>
+                        </div>
+
+                        {/* Workout Summary - Clickable to expand */}
+                        <button
+                          onClick={async () => {
+                            if (isExpanded) {
+                              setExpandedActivity(null);
+                              return;
+                            }
+                            setExpandedActivity(activity.id);
+                            if (!expandedActivitySets[activity.id]) {
+                              try {
+                                const { data } = await supabase
+                                  .from('workout_sets')
+                                  .select('*')
+                                  .eq('session_id', activity.id)
+                                  .order('exercise_name', { ascending: true })
+                                  .order('set_number', { ascending: true });
+                                setExpandedActivitySets(prev => ({ ...prev, [activity.id]: data || [] }));
+                              } catch (err) {
+                                console.warn('Error loading workout sets:', err);
+                              }
+                            }
+                          }}
+                          className="w-full p-3 rounded-lg mb-3 text-left"
+                          style={{ backgroundColor: COLORS.primary + '10', borderLeft: `3px solid ${COLORS.primary}` }}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <Dumbbell size={16} color={COLORS.primary} />
+                              <span className="font-semibold" style={{ color: COLORS.text }}>{activity.workoutName}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs" style={{ color: COLORS.textMuted }}>{activity.duration} min</span>
+                              {isExpanded ? <ChevronUp size={16} color={COLORS.primary} /> : <ChevronDown size={16} color={COLORS.primary} />}
+                            </div>
+                          </div>
+
+                          {/* Exercise Details when expanded */}
+                          {isExpanded && (
+                            <div className="space-y-2 mt-3 pt-3 border-t" style={{ borderColor: COLORS.primary + '30' }}>
+                              {expandedActivitySets[activity.id] ? (
+                                (() => {
+                                  const sets = expandedActivitySets[activity.id];
+                                  if (sets.length === 0) {
+                                    return <p className="text-xs" style={{ color: COLORS.textMuted }}>No exercise details recorded</p>;
+                                  }
+                                  const groupedExercises = {};
+                                  sets.forEach(set => {
+                                    const name = set.exercise_name || 'Unknown';
+                                    if (!groupedExercises[name]) {
+                                      groupedExercises[name] = [];
+                                    }
+                                    groupedExercises[name].push(set);
+                                  });
+                                  return Object.entries(groupedExercises).map(([exerciseName, exerciseSets], i) => (
+                                    <div key={i} className="text-sm">
+                                      <p className="font-medium" style={{ color: COLORS.text }}>{exerciseName}</p>
+                                      <div className="ml-3 space-y-0.5">
+                                        {exerciseSets.map((set, j) => (
+                                          <p key={j} className="text-xs" style={{ color: COLORS.textMuted }}>
+                                            Set {set.set_number}: {set.weight}kg x {set.reps} reps
+                                            {set.rpe && ` @ RPE ${set.rpe}`}
+                                          </p>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ));
+                                })()
+                              ) : (
+                                <p className="text-xs" style={{ color: COLORS.textMuted }}>Loading...</p>
+                              )}
+                            </div>
+                          )}
+
+                          {!isExpanded && (
+                            <p className="text-xs" style={{ color: COLORS.primary }}>Tap to see exercises</p>
+                          )}
+                        </button>
+
+                        {/* Actions */}
+                        <div className="flex items-center gap-4">
+                          <button
+                            onClick={() => handleActivityLike(activity.id, activity.friendId)}
+                            className="flex items-center gap-1"
+                          >
+                            <Heart
+                              size={18}
+                              color={userLikes[activity.id] ? COLORS.error : COLORS.textMuted}
+                              fill={userLikes[activity.id] ? COLORS.error : 'none'}
+                            />
+                            <span className="text-sm" style={{ color: COLORS.textMuted }}>
+                              {activity.likes + (userLikes[activity.id] ? 1 : 0)}
+                            </span>
+                          </button>
+                          <button
+                            onClick={() => setShowCommentsModal(activity.id)}
+                            className="flex items-center gap-1"
+                          >
+                            <MessageCircle size={18} color={COLORS.textMuted} />
+                            <span className="text-sm" style={{ color: COLORS.textMuted }}>
+                              {activityCommentCounts[activity.id] > 0 ? activityCommentCounts[activity.id] : 'Comment'}
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* PR Activity Card */}
+                    {activity.type === 'pr' && (
+                      <div className="p-4">
+                        <div className="flex items-start gap-3 mb-3">
+                          <button
+                            onClick={() => setShowFriendProfile(friend)}
+                            className="w-10 h-10 rounded-full flex items-center justify-center text-xl flex-shrink-0"
+                            style={{ backgroundColor: COLORS.surfaceLight }}
+                          >
+                            {friend.avatar}
+                          </button>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => setShowFriendProfile(friend)}
+                                className="font-semibold"
+                                style={{ color: COLORS.text }}
+                              >
+                                {friend.name}
+                              </button>
+                              <span className="text-xs px-2 py-0.5 rounded-full flex items-center gap-1" style={{ backgroundColor: COLORS.success + '20', color: COLORS.success }}>
+                                <Trophy size={12} /> NEW PR
+                              </span>
+                            </div>
+                            <p className="text-xs" style={{ color: COLORS.textMuted }}>{activity.time}</p>
+                          </div>
+                        </div>
+
+                        {/* PR Details */}
+                        <button
+                          onClick={() => setExpandedActivity(isExpanded ? null : activity.id)}
+                          className="w-full p-3 rounded-lg mb-3 text-left"
+                          style={{ backgroundColor: COLORS.success + '10', borderLeft: `3px solid ${COLORS.success}` }}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-semibold" style={{ color: COLORS.text }}>{activity.exercise}</span>
+                            <ChevronDown
+                              size={16}
+                              color={COLORS.textMuted}
+                              style={{ transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
+                            />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-2xl font-bold" style={{ color: COLORS.success }}>{activity.newWeight}kg</span>
+                            <span className="text-sm px-2 py-0.5 rounded" style={{ backgroundColor: COLORS.success + '20', color: COLORS.success }}>
+                              +{activity.newWeight - activity.previousWeight}kg
+                            </span>
+                          </div>
+                          <p className="text-xs mt-1" style={{ color: COLORS.textMuted }}>
+                            Tap to see progress journey →
+                          </p>
+                        </button>
+
+                        {/* Actions */}
+                        <div className="flex items-center gap-4">
+                          <button
+                            onClick={() => handleActivityLike(activity.id, activity.friendId)}
+                            className="flex items-center gap-1"
+                          >
+                            <Heart
+                              size={18}
+                              color={userLikes[activity.id] ? COLORS.error : COLORS.textMuted}
+                              fill={userLikes[activity.id] ? COLORS.error : 'none'}
+                            />
+                            <span className="text-sm" style={{ color: COLORS.textMuted }}>
+                              {activity.likes + (userLikes[activity.id] ? 1 : 0)}
+                            </span>
+                          </button>
+                          <button
+                            onClick={() => setShowCommentsModal(activity.id)}
+                            className="flex items-center gap-1"
+                          >
+                            <MessageCircle size={18} color={COLORS.textMuted} />
+                            <span className="text-sm" style={{ color: COLORS.textMuted }}>
+                              {activityCommentCounts[activity.id] > 0 ? activityCommentCounts[activity.id] : 'Congratulate'}
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Milestone Activity Card */}
+                    {activity.type === 'milestone' && (
+                      <div className="p-4">
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => setShowFriendProfile(friend)}
+                            className="w-10 h-10 rounded-full flex items-center justify-center text-xl flex-shrink-0"
+                            style={{ backgroundColor: COLORS.surfaceLight }}
+                          >
+                            {friend.avatar}
+                          </button>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <button
+                                onClick={() => setShowFriendProfile(friend)}
+                                className="font-semibold"
+                                style={{ color: COLORS.text }}
+                              >
+                                {friend.name}
+                              </button>
+                              <span className="text-sm" style={{ color: COLORS.textSecondary }}>reached</span>
+                              <span className="text-sm font-bold px-2 py-0.5 rounded-full flex items-center gap-1" style={{ backgroundColor: COLORS.accent + '20', color: COLORS.accent }}>
+                                <Star size={12} /> {activity.milestone}
+                              </span>
+                            </div>
+                            <p className="text-xs" style={{ color: COLORS.textMuted }}>{activity.time}</p>
+                          </div>
+                          <button onClick={() => handleActivityLike(activity.id, activity.friendId)}>
+                            <Heart
+                              size={18}
+                              color={userLikes[activity.id] ? COLORS.error : COLORS.textMuted}
+                              fill={userLikes[activity.id] ? COLORS.error : 'none'}
+                            />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* FOLLOWERS TAB */}
+      {friendsTab === 'followers' && (
+        <>
+          <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>
+            PEOPLE WHO FOLLOW YOU ({followersList.length})
+          </p>
+
+          {followersLoading ? (
+            <div className="p-6 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
+              <div className="animate-spin w-8 h-8 border-2 rounded-full mx-auto mb-2"
+                   style={{ borderColor: COLORS.primary, borderTopColor: 'transparent' }} />
+              <p className="text-sm" style={{ color: COLORS.textMuted }}>Loading followers...</p>
+            </div>
+          ) : followersList.length === 0 ? (
+            <div className="p-6 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
+              <Users size={40} color={COLORS.primary} className="mx-auto mb-3" style={{ opacity: 0.7 }} />
+              <p className="text-sm font-medium" style={{ color: COLORS.text }}>No followers yet</p>
+              <p className="text-xs mt-1" style={{ color: COLORS.textMuted }}>
+                Share your workouts and stay active to gain followers!
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {followersList.map(follower => (
+                <button
+                  key={follower.id}
+                  onClick={() => {
+                    const friendData = {
+                      id: follower.id,
+                      name: follower.name,
+                      username: follower.username,
+                      avatar: follower.avatar || follower.name?.charAt(0) || '?',
+                      workouts: follower.workouts,
+                      followers: follower.followers,
+                    };
+                    setShowFriendProfile(friendData);
+                  }}
+                  className="w-full p-4 rounded-xl flex items-center justify-between"
+                  style={{ backgroundColor: COLORS.surface }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-12 h-12 rounded-full flex items-center justify-center text-xl overflow-hidden"
+                      style={{ backgroundColor: COLORS.surfaceLight }}
+                    >
+                      {follower.avatar ? (
+                        typeof follower.avatar === 'string' && follower.avatar.startsWith('http') ? (
+                          <img src={follower.avatar} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          follower.name?.charAt(0) || '?'
+                        )
+                      ) : (
+                        follower.name?.charAt(0) || '?'
+                      )}
+                    </div>
+                    <div className="text-left">
+                      <p className="font-semibold" style={{ color: COLORS.text }}>{follower.name}</p>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>@{follower.username}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="flex items-center gap-1 justify-end">
+                      <Dumbbell size={12} color={COLORS.textMuted} />
+                      <span className="text-xs" style={{ color: COLORS.textMuted }}>{follower.workouts} workouts</span>
+                    </div>
+                    <div className="flex items-center gap-1 justify-end mt-1">
+                      <Users size={12} color={COLORS.textMuted} />
+                      <span className="text-xs" style={{ color: COLORS.textMuted }}>{follower.followers} followers</span>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* FOLLOWING TAB */}
+      {friendsTab === 'following' && (
+        <>
+          {/* Find Users Button */}
+          <button
+            onClick={() => setShowAddFriendModal(true)}
+            className="w-full p-4 rounded-xl mb-4 flex items-center justify-center gap-2"
+            style={{ backgroundColor: COLORS.primary }}
+          >
+            <Plus size={20} color={COLORS.text} />
+            <span className="font-semibold" style={{ color: COLORS.text }}>Find Users to Follow</span>
+          </button>
+
+          {/* Active Workouts */}
+          {friends.filter(f => f.workoutStatus === 'working_out').length > 0 && (
+            <div className="mb-4">
+              <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>WORKING OUT NOW</p>
+              <div className="flex gap-3 overflow-x-auto pb-2">
+                {friends.filter(f => f.workoutStatus === 'working_out').map(friend => (
+                  <button
+                    key={friend.id}
+                    onClick={() => setShowFriendProfile(friend)}
+                    className="flex flex-col items-center flex-shrink-0"
+                  >
+                    <div className="relative">
+                      <div
+                        className="w-14 h-14 rounded-full flex items-center justify-center text-2xl animate-pulse"
+                        style={{ backgroundColor: COLORS.primary + '30', border: `2px solid ${COLORS.primary}` }}
+                      >
+                        {friend.avatar}
+                      </div>
+                      <div
+                        className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full flex items-center gap-1"
+                        style={{ backgroundColor: COLORS.primary }}
+                      >
+                        <Dumbbell size={10} color={COLORS.text} />
+                        <span className="text-xs font-bold" style={{ color: COLORS.text }}>{friend.workoutDuration}m</span>
+                      </div>
+                    </div>
+                    <p className="text-xs mt-2 max-w-[70px] truncate" style={{ color: COLORS.textSecondary }}>
+                      {friend.name.split(' ')[0]}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* All Following */}
+          <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>FOLLOWING ({friends.length})</p>
+
+          {friends.length === 0 ? (
+            <div className="p-6 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
+              <UserPlus size={40} color={COLORS.primary} className="mx-auto mb-3" style={{ opacity: 0.7 }} />
+              <p className="text-sm font-medium" style={{ color: COLORS.text }}>Not following anyone yet</p>
+              <p className="text-xs mt-1" style={{ color: COLORS.textMuted }}>Search for users or discover top athletes to follow!</p>
+              <button
+                onClick={() => setFriendsTab('discover')}
+                className="mt-3 px-4 py-2 rounded-lg text-sm font-semibold"
+                style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+              >
+                Discover People
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {friends.map(friend => (
+                <button
+                  key={friend.id}
+                  onClick={() => setShowFriendProfile(friend)}
+                  className="w-full p-4 rounded-xl flex items-center justify-between"
+                  style={{ backgroundColor: COLORS.surface }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="relative">
+                      <div
+                        className="w-12 h-12 rounded-full flex items-center justify-center text-xl"
+                        style={{
+                          backgroundColor: friend.workoutStatus === 'working_out' ? COLORS.primary + '30' :
+                                          friend.workoutStatus === 'just_finished' ? COLORS.success + '20' :
+                                          COLORS.surfaceLight,
+                          border: friend.workoutStatus ? `2px solid ${friend.workoutStatus === 'working_out' ? COLORS.primary : COLORS.success}` : 'none'
+                        }}
+                      >
+                        {typeof friend.avatar === 'string' && friend.avatar.length === 1 ? friend.avatar : '?'}
+                      </div>
+                      {friend.isOnline && !friend.workoutStatus && (
+                        <div
+                          className="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2"
+                          style={{ backgroundColor: COLORS.success, borderColor: COLORS.surface }}
+                        />
+                      )}
+                    </div>
+                    <div className="text-left">
+                      <p className="font-semibold" style={{ color: COLORS.text }}>{friend.name}</p>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>@{friend.username}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setShowFriendStreakCalendar(friend); }}
+                      className="flex items-center gap-1 justify-end px-2 py-1 rounded-lg mb-1"
+                      style={{ backgroundColor: COLORS.warning + '15' }}
+                    >
+                      <Flame size={14} color={COLORS.warning} />
+                      <span className="font-bold" style={{ color: COLORS.warning }}>{friend.streak}</span>
+                    </button>
+                    <p className="text-xs" style={{ color: COLORS.textMuted }}>{friend.lastActive}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* DISCOVER TAB - Top Followed Users */}
+      {friendsTab === 'discover' && (
+        <>
+          {/* Time Period Filter */}
+          <div className="mb-4">
+            <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>TOP FOLLOWED</p>
+            <div className="flex gap-2">
+              {[
+                { id: 'all', label: 'All Time' },
+                { id: '7', label: '7 Days' },
+                { id: '14', label: '14 Days' },
+                { id: '31', label: '31 Days' },
+              ].map(period => (
+                <button
+                  key={period.id}
+                  onClick={() => setTopFollowedPeriod(period.id)}
+                  className="flex-1 py-2 rounded-lg text-xs font-semibold"
+                  style={{
+                    backgroundColor: topFollowedPeriod === period.id ? COLORS.primary : COLORS.surface,
+                    color: topFollowedPeriod === period.id ? COLORS.text : COLORS.textMuted
+                  }}
+                >
+                  {period.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Top Followed Leaderboard */}
+          {topFollowedLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 size={24} className="animate-spin" color={COLORS.primary} />
+            </div>
+          ) : topFollowedUsers.length === 0 ? (
+            <div className="p-6 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
+              <Trophy size={40} color={COLORS.primary} className="mx-auto mb-3" style={{ opacity: 0.7 }} />
+              <p className="text-sm font-medium" style={{ color: COLORS.text }}>Leaderboard Coming Soon</p>
+              <p className="text-xs mt-1" style={{ color: COLORS.textMuted }}>Follow others and build your network - top creators will appear here!</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {[...(topFollowedUsers || [])]
+                .filter(u => u && u.id)
+                .sort((a, b) => {
+                  if (topFollowedPeriod === 'all') {
+                    return (b?.followers || 0) - (a?.followers || 0);
+                  }
+                  return (b?.followedRecently || 0) - (a?.followedRecently || 0);
+                })
+                .map((user, index) => (
+                  <div
+                    key={user.id}
+                    className="p-4 rounded-xl flex items-center gap-3"
+                    style={{ backgroundColor: COLORS.surface }}
+                  >
+                    {/* Rank */}
+                    <div
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
+                      style={{
+                        backgroundColor: index === 0 ? '#FFD700' : index === 1 ? '#C0C0C0' : index === 2 ? '#CD7F32' : COLORS.surfaceLight,
+                        color: index < 3 ? COLORS.background : COLORS.text
+                      }}
+                    >
+                      {index + 1}
+                    </div>
+
+                    {/* Avatar */}
+                    <div
+                      className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold flex-shrink-0"
+                      style={{ backgroundColor: COLORS.primary + '30', color: COLORS.primary }}
+                    >
+                      {user.avatar || user.name?.[0]?.toUpperCase() || 'U'}
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold truncate" style={{ color: COLORS.text }}>{user.name || 'User'}</p>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>@{user.username || 'user'}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        {(user.streak || 0) > 0 && (
+                          <span className="text-xs flex items-center gap-1" style={{ color: COLORS.warning }}>
+                            <Flame size={10} /> {user.streak}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Followers Count & Follow Button */}
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-lg font-bold" style={{ color: COLORS.text }}>
+                        {topFollowedPeriod === 'all'
+                          ? ((user.followers || 0) >= 1000 ? `${((user.followers || 0) / 1000).toFixed(1)}k` : (user.followers || 0))
+                          : `+${user.followedRecently || 0}`
+                        }
+                      </p>
+                      <p className="text-xs mb-2" style={{ color: COLORS.textMuted }}>
+                        {topFollowedPeriod === 'all' ? 'followers' : 'new'}
+                      </p>
+                      <button
+                        onClick={() => user?.id && handleFollowUser(user.id)}
+                        className="px-3 py-1 rounded-lg text-xs font-semibold"
+                        style={{
+                          backgroundColor: followingIds?.has?.(user?.id) ? COLORS.surfaceLight : COLORS.primary + '20',
+                          color: followingIds?.has?.(user?.id) ? COLORS.textMuted : COLORS.primary
+                        }}
+                      >
+                        {followingIds?.has?.(user?.id) ? 'Following' : 'Follow'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          )}
+
+          {/* Suggested For You Section */}
+          {(suggestedFriends || []).length > 0 && (
+            <div className="mt-6">
+              <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>SUGGESTED FOR YOU</p>
+              <div className="space-y-2">
+                {(suggestedFriends || []).slice(0, 4).filter(s => s && s.id).map(suggested => (
+                  <div
+                    key={suggested.id}
+                    className="p-3 rounded-xl flex items-center gap-3"
+                    style={{ backgroundColor: COLORS.surface }}
+                  >
+                    <div
+                      className="w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold"
+                      style={{ backgroundColor: COLORS.primary + '30', color: COLORS.primary }}
+                    >
+                      {suggested.avatar || suggested.name?.[0]?.toUpperCase() || 'U'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm truncate" style={{ color: COLORS.text }}>{suggested.name || 'User'}</p>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>{suggested.followers || 0} followers</p>
+                    </div>
+                    <button
+                      onClick={() => suggested?.id && handleFollowUser(suggested.id)}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                      style={{
+                        backgroundColor: followingIds?.has?.(suggested?.id) ? COLORS.surfaceLight : COLORS.primary,
+                        color: followingIds?.has?.(suggested?.id) ? COLORS.textMuted : COLORS.text
+                      }}
+                    >
+                      {followingIds?.has?.(suggested?.id) ? 'Following' : 'Follow'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* CHALLENGES TAB */}
+      {friendsTab === 'challenges' && (
+        <>
+          {/* Active Challenges */}
+          <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>YOUR CHALLENGES</p>
+          <div className="space-y-4 mb-6">
+            {challenges.filter(c => c.joined).map(challenge => (
+              <div key={challenge.id} className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Trophy size={18} color={COLORS.warning} />
+                      <h5 className="font-bold" style={{ color: COLORS.text }}>{challenge.name}</h5>
+                    </div>
+                    <p className="text-xs" style={{ color: COLORS.textMuted }}>{challenge.description}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs" style={{ color: COLORS.textMuted }}>Ends</p>
+                    <p className="text-sm font-semibold" style={{ color: COLORS.text }}>{challenge.endDate}</p>
+                  </div>
+                </div>
+
+                {/* Leaderboard */}
+                <div className="space-y-2">
+                  {challenge.participants.slice(0, 4).map((participant, index) => (
+                    <div
+                      key={participant.id}
+                      className="flex items-center justify-between p-2 rounded-lg"
+                      style={{
+                        backgroundColor: participant.id === 'you' ? COLORS.primary + '20' : COLORS.surfaceLight
+                      }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
+                          style={{
+                            backgroundColor: index === 0 ? '#FFD700' : index === 1 ? '#C0C0C0' : index === 2 ? '#CD7F32' : COLORS.surface,
+                            color: index < 3 ? COLORS.background : COLORS.text
+                          }}
+                        >
+                          {index + 1}
+                        </div>
+                        <span className="text-lg">{participant.avatar}</span>
+                        <span
+                          className="text-sm font-medium"
+                          style={{ color: participant.id === 'you' ? COLORS.primary : COLORS.text }}
+                        >
+                          {participant.name}
+                        </span>
+                      </div>
+                      <span className="font-bold" style={{ color: COLORS.text }}>
+                        {challenge.type === 'volume' ? `${(participant.score / 1000).toFixed(1)}k` : participant.score}
+                        {challenge.type === 'workouts' && ' workouts'}
+                        {challenge.type === 'streak' && ' days'}
+                        {challenge.type === 'volume' && ' kg'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Available Challenges */}
+          <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>JOIN A CHALLENGE</p>
+          <div className="space-y-3">
+            {challenges.filter(c => !c.joined).map(challenge => (
+              <div key={challenge.id} className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Trophy size={16} color={COLORS.textMuted} />
+                      <h5 className="font-semibold" style={{ color: COLORS.text }}>{challenge.name}</h5>
+                    </div>
+                    <p className="text-xs" style={{ color: COLORS.textMuted }}>{challenge.description}</p>
+                    <p className="text-xs mt-1" style={{ color: COLORS.textSecondary }}>
+                      {challenge.participants.length} friends participating
+                    </p>
+                  </div>
+                  <button
+                    className="px-4 py-2 rounded-xl text-sm font-semibold"
+                    style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+                  >
+                    Join
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Create Challenge */}
+          <button
+            onClick={() => setShowCreateChallenge(true)}
+            className="w-full mt-4 p-4 rounded-xl flex items-center justify-center gap-2"
+            style={{ backgroundColor: COLORS.surfaceLight, border: `1px dashed ${COLORS.textMuted}` }}
+          >
+            <Plus size={18} color={COLORS.textMuted} />
+            <span style={{ color: COLORS.textMuted }}>Create New Challenge</span>
+          </button>
+        </>
+      )}
+    </div>
+  );
+};
+
 const NutritionTab = ({
   COLORS,
   nutritionSelectedDate,
@@ -12254,6 +14019,8 @@ const NutritionTab = ({
   setMealLog,
   supplements,
   setSupplements,
+  supplementsLoading,
+  setSupplementsLoading,
   supplementHistory,
   setSupplementHistory,
   userData,
@@ -12291,9 +14058,24 @@ const NutritionTab = ({
   nutritionService,
   sleepService,
   weeklyNutrition,
-}) => (
+  nutritionTabScrollRef,
+}) => {
+  const handleScroll = (e) => {
+    if (nutritionTabScrollRef?.current !== undefined) {
+      nutritionTabScrollRef.current = e.target.scrollTop;
+    }
+  };
+
+  return (
           <>
-          <div className="p-4 h-full overflow-auto">
+          <div
+            ref={(el) => {
+              if (el && nutritionTabScrollRef?.current && typeof nutritionTabScrollRef.current === 'number') {
+                el.scrollTop = nutritionTabScrollRef.current;
+              }
+            }}
+            onScroll={handleScroll}
+            className="p-4 h-full overflow-auto">
             {/* Date Selector - allows backdating entries */}
             <div className="mb-4">
               <div className="flex items-center justify-between p-3 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
@@ -12637,13 +14419,19 @@ const NutritionTab = ({
                                   } : { water: opt.amount, calories: 0, protein: 0, carbs: 0, fats: 0, meals: [] });
                                 }
                               } else {
-                                // Today's water
+                                // Today's water - optimistic update
+                                const tempId = `temp-${Date.now()}`;
+                                const tempLog = { id: tempId, amount_ml: opt.amount, logged_at: new Date().toISOString() };
                                 setWaterIntake(prev => Math.min(prev + opt.amount, 10000));
+                                setWaterLogs(prev => [...prev, tempLog]);
+
+                                // Save to database in background and update with real ID
                                 if (user?.id) {
-                                  const { data } = await nutritionService.logWater(user.id, opt.amount);
-                                  if (data) {
-                                    setWaterLogs(prev => [...prev, data]);
-                                  }
+                                  nutritionService.logWater(user.id, opt.amount).then(({ data }) => {
+                                    if (data) {
+                                      setWaterLogs(prev => prev.map(l => l.id === tempId ? data : l));
+                                    }
+                                  });
                                 }
                               }
                             }}
@@ -13255,32 +15043,27 @@ const NutritionTab = ({
                       <Loader2 size={20} color={COLORS.supplements} className="animate-spin" />
                     </div>
                   )}
-                  {supplements.map(supp => (
+                  {supplements.map(supp => {
+                    const takenCount = supp.takenCount || (supp.taken ? 1 : 0);
+                    return (
                     <div
                       key={supp.id}
                       className="p-4 rounded-xl flex items-center justify-between"
-                      style={{ backgroundColor: supp.taken ? COLORS.supplements + '15' : COLORS.surface }}
+                      style={{ backgroundColor: takenCount > 0 ? COLORS.supplements + '15' : COLORS.surface }}
                     >
                       <div
                         className="flex items-center gap-3 flex-1 cursor-pointer"
                         onClick={async () => {
                           if (supplementsLoading) return;
-                          const newTakenState = !supp.taken;
+                          const newCount = takenCount + 1;
 
                           // Update UI immediately for responsiveness
-                          setSupplements(prev => prev.map(s => s.id === supp.id ? {...s, taken: newTakenState} : s));
+                          setSupplements(prev => prev.map(s => s.id === supp.id ? {...s, taken: true, takenCount: newCount} : s));
 
                           // Save to database using the selected date
                           const targetDate = nutritionSelectedDate;
-                          if (user?.id && newTakenState) {
+                          if (user?.id) {
                             await nutritionService.logSupplement(user.id, supp.id, targetDate);
-                          } else if (user?.id && !newTakenState) {
-                            // Delete the log if unmarking
-                            await supabase
-                              .from('supplement_logs')
-                              .delete()
-                              .eq('supplement_id', supp.id)
-                              .eq('log_date', targetDate);
                           }
 
                           // Reload supplement history to update calendar and streaks
@@ -13338,17 +15121,24 @@ const NutritionTab = ({
                         <div
                           className="w-8 h-8 rounded-full flex items-center justify-center"
                           style={{
-                            backgroundColor: supp.taken ? COLORS.supplements : COLORS.surfaceLight,
-                            border: supp.taken ? 'none' : `2px solid ${COLORS.textMuted}`
+                            backgroundColor: takenCount > 0 ? COLORS.supplements : COLORS.surfaceLight,
+                            border: takenCount > 0 ? 'none' : `2px solid ${COLORS.textMuted}`
                           }}
                         >
-                          {supp.taken && <Check size={16} color={COLORS.background} />}
+                          {takenCount > 0 && (
+                            takenCount > 1
+                              ? <span className="text-xs font-bold" style={{ color: COLORS.background }}>{takenCount}</span>
+                              : <Check size={16} color={COLORS.background} />
+                          )}
                         </div>
                         <div>
                           <p className="font-semibold" style={{ color: COLORS.text }}>{supp.name}</p>
                           <div className="flex items-center gap-2">
                             <span className="text-xs" style={{ color: COLORS.textMuted }}>{supp.dosage}</span>
-                            {supp.time && (
+                            {takenCount > 1 && (
+                              <span className="text-xs font-semibold" style={{ color: COLORS.supplements }}>×{takenCount} today</span>
+                            )}
+                            {supp.time && takenCount <= 1 && (
                               <>
                                 <span className="text-xs" style={{ color: COLORS.textMuted }}>•</span>
                                 <span className="text-xs" style={{ color: COLORS.textMuted }}>{supp.time}</span>
@@ -13357,6 +15147,29 @@ const NutritionTab = ({
                           </div>
                         </div>
                       </div>
+                      {/* Reset count button - only show if taken */}
+                      {takenCount > 0 && (
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            // Reset count for today
+                            setSupplements(prev => prev.map(s => s.id === supp.id ? {...s, taken: false, takenCount: 0} : s));
+
+                            // Delete all logs for this supplement today
+                            if (user?.id) {
+                              await supabase
+                                .from('supplement_logs')
+                                .delete()
+                                .eq('supplement_id', supp.id)
+                                .eq('log_date', nutritionSelectedDate);
+                            }
+                          }}
+                          className="p-2 rounded-full mr-1"
+                          style={{ backgroundColor: COLORS.surfaceLight }}
+                        >
+                          <RotateCcw size={14} color={COLORS.textMuted} />
+                        </button>
+                      )}
                       <button
                         onClick={async () => {
                           // Update UI immediately
@@ -13376,7 +15189,8 @@ const NutritionTab = ({
                         <X size={14} color={COLORS.textMuted} />
                       </button>
                     </div>
-                  ))}
+                  );
+                  })}
                 </div>
 
                 {/* Suggested Supplements */}
@@ -14227,7 +16041,8 @@ const NutritionTab = ({
           })()}
 
           </>
-);
+  );
+};
 
 export default function UpRepDemo() {
   // Auth state
@@ -14250,6 +16065,7 @@ export default function UpRepDemo() {
 
   // Data loaded from database
   const [allFoods, setAllFoods] = useState([]);
+  const [frequentMealsForModal, setFrequentMealsForModal] = useState([]);
   const [allExercises, setAllExercises] = useState([]);
   const [workoutTemplates, setWorkoutTemplates] = useState({});
   const [dataLoading, setDataLoading] = useState(true);
@@ -14498,6 +16314,12 @@ export default function UpRepDemo() {
             carbs: meal.carbs,
             fats: meal.fats,
           })));
+        }
+
+        // Load frequent meals for the meal entry modal
+        const { data: frequentMeals } = await nutritionService.getFrequentMeals(user.id, 8);
+        if (isMounted && frequentMeals) {
+          setFrequentMealsForModal(frequentMeals);
         }
 
         // Load user supplements
@@ -16096,6 +17918,7 @@ export default function UpRepDemo() {
 
   // Activity feed - loaded from database
   const [activityFeed, setActivityFeed] = useState([]);
+  const [activityFeedLoading, setActivityFeedLoading] = useState(false);
   
   // Challenges - loaded from database
   const [challenges, setChallenges] = useState([]);
@@ -19116,6 +20939,9 @@ export default function UpRepDemo() {
   const homeScrollPos = React.useRef(0);
   const homeTabMounted = React.useRef(false);
 
+  // Nutrition Tab scroll ref
+  const nutritionTabScrollRef = React.useRef(0);
+
   // Restore home tab scroll position after re-renders (prevents jump to top on data load)
   React.useEffect(() => {
     if (activeTab === 'home' && homeScrollRef.current && homeTabMounted.current) {
@@ -19238,6 +21064,7 @@ export default function UpRepDemo() {
             setLikedPosts={setLikedPosts}
             setActiveTab={setActiveTab}
             setFriendsTab={setFriendsTab}
+            setNutritionTab={setNutritionTab}
             setShowWorkoutSummary={setShowWorkoutSummary}
             socialEnabled={socialEnabled}
             followersCount={followersCount}
@@ -19402,6 +21229,8 @@ export default function UpRepDemo() {
             setMealLog={setMealLog}
             supplements={supplements}
             setSupplements={setSupplements}
+            supplementsLoading={supplementsLoading}
+            setSupplementsLoading={setSupplementsLoading}
             supplementHistory={supplementHistory}
             setSupplementHistory={setSupplementHistory}
             userData={userData}
@@ -19439,14 +21268,110 @@ export default function UpRepDemo() {
             nutritionService={nutritionService}
             sleepService={sleepService}
             weeklyNutrition={weeklyNutrition}
+            nutritionTabScrollRef={nutritionTabScrollRef}
           />
         )}
         {activeTab === 'friends' && (
-          <div
-            ref={friendsTabScrollRef}
-            onScroll={handleFriendsTabScroll}
-            className="p-4 h-full overflow-auto"
-          >
+          <FriendsTab
+            COLORS={COLORS}
+            friendsTabScrollRef={friendsTabScrollRef}
+            socialEnabled={socialEnabled}
+            setSocialEnabled={setSocialEnabled}
+            friendsTab={friendsTab}
+            setFriendsTab={setFriendsTab}
+            todayWorkoutTemplate={todayWorkoutTemplate}
+            setWorkoutToPublish={setWorkoutToPublish}
+            setShowPublishModal={setShowPublishModal}
+            communitySort={communitySort}
+            setCommunitySort={setCommunitySort}
+            showCommunityFilters={showCommunityFilters}
+            setShowCommunityFilters={setShowCommunityFilters}
+            communityFilters={communityFilters}
+            setCommunityFilters={setCommunityFilters}
+            myPublishedWorkouts={myPublishedWorkouts}
+            expandedWorkoutId={expandedWorkoutId}
+            setExpandedWorkoutIdWithScroll={setExpandedWorkoutIdWithScroll}
+            workoutWarmupCooldown={workoutWarmupCooldown}
+            toggleWarmupCooldownWithScroll={toggleWarmupCooldownWithScroll}
+            renamingWorkout={renamingWorkout}
+            setRenamingWorkout={setRenamingWorkout}
+            newWorkoutName={newWorkoutName}
+            setNewWorkoutName={setNewWorkoutName}
+            handleRenameWorkout={handleRenameWorkout}
+            loadComments={loadComments}
+            setSelectedCommunityWorkout={setSelectedCommunityWorkout}
+            savedWorkoutIds={savedWorkoutIds}
+            setSavedWorkoutIds={setSavedWorkoutIds}
+            loadRepertoire={loadRepertoire}
+            getWorkoutStyle={getWorkoutStyle}
+            estimateWorkoutDuration={estimateWorkoutDuration}
+            getWorkoutTimeBreakdown={getWorkoutTimeBreakdown}
+            WORKOUT_TIMING={WORKOUT_TIMING}
+            showExerciseInfoFriendsTab={showExerciseInfoFriendsTab}
+            formatActivityTime={formatActivityTime}
+            IconMap={IconMap}
+            StarRating={StarRating}
+            communityWorkouts={communityWorkouts}
+            communityWorkoutsLoading={communityWorkoutsLoading}
+            userWorkoutRatings={userWorkoutRatings}
+            handleRateWorkout={handleRateWorkout}
+            handleSaveWorkout={handleSaveWorkout}
+            user={user}
+            adjustWorkoutForUser={adjustWorkoutForUser}
+            publishedWorkoutService={publishedWorkoutService}
+            userData={userData}
+            overviewStats={overviewStats}
+            personalRecords={personalRecords}
+            streaks={streaks}
+            setShowShareModal={setShowShareModal}
+            weeklyLeaderboard={weeklyLeaderboard}
+            setWeeklyLeaderboard={setWeeklyLeaderboard}
+            leaderboardType={leaderboardType}
+            setLeaderboardType={setLeaderboardType}
+            leaderboardLoading={leaderboardLoading}
+            setLeaderboardLoading={setLeaderboardLoading}
+            competitionService={competitionService}
+            activityFeed={activityFeed}
+            activityFeedLoading={activityFeedLoading}
+            userLikes={userLikes}
+            handleActivityLike={handleActivityLike}
+            expandedActivity={expandedActivity}
+            setExpandedActivity={setExpandedActivity}
+            expandedActivitySets={expandedActivitySets}
+            setExpandedActivitySets={setExpandedActivitySets}
+            setShowCommentsModal={setShowCommentsModal}
+            activityCommentCounts={activityCommentCounts}
+            followersList={followersList}
+            followersLoading={followersLoading}
+            setShowFriendProfile={setShowFriendProfile}
+            setShowFriendStreakCalendar={setShowFriendStreakCalendar}
+            setShowAddFriendModal={setShowAddFriendModal}
+            friends={friends}
+            followingList={followingList}
+            followingLoading={followingLoading}
+            suggestedFriends={suggestedFriends}
+            topFollowedUsers={topFollowedUsers}
+            topFollowedLoading={topFollowedLoading}
+            topFollowedPeriod={topFollowedPeriod}
+            setTopFollowedPeriod={setTopFollowedPeriod}
+            followingIds={followingIds}
+            handleFollowUser={handleFollowUser}
+            challenges={challenges}
+            setShowCreateChallenge={setShowCreateChallenge}
+            profile={profile}
+            workoutBuddy={workoutBuddy}
+            setWorkoutBuddy={setWorkoutBuddy}
+            buddyRequests={buddyRequests}
+            setBuddyRequests={setBuddyRequests}
+            accountabilityService={accountabilityService}
+            supabase={supabase}
+            setActiveTab={setActiveTab}
+          />
+        )}
+
+        {/* ORIGINAL_FRIENDS_TAB_CONTENT_START - TO BE REMOVED */}
+        {false && (
+          <div>
             {/* Social Opt-Out Banner */}
             {!socialEnabled && (
               <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surfaceLight }}>
@@ -19455,7 +21380,7 @@ export default function UpRepDemo() {
                     <p className="font-semibold" style={{ color: COLORS.text }}>Social Features Disabled</p>
                     <p className="text-xs" style={{ color: COLORS.textMuted }}>Your activity is private</p>
                   </div>
-                  <button 
+                  <button
                     onClick={() => setSocialEnabled(true)}
                     className="px-3 py-2 rounded-xl text-sm font-semibold"
                     style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
@@ -24057,15 +25982,26 @@ export default function UpRepDemo() {
             COLORS={COLORS}
             onClose={() => setShowWaterEntry(false)}
             onSave={async (amount) => {
-              // Save to Supabase first, then update local state
+              // Optimistic update
               setWaterIntake(prev => Math.min(prev + amount, 10000));
+              setShowWaterEntry(false);
+
               if (user?.id) {
-                const { data } = await nutritionService.logWater(user.id, amount);
-                if (data) {
+                try {
+                  const { data, error } = await nutritionService.logWater(user.id, amount);
+                  if (error || !data) {
+                    // Rollback on failure
+                    setWaterIntake(prev => Math.max(prev - amount, 0));
+                    console.error('Failed to save water:', error?.message);
+                    return;
+                  }
                   setWaterLogs(prev => [...prev, data]);
+                } catch (err) {
+                  // Rollback on network error
+                  setWaterIntake(prev => Math.max(prev - amount, 0));
+                  console.error('Failed to save water:', err);
                 }
               }
-              setShowWaterEntry(false);
             }}
           />
         )}
@@ -26380,6 +28316,7 @@ export default function UpRepDemo() {
         <FullMealEntryModal
           COLORS={COLORS}
           foods={allFoods}
+          frequentMeals={frequentMealsForModal}
           onClose={() => setShowAddMealFull(false)}
           onSave={async (meal) => {
             const targetDate = nutritionSelectedDate !== TODAY_DATE_KEY ? nutritionSelectedDate : null;
@@ -26421,33 +28358,54 @@ export default function UpRepDemo() {
                 });
               }
             } else {
-              // Today's meal - save to DB first, then update UI with returned ID
+              // Today's meal - optimistic update
+              const tempId = `temp-${Date.now()}`;
+              const tempMeal = { ...meal, id: tempId };
+              setMealLog(prev => [...prev, tempMeal]);
+              setCaloriesIntake(prev => prev + meal.calories);
+              setProteinIntake(prev => prev + meal.protein);
+              setCarbsIntake(prev => prev + meal.carbs);
+              setFatsIntake(prev => prev + meal.fats);
+
+              // Save to database in background and update with real ID
               if (user?.id) {
-                const { data } = await nutritionService.logMeal(user.id, {
+                nutritionService.logMeal(user.id, {
                   name: meal.name,
                   time: meal.time,
                   calories: meal.calories,
                   protein: meal.protein,
                   carbs: meal.carbs,
                   fats: meal.fats,
+                }).then(({ data, error }) => {
+                  if (error || !data) {
+                    // Rollback optimistic update on failure
+                    setMealLog(prev => prev.filter(m => m.id !== tempId));
+                    setCaloriesIntake(prev => prev - meal.calories);
+                    setProteinIntake(prev => prev - meal.protein);
+                    setCarbsIntake(prev => prev - meal.carbs);
+                    setFatsIntake(prev => prev - meal.fats);
+                    console.error('Failed to save meal:', error?.message);
+                    return;
+                  }
+                  setMealLog(prev => prev.map(m => m.id === tempId ? {
+                    id: data.id,
+                    name: data.meal_name,
+                    time: data.meal_time,
+                    calories: data.calories,
+                    protein: data.protein,
+                    carbs: data.carbs,
+                    fats: data.fats,
+                  } : m));
+                }).catch(err => {
+                  // Rollback on network/unexpected error
+                  setMealLog(prev => prev.filter(m => m.id !== tempId));
+                  setCaloriesIntake(prev => prev - meal.calories);
+                  setProteinIntake(prev => prev - meal.protein);
+                  setCarbsIntake(prev => prev - meal.carbs);
+                  setFatsIntake(prev => prev - meal.fats);
+                  console.error('Failed to save meal:', err);
                 });
-                const savedMeal = data ? {
-                  id: data.id,
-                  name: data.meal_name,
-                  time: data.meal_time,
-                  calories: data.calories,
-                  protein: data.protein,
-                  carbs: data.carbs,
-                  fats: data.fats,
-                } : meal;
-                setMealLog(prev => [...prev, savedMeal]);
-              } else {
-                setMealLog(prev => [...prev, meal]);
               }
-              setCaloriesIntake(prev => prev + meal.calories);
-              setProteinIntake(prev => prev + meal.protein);
-              setCarbsIntake(prev => prev + meal.carbs);
-              setFatsIntake(prev => prev + meal.fats);
             }
             setShowAddMealFull(false);
           }}

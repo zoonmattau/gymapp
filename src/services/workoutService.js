@@ -44,7 +44,7 @@ export const workoutService = {
       `)
       .eq('user_id', userId)
       .eq('scheduled_date', today)
-      .single();
+      .maybeSingle();
 
     return { data, error };
   },
@@ -125,7 +125,7 @@ export const workoutService = {
       .update(updates)
       .eq('id', setId)
       .select()
-      .single();
+      .maybeSingle();
 
     return { data, error };
   },
@@ -144,7 +144,7 @@ export const workoutService = {
       })
       .eq('id', sessionId)
       .select()
-      .single();
+      .maybeSingle();
 
     // Mark schedule as completed if schedule_id exists
     if (summary.scheduleId) {
@@ -347,7 +347,7 @@ export const workoutService = {
       .eq('exercise_id', exerciseId)
       .order('e1rm', { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
 
     // Check if new PR
     if (!currentPR || e1rm > currentPR.e1rm) {
@@ -378,7 +378,7 @@ export const workoutService = {
       .select('*')
       .eq('user_id', userId)
       .eq('is_active', true)
-      .single();
+      .maybeSingle();
 
     return { data, error };
   },
@@ -487,7 +487,7 @@ export const workoutService = {
           )
         `)
         .eq('id', templateId)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.warn('getWorkoutTemplate error:', error?.message);

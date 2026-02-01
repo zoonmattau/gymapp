@@ -258,7 +258,7 @@ export const nutritionService = {
         log_date: logDate,
       }, { onConflict: 'supplement_id,log_date' })
       .select()
-      .single();
+      .maybeSingle();
 
     return { data, error };
   },
@@ -305,6 +305,48 @@ export const nutritionService = {
       .order('log_date');
 
     return { data, error };
+  },
+
+  // Get user's most frequently logged meals
+  async getFrequentMeals(userId, limit = 8) {
+    const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    const { data, error } = await supabase
+      .from('meal_logs')
+      .select('meal_name, calories, protein, carbs, fats')
+      .eq('user_id', userId)
+      .gte('log_date', ninetyDaysAgo)
+      .order('logged_at', { ascending: false });
+
+    if (error || !data) return { data: [], error };
+
+    // Group by meal name and count occurrences
+    const mealMap = new Map();
+    data.forEach(meal => {
+      const key = meal.meal_name?.toLowerCase().trim();
+      if (!key) return;
+
+      if (!mealMap.has(key)) {
+        mealMap.set(key, {
+          name: meal.meal_name,
+          cal: meal.calories || 0,
+          p: meal.protein || 0,
+          c: meal.carbs || 0,
+          f: meal.fats || 0,
+          count: 1
+        });
+      } else {
+        mealMap.get(key).count++;
+      }
+    });
+
+    // Sort by count and return top N (only meals logged at least twice)
+    const frequent = Array.from(mealMap.values())
+      .filter(m => m.count >= 2)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, limit);
+
+    return { data: frequent, error: null };
   },
 };
 

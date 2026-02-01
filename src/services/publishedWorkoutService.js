@@ -135,7 +135,7 @@ export const publishedWorkoutService = {
         .from('published_workouts')
         .select('*')
         .eq('id', workoutId)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.warn('getWorkoutById error:', error?.message);
@@ -259,7 +259,7 @@ export const publishedWorkoutService = {
         .eq('id', workoutId)
         .eq('creator_id', userId)
         .select()
-        .single();
+        .maybeSingle();
 
       return { data, error };
     } catch (err) {
@@ -403,12 +403,14 @@ export const publishedWorkoutService = {
             .from('published_workouts')
             .select('comment_count')
             .eq('id', workoutId)
-            .single()
+            .maybeSingle()
             .then(({ data: workout }) => {
-              supabase
-                .from('published_workouts')
-                .update({ comment_count: (workout?.comment_count || 0) + 1 })
-                .eq('id', workoutId);
+              if (workout) {
+                supabase
+                  .from('published_workouts')
+                  .update({ comment_count: (workout.comment_count || 0) + 1 })
+                  .eq('id', workoutId);
+              }
             });
         });
       }
@@ -493,7 +495,7 @@ export const publishedWorkoutService = {
         .from('published_workouts')
         .select('completion_count, avg_actual_duration')
         .eq('id', workoutId)
-        .single();
+        .maybeSingle();
 
       const newCount = (workout?.completion_count || 0) + 1;
       let newAvgDuration = workout?.avg_actual_duration;

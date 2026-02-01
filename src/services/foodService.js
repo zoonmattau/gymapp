@@ -165,7 +165,7 @@ export const foodService = {
         .eq('created_by', userId)
         .eq('is_system', false)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.warn('updateCustomFood error:', error?.message);

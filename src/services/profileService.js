@@ -265,7 +265,7 @@ export const profileService = {
       .eq('user_id', userId)
       .order('log_date', { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
 
     return { data, error };
   },
