@@ -4136,339 +4136,447 @@ const WeighInModal = ({ COLORS, onClose, onSave, initialWeight, currentWeight, u
   );
 };
 
-// Full Meal Entry Modal - with all macros and estimator
+// Full Meal Entry Modal - Redesigned for simplicity
 const FullMealEntryModal = ({ COLORS, onClose, onSave, foods = [], frequentMeals = [] }) => {
-  const [name, setName] = React.useState('');
-  const [calories, setCalories] = React.useState('');
-  const [protein, setProtein] = React.useState('');
-  const [carbs, setCarbs] = React.useState('');
-  const [fats, setFats] = React.useState('');
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const [activeTab, setActiveTab] = React.useState('search'); // 'search' or 'manual'
+  const [selectedMeal, setSelectedMeal] = React.useState(null);
+  const [servings, setServings] = React.useState('1');
   const [time, setTime] = React.useState(() => {
     const now = new Date();
     return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
   });
-  const [showEstimator, setShowEstimator] = React.useState(false);
-  const [ingredients, setIngredients] = React.useState([]);
-  const [showAddIngredient, setShowAddIngredient] = React.useState(false);
-  const [tempIngredientAmount, setTempIngredientAmount] = React.useState({});
-  const [tempIngredientUnit, setTempIngredientUnit] = React.useState({});
-  const [ingredientSearch, setIngredientSearch] = React.useState('');
-  const [ingredientFilter, setIngredientFilter] = React.useState('All');
-  const [selectedProteins, setSelectedProteins] = React.useState([]);
-  const [selectedCarbs, setSelectedCarbs] = React.useState([]);
-  const [selectedFats, setSelectedFats] = React.useState([]);
-  const [selectedVegetables, setSelectedVegetables] = React.useState([]);
-  const [selectedToppings, setSelectedToppings] = React.useState([]);
-  const [itemAmounts, setItemAmounts] = React.useState({});
-  const [portionSize, setPortionSize] = React.useState('medium');
-  
-  // Portion multipliers
-  const portionMultipliers = { small: 0.7, medium: 1, large: 1.4, xl: 1.8 };
 
-  // Fallback food data if database foods are empty
-  const defaultProteinSources = [
-    { name: 'Chicken Breast', per100g: { cal: 165, p: 31, c: 0, f: 3.6 } },
-    { name: 'Beef Steak', per100g: { cal: 271, p: 26, c: 0, f: 18 } },
-    { name: 'Salmon', per100g: { cal: 208, p: 20, c: 0, f: 13 } },
-    { name: 'Eggs', per100g: { cal: 155, p: 13, c: 1, f: 11 } },
-    { name: 'Turkey', per100g: { cal: 135, p: 30, c: 0, f: 1 } },
-    { name: 'Tofu', per100g: { cal: 76, p: 8, c: 2, f: 4.8 } },
-    { name: 'Shrimp', per100g: { cal: 99, p: 24, c: 0, f: 0.3 } },
-    { name: 'Greek Yogurt', per100g: { cal: 97, p: 9, c: 4, f: 5 } },
+  // Manual entry state
+  const [manualName, setManualName] = React.useState('');
+  const [manualCalories, setManualCalories] = React.useState('');
+  const [manualProtein, setManualProtein] = React.useState('');
+  const [manualCarbs, setManualCarbs] = React.useState('');
+  const [manualFats, setManualFats] = React.useState('');
+
+  // Comprehensive meal database (common meals + foods)
+  const mealDatabase = [
+    // Complete meals
+    { name: 'Chicken & Rice Bowl', cal: 450, p: 35, c: 45, f: 10, category: 'meal' },
+    { name: 'Burger & Fries', cal: 850, p: 30, c: 70, f: 45, category: 'meal' },
+    { name: 'Grilled Chicken Salad', cal: 350, p: 30, c: 15, f: 18, category: 'meal' },
+    { name: 'Pasta with Meat Sauce', cal: 550, p: 25, c: 65, f: 18, category: 'meal' },
+    { name: 'Chicken Sandwich', cal: 450, p: 28, c: 40, f: 18, category: 'meal' },
+    { name: 'Pizza (2 slices)', cal: 550, p: 22, c: 60, f: 24, category: 'meal' },
+    { name: 'Sushi Roll (8pc)', cal: 350, p: 15, c: 50, f: 8, category: 'meal' },
+    { name: 'Chicken Stir Fry', cal: 400, p: 28, c: 35, f: 15, category: 'meal' },
+    { name: 'Omelette (3 egg)', cal: 300, p: 21, c: 3, f: 22, category: 'meal' },
+    { name: 'Protein Smoothie', cal: 350, p: 30, c: 40, f: 8, category: 'meal' },
+    { name: 'Beef Burrito', cal: 680, p: 32, c: 65, f: 28, category: 'meal' },
+    { name: 'Poke Bowl', cal: 520, p: 35, c: 55, f: 15, category: 'meal' },
+    { name: 'Caesar Salad', cal: 380, p: 18, c: 20, f: 25, category: 'meal' },
+    { name: 'Ramen Bowl', cal: 550, p: 22, c: 70, f: 18, category: 'meal' },
+    { name: 'Fish & Chips', cal: 750, p: 28, c: 65, f: 40, category: 'meal' },
+    { name: 'Pad Thai', cal: 480, p: 20, c: 55, f: 18, category: 'meal' },
+    { name: 'Butter Chicken & Rice', cal: 620, p: 32, c: 50, f: 32, category: 'meal' },
+    { name: 'Greek Salad w/ Chicken', cal: 420, p: 35, c: 12, f: 26, category: 'meal' },
+    { name: 'Acai Bowl', cal: 420, p: 8, c: 75, f: 12, category: 'meal' },
+    { name: 'Meat Pie', cal: 480, p: 18, c: 35, f: 28, category: 'meal' },
+    { name: 'Steak & Vegetables', cal: 520, p: 42, c: 15, f: 32, category: 'meal' },
+    { name: 'Salmon & Rice', cal: 480, p: 35, c: 40, f: 18, category: 'meal' },
+    { name: 'Turkey Wrap', cal: 380, p: 25, c: 35, f: 15, category: 'meal' },
+    { name: 'Tuna Salad', cal: 320, p: 28, c: 10, f: 18, category: 'meal' },
+    { name: 'Grilled Cheese Sandwich', cal: 400, p: 15, c: 35, f: 22, category: 'meal' },
+    { name: 'BLT Sandwich', cal: 450, p: 18, c: 38, f: 25, category: 'meal' },
+    { name: 'Club Sandwich', cal: 550, p: 30, c: 42, f: 28, category: 'meal' },
+    { name: 'Chicken Quesadilla', cal: 520, p: 28, c: 40, f: 26, category: 'meal' },
+    { name: 'Beef Tacos (3)', cal: 480, p: 24, c: 36, f: 26, category: 'meal' },
+    { name: 'Chicken Curry & Rice', cal: 580, p: 30, c: 55, f: 25, category: 'meal' },
+    { name: 'Shrimp Fried Rice', cal: 450, p: 20, c: 55, f: 15, category: 'meal' },
+    { name: 'Protein Bowl', cal: 500, p: 40, c: 45, f: 15, category: 'meal' },
+    // Breakfast items
+    { name: 'Eggs & Toast', cal: 350, p: 18, c: 30, f: 18, category: 'breakfast' },
+    { name: 'Bacon & Eggs', cal: 400, p: 25, c: 2, f: 32, category: 'breakfast' },
+    { name: 'Pancakes (3)', cal: 450, p: 10, c: 70, f: 15, category: 'breakfast' },
+    { name: 'Avocado Toast', cal: 300, p: 8, c: 28, f: 18, category: 'breakfast' },
+    { name: 'Overnight Oats', cal: 380, p: 15, c: 55, f: 10, category: 'breakfast' },
+    { name: 'Greek Yogurt & Granola', cal: 320, p: 18, c: 40, f: 10, category: 'breakfast' },
+    { name: 'Breakfast Burrito', cal: 500, p: 22, c: 45, f: 25, category: 'breakfast' },
+    { name: 'Bagel with Cream Cheese', cal: 380, p: 12, c: 55, f: 14, category: 'breakfast' },
+    // Snacks
+    { name: 'Protein Bar', cal: 220, p: 20, c: 22, f: 8, category: 'snack' },
+    { name: 'Apple & Peanut Butter', cal: 280, p: 8, c: 30, f: 16, category: 'snack' },
+    { name: 'Trail Mix (handful)', cal: 180, p: 5, c: 15, f: 12, category: 'snack' },
+    { name: 'Banana', cal: 105, p: 1, c: 27, f: 0, category: 'snack' },
+    { name: 'Greek Yogurt', cal: 130, p: 15, c: 8, f: 4, category: 'snack' },
+    { name: 'Cottage Cheese', cal: 110, p: 14, c: 5, f: 4, category: 'snack' },
+    { name: 'Hard Boiled Eggs (2)', cal: 140, p: 12, c: 1, f: 10, category: 'snack' },
+    { name: 'Almonds (28g)', cal: 164, p: 6, c: 6, f: 14, category: 'snack' },
+    { name: 'Cheese Stick', cal: 80, p: 7, c: 1, f: 6, category: 'snack' },
+    // Individual foods (per 100g)
+    { name: 'Chicken Breast (100g)', cal: 165, p: 31, c: 0, f: 4, category: 'protein' },
+    { name: 'Beef Steak (100g)', cal: 271, p: 26, c: 0, f: 18, category: 'protein' },
+    { name: 'Beef Mince (100g)', cal: 250, p: 26, c: 0, f: 17, category: 'protein' },
+    { name: 'Salmon (100g)', cal: 208, p: 20, c: 0, f: 13, category: 'protein' },
+    { name: 'Tuna (100g)', cal: 132, p: 28, c: 0, f: 1, category: 'protein' },
+    { name: 'Turkey (100g)', cal: 135, p: 30, c: 0, f: 1, category: 'protein' },
+    { name: 'Bacon (100g)', cal: 541, p: 37, c: 1, f: 42, category: 'protein' },
+    { name: 'White Rice (100g)', cal: 130, p: 3, c: 28, f: 0, category: 'carb' },
+    { name: 'Brown Rice (100g)', cal: 111, p: 3, c: 23, f: 1, category: 'carb' },
+    { name: 'Pasta (100g)', cal: 131, p: 5, c: 25, f: 1, category: 'carb' },
+    { name: 'Potato (100g)', cal: 77, p: 2, c: 17, f: 0, category: 'carb' },
+    { name: 'Sweet Potato (100g)', cal: 86, p: 2, c: 20, f: 0, category: 'carb' },
+    { name: 'Bread (1 slice)', cal: 80, p: 3, c: 15, f: 1, category: 'carb' },
+    // Drinks
+    { name: 'Protein Shake', cal: 150, p: 25, c: 5, f: 3, category: 'drink' },
+    { name: 'Milk (250ml)', cal: 150, p: 8, c: 12, f: 8, category: 'drink' },
+    { name: 'Orange Juice (250ml)', cal: 110, p: 2, c: 26, f: 0, category: 'drink' },
+    { name: 'Coffee with Milk', cal: 30, p: 1, c: 3, f: 1, category: 'drink' },
+    { name: 'Latte', cal: 120, p: 8, c: 10, f: 5, category: 'drink' },
   ];
-  const defaultCarbSources = [
-    { name: 'White Rice', per100g: { cal: 130, p: 2.7, c: 28, f: 0.3 } },
-    { name: 'Brown Rice', per100g: { cal: 111, p: 2.6, c: 23, f: 0.9 } },
-    { name: 'Pasta', per100g: { cal: 131, p: 5, c: 25, f: 1.1 } },
-    { name: 'Bread', per100g: { cal: 265, p: 9, c: 49, f: 3.2 } },
-    { name: 'Potato', per100g: { cal: 77, p: 2, c: 17, f: 0.1 } },
-    { name: 'Sweet Potato', per100g: { cal: 86, p: 1.6, c: 20, f: 0.1 } },
-    { name: 'Oats', per100g: { cal: 389, p: 17, c: 66, f: 7 } },
-    { name: 'Quinoa', per100g: { cal: 120, p: 4.4, c: 21, f: 1.9 } },
-  ];
-  const defaultFatSources = [
-    { name: 'Olive Oil', per100g: { cal: 884, p: 0, c: 0, f: 100 } },
-    { name: 'Avocado', per100g: { cal: 160, p: 2, c: 9, f: 15 } },
-    { name: 'Peanut Butter', per100g: { cal: 588, p: 25, c: 20, f: 50 } },
-    { name: 'Almonds', per100g: { cal: 579, p: 21, c: 22, f: 50 } },
-    { name: 'Cheese', per100g: { cal: 402, p: 25, c: 1.3, f: 33 } },
-    { name: 'Butter', per100g: { cal: 717, p: 0.9, c: 0.1, f: 81 } },
-  ];
-  const defaultVegetableSources = [
-    { name: 'Broccoli', per100g: { cal: 34, p: 2.8, c: 7, f: 0.4 } },
-    { name: 'Spinach', per100g: { cal: 23, p: 2.9, c: 3.6, f: 0.4 } },
-    { name: 'Mixed Salad', per100g: { cal: 20, p: 1.5, c: 3.5, f: 0.2 } },
-    { name: 'Carrots', per100g: { cal: 41, p: 0.9, c: 10, f: 0.2 } },
-    { name: 'Bell Peppers', per100g: { cal: 31, p: 1, c: 6, f: 0.3 } },
-    { name: 'Tomatoes', per100g: { cal: 18, p: 0.9, c: 3.9, f: 0.2 } },
-  ];
-  const defaultToppingSources = [
-    { name: 'BBQ Sauce', per100g: { cal: 172, p: 0.8, c: 40, f: 0.6 } },
-    { name: 'Mayo', per100g: { cal: 680, p: 1, c: 0.6, f: 75 } },
-    { name: 'Hummus', per100g: { cal: 166, p: 8, c: 14, f: 10 } },
-    { name: 'Soy Sauce', per100g: { cal: 53, p: 8, c: 5, f: 0 } },
-    { name: 'Hot Sauce', per100g: { cal: 12, p: 0.5, c: 2, f: 0.3 } },
-  ];
 
-  // Food database from props - filter by category (loaded from database) with fallbacks
-  const proteinSources = foods.filter(f => f.category === 'Protein').length > 0
-    ? foods.filter(f => f.category === 'Protein')
-    : defaultProteinSources;
+  // Get filtered search results
+  const getSearchResults = () => {
+    const query = searchQuery.toLowerCase().trim();
+    if (!query) return [];
 
-  const carbSources = foods.filter(f => f.category === 'Carbs').length > 0
-    ? foods.filter(f => f.category === 'Carbs')
-    : defaultCarbSources;
-
-  const fatSources = foods.filter(f => f.category === 'Fats').length > 0
-    ? foods.filter(f => f.category === 'Fats')
-    : defaultFatSources;
-
-  const vegetableSources = foods.filter(f => f.category === 'Vegetables').length > 0
-    ? foods.filter(f => f.category === 'Vegetables')
-    : defaultVegetableSources;
-
-  const toppingSources = foods.filter(f => f.category === 'Sauces').length > 0
-    ? foods.filter(f => f.category === 'Sauces')
-    : defaultToppingSources;
-
-
-  // All foods combined with default units
-  const allFoods = [
-    ...proteinSources.map(f => ({
-      ...f,
-      category: 'Protein',
-      defaultUnit: f.name.includes('Eggs') ? 'units' : 'g',
-      defaultAmount: f.name === 'Eggs' ? 2 : f.name === 'Egg Whites' ? 4 : 100
-    })),
-    ...carbSources.map(f => ({ ...f, category: 'Carbs', defaultUnit: 'g', defaultAmount: 100 })),
-    ...fatSources.map(f => {
-      const useTbsp = ['Olive Oil', 'Coconut Oil', 'Peanut Butter', 'Almond Butter'].includes(f.name);
-      return {
-        ...f,
-        category: 'Fats',
-        defaultUnit: useTbsp ? 'tbsp' : 'g',
-        defaultAmount: useTbsp ? 1 : 15
-      };
-    }),
-    ...vegetableSources.map(f => ({ ...f, category: 'Vegetables', defaultUnit: 'g', defaultAmount: 100 })),
-    ...toppingSources.map(f => {
-      const useTbsp = ['BBQ Sauce', 'Hummus', 'Guacamole', 'Tzatziki', 'Mayo', 'Pesto', 'Tahini', 'Gravy'].includes(f.name);
-      return {
-        ...f,
-        category: 'Sauces',
-        defaultUnit: useTbsp ? 'tbsp' : 'g',
-        defaultAmount: useTbsp ? 1 : 15
-      };
-    }),
-  ].filter(f => f.name !== 'None' && f.name !== 'None/Minimal');
-
-  // Calculate totals from ingredients
-  const calculateFromIngredients = () => {
-    let totalCal = 0, totalP = 0, totalC = 0, totalF = 0;
-
-    ingredients.forEach(ing => {
-      const multiplier = ing.unit === 'g' ? ing.amount / 100 : ing.amount;
-      totalCal += ing.food.per100g.cal * multiplier;
-      totalP += ing.food.per100g.p * multiplier;
-      totalC += ing.food.per100g.c * multiplier;
-      totalF += ing.food.per100g.f * multiplier;
-    });
-
-    return {
-      cal: Math.round(totalCal),
-      p: Math.round(totalP),
-      c: Math.round(totalC),
-      f: Math.round(totalF)
-    };
+    return mealDatabase.filter(meal =>
+      meal.name.toLowerCase().includes(query)
+    ).slice(0, 10);
   };
 
-  const commonMeals = [
-    { name: 'Chicken & Rice Bowl', cal: 450, p: 35, c: 45, f: 10 },
-    { name: 'Burger & Fries', cal: 850, p: 30, c: 70, f: 45 },
-    { name: 'Salad with Chicken', cal: 350, p: 30, c: 15, f: 18 },
-    { name: 'Pasta with Meat Sauce', cal: 550, p: 25, c: 65, f: 18 },
-    { name: 'Sandwich', cal: 400, p: 20, c: 40, f: 16 },
-    { name: 'Pizza (2 slices)', cal: 550, p: 22, c: 60, f: 24 },
-    { name: 'Sushi Roll (8pc)', cal: 350, p: 15, c: 50, f: 8 },
-    { name: 'Stir Fry', cal: 400, p: 28, c: 35, f: 15 },
-    { name: 'Omelette (3 egg)', cal: 300, p: 21, c: 3, f: 22 },
-    { name: 'Smoothie Bowl', cal: 350, p: 15, c: 55, f: 8 },
-    { name: 'Beef Burrito', cal: 680, p: 32, c: 65, f: 28 },
-    { name: 'Poke Bowl', cal: 520, p: 35, c: 55, f: 15 },
-    { name: 'Caesar Salad', cal: 380, p: 18, c: 20, f: 25 },
-    { name: 'Ramen', cal: 550, p: 22, c: 70, f: 18 },
-    { name: 'Fish & Chips', cal: 750, p: 28, c: 65, f: 40 },
-    { name: 'Pad Thai', cal: 480, p: 20, c: 55, f: 18 },
-    { name: 'Butter Chicken & Rice', cal: 620, p: 32, c: 50, f: 32 },
-    { name: 'Greek Salad with Chicken', cal: 420, p: 35, c: 12, f: 26 },
-    { name: 'Acai Bowl', cal: 420, p: 8, c: 75, f: 12 },
-    { name: 'Meat Pie', cal: 480, p: 18, c: 35, f: 28 },
-  ];
-  
-  // Calculate estimated macros from multi-select
-  const calculateEstimate = () => {
-    const mult = portionMultipliers[portionSize];
-    let totalCal = 0, totalP = 0, totalC = 0, totalF = 0;
-
-    // Process proteins
-    selectedProteins.forEach(name => {
-      const p = proteinSources.find(s => s.name === name);
-      if (p) {
-        const amount = itemAmounts[name] || 1;
-        totalCal += p.per100g.cal * mult * amount;
-        totalP += p.per100g.p * mult * amount;
-        totalC += p.per100g.c * mult * amount;
-        totalF += p.per100g.f * mult * amount;
-      }
+  // Quick add a meal
+  const quickAddMeal = (meal) => {
+    onSave({
+      id: Date.now(),
+      name: meal.name,
+      time,
+      calories: meal.cal,
+      protein: meal.p,
+      carbs: meal.c,
+      fats: meal.f
     });
-
-    // Process carbs
-    selectedCarbs.forEach(name => {
-      const c = carbSources.find(s => s.name === name);
-      if (c) {
-        const amount = itemAmounts[name] || 1;
-        totalCal += c.per100g.cal * mult * amount;
-        totalP += c.per100g.p * mult * amount;
-        totalC += c.per100g.c * mult * amount;
-        totalF += c.per100g.f * mult * amount;
-      }
-    });
-
-    // Process fats
-    selectedFats.forEach(name => {
-      const f = fatSources.find(s => s.name === name);
-      if (f) {
-        const amount = itemAmounts[name] || 1;
-        totalCal += f.per100g.cal * amount;
-        totalP += f.per100g.p * amount;
-        totalC += f.per100g.c * amount;
-        totalF += f.per100g.f * amount;
-      }
-    });
-
-    // Process vegetables
-    selectedVegetables.forEach(name => {
-      const v = vegetableSources.find(s => s.name === name);
-      if (v) {
-        const amount = itemAmounts[name] || 1;
-        totalCal += v.per100g.cal * mult * amount;
-        totalP += v.per100g.p * mult * amount;
-        totalC += v.per100g.c * mult * amount;
-        totalF += v.per100g.f * mult * amount;
-      }
-    });
-
-    // Process toppings
-    selectedToppings.forEach(name => {
-      const t = toppingSources.find(s => s.name === name);
-      if (t) {
-        const amount = itemAmounts[name] || 1;
-        totalCal += t.per100g.cal * amount;
-        totalP += t.per100g.p * amount;
-        totalC += t.per100g.c * amount;
-        totalF += t.per100g.f * amount;
-      }
-    });
-
-    return {
-      cal: Math.round(totalCal),
-      p: Math.round(totalP),
-      c: Math.round(totalC),
-      f: Math.round(totalF)
-    };
-  };
-  
-  const generateMealName = () => {
-    if (ingredients.length === 0) return 'Custom Meal';
-    if (ingredients.length === 1) return ingredients[0].food.name;
-
-    // Smart name generation
-    const proteins = ingredients.filter(i => i.food.category === 'Protein');
-    const carbs = ingredients.filter(i => i.food.category === 'Carbs');
-
-    if (proteins.length > 0 && carbs.length > 0) {
-      return `${proteins[0].food.name} & ${carbs[0].food.name}${ingredients.length > 2 ? ' Bowl' : ''}`;
-    }
-
-    const parts = ingredients.slice(0, 3).map(i => i.food.name);
-    return parts.join(' + ');
   };
 
-  const applyEstimate = () => {
-    // Use ingredients if available, otherwise use old method
-    const est = ingredients.length > 0 ? calculateFromIngredients() : calculateEstimate();
-
-    let mealName = '';
-    if (ingredients.length > 0) {
-      mealName = generateMealName();
-    } else {
-      const parts = [];
-      selectedProteins.forEach(p => parts.push(p));
-      selectedCarbs.forEach(c => parts.push(c));
-      selectedVegetables.forEach(v => { if (v !== 'None') parts.push(v); });
-      selectedFats.forEach(f => { if (f !== 'None/Minimal') parts.push(f); });
-      selectedToppings.forEach(t => { if (t !== 'None') parts.push('w/ ' + t); });
-      mealName = parts.join(' + ');
-    }
-
-    setName(mealName || 'Custom Meal');
-    setCalories(est.cal.toString());
-    setProtein(est.p.toString());
-    setCarbs(est.c.toString());
-    setFats(est.f.toString());
-    setShowEstimator(false);
-    setShowAddIngredient(false);
+  // Add selected meal with custom servings
+  const addSelectedMeal = () => {
+    if (!selectedMeal) return;
+    const servingMultiplier = parseFloat(servings) || 1;
+    onSave({
+      id: Date.now(),
+      name: selectedMeal.name + (servingMultiplier !== 1 ? ` (${servings}x)` : ''),
+      time,
+      calories: Math.round(selectedMeal.cal * servingMultiplier),
+      protein: Math.round(selectedMeal.p * servingMultiplier),
+      carbs: Math.round(selectedMeal.c * servingMultiplier),
+      fats: Math.round(selectedMeal.f * servingMultiplier)
+    });
   };
-  
-  const applyCommonMeal = (meal) => {
-    const mult = portionMultipliers[portionSize];
-    setName(meal.name);
-    setCalories(Math.round(meal.cal * mult).toString());
-    setProtein(Math.round(meal.p * mult).toString());
-    setCarbs(Math.round(meal.c * mult).toString());
-    setFats(Math.round(meal.f * mult).toString());
-    setShowEstimator(false);
+
+  // Add manual entry
+  const addManualMeal = () => {
+    onSave({
+      id: Date.now(),
+      name: manualName || 'Custom Meal',
+      time,
+      calories: parseInt(manualCalories) || 0,
+      protein: parseInt(manualProtein) || 0,
+      carbs: parseInt(manualCarbs) || 0,
+      fats: parseInt(manualFats) || 0
+    });
   };
-  
-  const estimate = calculateEstimate();
-  
+
+  const searchResults = getSearchResults();
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }}>
-      <div className="w-full max-w-sm rounded-2xl p-6 max-h-[90vh] overflow-auto" style={{ backgroundColor: COLORS.surface }}>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-bold" style={{ color: COLORS.text }}>Add Meal</h3>
-          <button onClick={onClose} className="p-2 rounded-full" style={{ backgroundColor: COLORS.surfaceLight }}>
-            <X size={20} color={COLORS.textMuted} />
-          </button>
-        </div>
-        
-        {!showEstimator ? (
-          <>
-            {/* Don't know macros button */}
-            <button
-              onClick={() => setShowEstimator(true)}
-              className="w-full p-3 rounded-xl mb-4 flex items-center justify-center gap-2"
-              style={{ backgroundColor: COLORS.accent + '20', border: `1px solid ${COLORS.accent}` }}
-            >
-              <Info size={16} color={COLORS.accent} />
-              <span className="text-sm font-semibold" style={{ color: COLORS.accent }}>Don't know macros? Use estimator</span>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+      <div className="w-full max-w-md rounded-2xl flex flex-col" style={{ backgroundColor: COLORS.surface, maxHeight: '90vh' }}>
+        {/* Header */}
+        <div className="p-4 pb-2">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-lg font-bold" style={{ color: COLORS.text }}>Log Meal</h3>
+            <button onClick={onClose} className="p-2 rounded-full" style={{ backgroundColor: COLORS.surfaceLight }}>
+              <X size={18} color={COLORS.textMuted} />
             </button>
-            
-            <div className="space-y-3 mb-6">
-              <div>
-                <label className="text-xs mb-1 block" style={{ color: COLORS.textMuted }}>Meal Name</label>
+          </div>
+
+          {/* Tab Toggle */}
+          <div className="flex gap-2 p-1 rounded-xl mb-3" style={{ backgroundColor: COLORS.surfaceLight }}>
+            <button
+              onClick={() => setActiveTab('search')}
+              className="flex-1 py-2 rounded-lg text-sm font-semibold transition-all"
+              style={{
+                backgroundColor: activeTab === 'search' ? COLORS.primary : 'transparent',
+                color: activeTab === 'search' ? COLORS.text : COLORS.textMuted
+              }}
+            >
+              Search
+            </button>
+            <button
+              onClick={() => setActiveTab('manual')}
+              className="flex-1 py-2 rounded-lg text-sm font-semibold transition-all"
+              style={{
+                backgroundColor: activeTab === 'manual' ? COLORS.primary : 'transparent',
+                color: activeTab === 'manual' ? COLORS.text : COLORS.textMuted
+              }}
+            >
+              Manual Entry
+            </button>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto px-4 pb-4">
+          {activeTab === 'search' ? (
+            <>
+              {/* Search Bar */}
+              <div className="relative mb-4">
+                <Search size={18} color={COLORS.textMuted} className="absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  value={name}
-                  onChange={e => setName(e.target.value)}
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setSelectedMeal(null);
+                  }}
+                  placeholder="Search for a meal or food..."
+                  className="w-full pl-10 pr-4 py-3 rounded-xl text-sm"
+                  style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+                  autoFocus
+                />
+              </div>
+
+              {/* Selected Meal Preview */}
+              {selectedMeal && (
+                <div className="mb-4 p-4 rounded-xl" style={{ backgroundColor: COLORS.primary + '15', border: `2px solid ${COLORS.primary}` }}>
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <p className="font-semibold" style={{ color: COLORS.text }}>{selectedMeal.name}</p>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                        {Math.round(selectedMeal.cal * (parseFloat(servings) || 1))} cal
+                      </p>
+                    </div>
+                    <button onClick={() => setSelectedMeal(null)}>
+                      <X size={16} color={COLORS.textMuted} />
+                    </button>
+                  </div>
+
+                  {/* Servings */}
+                  <div className="flex items-center gap-3 mb-3">
+                    <span className="text-sm" style={{ color: COLORS.textMuted }}>Servings:</span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setServings(prev => Math.max(0.5, (parseFloat(prev) || 1) - 0.5).toString())}
+                        className="w-8 h-8 rounded-lg flex items-center justify-center"
+                        style={{ backgroundColor: COLORS.surfaceLight }}
+                      >
+                        <Minus size={14} color={COLORS.text} />
+                      </button>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={servings}
+                        onChange={(e) => setServings(e.target.value)}
+                        className="w-12 text-center py-1 rounded-lg text-sm"
+                        style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+                      />
+                      <button
+                        onClick={() => setServings(prev => ((parseFloat(prev) || 1) + 0.5).toString())}
+                        className="w-8 h-8 rounded-lg flex items-center justify-center"
+                        style={{ backgroundColor: COLORS.surfaceLight }}
+                      >
+                        <Plus size={14} color={COLORS.text} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Macros Preview */}
+                  <div className="grid grid-cols-4 gap-2 text-center mb-3">
+                    {[
+                      { label: 'Cal', value: Math.round(selectedMeal.cal * (parseFloat(servings) || 1)), color: COLORS.accent },
+                      { label: 'P', value: Math.round(selectedMeal.p * (parseFloat(servings) || 1)), color: COLORS.primary },
+                      { label: 'C', value: Math.round(selectedMeal.c * (parseFloat(servings) || 1)), color: COLORS.warning },
+                      { label: 'F', value: Math.round(selectedMeal.f * (parseFloat(servings) || 1)), color: COLORS.sleep },
+                    ].map((macro, i) => (
+                      <div key={i} className="p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
+                        <p className="text-sm font-bold" style={{ color: macro.color }}>{macro.value}</p>
+                        <p className="text-xs" style={{ color: COLORS.textMuted }}>{macro.label}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={addSelectedMeal}
+                    className="w-full py-2.5 rounded-xl font-semibold"
+                    style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+                  >
+                    Add to Log
+                  </button>
+                </div>
+              )}
+
+              {/* Search Results */}
+              {searchQuery && searchResults.length > 0 && !selectedMeal && (
+                <div className="mb-4">
+                  <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>SEARCH RESULTS</p>
+                  <div className="space-y-2">
+                    {searchResults.map((meal, i) => (
+                      <button
+                        key={i}
+                        onClick={() => {
+                          setSelectedMeal(meal);
+                          setServings('1');
+                        }}
+                        className="w-full p-3 rounded-xl flex items-center justify-between text-left"
+                        style={{ backgroundColor: COLORS.surfaceLight }}
+                      >
+                        <div>
+                          <p className="text-sm font-semibold" style={{ color: COLORS.text }}>{meal.name}</p>
+                          <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                            {meal.cal} cal | P:{meal.p}g C:{meal.c}g F:{meal.f}g
+                          </p>
+                        </div>
+                        <Plus size={18} color={COLORS.primary} />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* No Results */}
+              {searchQuery && searchResults.length === 0 && (
+                <div className="text-center py-6 mb-4">
+                  <p className="text-sm" style={{ color: COLORS.textMuted }}>No results found</p>
+                  <button
+                    onClick={() => {
+                      setActiveTab('manual');
+                      setManualName(searchQuery);
+                    }}
+                    className="mt-2 text-sm font-semibold"
+                    style={{ color: COLORS.primary }}
+                  >
+                    Enter macros manually
+                  </button>
+                </div>
+              )}
+
+              {/* Recent / Frequent Meals */}
+              {!searchQuery && !selectedMeal && frequentMeals.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>YOUR RECENT MEALS</p>
+                  <div className="space-y-2">
+                    {frequentMeals.slice(0, 5).map((meal, i) => (
+                      <button
+                        key={i}
+                        onClick={() => quickAddMeal(meal)}
+                        className="w-full p-3 rounded-xl flex items-center justify-between text-left"
+                        style={{ backgroundColor: COLORS.primary + '15' }}
+                      >
+                        <div>
+                          <p className="text-sm font-semibold" style={{ color: COLORS.text }}>{meal.name}</p>
+                          <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                            {meal.cal} cal | P:{meal.p}g C:{meal.c}g F:{meal.f}g
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: COLORS.primary + '30', color: COLORS.primary }}>
+                            {meal.count}x
+                          </span>
+                          <Plus size={18} color={COLORS.primary} />
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Quick Add Suggestions */}
+              {!searchQuery && !selectedMeal && (
+                <div>
+                  <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>QUICK ADD</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {mealDatabase.slice(0, 8).map((meal, i) => (
+                      <button
+                        key={i}
+                        onClick={() => {
+                          setSelectedMeal(meal);
+                          setServings('1');
+                        }}
+                        className="p-3 rounded-xl text-left"
+                        style={{ backgroundColor: COLORS.surfaceLight }}
+                      >
+                        <p className="text-xs font-semibold mb-1" style={{ color: COLORS.text }}>{meal.name}</p>
+                        <p className="text-xs" style={{ color: COLORS.textMuted }}>{meal.cal} cal</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            /* Manual Entry Tab */
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-semibold mb-1.5 block" style={{ color: COLORS.textMuted }}>Meal Name</label>
+                <input
+                  type="text"
+                  value={manualName}
+                  onChange={e => setManualName(e.target.value)}
                   placeholder="e.g. Chicken & Rice"
                   className="w-full p-3 rounded-xl text-sm"
                   style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
                 />
               </div>
-              
+
               <div>
-                <label className="text-xs mb-1 block" style={{ color: COLORS.textMuted }}>Time</label>
+                <label className="text-xs font-semibold mb-1.5 block" style={{ color: COLORS.textMuted }}>Calories</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={manualCalories}
+                  onChange={e => setManualCalories(e.target.value.replace(/\D/g, ''))}
+                  placeholder="0"
+                  className="w-full p-3 rounded-xl text-sm"
+                  style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="text-xs font-semibold mb-1.5 block" style={{ color: COLORS.textMuted }}>Protein (g)</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={manualProtein}
+                    onChange={e => setManualProtein(e.target.value.replace(/\D/g, ''))}
+                    placeholder="0"
+                    className="w-full p-3 rounded-xl text-sm text-center"
+                    style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold mb-1.5 block" style={{ color: COLORS.textMuted }}>Carbs (g)</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={manualCarbs}
+                    onChange={e => setManualCarbs(e.target.value.replace(/\D/g, ''))}
+                    placeholder="0"
+                    className="w-full p-3 rounded-xl text-sm text-center"
+                    style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold mb-1.5 block" style={{ color: COLORS.textMuted }}>Fats (g)</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={manualFats}
+                    onChange={e => setManualFats(e.target.value.replace(/\D/g, ''))}
+                    placeholder="0"
+                    className="w-full p-3 rounded-xl text-sm text-center"
+                    style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold mb-1.5 block" style={{ color: COLORS.textMuted }}>Time</label>
                 <input
                   type="time"
                   value={time}
@@ -4477,634 +4585,18 @@ const FullMealEntryModal = ({ COLORS, onClose, onSave, foods = [], frequentMeals
                   style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none', colorScheme: 'dark' }}
                 />
               </div>
-              
-              <div>
-                <label className="text-xs mb-1 block" style={{ color: COLORS.textMuted }}>Calories</label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={calories}
-                  onChange={e => setCalories(e.target.value.replace(/\D/g, ''))}
-                  placeholder="0"
-                  className="w-full p-3 rounded-xl text-sm"
-                  style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
-                />
-              </div>
-              
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <label className="text-xs mb-1 block" style={{ color: COLORS.textMuted }}>Protein (g)</label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={protein}
-                    onChange={e => setProtein(e.target.value.replace(/\D/g, ''))}
-                    placeholder="0"
-                    className="w-full p-3 rounded-xl text-sm text-center"
-                    style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
-                  />
-                </div>
-                <div>
-                  <label className="text-xs mb-1 block" style={{ color: COLORS.textMuted }}>Carbs (g)</label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={carbs}
-                    onChange={e => setCarbs(e.target.value.replace(/\D/g, ''))}
-                    placeholder="0"
-                    className="w-full p-3 rounded-xl text-sm text-center"
-                    style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
-                  />
-                </div>
-                <div>
-                  <label className="text-xs mb-1 block" style={{ color: COLORS.textMuted }}>Fats (g)</label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={fats}
-                    onChange={e => setFats(e.target.value.replace(/\D/g, ''))}
-                    placeholder="0"
-                    className="w-full p-3 rounded-xl text-sm text-center"
-                    style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
-                  />
-                </div>
-              </div>
-            </div>
 
-            <div className="flex gap-3">
-              <button 
-                onClick={onClose}
-                className="flex-1 py-3 rounded-xl font-semibold"
-                style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.textMuted }}
-              >
-                Cancel
-              </button>
-              <button 
-                onClick={() => onSave({
-                  id: Date.now(),
-                  name: name || 'Meal',
-                  time,
-                  calories: parseInt(calories) || 0,
-                  protein: parseInt(protein) || 0,
-                  carbs: parseInt(carbs) || 0,
-                  fats: parseInt(fats) || 0
-                })}
-                className="flex-1 py-3 rounded-xl font-semibold"
+              <button
+                onClick={addManualMeal}
+                className="w-full py-3 rounded-xl font-semibold mt-4"
                 style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
               >
                 Add Meal
               </button>
             </div>
-          </>
-        ) : (
-          <>
-            {/* Macro Estimator */}
-            <button
-              onClick={() => setShowEstimator(false)}
-              className="flex items-center gap-2 mb-4"
-              style={{ color: COLORS.textMuted }}
-            >
-              <ChevronLeft size={18} />
-              <span className="text-sm">Back to manual entry</span>
-            </button>
-
-            {/* Ingredient Builder Button */}
-            <button
-              onClick={() => setShowAddIngredient(true)}
-              className="w-full p-3 rounded-xl mb-4 flex items-center justify-center gap-2"
-              style={{ backgroundColor: COLORS.primary + '20', border: `2px solid ${COLORS.primary}` }}
-            >
-              <Plus size={16} color={COLORS.primary} />
-              <span className="text-sm font-semibold" style={{ color: COLORS.primary }}>Build with Ingredients ({ingredients.length})</span>
-            </button>
-
-            {/* Show added ingredients */}
-            {ingredients.length > 0 && (
-              <div className="mb-4 p-3 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
-                <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>YOUR INGREDIENTS</p>
-                <div className="space-y-2">
-                  {ingredients.map((ing, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
-                      <div className="flex-1">
-                        <p className="text-xs font-semibold" style={{ color: COLORS.text }}>{ing.food.name}</p>
-                        <p className="text-xs" style={{ color: COLORS.textMuted }}>{ing.amount}{ing.unit}</p>
-                      </div>
-                      <button
-                        onClick={() => setIngredients(prev => prev.filter((_, i) => i !== idx))}
-                        className="p-1"
-                      >
-                        <X size={14} color={COLORS.error} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                {ingredients.length > 0 && (() => {
-                  const totals = calculateFromIngredients();
-                  return (
-                    <div className="mt-2 p-2 rounded-lg" style={{ backgroundColor: COLORS.primary + '20' }}>
-                      <p className="text-xs font-semibold" style={{ color: COLORS.primary }}>
-                        Total: {totals.cal} cal | P:{totals.p}g | C:{totals.c}g | F:{totals.f}g
-                      </p>
-                    </div>
-                  );
-                })()}
-              </div>
-            )}
-
-            {/* Portion Size */}
-            <div className="mb-4">
-              <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>PORTION SIZE</p>
-              <div className="grid grid-cols-4 gap-2">
-                {[
-                  { id: 'small', label: 'Small', emoji: '🥄' },
-                  { id: 'medium', label: 'Medium', emoji: '🍽️' },
-                  { id: 'large', label: 'Large', emoji: '🍲' },
-                  { id: 'xl', label: 'XL', emoji: '🍳' },
-                ].map(size => (
-                  <button
-                    key={size.id}
-                    onClick={() => setPortionSize(size.id)}
-                    className="p-2 rounded-xl text-center"
-                    style={{ 
-                      backgroundColor: portionSize === size.id ? COLORS.primary : COLORS.surfaceLight,
-                      color: portionSize === size.id ? COLORS.text : COLORS.textMuted
-                    }}
-                  >
-                    <span className="text-lg">{size.emoji}</span>
-                    <p className="text-xs mt-1">{size.label}</p>
-                  </button>
-                ))}
-              </div>
-            </div>
-            
-            {/* Your Frequent Meals */}
-            {frequentMeals.length > 0 && (
-              <div className="mb-4">
-                <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>YOUR FREQUENT MEALS</p>
-                <div className="flex flex-wrap gap-2">
-                  {frequentMeals.map((meal, i) => (
-                    <button
-                      key={i}
-                      onClick={() => applyCommonMeal(meal)}
-                      className="px-3 py-2 rounded-xl text-xs flex items-center gap-1"
-                      style={{ backgroundColor: COLORS.primary + '20', color: COLORS.primary }}
-                    >
-                      {meal.name}
-                      <span className="text-xs opacity-70">×{meal.count}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Common Meals */}
-            <div className="mb-4">
-              <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>COMMON MEALS</p>
-              <div className="flex flex-wrap gap-2">
-                {commonMeals.map((meal, i) => (
-                  <button
-                    key={i}
-                    onClick={() => applyCommonMeal(meal)}
-                    className="px-3 py-2 rounded-xl text-xs"
-                    style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.textSecondary }}
-                  >
-                    {meal.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-            
-            <div className="border-t border-b py-3 my-3" style={{ borderColor: COLORS.surfaceLight }}>
-              <p className="text-xs text-center" style={{ color: COLORS.textMuted }}>OR build your own meal</p>
-            </div>
-            
-            {/* Protein Source */}
-            <div className="mb-3">
-              <p className="text-xs font-semibold mb-2" style={{ color: COLORS.primary }}>🍗 PROTEIN SOURCE (Multi-select)</p>
-              <div className="space-y-2">
-                {proteinSources.map((source, i) => {
-                  const isSelected = selectedProteins.includes(source.name);
-                  return (
-                    <div key={i} className="flex items-center gap-2">
-                      <button
-                        onClick={() => {
-                          if (isSelected) {
-                            setSelectedProteins(prev => prev.filter(p => p !== source.name));
-                            setItemAmounts(prev => {
-                              const newAmounts = { ...prev };
-                              delete newAmounts[source.name];
-                              return newAmounts;
-                            });
-                          } else {
-                            setSelectedProteins(prev => [...prev, source.name]);
-                          }
-                        }}
-                        className="flex-1 px-3 py-2 rounded-lg text-xs font-semibold text-left"
-                        style={{
-                          backgroundColor: isSelected ? COLORS.primary : COLORS.surfaceLight,
-                          color: isSelected ? COLORS.text : COLORS.textSecondary
-                        }}
-                      >
-                        {source.name}
-                      </button>
-                      {isSelected && (
-                        <input
-                          type="number"
-                          value={itemAmounts[source.name] || 1}
-                          onChange={(e) => setItemAmounts(prev => ({ ...prev, [source.name]: parseFloat(e.target.value) || 1 }))}
-                          className="w-16 p-2 rounded-lg text-xs text-center"
-                          style={{ backgroundColor: COLORS.surface, color: COLORS.text, border: 'none' }}
-                          placeholder="1x"
-                          step="0.5"
-                          min="0.5"
-                        />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-            
-            {/* Carb Source */}
-            <div className="mb-3">
-              <p className="text-xs font-semibold mb-2" style={{ color: COLORS.warning }}>🍚 CARB SOURCE (Multi-select)</p>
-              <div className="space-y-2">
-                {carbSources.map((source, i) => {
-                  const isSelected = selectedCarbs.includes(source.name);
-                  return (
-                    <div key={i} className="flex items-center gap-2">
-                      <button
-                        onClick={() => {
-                          if (isSelected) {
-                            setSelectedCarbs(prev => prev.filter(c => c !== source.name));
-                            setItemAmounts(prev => {
-                              const newAmounts = { ...prev };
-                              delete newAmounts[source.name];
-                              return newAmounts;
-                            });
-                          } else {
-                            setSelectedCarbs(prev => [...prev, source.name]);
-                          }
-                        }}
-                        className="flex-1 px-3 py-2 rounded-lg text-xs font-semibold text-left"
-                        style={{
-                          backgroundColor: isSelected ? COLORS.warning : COLORS.surfaceLight,
-                          color: isSelected ? COLORS.background : COLORS.textSecondary
-                        }}
-                      >
-                        {source.name}
-                      </button>
-                      {isSelected && (
-                        <input
-                          type="number"
-                          value={itemAmounts[source.name] || 1}
-                          onChange={(e) => setItemAmounts(prev => ({ ...prev, [source.name]: parseFloat(e.target.value) || 1 }))}
-                          className="w-16 p-2 rounded-lg text-xs text-center"
-                          style={{ backgroundColor: COLORS.surface, color: COLORS.text, border: 'none' }}
-                          placeholder="1x"
-                          step="0.5"
-                          min="0.5"
-                        />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Fat Source */}
-            <div className="mb-3">
-              <p className="text-xs font-semibold mb-2" style={{ color: COLORS.sleep }}>🥑 FAT SOURCE (Multi-select)</p>
-              <div className="space-y-2">
-                {fatSources.map((source, i) => {
-                  const isSelected = selectedFats.includes(source.name);
-                  return (
-                    <div key={i} className="flex items-center gap-2">
-                      <button
-                        onClick={() => {
-                          if (isSelected) {
-                            setSelectedFats(prev => prev.filter(f => f !== source.name));
-                            setItemAmounts(prev => {
-                              const newAmounts = { ...prev };
-                              delete newAmounts[source.name];
-                              return newAmounts;
-                            });
-                          } else {
-                            setSelectedFats(prev => [...prev, source.name]);
-                          }
-                        }}
-                        className="flex-1 px-3 py-2 rounded-lg text-xs font-semibold text-left"
-                        style={{
-                          backgroundColor: isSelected ? COLORS.sleep : COLORS.surfaceLight,
-                          color: isSelected ? COLORS.text : COLORS.textSecondary
-                        }}
-                      >
-                        {source.name}
-                      </button>
-                      {isSelected && (
-                        <input
-                          type="number"
-                          value={itemAmounts[source.name] || 1}
-                          onChange={(e) => setItemAmounts(prev => ({ ...prev, [source.name]: parseFloat(e.target.value) || 1 }))}
-                          className="w-16 p-2 rounded-lg text-xs text-center"
-                          style={{ backgroundColor: COLORS.surface, color: COLORS.text, border: 'none' }}
-                          placeholder="1x"
-                          step="0.5"
-                          min="0.5"
-                        />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Vegetables */}
-            <div className="mb-3">
-              <p className="text-xs font-semibold mb-2" style={{ color: COLORS.protein }}>🥦 VEGETABLES (Multi-select)</p>
-              <div className="space-y-2">
-                {vegetableSources.filter(s => s.name !== 'None').map((source, i) => {
-                  const isSelected = selectedVegetables.includes(source.name);
-                  return (
-                    <div key={i} className="flex items-center gap-2">
-                      <button
-                        onClick={() => {
-                          if (isSelected) {
-                            setSelectedVegetables(prev => prev.filter(v => v !== source.name));
-                            setItemAmounts(prev => {
-                              const newAmounts = { ...prev };
-                              delete newAmounts[source.name];
-                              return newAmounts;
-                            });
-                          } else {
-                            setSelectedVegetables(prev => [...prev, source.name]);
-                          }
-                        }}
-                        className="flex-1 px-3 py-2 rounded-lg text-xs font-semibold text-left"
-                        style={{
-                          backgroundColor: isSelected ? COLORS.protein : COLORS.surfaceLight,
-                          color: isSelected ? COLORS.background : COLORS.textSecondary
-                        }}
-                      >
-                        {source.name}
-                      </button>
-                      {isSelected && (
-                        <input
-                          type="number"
-                          value={itemAmounts[source.name] || 1}
-                          onChange={(e) => setItemAmounts(prev => ({ ...prev, [source.name]: parseFloat(e.target.value) || 1 }))}
-                          className="w-16 p-2 rounded-lg text-xs text-center"
-                          style={{ backgroundColor: COLORS.surface, color: COLORS.text, border: 'none' }}
-                          placeholder="1x"
-                          step="0.5"
-                          min="0.5"
-                        />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Sauces & Toppings */}
-            <div className="mb-4">
-              <p className="text-xs font-semibold mb-2" style={{ color: COLORS.accent }}>🌶️ SAUCE / TOPPING (Multi-select)</p>
-              <div className="space-y-2">
-                {toppingSources.filter(s => s.name !== 'None').map((source, i) => {
-                  const isSelected = selectedToppings.includes(source.name);
-                  return (
-                    <div key={i} className="flex items-center gap-2">
-                      <button
-                        onClick={() => {
-                          if (isSelected) {
-                            setSelectedToppings(prev => prev.filter(t => t !== source.name));
-                            setItemAmounts(prev => {
-                              const newAmounts = { ...prev };
-                              delete newAmounts[source.name];
-                              return newAmounts;
-                            });
-                          } else {
-                            setSelectedToppings(prev => [...prev, source.name]);
-                          }
-                        }}
-                        className="flex-1 px-3 py-2 rounded-lg text-xs font-semibold text-left"
-                        style={{
-                          backgroundColor: isSelected ? COLORS.accent : COLORS.surfaceLight,
-                          color: isSelected ? COLORS.background : COLORS.textSecondary
-                        }}
-                      >
-                        {source.name}
-                      </button>
-                      {isSelected && (
-                        <input
-                          type="number"
-                          value={itemAmounts[source.name] || 1}
-                          onChange={(e) => setItemAmounts(prev => ({ ...prev, [source.name]: parseFloat(e.target.value) || 1 }))}
-                          className="w-16 p-2 rounded-lg text-xs text-center"
-                          style={{ backgroundColor: COLORS.surface, color: COLORS.text, border: 'none' }}
-                          placeholder="1x"
-                          step="0.5"
-                          min="0.5"
-                        />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-            
-            {/* Estimate Preview */}
-            {(selectedProteins.length > 0 || selectedCarbs.length > 0 || selectedFats.length > 0 || selectedVegetables.length > 0 || selectedToppings.length > 0) && (
-              <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surfaceLight }}>
-                <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>ESTIMATED MACROS</p>
-                <div className="grid grid-cols-4 gap-2 text-center">
-                  <div>
-                    <p className="text-lg font-bold" style={{ color: COLORS.accent }}>{estimate.cal}</p>
-                    <p className="text-xs" style={{ color: COLORS.textMuted }}>kcal</p>
-                  </div>
-                  <div>
-                    <p className="text-lg font-bold" style={{ color: COLORS.primary }}>{estimate.p}g</p>
-                    <p className="text-xs" style={{ color: COLORS.textMuted }}>protein</p>
-                  </div>
-                  <div>
-                    <p className="text-lg font-bold" style={{ color: COLORS.warning }}>{estimate.c}g</p>
-                    <p className="text-xs" style={{ color: COLORS.textMuted }}>carbs</p>
-                  </div>
-                  <div>
-                    <p className="text-lg font-bold" style={{ color: COLORS.sleep }}>{estimate.f}g</p>
-                    <p className="text-xs" style={{ color: COLORS.textMuted }}>fats</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <button
-              onClick={applyEstimate}
-              disabled={selectedProteins.length === 0 && selectedCarbs.length === 0 && selectedFats.length === 0 && selectedVegetables.length === 0 && selectedToppings.length === 0}
-              className="w-full py-3 rounded-xl font-semibold"
-              style={{
-                backgroundColor: (selectedProteins.length > 0 || selectedCarbs.length > 0 || selectedFats.length > 0 || selectedVegetables.length > 0 || selectedToppings.length > 0) ? COLORS.primary : COLORS.surfaceLight,
-                color: (selectedProteins.length > 0 || selectedCarbs.length > 0 || selectedFats.length > 0 || selectedVegetables.length > 0 || selectedToppings.length > 0) ? COLORS.text : COLORS.textMuted
-              }}
-            >
-              Use This Estimate
-            </button>
-            
-            <p className="text-xs text-center mt-3" style={{ color: COLORS.textMuted }}>
-              Estimates are approximate. Adjust manually if needed.
-            </p>
-          </>
-        )}
-      </div>
-
-      {/* Ingredient Selection Modal */}
-      {showAddIngredient && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }}>
-          <div className="w-full max-w-lg rounded-2xl flex flex-col" style={{ backgroundColor: COLORS.background, maxHeight: '90vh' }}>
-            {/* Header - Fixed */}
-            <div className="p-6 pb-3">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold" style={{ color: COLORS.text }}>Build Your Meal</h3>
-                <button onClick={() => setShowAddIngredient(false)} className="p-2 rounded-full" style={{ backgroundColor: COLORS.surfaceLight }}>
-                  <X size={20} color={COLORS.textMuted} />
-                </button>
-              </div>
-
-              {/* Search Bar */}
-              <div className="mb-3">
-                <input
-                  type="text"
-                  value={ingredientSearch}
-                  onChange={(e) => setIngredientSearch(e.target.value)}
-                  placeholder="Search ingredients..."
-                  className="w-full p-3 rounded-xl text-sm"
-                  style={{ backgroundColor: COLORS.surface, color: COLORS.text, border: 'none' }}
-                  autoFocus
-                />
-              </div>
-
-              {/* Category filter */}
-              <div className="flex gap-2 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
-                {['All', 'Protein', 'Carbs', 'Fats', 'Vegetables', 'Sauces'].map(cat => (
-                  <button
-                    key={cat}
-                    onClick={() => setIngredientFilter(cat)}
-                    className="px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap"
-                    style={{
-                      backgroundColor: ingredientFilter === cat ? COLORS.primary : COLORS.surfaceLight,
-                      color: ingredientFilter === cat ? COLORS.text : COLORS.textSecondary
-                    }}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Ingredient Docket - Fixed */}
-            {ingredients.length > 0 && (
-              <div className="px-6 pb-3">
-                <div className="p-3 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-xs font-semibold" style={{ color: COLORS.textMuted }}>YOUR MEAL: {generateMealName()}</p>
-                    <button
-                      onClick={applyEstimate}
-                      className="px-3 py-1 rounded-lg text-xs font-semibold"
-                      style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
-                    >
-                      Finish
-                    </button>
-                  </div>
-                  <div className="space-y-1 max-h-24 overflow-y-auto">
-                    {ingredients.map((ing, idx) => (
-                      <div key={idx} className="flex items-center justify-between text-xs p-1.5 rounded" style={{ backgroundColor: COLORS.surfaceLight }}>
-                        <span style={{ color: COLORS.text }}>{ing.amount}{ing.unit === 'g' ? 'g' : ` ${ing.unit}`} {ing.food.name}</span>
-                        <button onClick={() => setIngredients(prev => prev.filter((_, i) => i !== idx))}>
-                          <X size={12} color={COLORS.error} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                  {(() => {
-                    const totals = calculateFromIngredients();
-                    return (
-                      <div className="mt-2 pt-2 border-t" style={{ borderColor: COLORS.surfaceLight }}>
-                        <p className="text-xs font-semibold" style={{ color: COLORS.primary }}>
-                          {totals.cal} cal | P:{totals.p}g | C:{totals.c}g | F:{totals.f}g
-                        </p>
-                      </div>
-                    );
-                  })()}
-                </div>
-              </div>
-            )}
-
-            {/* Food list - Scrollable */}
-            <div className="flex-1 overflow-y-auto px-6 pb-6">
-              <div className="space-y-2">
-                {allFoods
-                  .filter(food => {
-                    const matchesSearch = food.name.toLowerCase().includes(ingredientSearch.toLowerCase());
-                    const matchesFilter = ingredientFilter === 'All' || food.category === ingredientFilter;
-                    return matchesSearch && matchesFilter;
-                  })
-                  .map((food, idx) => {
-                    const amount = tempIngredientAmount[idx] !== undefined ? tempIngredientAmount[idx] : food.defaultAmount;
-                    const unit = tempIngredientUnit[idx] || food.defaultUnit;
-                    const multiplier = unit === 'g' ? amount / 100 : amount;
-                    const calories = Math.round(food.per100g.cal * multiplier);
-                    const protein = Math.round(food.per100g.p * multiplier);
-                    const carbs = Math.round(food.per100g.c * multiplier);
-                    const fats = Math.round(food.per100g.f * multiplier);
-
-                    return (
-                      <div key={idx} className="p-3 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="flex-1">
-                            <p className="text-sm font-semibold mb-1" style={{ color: COLORS.text }}>{food.name}</p>
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="number"
-                                value={amount}
-                                onChange={(e) => setTempIngredientAmount(prev => ({ ...prev, [idx]: parseFloat(e.target.value) || 0 }))}
-                                className="w-16 p-1.5 rounded text-xs text-center"
-                                style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
-                              />
-                              <select
-                                value={unit}
-                                onChange={(e) => setTempIngredientUnit(prev => ({ ...prev, [idx]: e.target.value }))}
-                                className="p-1.5 rounded text-xs"
-                                style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
-                              >
-                                <option value="g">g</option>
-                                <option value="units">units</option>
-                                <option value="tbsp">tbsp</option>
-                                <option value="ml">ml</option>
-                              </select>
-                              <button
-                                onClick={() => {
-                                  setIngredients(prev => [...prev, { food, amount, unit }]);
-                                }}
-                                className="p-1.5 rounded-lg ml-auto"
-                                style={{ backgroundColor: COLORS.primary }}
-                              >
-                                <Plus size={14} color={COLORS.text} />
-                              </button>
-                            </div>
-                          </div>
-                          <div className="text-right ml-3">
-                            <p className="text-xs font-bold mb-0.5" style={{ color: COLORS.primary }}>{calories} cal</p>
-                            <p className="text-xs" style={{ color: COLORS.primary }}>P{protein} C{carbs} F{fats}</p>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-              </div>
-            </div>
-          </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 };
@@ -6437,17 +5929,20 @@ const generateDynamicWorkout = (workoutType, userGoal = 'build_muscle', recently
     });
   });
 
-  // Add a core/ab finisher
+  // Add core/ab finisher - use multiple exercises with fewer sets for variety
   const coreExercises = selectExercisesForMuscleGroup(
     CORE_MUSCLE_GROUPS,
-    1,
+    3, // Select up to 3 different core exercises
     usedInThisWorkout,
     false,
     allExercises
   );
 
-  if (coreExercises.length > 0) {
-    const coreEx = coreExercises[0];
+  // Add 2-3 core exercises with 2 sets each instead of 1 exercise with 3 sets
+  const numCoreExercises = Math.min(coreExercises.length, 2 + Math.floor(Math.random() * 2)); // 2-3 exercises
+  const setsPerCoreExercise = numCoreExercises >= 2 ? 2 : 3; // 2 sets each if multiple, 3 if only 1
+
+  coreExercises.slice(0, numCoreExercises).forEach(coreEx => {
     const isHold = coreEx.name.includes('Plank') || coreEx.name.includes('Hold') || coreEx.name.includes('L-Sit');
     const coreReps = isHold ? 45 : 15;
     // Calculate core exercise weight (most are bodyweight so will return 0)
@@ -6462,17 +5957,17 @@ const generateDynamicWorkout = (workoutType, userGoal = 'build_muscle', recently
     exercises.push({
       id: generateExerciseId(coreEx.name),
       name: coreEx.name,
-      sets: 3,
+      sets: setsPerCoreExercise,
       targetReps: coreReps, // Seconds for holds, reps for movements
       suggestedWeight: coreWeight,
       lastWeight: 0,
-      lastReps: isHold ? [45, 40, 35] : [15, 12, 10],
+      lastReps: isHold ? [45, 40] : [15, 12],
       restTime: 45,
       muscleGroup: coreEx.muscleGroup,
       equipment: coreEx.equipment,
       exerciseType: coreEx.type,
     });
-  }
+  });
 
   // Add cardio for weight loss / lean goals
   let cardioExercise = null;
@@ -7425,8 +6920,8 @@ const optimizeExercisesForTimeAndCount = (baseExerciseList, fullExercisePool, ta
     optimized = [...reorderedNonCardio, ...cardioExercises];
   }
 
-  // Always apply core positioning based on user preference (this is a setting, not manual ordering)
-  if (corePosition && optimized.length > 1) {
+  // Apply core positioning based on user preference, but only if user hasn't manually reordered
+  if (corePosition && optimized.length > 1 && !preserveOrder) {
     const coreExercises = optimized.filter(ex => ex.muscleGroup === 'Core' || ex.muscleGroup?.toLowerCase()?.includes('core'));
     const nonCoreExercises = optimized.filter(ex => ex.muscleGroup !== 'Core' && !ex.muscleGroup?.toLowerCase()?.includes('core'));
 
@@ -9439,6 +8934,9 @@ const HomeTab = ({
   setSavedWorkoutIds,
   showMissedDayPrompt,
   setShowMissedDayPrompt,
+  showWeighInReminder,
+  setShowWeighInReminder,
+  daysSinceWeighIn,
   missedDayData,
   setMissedDayData,
   setMissedDayDismissed,
@@ -9464,6 +8962,11 @@ const HomeTab = ({
   WORKOUT_TIMING,
   showWorkoutTimeEditor,
   setShowWorkoutTimeEditor,
+  exerciseListCollapsed,
+  setExerciseListCollapsed,
+  expandedExerciseId,
+  setExpandedExerciseId,
+  moveExerciseInHome,
 }) => {
     const handleScroll = (e) => {
       homeScrollPos.current = e.target.scrollTop;
@@ -9533,29 +9036,18 @@ const HomeTab = ({
         displayValue: `${supplementsTaken}/${supplementsTotal}`,
         color: COLORS.supplements,
         enabled: tracking.supplements
-      },
-      {
-        id: 'sleep',
-        label: 'Sleep',
-        current: parseFloat(getSleepHours()) || 0,
-        target: 8,
-        displayValue: getSleepHours() + 'h',
-        color: COLORS.sleep,
-        enabled: tracking.sleep
       }
     ];
 
     // Handle quick stat taps
     const handleStatTap = (statId) => {
       if (statId === 'calories' || statId === 'protein') {
-        setShowMealEntry(true);
+        setShowAddMealFull(true);
       } else if (statId === 'water') {
         setShowWaterEntry(true);
       } else if (statId === 'supplements') {
-        setShowSupplementHistory(true);
-      } else if (statId === 'sleep') {
         setActiveTab('nutrition');
-        setNutritionTab('sleep');
+        setNutritionTab('supplements');
       }
     };
 
@@ -11129,6 +10621,50 @@ const HomeTab = ({
           }}
           onClose={() => setShowMissedDayPrompt(false)}
         />
+      )}
+
+      {/* Weigh-In Reminder */}
+      {showWeighInReminder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="w-full max-w-sm rounded-2xl p-5" style={{ backgroundColor: COLORS.surface }}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '20' }}>
+                <Scale size={24} color={COLORS.primary} />
+              </div>
+              <div>
+                <p className="font-bold text-lg" style={{ color: COLORS.text }}>Time to Weigh In!</p>
+                <p className="text-sm" style={{ color: COLORS.textMuted }}>
+                  {daysSinceWeighIn !== null
+                    ? `It's been ${daysSinceWeighIn} days since your last weigh-in`
+                    : 'Start tracking your weight for better progress insights'
+                  }
+                </p>
+              </div>
+            </div>
+            <p className="text-sm mb-4" style={{ color: COLORS.textSecondary }}>
+              Regular weigh-ins help you track progress and stay motivated. Aim to weigh in at least once a week, ideally at the same time each day.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowWeighInReminder(false)}
+                className="flex-1 py-3 rounded-xl font-semibold"
+                style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.textMuted }}
+              >
+                Later
+              </button>
+              <button
+                onClick={() => {
+                  setShowWeighInReminder(false);
+                  setShowWeighIn(true);
+                }}
+                className="flex-1 py-3 rounded-xl font-semibold"
+                style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+              >
+                Weigh In Now
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Active Workout Screen */}
@@ -14461,6 +13997,17 @@ const NutritionTab = ({
   sleepService,
   weeklyNutrition,
   nutritionTabScrollRef,
+  supplementNameRef,
+  supplementDosageRef,
+  supplementUnitRef,
+  supplementTimesPerDayRef,
+  SUPPLEMENT_UNITS,
+  editingSupplement,
+  setEditingSupplement,
+  editSupplementNameRef,
+  editSupplementAmountRef,
+  editSupplementUnitRef,
+  editSupplementTimesRef,
 }) => {
   const handleScroll = (e) => {
     if (nutritionTabScrollRef?.current !== undefined) {
@@ -15413,30 +14960,41 @@ const NutritionTab = ({
               <>
                 {/* Today's Progress */}
                 <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>TODAY'S PROGRESS</p>
-                <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
-                  <div className="flex justify-end items-center mb-3">
-                    <span className="text-sm font-semibold" style={{ color: COLORS.supplements }}>
-                      {supplements.filter(s => s.taken).length}/{supplements.length} taken
-                    </span>
-                  </div>
-                  <div className="h-3 rounded-full overflow-hidden mb-2" style={{ backgroundColor: COLORS.surfaceLight }}>
-                    <div
-                      className="h-full rounded-full transition-all"
-                      style={{
-                        backgroundColor: COLORS.supplements,
-                        width: supplements.length > 0 ? `${(supplements.filter(s => s.taken).length / supplements.length) * 100}%` : '0%'
-                      }}
-                    />
-                  </div>
-                  <p className="text-xs text-center" style={{ color: COLORS.textMuted }}>
-                    {supplements.length === 0
-                      ? 'Add supplements to start tracking'
-                      : supplements.filter(s => s.taken).length === supplements.length
-                        ? 'All supplements taken!'
-                        : `${supplements.length - supplements.filter(s => s.taken).length} remaining`
-                    }
-                  </p>
-                </div>
+                {(() => {
+                  // Calculate total doses needed and taken
+                  const totalDosesNeeded = supplements.reduce((sum, s) => sum + (s.timesPerDay || 1), 0);
+                  const totalDosesTaken = supplements.reduce((sum, s) => sum + Math.min(s.takenCount || (s.taken ? 1 : 0), s.timesPerDay || 1), 0);
+                  const progressPercent = totalDosesNeeded > 0 ? (totalDosesTaken / totalDosesNeeded) * 100 : 0;
+                  const allComplete = totalDosesTaken >= totalDosesNeeded && totalDosesNeeded > 0;
+                  const remaining = totalDosesNeeded - totalDosesTaken;
+
+                  return (
+                    <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
+                      <div className="flex justify-end items-center mb-3">
+                        <span className="text-sm font-semibold" style={{ color: COLORS.supplements }}>
+                          {totalDosesTaken}/{totalDosesNeeded} doses taken
+                        </span>
+                      </div>
+                      <div className="h-3 rounded-full overflow-hidden mb-2" style={{ backgroundColor: COLORS.surfaceLight }}>
+                        <div
+                          className="h-full rounded-full transition-all"
+                          style={{
+                            backgroundColor: COLORS.supplements,
+                            width: `${progressPercent}%`
+                          }}
+                        />
+                      </div>
+                      <p className="text-xs text-center" style={{ color: COLORS.textMuted }}>
+                        {supplements.length === 0
+                          ? 'Add supplements to start tracking'
+                          : allComplete
+                            ? 'All supplements taken!'
+                            : `${remaining} dose${remaining !== 1 ? 's' : ''} remaining`
+                        }
+                      </p>
+                    </div>
+                  );
+                })()}
 
                 {/* Supplement List */}
                 <div className="space-y-2 mb-4" style={{ opacity: supplementsLoading ? 0.5 : 1, transition: 'opacity 0.2s' }}>
@@ -15479,7 +15037,8 @@ const NutritionTab = ({
                             );
 
                             const { data: userSupplements } = await nutritionService.getSupplements(user.id);
-                            const totalSupps = userSupplements?.length || 0;
+                            // Total is sum of all timesPerDay, not just supplement count
+                            const totalDosesNeeded = userSupplements?.reduce((sum, s) => sum + (s.times_per_day || 1), 0) || 0;
 
                             // Build history by date
                             const historyMap = new Map();
@@ -15487,10 +15046,10 @@ const NutritionTab = ({
                               const date = new Date();
                               date.setDate(date.getDate() - i);
                               const dateKey = getLocalDateString(date);
-                              historyMap.set(dateKey, { date: dateKey, completed: 0, total: totalSupps, allTaken: false });
+                              historyMap.set(dateKey, { date: dateKey, completed: 0, total: totalDosesNeeded, allTaken: false });
                             }
 
-                            // Count completed supplements per day
+                            // Count completed supplement doses per day
                             supplementLogsRange?.forEach(log => {
                               const dateKey = log.log_date;
                               if (historyMap.has(dateKey)) {
@@ -15520,34 +15079,60 @@ const NutritionTab = ({
                           }
                         }}
                       >
-                        <div
-                          className="w-8 h-8 rounded-full flex items-center justify-center"
-                          style={{
-                            backgroundColor: takenCount > 0 ? COLORS.supplements : COLORS.surfaceLight,
-                            border: takenCount > 0 ? 'none' : `2px solid ${COLORS.textMuted}`
-                          }}
-                        >
-                          {takenCount > 0 && (
-                            takenCount > 1
-                              ? <span className="text-xs font-bold" style={{ color: COLORS.background }}>{takenCount}</span>
-                              : <Check size={16} color={COLORS.background} />
-                          )}
-                        </div>
-                        <div>
-                          <p className="font-semibold" style={{ color: COLORS.text }}>{supp.name}</p>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs" style={{ color: COLORS.textMuted }}>{supp.dosage}</span>
-                            {takenCount > 1 && (
-                              <span className="text-xs font-semibold" style={{ color: COLORS.supplements }}>×{takenCount} today</span>
-                            )}
-                            {supp.time && takenCount <= 1 && (
-                              <>
-                                <span className="text-xs" style={{ color: COLORS.textMuted }}>•</span>
-                                <span className="text-xs" style={{ color: COLORS.textMuted }}>{supp.time}</span>
-                              </>
-                            )}
-                          </div>
-                        </div>
+                        {(() => {
+                          const target = supp.timesPerDay || 1;
+                          const isComplete = takenCount >= target;
+
+                          // For multi-dose supplements, show segmented progress bar
+                          if (target > 1) {
+                            return (
+                              <div className="flex flex-col gap-1 flex-1">
+                                <div className="flex items-center justify-between">
+                                  <p className="font-semibold" style={{ color: COLORS.text }}>{supp.name}</p>
+                                  <span className="text-xs font-semibold" style={{ color: isComplete ? COLORS.supplements : COLORS.textMuted }}>
+                                    {takenCount}/{target}
+                                  </span>
+                                </div>
+                                <span className="text-xs" style={{ color: COLORS.textMuted }}>{supp.dosage}</span>
+                                <div className="flex gap-1 mt-1">
+                                  {Array.from({ length: target }).map((_, i) => (
+                                    <div
+                                      key={i}
+                                      className="h-2 rounded-full flex-1"
+                                      style={{
+                                        backgroundColor: i < takenCount ? COLORS.supplements : COLORS.surfaceLight
+                                      }}
+                                    />
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          }
+
+                          // For single-dose supplements, show circle with checkmark
+                          return (
+                            <>
+                              <div
+                                className="w-8 h-8 rounded-full flex items-center justify-center"
+                                style={{
+                                  backgroundColor: isComplete ? COLORS.supplements : COLORS.surfaceLight,
+                                  border: takenCount > 0 ? 'none' : `2px solid ${COLORS.textMuted}`
+                                }}
+                              >
+                                {takenCount > 0 && <Check size={16} color={COLORS.background} />}
+                              </div>
+                              <div>
+                                <p className="font-semibold" style={{ color: COLORS.text }}>{supp.name}</p>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs" style={{ color: COLORS.textMuted }}>{supp.dosage}</span>
+                                  {takenCount > 0 && (
+                                    <span className="text-xs font-semibold" style={{ color: COLORS.supplements }}>Taken</span>
+                                  )}
+                                </div>
+                              </div>
+                            </>
+                          );
+                        })()}
                       </div>
                       {/* Reset count button - only show if taken */}
                       {takenCount > 0 && (
@@ -15564,6 +15149,56 @@ const NutritionTab = ({
                                 .delete()
                                 .eq('supplement_id', supp.id)
                                 .eq('log_date', nutritionSelectedDate);
+
+                              // Recalculate streak after reset
+                              const startDate = new Date();
+                              startDate.setDate(startDate.getDate() - 27);
+                              const { data: supplementLogsRange } = await nutritionService.getSupplementLogsRange(
+                                user.id,
+                                getLocalDateString(startDate),
+                                TODAY_DATE_KEY
+                              );
+
+                              const { data: userSupplements } = await nutritionService.getSupplements(user.id);
+                              // Total is sum of all timesPerDay, not just supplement count
+                              const totalDosesNeeded = userSupplements?.reduce((sum, s) => sum + (s.times_per_day || 1), 0) || 0;
+
+                              // Build history by date
+                              const historyMap = new Map();
+                              for (let i = 0; i < 28; i++) {
+                                const date = new Date();
+                                date.setDate(date.getDate() - i);
+                                const dateKey = getLocalDateString(date);
+                                historyMap.set(dateKey, { date: dateKey, completed: 0, total: totalDosesNeeded, allTaken: false });
+                              }
+
+                              // Count completed supplement doses per day
+                              supplementLogsRange?.forEach(log => {
+                                const dateKey = log.log_date;
+                                if (historyMap.has(dateKey)) {
+                                  const day = historyMap.get(dateKey);
+                                  day.completed++;
+                                  day.allTaken = day.completed >= day.total;
+                                }
+                              });
+
+                              setSupplementHistory(Array.from(historyMap.values()).sort((a, b) => b.date.localeCompare(a.date)));
+
+                              // Calculate supplement streak
+                              let streak = 0;
+                              const sortedHistory = Array.from(historyMap.values()).sort((a, b) => b.date.localeCompare(a.date));
+                              for (const day of sortedHistory) {
+                                if (day.allTaken && day.total > 0) {
+                                  streak++;
+                                } else {
+                                  break;
+                                }
+                              }
+
+                              setStreaks(prev => ({
+                                ...prev,
+                                supplements: { daysInRow: streak }
+                              }));
                             }
                           }}
                           className="p-2 rounded-full mr-1"
@@ -15573,7 +15208,28 @@ const NutritionTab = ({
                         </button>
                       )}
                       <button
-                        onClick={async () => {
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // Parse dosage to extract amount and unit
+                          const dosageMatch = supp.dosage?.match(/^(\d+(?:\.\d+)?)\s*(.+)$/);
+                          const amount = dosageMatch ? dosageMatch[1] : '';
+                          const unit = dosageMatch ? dosageMatch[2] : 'mg';
+                          setEditingSupplement({
+                            id: supp.id,
+                            name: supp.name,
+                            amount,
+                            unit,
+                            timesPerDay: supp.timesPerDay || 1
+                          });
+                        }}
+                        className="p-2 rounded-full mr-1"
+                        style={{ backgroundColor: COLORS.surfaceLight }}
+                      >
+                        <Edit3 size={14} color={COLORS.textMuted} />
+                      </button>
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
                           // Update UI immediately
                           setSupplements(prev => prev.filter(s => s.id !== supp.id));
 
@@ -15682,6 +15338,20 @@ const NutritionTab = ({
                           ))}
                         </select>
                       </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          placeholder="1"
+                          min="1"
+                          max="10"
+                          ref={supplementTimesPerDayRef}
+                          defaultValue="1"
+                          onMouseDown={e => e.stopPropagation()}
+                          className="w-16 p-3 rounded-xl text-sm text-center"
+                          style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none', outline: 'none' }}
+                        />
+                        <span className="text-sm" style={{ color: COLORS.textMuted }}>times per day</span>
+                      </div>
                     </div>
                     <div className="flex gap-2">
                       <button
@@ -15690,6 +15360,7 @@ const NutritionTab = ({
                           if (supplementNameRef.current) supplementNameRef.current.value = '';
                           if (supplementDosageRef.current) supplementDosageRef.current.value = '';
                           if (supplementUnitRef.current) supplementUnitRef.current.value = 'mg';
+                          if (supplementTimesPerDayRef.current) supplementTimesPerDayRef.current.value = '1';
                         }}
                         className="flex-1 py-3 rounded-xl font-semibold"
                         style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.textMuted }}
@@ -15701,18 +15372,20 @@ const NutritionTab = ({
                           const name = supplementNameRef.current?.value?.trim();
                           const amount = supplementDosageRef.current?.value?.trim();
                           const unit = supplementUnitRef.current?.value || 'mg';
+                          const timesPerDay = parseInt(supplementTimesPerDayRef.current?.value) || 1;
                           const dosage = amount ? `${amount} ${unit}` : 'As needed';
                           if (name && user?.id) {
-                            const { data, error } = await nutritionService.addSupplement(user.id, { name, dosage });
+                            const { data, error } = await nutritionService.addSupplement(user.id, { name, dosage, times_per_day: timesPerDay });
                             if (!error && data) {
-                              setSupplements(prev => [...prev, { id: data.id, name: data.name, dosage: data.dosage, taken: false, time: '' }]);
+                              setSupplements(prev => [...prev, { id: data.id, name: data.name, dosage: data.dosage, timesPerDay: data.times_per_day || timesPerDay, taken: false, takenCount: 0, time: '' }]);
                             } else {
-                              setSupplements(prev => [...prev, { id: Date.now().toString(), name, dosage, taken: false, time: '' }]);
+                              setSupplements(prev => [...prev, { id: Date.now().toString(), name, dosage, timesPerDay, taken: false, takenCount: 0, time: '' }]);
                             }
                             setShowAddSupplement(false);
                             if (supplementNameRef.current) supplementNameRef.current.value = '';
                             if (supplementDosageRef.current) supplementDosageRef.current.value = '';
                             if (supplementUnitRef.current) supplementUnitRef.current.value = 'mg';
+                            if (supplementTimesPerDayRef.current) supplementTimesPerDayRef.current.value = '1';
                           }
                         }}
                         className="flex-1 py-3 rounded-xl font-semibold"
@@ -15731,6 +15404,100 @@ const NutritionTab = ({
                     <Plus size={18} color={COLORS.textMuted} />
                     <span style={{ color: COLORS.textMuted }}>Add Supplement</span>
                   </button>
+                )}
+
+                {/* Edit Supplement Modal */}
+                {editingSupplement && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} onClick={() => setEditingSupplement(null)}>
+                    <div className="w-full max-w-sm mx-4 p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }} onClick={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()}>
+                      <p className="font-semibold mb-3" style={{ color: COLORS.text }}>Edit Supplement</p>
+                      <div className="space-y-3 mb-4">
+                        <input
+                          type="text"
+                          placeholder="Supplement name"
+                          ref={editSupplementNameRef}
+                          defaultValue={editingSupplement.name}
+                          onMouseDown={e => e.stopPropagation()}
+                          className="w-full p-3 rounded-xl text-sm"
+                          style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none', outline: 'none' }}
+                        />
+                        <div className="flex gap-2">
+                          <input
+                            type="number"
+                            placeholder="Amount"
+                            ref={editSupplementAmountRef}
+                            defaultValue={editingSupplement.amount}
+                            onMouseDown={e => e.stopPropagation()}
+                            className="flex-1 p-3 rounded-xl text-sm"
+                            style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none', outline: 'none' }}
+                          />
+                          <select
+                            ref={editSupplementUnitRef}
+                            defaultValue={editingSupplement.unit}
+                            onMouseDown={e => e.stopPropagation()}
+                            className="p-3 rounded-xl text-sm"
+                            style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none', outline: 'none' }}
+                          >
+                            {SUPPLEMENT_UNITS.map(unit => (
+                              <option key={unit} value={unit}>{unit}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            min="1"
+                            max="10"
+                            ref={editSupplementTimesRef}
+                            defaultValue={editingSupplement.timesPerDay}
+                            onMouseDown={e => e.stopPropagation()}
+                            onFocus={e => e.target.select()}
+                            className="w-16 p-3 rounded-xl text-sm text-center"
+                            style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none', outline: 'none' }}
+                          />
+                          <span className="text-sm" style={{ color: COLORS.textMuted }}>times per day</span>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setEditingSupplement(null)}
+                          className="flex-1 py-3 rounded-xl font-semibold"
+                          style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.textMuted }}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={async () => {
+                            const id = editingSupplement.id;
+                            const name = editSupplementNameRef.current?.value?.trim() || editingSupplement.name;
+                            const amount = editSupplementAmountRef.current?.value?.trim();
+                            const unit = editSupplementUnitRef.current?.value || 'mg';
+                            const timesPerDay = Math.max(1, parseInt(editSupplementTimesRef.current?.value) || 1);
+                            const dosage = amount ? `${amount} ${unit}` : 'As needed';
+
+                            // Update locally
+                            setSupplements(prev => prev.map(s =>
+                              s.id === id ? { ...s, name, dosage, timesPerDay } : s
+                            ));
+
+                            // Update in database
+                            if (user?.id) {
+                              await supabase
+                                .from('user_supplements')
+                                .update({ name, dosage, times_per_day: timesPerDay })
+                                .eq('id', id);
+                            }
+
+                            setEditingSupplement(null);
+                          }}
+                          className="flex-1 py-3 rounded-xl font-semibold"
+                          style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+                        >
+                          Save
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 )}
 
                 {/* Supplement Streak */}
@@ -16349,6 +16116,10 @@ const NutritionTab = ({
 
             const percentage = Math.min(100, (macro.current / macro.target) * 100);
             const remaining = macro.target - macro.current;
+            // For protein, going over is good (green). For other macros, going over is neutral/warning.
+            const isProtein = showMacroDetail === 'protein';
+            const overColor = isProtein ? COLORS.success : COLORS.warning;
+            const overBgColor = isProtein ? COLORS.success + '20' : COLORS.warning + '20';
 
             return (
               <div
@@ -16378,10 +16149,10 @@ const NutritionTab = ({
                       <p className="text-xs" style={{ color: COLORS.textMuted }}>Goal</p>
                       <p className="text-lg font-bold" style={{ color: COLORS.text }}>{macro.target}g</p>
                     </div>
-                    <div className="p-3 rounded-xl text-center" style={{ backgroundColor: remaining >= 0 ? COLORS.success + '20' : COLORS.error + '20' }}>
-                      <p className="text-xs" style={{ color: COLORS.textMuted }}>{remaining >= 0 ? 'To Go' : 'Over'}</p>
-                      <p className="text-lg font-bold" style={{ color: remaining >= 0 ? COLORS.success : COLORS.error }}>
-                        {Math.abs(remaining)}g
+                    <div className="p-3 rounded-xl text-center" style={{ backgroundColor: remaining >= 0 ? COLORS.surfaceLight : overBgColor }}>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>{remaining >= 0 ? 'To Go' : (isProtein ? 'Bonus' : 'Over')}</p>
+                      <p className="text-lg font-bold" style={{ color: remaining >= 0 ? COLORS.text : overColor }}>
+                        {remaining >= 0 ? remaining : '+' + Math.abs(remaining)}g
                       </p>
                     </div>
                   </div>
@@ -16746,6 +16517,7 @@ export default function UpRepDemo() {
             name: supp.name,
             dosage: supp.dosage,
             time: supp.scheduled_time,
+            timesPerDay: supp.times_per_day || 1,
             taken: takenIds.has(supp.id),
           })));
 
@@ -16758,16 +16530,17 @@ export default function UpRepDemo() {
             TODAY_DATE_KEY
           );
 
-          // Build history by date
+          // Build history by date - total is sum of all timesPerDay, not just supplement count
+          const totalDosesNeeded = userSupplements.reduce((sum, s) => sum + (s.times_per_day || 1), 0);
           const historyMap = new Map();
           for (let i = 0; i < 28; i++) {
             const date = new Date();
             date.setDate(date.getDate() - i);
             const dateKey = getLocalDateString(date);
-            historyMap.set(dateKey, { date: dateKey, completed: 0, total: userSupplements.length, allTaken: false });
+            historyMap.set(dateKey, { date: dateKey, completed: 0, total: totalDosesNeeded, allTaken: false });
           }
 
-          // Count completed supplements per day
+          // Count completed supplement doses per day
           supplementLogsRange?.forEach(log => {
             const dateKey = log.log_date;
             if (historyMap.has(dateKey)) {
@@ -17266,6 +17039,20 @@ export default function UpRepDemo() {
         // Load weight history
         const { data: weightData, error: weightError } = await profileService.getWeightHistory(user.id, programWeeks * 7);
         if (weightError) console.warn('Weight history error:', weightError?.message);
+
+        // Check if last weigh-in was more than 7 days ago
+        if (weightData && weightData.length > 0) {
+          const lastWeighIn = new Date(weightData[0].log_date); // Most recent is first
+          const daysSince = Math.floor((new Date() - lastWeighIn) / (24 * 60 * 60 * 1000));
+          setDaysSinceWeighIn(daysSince);
+          if (daysSince >= 7) {
+            setShowWeighInReminder(true);
+          }
+        } else {
+          // No weight data at all - prompt them to start tracking
+          setDaysSinceWeighIn(null);
+          setShowWeighInReminder(true);
+        }
 
         // Group weight data by week
         const weightByWeek = {};
@@ -18013,6 +17800,12 @@ export default function UpRepDemo() {
   const supplementNameRef = useRef(null);
   const supplementDosageRef = useRef(null);
   const supplementUnitRef = useRef(null);
+  const supplementTimesPerDayRef = useRef(null);
+  const [editingSupplement, setEditingSupplement] = useState(null); // { id, name, amount, unit, timesPerDay }
+  const editSupplementNameRef = useRef(null);
+  const editSupplementAmountRef = useRef(null);
+  const editSupplementUnitRef = useRef(null);
+  const editSupplementTimesRef = useRef(null);
   const SUPPLEMENT_UNITS = ['mg', 'g', 'mcg', 'IU', 'ml', 'capsule(s)', 'tablet(s)', 'scoop(s)', 'drop(s)'];
 
   // Extended Nutrition State - start at 0, load from database
@@ -18048,6 +17841,8 @@ export default function UpRepDemo() {
 
   // Missed day tracking - prompt user if yesterday had 0 or very low values
   const [showMissedDayPrompt, setShowMissedDayPrompt] = useState(false);
+  const [showWeighInReminder, setShowWeighInReminder] = useState(false);
+  const [daysSinceWeighIn, setDaysSinceWeighIn] = useState(null);
   const [missedDayData, setMissedDayData] = useState(null); // { date, calories, water }
   const [missedDayDismissed, setMissedDayDismissed] = useState(() => {
     try {
@@ -18192,6 +17987,7 @@ export default function UpRepDemo() {
             name: supp.name,
             dosage: supp.dosage,
             time: supp.scheduled_time,
+            timesPerDay: supp.times_per_day || 1,
             taken: takenIds.has(supp.id),
           })));
           setSupplementsLoading(false);
@@ -18977,6 +18773,9 @@ export default function UpRepDemo() {
       }
       return newSchedule;
     });
+
+    // Clear workout cache so workouts regenerate with new types
+    workoutCacheRef.current = {};
   }, [currentProgram.id]);
 
   // Check follow status and load stats when viewing a friend's profile
@@ -19139,7 +18938,20 @@ export default function UpRepDemo() {
     // Use user's rest days or default to Sat/Sun
     const userRestDays = userData.restDays || [5, 6]; // 0=Mon, 6=Sun
     const daysPerWeek = userData.daysPerWeek || (7 - userRestDays.length);
-    const workoutTypeRotation = getWorkoutTypeRotation(daysPerWeek);
+
+    // Use saved program's schedule if available, otherwise fall back to generic rotation
+    let workoutTypeRotation = getWorkoutTypeRotation(daysPerWeek);
+    if (userData.programId) {
+      const savedProgram = AVAILABLE_PROGRAMS.find(p => p.id === userData.programId);
+      if (savedProgram?.schedule) {
+        workoutTypeRotation = savedProgram.schedule;
+      } else {
+        const savedTemplate = PROGRAM_TEMPLATES.find(t => t.id === userData.programId);
+        if (savedTemplate?.cycle) {
+          workoutTypeRotation = savedTemplate.cycle;
+        }
+      }
+    }
 
     const schedule = {};
     let workoutIndex = 0;
@@ -19521,7 +19333,20 @@ export default function UpRepDemo() {
 
   // Regenerate schedule when rest days or days per week changes
   const regenerateSchedule = (newRestDays, newDaysPerWeek) => {
-    const workoutTypeRotation = getWorkoutTypeRotation(newDaysPerWeek);
+    // Use saved program's schedule if available, otherwise fall back to generic rotation
+    let workoutTypeRotation = getWorkoutTypeRotation(newDaysPerWeek);
+    const programId = userData.programId || currentProgram.id;
+    if (programId) {
+      const savedProgram = AVAILABLE_PROGRAMS.find(p => p.id === programId);
+      if (savedProgram?.schedule) {
+        workoutTypeRotation = savedProgram.schedule;
+      } else {
+        const savedTemplate = PROGRAM_TEMPLATES.find(t => t.id === programId);
+        if (savedTemplate?.cycle) {
+          workoutTypeRotation = savedTemplate.cycle;
+        }
+      }
+    }
     const newSchedule = {};
     let workoutIndex = 0;
 
@@ -21184,6 +21009,9 @@ export default function UpRepDemo() {
             setSavedWorkoutIds={setSavedWorkoutIds}
             showMissedDayPrompt={showMissedDayPrompt}
             setShowMissedDayPrompt={setShowMissedDayPrompt}
+            showWeighInReminder={showWeighInReminder}
+            setShowWeighInReminder={setShowWeighInReminder}
+            daysSinceWeighIn={daysSinceWeighIn}
             missedDayData={missedDayData}
             setMissedDayData={setMissedDayData}
             setMissedDayDismissed={setMissedDayDismissed}
@@ -21207,6 +21035,13 @@ export default function UpRepDemo() {
             getInjuryRecoveryExercisesToAdd={getInjuryRecoveryExercisesToAdd}
             ALL_EXERCISES={ALL_EXERCISES}
             WORKOUT_TIMING={WORKOUT_TIMING}
+            showWorkoutTimeEditor={showWorkoutTimeEditor}
+            setShowWorkoutTimeEditor={setShowWorkoutTimeEditor}
+            exerciseListCollapsed={exerciseListCollapsed}
+            setExerciseListCollapsed={setExerciseListCollapsed}
+            expandedExerciseId={expandedExerciseId}
+            setExpandedExerciseId={setExpandedExerciseId}
+            moveExerciseInHome={moveExerciseInHome}
           />
         )}
         {activeTab === 'workouts' && (
@@ -21360,6 +21195,17 @@ export default function UpRepDemo() {
             sleepService={sleepService}
             weeklyNutrition={weeklyNutrition}
             nutritionTabScrollRef={nutritionTabScrollRef}
+            supplementNameRef={supplementNameRef}
+            supplementDosageRef={supplementDosageRef}
+            supplementUnitRef={supplementUnitRef}
+            supplementTimesPerDayRef={supplementTimesPerDayRef}
+            SUPPLEMENT_UNITS={SUPPLEMENT_UNITS}
+            editingSupplement={editingSupplement}
+            setEditingSupplement={setEditingSupplement}
+            editSupplementNameRef={editSupplementNameRef}
+            editSupplementAmountRef={editSupplementAmountRef}
+            editSupplementUnitRef={editSupplementUnitRef}
+            editSupplementTimesRef={editSupplementTimesRef}
           />
         )}
         {activeTab === 'friends' && (

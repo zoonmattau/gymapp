@@ -91,7 +91,7 @@ export const streakService = {
     return { streak, lastDate };
   },
 
-  // Calculate nutrition streak (met calorie goal)
+  // Calculate nutrition streak (met calorie goal based on user's fitness goal)
   async calculateNutritionStreak(userId) {
     const { data: goals } = await supabase
       .from('nutrition_goals')
@@ -100,6 +100,16 @@ export const streakService = {
       .maybeSingle();
 
     if (!goals) return { streak: 0, lastDate: null };
+
+    // Get user's fitness goal to determine streak logic
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('goal')
+      .eq('id', userId)
+      .maybeSingle();
+
+    const userGoal = profile?.goal || 'build_muscle';
+    const isFatLossGoal = ['lose_fat', 'lean', 'cut'].includes(userGoal);
 
     const { data: nutrition } = await supabase
       .from('daily_nutrition')
@@ -112,9 +122,10 @@ export const streakService = {
       return { streak: 0, lastDate: null };
     }
 
-    // Count consecutive days meeting goal (within 10% margin)
-    const targetMin = goals.calories * 0.9;
-    const targetMax = goals.calories * 1.1;
+    // For fat loss: must be under goal (but at least 50% to ensure healthy eating)
+    // For other goals: within 10% margin
+    const targetMin = isFatLossGoal ? goals.calories * 0.5 : goals.calories * 0.9;
+    const targetMax = isFatLossGoal ? goals.calories : goals.calories * 1.1;
 
     let streak = 0;
     const today = new Date().toISOString().split('T')[0];
