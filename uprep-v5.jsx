@@ -2102,6 +2102,408 @@ const ProfileSetupStep = ({ userData, setUserData, COLORS }) => {
   );
 };
 
+// Onboarding Screen - extracted outside main component to prevent focus loss
+const OnboardingScreen = ({
+  userData,
+  setUserData,
+  onboardingStep,
+  setOnboardingStep,
+  hoveredGoal,
+  setHoveredGoal,
+  sleepHours,
+  setSleepHours,
+  setCurrentScreen,
+  user,
+  updateProfile,
+  updateGoals,
+  setNutritionGoals,
+  setOverviewStats,
+  onboardingScrollRef,
+  toggleEquipmentWithScroll,
+  getLocalDateString,
+  generateNutritionTargets,
+}) => {
+  const steps = [
+    {
+      title: "Create your profile",
+      subtitle: "Choose a username your friends will see",
+      content: null // Will be rendered separately using ProfileSetupStep component
+    },
+    {
+      title: "What's your main goal?",
+      subtitle: "Select a goal, tap ⓘ to learn more",
+      content: (
+        <div className="space-y-3">
+          {Object.entries(GOAL_INFO).map(([id, goal]) => (
+            <div key={id}>
+              <div
+                className="w-full p-4 rounded-xl flex items-center gap-4 text-left cursor-pointer"
+                style={{ backgroundColor: userData.goal === id ? COLORS.primary + '20' : COLORS.surface,
+                  border: `2px solid ${userData.goal === id ? COLORS.primary : COLORS.surfaceLight}`,
+                  borderRadius: hoveredGoal === id ? '12px 12px 0 0' : '12px' }}
+                onClick={() => { setUserData(p => ({...p, goal: id})); setHoveredGoal(id); }}
+              >
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: userData.goal === id ? COLORS.primary + '30' : COLORS.surfaceLight }}>
+                  <IconMap name={goal.icon} size={24} color={userData.goal === id ? COLORS.primary : COLORS.textMuted} />
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold" style={{ color: userData.goal === id ? COLORS.primary : COLORS.text }}>{goal.title}</p>
+                </div>
+                {userData.goal === id && <Check size={20} color={COLORS.primary} />}
+                <button
+                  onClick={(e) => { e.stopPropagation(); setHoveredGoal(hoveredGoal === id ? null : id); }}
+                  className="p-2 rounded-full"
+                  style={{ backgroundColor: hoveredGoal === id ? COLORS.primary : COLORS.surfaceLight }}
+                >
+                  <Info size={18} color={hoveredGoal === id ? COLORS.text : COLORS.textMuted} />
+                </button>
+              </div>
+
+              {/* Info Panel - Inline, pushes content down */}
+              {hoveredGoal === id && (
+                <div
+                  className="p-4 rounded-b-xl"
+                  style={{ backgroundColor: COLORS.surfaceLight, borderTop: `1px solid ${COLORS.surface}` }}
+                >
+                  <p className="text-sm mb-3" style={{ color: COLORS.textSecondary }}>{goal.overview}</p>
+                  <div className="space-y-2">
+                    {goal.requirements.map((req, i) => (
+                      <div key={i} className="flex items-start gap-2">
+                        <IconMap name={req.icon} size={16} color={COLORS.textMuted} />
+                        <div>
+                          <p className="text-sm font-semibold" style={{ color: COLORS.text }}>{req.title}</p>
+                          <p className="text-xs" style={{ color: COLORS.textMuted }}>{req.desc}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-3 pt-3 border-t flex justify-between text-xs" style={{ borderColor: COLORS.surface }}>
+                    <span style={{ color: COLORS.textMuted }}>Min: {goal.minDays} days/week</span>
+                    <span style={{ color: COLORS.accent }}>Ideal: {goal.idealDays} days/week</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )
+    },
+    {
+      title: "Set your weight goals",
+      subtitle: "We'll create a safe, sustainable plan",
+      content: null // Will be rendered separately to avoid re-creation
+    },
+    {
+      title: "Your experience level?",
+      content: (
+        <div className="space-y-3">
+          {Object.values(EXPERIENCE_LEVELS).map(level => (
+            <button key={level.id} onClick={() => setUserData(p => ({...p, experience: level.id}))}
+              className="w-full p-4 rounded-xl text-left flex items-center gap-3"
+              style={{ backgroundColor: userData.experience === level.id ? COLORS.primary + '20' : COLORS.surface,
+                border: `2px solid ${userData.experience === level.id ? COLORS.primary : COLORS.surfaceLight}` }}>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: userData.experience === level.id ? COLORS.primary + '30' : COLORS.surfaceLight }}>
+                <IconMap name={level.icon} size={20} color={userData.experience === level.id ? COLORS.primary : COLORS.textMuted} />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold" style={{ color: userData.experience === level.id ? COLORS.primary : COLORS.text }}>{level.label}</p>
+                <p className="text-sm" style={{ color: COLORS.textSecondary }}>{level.desc}</p>
+              </div>
+              {userData.experience === level.id && <Check size={20} color={COLORS.primary} />}
+            </button>
+          ))}
+
+          {/* Info callout for experienced/expert */}
+          {['experienced', 'expert'].includes(userData.experience) && (
+            <div className="mt-4 p-3 rounded-lg flex items-start gap-2" style={{ backgroundColor: COLORS.primary + '10' }}>
+              <Info size={16} color={COLORS.primary} className="mt-0.5 flex-shrink-0" />
+              <p className="text-sm" style={{ color: COLORS.textSecondary }}>
+                Your workouts will include targeted muscle head selection for optimal development (e.g., long head vs short head biceps).
+              </p>
+            </div>
+          )}
+        </div>
+      )
+    },
+    {
+      title: "What equipment do you have?",
+      subtitle: "We'll customize exercises to match your gym",
+      content: (
+        <div className="space-y-3">
+          <p className="text-sm mb-2" style={{ color: COLORS.textMuted }}>Select all equipment you have access to:</p>
+          {EQUIPMENT_OPTIONS.map(equip => {
+            const isSelected = userData.equipment?.includes(equip.id);
+            return (
+              <button
+                key={equip.id}
+                onClick={() => toggleEquipmentWithScroll(equip.id)}
+                className="w-full p-4 rounded-xl text-left flex items-center gap-3"
+                style={{
+                  backgroundColor: isSelected ? COLORS.primary + '20' : COLORS.surface,
+                  border: `2px solid ${isSelected ? COLORS.primary : COLORS.surfaceLight}`
+                }}
+              >
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: isSelected ? COLORS.primary + '30' : COLORS.surfaceLight }}>
+                  <IconMap name={equip.icon} size={20} color={isSelected ? COLORS.primary : COLORS.textMuted} />
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold" style={{ color: isSelected ? COLORS.primary : COLORS.text }}>{equip.name}</p>
+                  <p className="text-sm" style={{ color: COLORS.textSecondary }}>{equip.desc}</p>
+                </div>
+                {isSelected && <Check size={20} color={COLORS.primary} />}
+              </button>
+            );
+          })}
+          <div className="mt-4 p-3 rounded-lg flex items-start gap-2" style={{ backgroundColor: COLORS.surfaceLight }}>
+            <Info size={16} color={COLORS.textMuted} className="mt-0.5 flex-shrink-0" />
+            <p className="text-sm" style={{ color: COLORS.textMuted }}>
+              Don't worry - you can change this anytime in Settings. We'll always show alternatives if needed.
+            </p>
+          </div>
+        </div>
+      )
+    },
+    {
+      title: "Set your sleep goal",
+      subtitle: "Good sleep is essential for recovery and results",
+      content: (
+        <div className="space-y-6">
+          <div className="text-center py-6">
+            <Moon size={48} color={COLORS.sleep} className="mx-auto mb-4" />
+            <div className="mb-4">
+              <span className="text-5xl font-bold" style={{ color: COLORS.sleep }}>{sleepHours}</span>
+              <span className="text-xl ml-2" style={{ color: COLORS.textMuted }}>hours / night</span>
+            </div>
+            <p className="text-sm" style={{ color: COLORS.textSecondary }}>
+              Most adults need 7-9 hours for optimal recovery
+            </p>
+          </div>
+
+          <div className="flex items-center justify-center gap-6">
+            <button
+              onClick={() => setSleepHours(prev => Math.max(5, prev - 0.5))}
+              className="w-14 h-14 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: COLORS.surface }}
+            >
+              <Minus size={24} color={COLORS.text} />
+            </button>
+            <div className="w-32 h-3 rounded-full overflow-hidden" style={{ backgroundColor: COLORS.surfaceLight }}>
+              <div
+                className="h-full rounded-full transition-all"
+                style={{ backgroundColor: COLORS.sleep, width: `${((sleepHours - 5) / 5) * 100}%` }}
+              />
+            </div>
+            <button
+              onClick={() => setSleepHours(prev => Math.min(10, prev + 0.5))}
+              className="w-14 h-14 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: COLORS.surface }}
+            >
+              <Plus size={24} color={COLORS.text} />
+            </button>
+          </div>
+
+          <div className="mt-6 space-y-2">
+            {[
+              { hours: 6, label: 'Light sleeper', desc: 'Minimum for adults' },
+              { hours: 7.5, label: 'Recommended', desc: 'Ideal for most people' },
+              { hours: 8, label: 'Athlete', desc: 'Optimal for training recovery' },
+            ].map(preset => (
+              <button
+                key={preset.hours}
+                onClick={() => setSleepHours(preset.hours)}
+                className="w-full p-3 rounded-xl text-left flex items-center gap-3"
+                style={{
+                  backgroundColor: sleepHours === preset.hours ? COLORS.sleep + '20' : COLORS.surface,
+                  border: `2px solid ${sleepHours === preset.hours ? COLORS.sleep : 'transparent'}`
+                }}
+              >
+                <div className="flex-1">
+                  <p className="font-semibold" style={{ color: COLORS.text }}>{preset.hours} hrs - {preset.label}</p>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>{preset.desc}</p>
+                </div>
+                {sleepHours === preset.hours && <Check size={20} color={COLORS.sleep} />}
+              </button>
+            ))}
+          </div>
+        </div>
+      )
+    },
+  ];
+
+  const step = steps[onboardingStep];
+
+  // Weight bounds
+  const MIN_WEIGHT = 35;
+  const MAX_WEIGHT = 250;
+  const isValidWeight = (w) => w >= MIN_WEIGHT && w <= MAX_WEIGHT;
+
+  // Check for weight step errors
+  const getWeightError = () => {
+    if (onboardingStep !== 2) return false;
+    const currentW = parseFloat(userData.currentWeight) || 0;
+    const goalW = parseFloat(userData.goalWeight) || 0;
+    if (!currentW || !goalW) return false;
+
+    // Check bounds
+    if (!isValidWeight(currentW) || !isValidWeight(goalW)) return true;
+
+    const diff = goalW - currentW;
+    const weeks = userData.programWeeks || 16;
+    const weeklyChange = Math.abs(diff / weeks);
+
+    if (userData.goal === 'lose_fat' && diff > 0) return true;
+    if ((userData.goal === 'build_muscle' || userData.goal === 'strength') && diff < 0) return true;
+    if (userData.goal === 'lose_fat' && weeklyChange > 1) return true;
+    if ((userData.goal === 'build_muscle' || userData.goal === 'strength') && weeklyChange > 0.5) return true;
+    return false;
+  };
+
+  // Validate weights are real numbers in valid range
+  const isValidWeightValue = (w) => {
+    const num = parseFloat(w);
+    return !isNaN(num) && num >= 35 && num <= 250;
+  };
+
+  const canProceed =
+    onboardingStep === 0 ? (userData.username && userData.username.length >= 3) :
+    onboardingStep === 1 ? userData.goal :
+    onboardingStep === 2 ? (isValidWeightValue(userData.currentWeight) && isValidWeightValue(userData.goalWeight) && !getWeightError()) :
+    onboardingStep === 3 ? userData.experience :
+    onboardingStep === 4 ? (userData.equipment && userData.equipment.length > 0) :
+    sleepHours >= 5 && sleepHours <= 10; // Sleep goal step
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="flex items-center gap-3 p-4">
+        <button onClick={() => onboardingStep > 0 ? setOnboardingStep(onboardingStep - 1) : setCurrentScreen('dashboard')}>
+          <ChevronLeft size={24} color={COLORS.text} />
+        </button>
+        <div className="flex-1 flex gap-1">
+          {steps.map((_, i) => (
+            <div key={i} className="flex-1 h-1 rounded-full"
+              style={{ backgroundColor: i <= onboardingStep ? COLORS.primary : COLORS.surfaceLight }} />
+          ))}
+        </div>
+      </div>
+      <div ref={onboardingScrollRef} className="flex-1 overflow-auto px-6 pb-4">
+        <h2 className="text-2xl font-bold mb-2" style={{ color: COLORS.text }}>{step.title}</h2>
+        {step.subtitle && <p className="mb-6" style={{ color: COLORS.textSecondary }}>{step.subtitle}</p>}
+        {onboardingStep === 0 ? (
+          <ProfileSetupStep
+            userData={userData}
+            setUserData={setUserData}
+            COLORS={COLORS}
+          />
+        ) : onboardingStep === 2 ? (
+          <WeightGoalStep
+            userData={userData}
+            setUserData={setUserData}
+            COLORS={COLORS}
+          />
+        ) : step.content}
+      </div>
+      <div className="p-6">
+        <button onClick={async () => {
+          if (onboardingStep < steps.length - 1) {
+            setOnboardingStep(onboardingStep + 1);
+          } else {
+            // Set up program based on user-entered weights
+            const currentW = parseFloat(userData.currentWeight) || 80;
+            const goalW = parseFloat(userData.goalWeight) || 75;
+            const weeks = userData.programWeeks || 16;
+            const weeklyTarget = (goalW - currentW) / weeks;
+
+            // Save profile and goals to Supabase
+            if (user) {
+              try {
+                // Update profile (username, bio, gender)
+                await updateProfile({
+                  username: userData.username,
+                  bio: userData.bio || '',
+                  gender: userData.gender,
+                  first_name: userData.firstName || '',
+                  last_name: userData.lastName || '',
+                });
+
+                // Update goals
+                await updateGoals({
+                  goal: userData.goal,
+                  experience: userData.experience,
+                  current_weight: currentW,
+                  goal_weight: goalW,
+                  starting_weight: currentW,
+                  program_weeks: weeks,
+                  days_per_week: userData.daysPerWeek || 4,
+                  session_duration: userData.sessionDuration || 60,
+                  rest_days: userData.restDays || [5, 6],
+                });
+
+                // Calculate and save nutrition goals
+                const nutritionTargets = generateNutritionTargets({
+                  weight: currentW,
+                  height: 175, // Could add to onboarding
+                  age: 25, // Could add to onboarding
+                  gender: userData.gender || 'other',
+                  goal: userData.goal || 'fitness',
+                  workoutsPerWeek: userData.daysPerWeek || 4,
+                  goalWeight: goalW,
+                });
+
+                await nutritionService.updateNutritionGoals(user.id, {
+                  calories: nutritionTargets.calories,
+                  protein: nutritionTargets.protein,
+                  carbs: nutritionTargets.carbs,
+                  fats: nutritionTargets.fat,
+                  water: nutritionTargets.water,
+                });
+
+                // Update local state
+                setNutritionGoals({
+                  calories: nutritionTargets.calories,
+                  protein: nutritionTargets.protein,
+                  carbs: nutritionTargets.carbs,
+                  fats: nutritionTargets.fat,
+                  water: nutritionTargets.water,
+                  tdee: nutritionTargets.tdee,
+                  weeklyWeightChange: nutritionTargets.weeklyWeightChange,
+                });
+
+                // Log initial weight
+                await profileService.logWeight(user.id, currentW);
+
+                // Save default sleep goal
+                await sleepService.updateSleepGoals(user.id, { target_hours: sleepHours });
+
+              } catch (err) {
+                console.error('Error saving onboarding data:', err);
+              }
+            }
+
+            // Set program start date to today
+            const programStartDate = getLocalDateString();
+
+            setOverviewStats(prev => ({
+              ...prev,
+              startingWeight: currentW,
+              currentWeight: currentW,
+              targetWeight: goalW,
+              weeklyTarget: parseFloat(weeklyTarget.toFixed(2)),
+              programWeek: 1,
+              programLength: weeks,
+              programStartDate,
+            }));
+            setCurrentScreen('main');
+          }
+        }}
+          disabled={!canProceed} className="w-full py-4 rounded-xl font-semibold text-lg"
+          style={{ backgroundColor: COLORS.primary, color: COLORS.text, opacity: canProceed ? 1 : 0.5 }}>
+          {onboardingStep < steps.length - 1 ? 'Continue' : 'Start Training'}
+        </button>
+      </div>
+    </div>
+  );
+};
+
 // Edit Profile Modal - separate component to prevent input focus loss
 const EditProfileModal = ({ userData, setUserData, COLORS, onClose, user, updateProfile }) => {
   const usernameRef = React.useRef(null);
@@ -19699,389 +20101,6 @@ export default function UpRepDemo() {
     );
   };
 
-  // Onboarding Screen
-  const OnboardingScreen = () => {
-    const steps = [
-      {
-        title: "Create your profile",
-        subtitle: "Choose a username your friends will see",
-        content: null // Will be rendered separately using ProfileSetupStep component
-      },
-      {
-        title: "What's your main goal?",
-        subtitle: "Select a goal, tap ⓘ to learn more",
-        content: (
-          <div className="space-y-3">
-            {Object.entries(GOAL_INFO).map(([id, goal]) => (
-              <div key={id}>
-                <div
-                  className="w-full p-4 rounded-xl flex items-center gap-4 text-left cursor-pointer"
-                  style={{ backgroundColor: userData.goal === id ? COLORS.primary + '20' : COLORS.surface,
-                    border: `2px solid ${userData.goal === id ? COLORS.primary : COLORS.surfaceLight}`,
-                    borderRadius: hoveredGoal === id ? '12px 12px 0 0' : '12px' }}
-                  onClick={() => { setUserData(p => ({...p, goal: id})); setHoveredGoal(id); }}
-                >
-                  <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: userData.goal === id ? COLORS.primary + '30' : COLORS.surfaceLight }}>
-                    <IconMap name={goal.icon} size={24} color={userData.goal === id ? COLORS.primary : COLORS.textMuted} />
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-semibold" style={{ color: userData.goal === id ? COLORS.primary : COLORS.text }}>{goal.title}</p>
-                  </div>
-                  {userData.goal === id && <Check size={20} color={COLORS.primary} />}
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setHoveredGoal(hoveredGoal === id ? null : id); }}
-                    className="p-2 rounded-full"
-                    style={{ backgroundColor: hoveredGoal === id ? COLORS.primary : COLORS.surfaceLight }}
-                  >
-                    <Info size={18} color={hoveredGoal === id ? COLORS.text : COLORS.textMuted} />
-                  </button>
-                </div>
-
-                {/* Info Panel - Inline, pushes content down */}
-                {hoveredGoal === id && (
-                  <div
-                    className="p-4 rounded-b-xl"
-                    style={{ backgroundColor: COLORS.surfaceLight, borderTop: `1px solid ${COLORS.surface}` }}
-                  >
-                    <p className="text-sm mb-3" style={{ color: COLORS.textSecondary }}>{goal.overview}</p>
-                    <div className="space-y-2">
-                      {goal.requirements.map((req, i) => (
-                        <div key={i} className="flex items-start gap-2">
-                          <IconMap name={req.icon} size={16} color={COLORS.textMuted} />
-                          <div>
-                            <p className="text-sm font-semibold" style={{ color: COLORS.text }}>{req.title}</p>
-                            <p className="text-xs" style={{ color: COLORS.textMuted }}>{req.desc}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="mt-3 pt-3 border-t flex justify-between text-xs" style={{ borderColor: COLORS.surface }}>
-                      <span style={{ color: COLORS.textMuted }}>Min: {goal.minDays} days/week</span>
-                      <span style={{ color: COLORS.accent }}>Ideal: {goal.idealDays} days/week</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )
-      },
-      {
-        title: "Set your weight goals",
-        subtitle: "We'll create a safe, sustainable plan",
-        content: null // Will be rendered separately to avoid re-creation
-      },
-      {
-        title: "Your experience level?",
-        content: (
-          <div className="space-y-3">
-            {Object.values(EXPERIENCE_LEVELS).map(level => (
-              <button key={level.id} onClick={() => setUserData(p => ({...p, experience: level.id}))}
-                className="w-full p-4 rounded-xl text-left flex items-center gap-3"
-                style={{ backgroundColor: userData.experience === level.id ? COLORS.primary + '20' : COLORS.surface,
-                  border: `2px solid ${userData.experience === level.id ? COLORS.primary : COLORS.surfaceLight}` }}>
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: userData.experience === level.id ? COLORS.primary + '30' : COLORS.surfaceLight }}>
-                  <IconMap name={level.icon} size={20} color={userData.experience === level.id ? COLORS.primary : COLORS.textMuted} />
-                </div>
-                <div className="flex-1">
-                  <p className="font-semibold" style={{ color: userData.experience === level.id ? COLORS.primary : COLORS.text }}>{level.label}</p>
-                  <p className="text-sm" style={{ color: COLORS.textSecondary }}>{level.desc}</p>
-                </div>
-                {userData.experience === level.id && <Check size={20} color={COLORS.primary} />}
-              </button>
-            ))}
-
-            {/* Info callout for experienced/expert */}
-            {['experienced', 'expert'].includes(userData.experience) && (
-              <div className="mt-4 p-3 rounded-lg flex items-start gap-2" style={{ backgroundColor: COLORS.primary + '10' }}>
-                <Info size={16} color={COLORS.primary} className="mt-0.5 flex-shrink-0" />
-                <p className="text-sm" style={{ color: COLORS.textSecondary }}>
-                  Your workouts will include targeted muscle head selection for optimal development (e.g., long head vs short head biceps).
-                </p>
-              </div>
-            )}
-          </div>
-        )
-      },
-      {
-        title: "What equipment do you have?",
-        subtitle: "We'll customize exercises to match your gym",
-        content: (
-          <div className="space-y-3">
-            <p className="text-sm mb-2" style={{ color: COLORS.textMuted }}>Select all equipment you have access to:</p>
-            {EQUIPMENT_OPTIONS.map(equip => {
-              const isSelected = userData.equipment?.includes(equip.id);
-              return (
-                <button
-                  key={equip.id}
-                  onClick={() => toggleEquipmentWithScroll(equip.id)}
-                  className="w-full p-4 rounded-xl text-left flex items-center gap-3"
-                  style={{
-                    backgroundColor: isSelected ? COLORS.primary + '20' : COLORS.surface,
-                    border: `2px solid ${isSelected ? COLORS.primary : COLORS.surfaceLight}`
-                  }}
-                >
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: isSelected ? COLORS.primary + '30' : COLORS.surfaceLight }}>
-                    <IconMap name={equip.icon} size={20} color={isSelected ? COLORS.primary : COLORS.textMuted} />
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-semibold" style={{ color: isSelected ? COLORS.primary : COLORS.text }}>{equip.name}</p>
-                    <p className="text-sm" style={{ color: COLORS.textSecondary }}>{equip.desc}</p>
-                  </div>
-                  {isSelected && <Check size={20} color={COLORS.primary} />}
-                </button>
-              );
-            })}
-            <div className="mt-4 p-3 rounded-lg flex items-start gap-2" style={{ backgroundColor: COLORS.surfaceLight }}>
-              <Info size={16} color={COLORS.textMuted} className="mt-0.5 flex-shrink-0" />
-              <p className="text-sm" style={{ color: COLORS.textMuted }}>
-                Don't worry - you can change this anytime in Settings. We'll always show alternatives if needed.
-              </p>
-            </div>
-          </div>
-        )
-      },
-      {
-        title: "Set your sleep goal",
-        subtitle: "Good sleep is essential for recovery and results",
-        content: (
-          <div className="space-y-6">
-            <div className="text-center py-6">
-              <Moon size={48} color={COLORS.sleep} className="mx-auto mb-4" />
-              <div className="mb-4">
-                <span className="text-5xl font-bold" style={{ color: COLORS.sleep }}>{sleepHours}</span>
-                <span className="text-xl ml-2" style={{ color: COLORS.textMuted }}>hours / night</span>
-              </div>
-              <p className="text-sm" style={{ color: COLORS.textSecondary }}>
-                Most adults need 7-9 hours for optimal recovery
-              </p>
-            </div>
-
-            <div className="flex items-center justify-center gap-6">
-              <button
-                onClick={() => setSleepHours(prev => Math.max(5, prev - 0.5))}
-                className="w-14 h-14 rounded-full flex items-center justify-center"
-                style={{ backgroundColor: COLORS.surface }}
-              >
-                <Minus size={24} color={COLORS.text} />
-              </button>
-              <div className="w-32 h-3 rounded-full overflow-hidden" style={{ backgroundColor: COLORS.surfaceLight }}>
-                <div
-                  className="h-full rounded-full transition-all"
-                  style={{ backgroundColor: COLORS.sleep, width: `${((sleepHours - 5) / 5) * 100}%` }}
-                />
-              </div>
-              <button
-                onClick={() => setSleepHours(prev => Math.min(10, prev + 0.5))}
-                className="w-14 h-14 rounded-full flex items-center justify-center"
-                style={{ backgroundColor: COLORS.surface }}
-              >
-                <Plus size={24} color={COLORS.text} />
-              </button>
-            </div>
-
-            <div className="mt-6 space-y-2">
-              {[
-                { hours: 6, label: 'Light sleeper', desc: 'Minimum for adults' },
-                { hours: 7.5, label: 'Recommended', desc: 'Ideal for most people' },
-                { hours: 8, label: 'Athlete', desc: 'Optimal for training recovery' },
-              ].map(preset => (
-                <button
-                  key={preset.hours}
-                  onClick={() => setSleepHours(preset.hours)}
-                  className="w-full p-3 rounded-xl text-left flex items-center gap-3"
-                  style={{
-                    backgroundColor: sleepHours === preset.hours ? COLORS.sleep + '20' : COLORS.surface,
-                    border: `2px solid ${sleepHours === preset.hours ? COLORS.sleep : 'transparent'}`
-                  }}
-                >
-                  <div className="flex-1">
-                    <p className="font-semibold" style={{ color: COLORS.text }}>{preset.hours} hrs - {preset.label}</p>
-                    <p className="text-xs" style={{ color: COLORS.textMuted }}>{preset.desc}</p>
-                  </div>
-                  {sleepHours === preset.hours && <Check size={20} color={COLORS.sleep} />}
-                </button>
-              ))}
-            </div>
-          </div>
-        )
-      },
-    ];
-
-    const step = steps[onboardingStep];
-    
-    // Weight bounds
-    const MIN_WEIGHT = 35;
-    const MAX_WEIGHT = 250;
-    const isValidWeight = (w) => w >= MIN_WEIGHT && w <= MAX_WEIGHT;
-    
-    // Check for weight step errors
-    const getWeightError = () => {
-      if (onboardingStep !== 2) return false;
-      const currentW = parseFloat(userData.currentWeight) || 0;
-      const goalW = parseFloat(userData.goalWeight) || 0;
-      if (!currentW || !goalW) return false;
-      
-      // Check bounds
-      if (!isValidWeight(currentW) || !isValidWeight(goalW)) return true;
-      
-      const diff = goalW - currentW;
-      const weeks = userData.programWeeks || 16;
-      const weeklyChange = Math.abs(diff / weeks);
-      
-      if (userData.goal === 'lose_fat' && diff > 0) return true;
-      if ((userData.goal === 'build_muscle' || userData.goal === 'strength') && diff < 0) return true;
-      if (userData.goal === 'lose_fat' && weeklyChange > 1) return true;
-      if ((userData.goal === 'build_muscle' || userData.goal === 'strength') && weeklyChange > 0.5) return true;
-      return false;
-    };
-    
-    // Validate weights are real numbers in valid range
-    const isValidWeightValue = (w) => {
-      const num = parseFloat(w);
-      return !isNaN(num) && num >= 35 && num <= 250;
-    };
-
-    const canProceed =
-      onboardingStep === 0 ? (userData.username && userData.username.length >= 3) :
-      onboardingStep === 1 ? userData.goal :
-      onboardingStep === 2 ? (isValidWeightValue(userData.currentWeight) && isValidWeightValue(userData.goalWeight) && !getWeightError()) :
-      onboardingStep === 3 ? userData.experience :
-      onboardingStep === 4 ? (userData.equipment && userData.equipment.length > 0) :
-      sleepHours >= 5 && sleepHours <= 10; // Sleep goal step
-
-    return (
-      <div className="flex flex-col h-full">
-        <div className="flex items-center gap-3 p-4">
-          <button onClick={() => onboardingStep > 0 ? setOnboardingStep(onboardingStep - 1) : setCurrentScreen('dashboard')}>
-            <ChevronLeft size={24} color={COLORS.text} />
-          </button>
-          <div className="flex-1 flex gap-1">
-            {steps.map((_, i) => (
-              <div key={i} className="flex-1 h-1 rounded-full" 
-                style={{ backgroundColor: i <= onboardingStep ? COLORS.primary : COLORS.surfaceLight }} />
-            ))}
-          </div>
-        </div>
-        <div ref={onboardingScrollRef} className="flex-1 overflow-auto px-6 pb-4">
-          <h2 className="text-2xl font-bold mb-2" style={{ color: COLORS.text }}>{step.title}</h2>
-          {step.subtitle && <p className="mb-6" style={{ color: COLORS.textSecondary }}>{step.subtitle}</p>}
-          {onboardingStep === 0 ? (
-            <ProfileSetupStep
-              userData={userData}
-              setUserData={setUserData}
-              COLORS={COLORS}
-            />
-          ) : onboardingStep === 2 ? (
-            <WeightGoalStep
-              userData={userData}
-              setUserData={setUserData}
-              COLORS={COLORS}
-            />
-          ) : step.content}
-        </div>
-        <div className="p-6">
-          <button onClick={async () => {
-            if (onboardingStep < steps.length - 1) {
-              setOnboardingStep(onboardingStep + 1);
-            } else {
-              // Set up program based on user-entered weights
-              const currentW = parseFloat(userData.currentWeight) || 80;
-              const goalW = parseFloat(userData.goalWeight) || 75;
-              const weeks = userData.programWeeks || 16;
-              const weeklyTarget = (goalW - currentW) / weeks;
-
-              // Save profile and goals to Supabase
-              if (user) {
-                try {
-                  // Update profile (username, bio, gender)
-                  await updateProfile({
-                    username: userData.username,
-                    bio: userData.bio || '',
-                    gender: userData.gender,
-                    first_name: userData.firstName || '',
-                    last_name: userData.lastName || '',
-                  });
-
-                  // Update goals
-                  await updateGoals({
-                    goal: userData.goal,
-                    experience: userData.experience,
-                    current_weight: currentW,
-                    goal_weight: goalW,
-                    starting_weight: currentW,
-                    program_weeks: weeks,
-                    days_per_week: userData.daysPerWeek || 4,
-                    session_duration: userData.sessionDuration || 60,
-                    rest_days: userData.restDays || [5, 6],
-                  });
-
-                  // Calculate and save nutrition goals
-                  const nutritionTargets = generateNutritionTargets({
-                    weight: currentW,
-                    height: 175, // Could add to onboarding
-                    age: 25, // Could add to onboarding
-                    gender: userData.gender || 'other',
-                    goal: userData.goal || 'fitness',
-                    workoutsPerWeek: userData.daysPerWeek || 4,
-                    goalWeight: goalW,
-                  });
-
-                  await nutritionService.updateNutritionGoals(user.id, {
-                    calories: nutritionTargets.calories,
-                    protein: nutritionTargets.protein,
-                    carbs: nutritionTargets.carbs,
-                    fats: nutritionTargets.fat,
-                    water: nutritionTargets.water,
-                  });
-
-                  // Update local state
-                  setNutritionGoals({
-                    calories: nutritionTargets.calories,
-                    protein: nutritionTargets.protein,
-                    carbs: nutritionTargets.carbs,
-                    fats: nutritionTargets.fat,
-                    water: nutritionTargets.water,
-                    tdee: nutritionTargets.tdee,
-                    weeklyWeightChange: nutritionTargets.weeklyWeightChange,
-                  });
-
-                  // Log initial weight
-                  await profileService.logWeight(user.id, currentW);
-
-                  // Save default sleep goal
-                  await sleepService.updateSleepGoals(user.id, { target_hours: sleepHours });
-
-                } catch (err) {
-                  console.error('Error saving onboarding data:', err);
-                }
-              }
-
-              // Set program start date to today
-              const programStartDate = getLocalDateString();
-
-              setOverviewStats(prev => ({
-                ...prev,
-                startingWeight: currentW,
-                currentWeight: currentW,
-                targetWeight: goalW,
-                weeklyTarget: parseFloat(weeklyTarget.toFixed(2)),
-                programWeek: 1,
-                programLength: weeks,
-                programStartDate,
-              }));
-              setCurrentScreen('main');
-            }
-          }}
-            disabled={!canProceed} className="w-full py-4 rounded-xl font-semibold text-lg"
-            style={{ backgroundColor: COLORS.primary, color: COLORS.text, opacity: canProceed ? 1 : 0.5 }}>
-            {onboardingStep < steps.length - 1 ? 'Continue' : 'Start Training'}
-          </button>
-        </div>
-      </div>
-    );
-  };
-
   // Reschedule Modal
   const RescheduleModal = () => {
     // Base schedule for the next 14 days - using Push/Pull/Legs split
@@ -29383,7 +29402,26 @@ export default function UpRepDemo() {
         {currentScreen === 'register' && <RegisterScreen onBack={() => setCurrentScreen('welcome')}
           onRegister={(data) => { setUserData(p => ({...p, ...data})); setCurrentScreen('onboarding'); }} COLORS={COLORS} />}
         {currentScreen === 'dashboard' && <DashboardScreen />}
-        {currentScreen === 'onboarding' && <OnboardingScreen />}
+        {currentScreen === 'onboarding' && <OnboardingScreen
+          userData={userData}
+          setUserData={setUserData}
+          onboardingStep={onboardingStep}
+          setOnboardingStep={setOnboardingStep}
+          hoveredGoal={hoveredGoal}
+          setHoveredGoal={setHoveredGoal}
+          sleepHours={sleepHours}
+          setSleepHours={setSleepHours}
+          setCurrentScreen={setCurrentScreen}
+          user={user}
+          updateProfile={updateProfile}
+          updateGoals={updateGoals}
+          setNutritionGoals={setNutritionGoals}
+          setOverviewStats={setOverviewStats}
+          onboardingScrollRef={onboardingScrollRef}
+          toggleEquipmentWithScroll={toggleEquipmentWithScroll}
+          getLocalDateString={getLocalDateString}
+          generateNutritionTargets={generateNutritionTargets}
+        />}
         {currentScreen === 'main' && <MainScreen />}
       </div>
     </div>
