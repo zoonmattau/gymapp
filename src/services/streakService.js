@@ -1,5 +1,13 @@
 import { supabase } from '../lib/supabase';
 
+// Helper to get local date string (YYYY-MM-DD) consistently
+const getLocalDateString = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export const streakService = {
   // Get all streaks for user
   async getStreaks(userId) {
@@ -58,9 +66,9 @@ export const streakService = {
       return { streak: 0, lastDate: null };
     }
 
-    // Group by date
+    // Group by local date
     const workoutDates = new Set(
-      sessions.map(s => new Date(s.started_at).toISOString().split('T')[0])
+      sessions.map(s => getLocalDateString(new Date(s.started_at)))
     );
 
     // Count consecutive days from today backwards
@@ -69,10 +77,10 @@ export const streakService = {
     let checkDate = new Date(today);
 
     // Allow starting from today or yesterday
-    const todayStr = today.toISOString().split('T')[0];
+    const todayStr = getLocalDateString(today);
     const yesterdayDate = new Date(today);
     yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-    const yesterdayStr = yesterdayDate.toISOString().split('T')[0];
+    const yesterdayStr = getLocalDateString(yesterdayDate);
 
     if (workoutDates.has(todayStr)) {
       checkDate = today;
@@ -82,12 +90,12 @@ export const streakService = {
       return { streak: 0, lastDate: null };
     }
 
-    while (workoutDates.has(checkDate.toISOString().split('T')[0])) {
+    while (workoutDates.has(getLocalDateString(checkDate))) {
       streak++;
       checkDate.setDate(checkDate.getDate() - 1);
     }
 
-    const lastDate = sessions[0].started_at.split('T')[0];
+    const lastDate = getLocalDateString(new Date(sessions[0].started_at));
     return { streak, lastDate };
   },
 
@@ -122,18 +130,34 @@ export const streakService = {
       return { streak: 0, lastDate: null };
     }
 
-    // For fat loss: must be under goal (but at least 50% to ensure healthy eating)
+    // For fat loss: must be UNDER goal (but at least 50% to ensure healthy eating)
     // For other goals: within 10% margin
     const targetMin = isFatLossGoal ? goals.calories * 0.5 : goals.calories * 0.9;
-    const targetMax = isFatLossGoal ? goals.calories : goals.calories * 1.1;
+    const targetMax = isFatLossGoal ? goals.calories * 0.99 : goals.calories * 1.1; // For fat loss, must be strictly under
 
     let streak = 0;
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateString();
     let checkDate = new Date();
 
+    // Nutrition streak must start from today - no grace period like workouts
+    // If no entry for today or today is over goal, streak is 0
+    const todayEntry = nutrition.find(n => n.log_date === today);
+
+    if (!todayEntry) {
+      // No entry for today - streak is 0
+      return { streak: 0, lastDate: nutrition[0]?.log_date || null };
+    }
+
+    // Check if today meets the goal
+    if (todayEntry.total_calories < targetMin || todayEntry.total_calories > targetMax) {
+      // Today doesn't meet goal - streak is 0
+      return { streak: 0, lastDate: today };
+    }
+
+    // Today meets goal, now count backwards
     for (const entry of nutrition) {
       const dateStr = entry.log_date;
-      const expectedDate = checkDate.toISOString().split('T')[0];
+      const expectedDate = getLocalDateString(checkDate);
 
       if (dateStr !== expectedDate) {
         break;
@@ -181,7 +205,7 @@ export const streakService = {
 
     for (const entry of sleepLogs) {
       const dateStr = entry.log_date;
-      const expectedDate = checkDate.toISOString().split('T')[0];
+      const expectedDate = getLocalDateString(checkDate);
 
       if (dateStr !== expectedDate) {
         break;
@@ -227,7 +251,7 @@ export const streakService = {
 
     for (const entry of nutrition) {
       const dateStr = entry.log_date;
-      const expectedDate = checkDate.toISOString().split('T')[0];
+      const expectedDate = getLocalDateString(checkDate);
 
       if (dateStr !== expectedDate) {
         break;
