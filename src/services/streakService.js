@@ -137,24 +137,32 @@ export const streakService = {
 
     let streak = 0;
     const today = getLocalDateString();
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = getLocalDateString(yesterday);
+
     let checkDate = new Date();
 
-    // Nutrition streak must start from today - no grace period like workouts
-    // If no entry for today or today is over goal, streak is 0
+    // Check if today has an entry
     const todayEntry = nutrition.find(n => n.log_date === today);
 
-    if (!todayEntry) {
-      // No entry for today - streak is 0
-      return { streak: 0, lastDate: nutrition[0]?.log_date || null };
+    if (todayEntry) {
+      // Today has an entry - check if it meets the goal
+      if (todayEntry.total_calories < targetMin || todayEntry.total_calories > targetMax) {
+        // Today doesn't meet goal - streak is broken
+        return { streak: 0, lastDate: today };
+      }
+      // Today meets goal, start counting from today
+    } else {
+      // No entry for today - allow starting from yesterday (day isn't over yet)
+      const yesterdayEntry = nutrition.find(n => n.log_date === yesterdayStr);
+      if (!yesterdayEntry) {
+        return { streak: 0, lastDate: null };
+      }
+      checkDate = yesterday;
     }
 
-    // Check if today meets the goal
-    if (todayEntry.total_calories < targetMin || todayEntry.total_calories > targetMax) {
-      // Today doesn't meet goal - streak is 0
-      return { streak: 0, lastDate: today };
-    }
-
-    // Today meets goal, now count backwards
+    // Count consecutive days meeting goal
     for (const entry of nutrition) {
       const dateStr = entry.log_date;
       const expectedDate = getLocalDateString(checkDate);
