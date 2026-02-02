@@ -14683,18 +14683,13 @@ const FriendsTab = ({
   supabase,
   // Utility
   setActiveTab,
+  handleFriendsTabScroll,
 }) => {
-  const handleScroll = (e) => {
-    if (friendsTabScrollRef?.current !== undefined) {
-      friendsTabScrollRef.current = e.target.scrollTop;
-    }
-  };
-
   return (
     <div
       ref={friendsTabScrollRef}
-      onScroll={handleScroll}
-      className="p-4 h-full overflow-auto"
+      onScroll={handleFriendsTabScroll}
+      className="p-4 h-full overflow-auto pb-20"
     >
       {/* Social Opt-Out Banner */}
       {!socialEnabled && (
@@ -19956,6 +19951,17 @@ export default function UpRepDemo() {
     }
   });
 
+  // Restore friends tab scroll position after re-renders
+  useEffect(() => {
+    if (activeTab === 'friends' && friendsTabScrollRef.current && friendsTabScrollPos.current > 0) {
+      requestAnimationFrame(() => {
+        if (friendsTabScrollRef.current) {
+          friendsTabScrollRef.current.scrollTop = friendsTabScrollPos.current;
+        }
+      });
+    }
+  }, [activeTab]);
+
   // Track scroll position on friends tab
   const handleFriendsTabScroll = (e) => {
     friendsTabScrollPos.current = e.target.scrollTop;
@@ -23880,6 +23886,7 @@ export default function UpRepDemo() {
             accountabilityService={accountabilityService}
             supabase={supabase}
             setActiveTab={setActiveTab}
+            handleFriendsTabScroll={handleFriendsTabScroll}
           />
         )}
 
