@@ -12901,8 +12901,6 @@ const ProgressTab = ({
   lastNightBedTime,
   lastNightWakeTime,
   streaks,
-  dailyInsightsExpanded,
-  setDailyInsightsExpanded,
   chartData,
   setShowWeighIn,
   getLocalDateString,
@@ -28941,8 +28939,6 @@ export default function UpRepDemo() {
             lastNightBedTime={lastNightBedTime}
             lastNightWakeTime={lastNightWakeTime}
             streaks={streaks}
-            dailyInsightsExpanded={dailyInsightsExpanded}
-            setDailyInsightsExpanded={setDailyInsightsExpanded}
             chartData={chartData}
             setShowWeighIn={setShowWeighIn}
             getLocalDateString={getLocalDateString}
