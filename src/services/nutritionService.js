@@ -221,7 +221,7 @@ export const nutritionService = {
       .select('*')
       .eq('user_id', userId)
       .eq('log_date', logDate)
-      .order('logged_at');
+      .order('created_at');
 
     return { data, error };
   },
@@ -326,7 +326,7 @@ export const nutritionService = {
       .select('meal_name, calories, protein, carbs, fats')
       .eq('user_id', userId)
       .gte('log_date', ninetyDaysAgo)
-      .order('logged_at', { ascending: false });
+      .order('created_at', { ascending: false });
 
     if (error || !data) return { data: [], error };
 

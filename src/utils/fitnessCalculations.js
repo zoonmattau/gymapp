@@ -134,8 +134,8 @@ export function calculateWaterTarget(weight, workoutsPerWeek) {
   const extraForWorkouts = (workoutsPerWeek / 7) * 500; // 500ml extra on workout days
   waterMl += extraForWorkouts;
 
-  // Cap at reasonable limits (2L min, 4L max for most people)
-  waterMl = Math.max(2000, Math.min(4000, waterMl));
+  // Cap at reasonable limits (2L min, 3.5L max for most people)
+  waterMl = Math.max(2000, Math.min(3500, waterMl));
 
   // Round to nearest 100ml
   return Math.round(waterMl / 100) * 100;

@@ -111,9 +111,9 @@ export const streakService = {
 
     // Get user's fitness goal to determine streak logic
     const { data: profile } = await supabase
-      .from('user_profiles')
+      .from('user_goals')
       .select('goal')
-      .eq('id', userId)
+      .eq('user_id', userId)
       .maybeSingle();
 
     const userGoal = profile?.goal || 'build_muscle';

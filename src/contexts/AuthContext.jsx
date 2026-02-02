@@ -302,6 +302,27 @@ export function AuthProvider({ children }) {
       if (goals.activity_level) cleanGoals.activity_level = goals.activity_level;
       if (goals.program_id) cleanGoals.program_id = goals.program_id;
       if (goals.equipment) cleanGoals.equipment = goals.equipment;
+      // Base lifts for weight estimation (weight + reps)
+      if (goals.base_bench != null) cleanGoals.base_bench = goals.base_bench;
+      if (goals.base_bench_reps != null) cleanGoals.base_bench_reps = goals.base_bench_reps;
+      if (goals.base_db_press != null) cleanGoals.base_db_press = goals.base_db_press;
+      if (goals.base_db_press_reps != null) cleanGoals.base_db_press_reps = goals.base_db_press_reps;
+      if (goals.base_ohp != null) cleanGoals.base_ohp = goals.base_ohp;
+      if (goals.base_ohp_reps != null) cleanGoals.base_ohp_reps = goals.base_ohp_reps;
+      if (goals.base_deadlift != null) cleanGoals.base_deadlift = goals.base_deadlift;
+      if (goals.base_deadlift_reps != null) cleanGoals.base_deadlift_reps = goals.base_deadlift_reps;
+      if (goals.base_row != null) cleanGoals.base_row = goals.base_row;
+      if (goals.base_row_reps != null) cleanGoals.base_row_reps = goals.base_row_reps;
+      if (goals.base_pullup != null) cleanGoals.base_pullup = goals.base_pullup;
+      if (goals.base_pullup_reps != null) cleanGoals.base_pullup_reps = goals.base_pullup_reps;
+      if (goals.base_squat != null) cleanGoals.base_squat = goals.base_squat;
+      if (goals.base_squat_reps != null) cleanGoals.base_squat_reps = goals.base_squat_reps;
+      if (goals.base_leg_press != null) cleanGoals.base_leg_press = goals.base_leg_press;
+      if (goals.base_leg_press_reps != null) cleanGoals.base_leg_press_reps = goals.base_leg_press_reps;
+      if (goals.base_rdl != null) cleanGoals.base_rdl = goals.base_rdl;
+      if (goals.base_rdl_reps != null) cleanGoals.base_rdl_reps = goals.base_rdl_reps;
+      if (goals.base_curl != null) cleanGoals.base_curl = goals.base_curl;
+      if (goals.base_curl_reps != null) cleanGoals.base_curl_reps = goals.base_curl_reps;
 
       const { data, error } = await supabase
         .from('user_goals')

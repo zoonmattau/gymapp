@@ -2226,6 +2226,198 @@ const OnboardingScreen = ({
       )
     },
     {
+      title: "What can you lift?",
+      subtitle: "Enter weights for exercises you do (optional)",
+      content: (
+        <div className="space-y-3">
+          <p className="text-sm mb-2" style={{ color: COLORS.textMuted }}>
+            Enter weight and reps - we'll estimate your 1RM to suggest starting weights.
+          </p>
+
+          {/* Push exercises */}
+          <p className="text-xs font-semibold mt-3" style={{ color: COLORS.textMuted }}>PUSH</p>
+          {[
+            { key: 'bench', label: 'Bench Press' },
+            { key: 'dbPress', label: 'Dumbbell Press' },
+            { key: 'ohp', label: 'Overhead Press' },
+          ].map(lift => (
+            <div key={lift.key} className="p-3 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+              <p className="font-semibold text-sm mb-2" style={{ color: COLORS.text }}>{lift.label}</p>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="0"
+                  value={userData.baseLifts?.[lift.key]?.weight || ''}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '');
+                    setUserData(p => ({ ...p, baseLifts: { ...p.baseLifts, [lift.key]: { ...p.baseLifts?.[lift.key], weight: val } } }));
+                  }}
+                  className="w-16 text-center py-2 rounded-lg font-semibold"
+                  style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+                />
+                <span className="text-xs" style={{ color: COLORS.textMuted }}>kg ×</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="0"
+                  value={userData.baseLifts?.[lift.key]?.reps || ''}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '');
+                    setUserData(p => ({ ...p, baseLifts: { ...p.baseLifts, [lift.key]: { ...p.baseLifts?.[lift.key], reps: val } } }));
+                  }}
+                  className="w-12 text-center py-2 rounded-lg font-semibold"
+                  style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+                />
+                <span className="text-xs" style={{ color: COLORS.textMuted }}>reps</span>
+                {userData.baseLifts?.[lift.key]?.weight && userData.baseLifts?.[lift.key]?.reps && (
+                  <span className="text-xs ml-auto" style={{ color: COLORS.primary }}>
+                    ~{Math.round(parseFloat(userData.baseLifts[lift.key].weight) * (1 + parseFloat(userData.baseLifts[lift.key].reps) / 30))}kg 1RM
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+
+          {/* Pull exercises */}
+          <p className="text-xs font-semibold mt-3" style={{ color: COLORS.textMuted }}>PULL</p>
+          {[
+            { key: 'deadlift', label: 'Deadlift' },
+            { key: 'row', label: 'Barbell Row' },
+            { key: 'pullup', label: 'Pull-up / Lat Pulldown' },
+          ].map(lift => (
+            <div key={lift.key} className="p-3 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+              <p className="font-semibold text-sm mb-2" style={{ color: COLORS.text }}>{lift.label}</p>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="0"
+                  value={userData.baseLifts?.[lift.key]?.weight || ''}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '');
+                    setUserData(p => ({ ...p, baseLifts: { ...p.baseLifts, [lift.key]: { ...p.baseLifts?.[lift.key], weight: val } } }));
+                  }}
+                  className="w-16 text-center py-2 rounded-lg font-semibold"
+                  style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+                />
+                <span className="text-xs" style={{ color: COLORS.textMuted }}>kg ×</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="0"
+                  value={userData.baseLifts?.[lift.key]?.reps || ''}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '');
+                    setUserData(p => ({ ...p, baseLifts: { ...p.baseLifts, [lift.key]: { ...p.baseLifts?.[lift.key], reps: val } } }));
+                  }}
+                  className="w-12 text-center py-2 rounded-lg font-semibold"
+                  style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+                />
+                <span className="text-xs" style={{ color: COLORS.textMuted }}>reps</span>
+                {userData.baseLifts?.[lift.key]?.weight && userData.baseLifts?.[lift.key]?.reps && (
+                  <span className="text-xs ml-auto" style={{ color: COLORS.primary }}>
+                    ~{Math.round(parseFloat(userData.baseLifts[lift.key].weight) * (1 + parseFloat(userData.baseLifts[lift.key].reps) / 30))}kg 1RM
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+
+          {/* Legs exercises */}
+          <p className="text-xs font-semibold mt-3" style={{ color: COLORS.textMuted }}>LEGS</p>
+          {[
+            { key: 'squat', label: 'Squat' },
+            { key: 'legPress', label: 'Leg Press' },
+            { key: 'rdl', label: 'Romanian Deadlift' },
+          ].map(lift => (
+            <div key={lift.key} className="p-3 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+              <p className="font-semibold text-sm mb-2" style={{ color: COLORS.text }}>{lift.label}</p>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="0"
+                  value={userData.baseLifts?.[lift.key]?.weight || ''}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '');
+                    setUserData(p => ({ ...p, baseLifts: { ...p.baseLifts, [lift.key]: { ...p.baseLifts?.[lift.key], weight: val } } }));
+                  }}
+                  className="w-16 text-center py-2 rounded-lg font-semibold"
+                  style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+                />
+                <span className="text-xs" style={{ color: COLORS.textMuted }}>kg ×</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="0"
+                  value={userData.baseLifts?.[lift.key]?.reps || ''}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '');
+                    setUserData(p => ({ ...p, baseLifts: { ...p.baseLifts, [lift.key]: { ...p.baseLifts?.[lift.key], reps: val } } }));
+                  }}
+                  className="w-12 text-center py-2 rounded-lg font-semibold"
+                  style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+                />
+                <span className="text-xs" style={{ color: COLORS.textMuted }}>reps</span>
+                {userData.baseLifts?.[lift.key]?.weight && userData.baseLifts?.[lift.key]?.reps && (
+                  <span className="text-xs ml-auto" style={{ color: COLORS.primary }}>
+                    ~{Math.round(parseFloat(userData.baseLifts[lift.key].weight) * (1 + parseFloat(userData.baseLifts[lift.key].reps) / 30))}kg 1RM
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+
+          {/* Arms */}
+          <p className="text-xs font-semibold mt-3" style={{ color: COLORS.textMuted }}>ARMS</p>
+          <div className="p-3 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+            <p className="font-semibold text-sm mb-2" style={{ color: COLORS.text }}>Bicep Curl</p>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                inputMode="numeric"
+                placeholder="0"
+                value={userData.baseLifts?.curl?.weight || ''}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, '');
+                  setUserData(p => ({ ...p, baseLifts: { ...p.baseLifts, curl: { ...p.baseLifts?.curl, weight: val } } }));
+                }}
+                className="w-16 text-center py-2 rounded-lg font-semibold"
+                style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+              />
+              <span className="text-xs" style={{ color: COLORS.textMuted }}>kg ×</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                placeholder="0"
+                value={userData.baseLifts?.curl?.reps || ''}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, '');
+                  setUserData(p => ({ ...p, baseLifts: { ...p.baseLifts, curl: { ...p.baseLifts?.curl, reps: val } } }));
+                }}
+                className="w-12 text-center py-2 rounded-lg font-semibold"
+                style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+              />
+              <span className="text-xs" style={{ color: COLORS.textMuted }}>reps</span>
+              {userData.baseLifts?.curl?.weight && userData.baseLifts?.curl?.reps && (
+                <span className="text-xs ml-auto" style={{ color: COLORS.primary }}>
+                  ~{Math.round(parseFloat(userData.baseLifts.curl.weight) * (1 + parseFloat(userData.baseLifts.curl.reps) / 30))}kg 1RM
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-3 p-3 rounded-lg flex items-start gap-2" style={{ backgroundColor: COLORS.surfaceLight }}>
+            <Info size={16} color={COLORS.textMuted} className="mt-0.5 flex-shrink-0" />
+            <p className="text-xs" style={{ color: COLORS.textMuted }}>
+              We'll calculate your estimated 1RM and use it for weight suggestions.
+            </p>
+          </div>
+        </div>
+      )
+    },
+    {
       title: "What equipment do you have?",
       subtitle: "We'll customize exercises to match your gym",
       content: (
@@ -2369,7 +2561,8 @@ const OnboardingScreen = ({
     onboardingStep === 1 ? userData.goal :
     onboardingStep === 2 ? (isValidWeightValue(userData.currentWeight) && isValidWeightValue(userData.goalWeight) && !getWeightError()) :
     onboardingStep === 3 ? userData.experience :
-    onboardingStep === 4 ? (userData.equipment && userData.equipment.length > 0) :
+    onboardingStep === 4 ? true : // Base lifts step - optional, always can proceed
+    onboardingStep === 5 ? (userData.equipment && userData.equipment.length > 0) :
     sleepHours >= 5 && sleepHours <= 10; // Sleep goal step
 
   return (
@@ -2425,7 +2618,7 @@ const OnboardingScreen = ({
                   last_name: userData.lastName || '',
                 });
 
-                // Update goals
+                // Update goals including base lifts
                 await updateGoals({
                   goal: userData.goal,
                   experience: userData.experience,
@@ -2436,6 +2629,26 @@ const OnboardingScreen = ({
                   days_per_week: userData.daysPerWeek || 4,
                   session_duration: userData.sessionDuration || 60,
                   rest_days: userData.restDays || [5, 6],
+                  base_bench: parseInt(userData.baseLifts?.bench?.weight) || null,
+                  base_bench_reps: parseInt(userData.baseLifts?.bench?.reps) || null,
+                  base_db_press: parseInt(userData.baseLifts?.dbPress?.weight) || null,
+                  base_db_press_reps: parseInt(userData.baseLifts?.dbPress?.reps) || null,
+                  base_ohp: parseInt(userData.baseLifts?.ohp?.weight) || null,
+                  base_ohp_reps: parseInt(userData.baseLifts?.ohp?.reps) || null,
+                  base_deadlift: parseInt(userData.baseLifts?.deadlift?.weight) || null,
+                  base_deadlift_reps: parseInt(userData.baseLifts?.deadlift?.reps) || null,
+                  base_row: parseInt(userData.baseLifts?.row?.weight) || null,
+                  base_row_reps: parseInt(userData.baseLifts?.row?.reps) || null,
+                  base_pullup: parseInt(userData.baseLifts?.pullup?.weight) || null,
+                  base_pullup_reps: parseInt(userData.baseLifts?.pullup?.reps) || null,
+                  base_squat: parseInt(userData.baseLifts?.squat?.weight) || null,
+                  base_squat_reps: parseInt(userData.baseLifts?.squat?.reps) || null,
+                  base_leg_press: parseInt(userData.baseLifts?.legPress?.weight) || null,
+                  base_leg_press_reps: parseInt(userData.baseLifts?.legPress?.reps) || null,
+                  base_rdl: parseInt(userData.baseLifts?.rdl?.weight) || null,
+                  base_rdl_reps: parseInt(userData.baseLifts?.rdl?.reps) || null,
+                  base_curl: parseInt(userData.baseLifts?.curl?.weight) || null,
+                  base_curl_reps: parseInt(userData.baseLifts?.curl?.reps) || null,
                 });
 
                 // Calculate and save nutrition goals
@@ -2855,7 +3068,7 @@ const MealEntryModal = ({ COLORS, onClose, onSave, userId }) => {
           .from('meal_logs')
           .select('meal_name, calories, protein, carbs, fats')
           .eq('user_id', userId)
-          .order('logged_at', { ascending: false })
+          .order('created_at', { ascending: false })
           .limit(100);
 
         if (error) throw error;
@@ -4311,6 +4524,11 @@ const FullMealEntryModal = ({ COLORS, onClose, onSave, foods = [], frequentMeals
   const [activeTab, setActiveTab] = React.useState('search'); // 'search', 'manual', or 'build'
   const [selectedMeal, setSelectedMeal] = React.useState(null);
   const [servings, setServings] = React.useState('1');
+  // Editable macro overrides for selected meal
+  const [editedCal, setEditedCal] = React.useState('');
+  const [editedP, setEditedP] = React.useState('');
+  const [editedC, setEditedC] = React.useState('');
+  const [editedF, setEditedF] = React.useState('');
   const [time, setTime] = React.useState(() => {
     const now = new Date();
     return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
@@ -4603,19 +4821,42 @@ const FullMealEntryModal = ({ COLORS, onClose, onSave, foods = [], frequentMeals
     });
   };
 
-  // Add selected meal with custom servings
+  // Add selected meal with custom servings (uses edited values if user modified them)
   const addSelectedMeal = () => {
     if (!selectedMeal) return;
-    const servingMultiplier = parseFloat(servings) || 1;
     onSave({
       id: Date.now(),
-      name: selectedMeal.name + (servingMultiplier !== 1 ? ` (${servings}x)` : ''),
+      name: selectedMeal.name,
       time,
-      calories: Math.round(selectedMeal.cal * servingMultiplier),
-      protein: Math.round(selectedMeal.p * servingMultiplier),
-      carbs: Math.round(selectedMeal.c * servingMultiplier),
-      fats: Math.round(selectedMeal.f * servingMultiplier)
+      calories: parseInt(editedCal) || 0,
+      protein: parseInt(editedP) || 0,
+      carbs: parseInt(editedC) || 0,
+      fats: parseInt(editedF) || 0
     });
+  };
+
+  // Helper to select a meal and initialize editable values
+  const selectMealForEdit = (meal) => {
+    setSelectedMeal(meal);
+    setServings('1');
+    setEditedCal(String(meal.cal || 0));
+    setEditedP(String(meal.p || 0));
+    setEditedC(String(meal.c || 0));
+    setEditedF(String(meal.f || 0));
+  };
+
+  // Update edited values when servings change
+  const updateServings = (newServings) => {
+    const multiplier = parseFloat(newServings) || 1;
+    const prevMultiplier = parseFloat(servings) || 1;
+    if (selectedMeal && multiplier !== prevMultiplier) {
+      // Scale from base meal values
+      setEditedCal(String(Math.round(selectedMeal.cal * multiplier)));
+      setEditedP(String(Math.round(selectedMeal.p * multiplier)));
+      setEditedC(String(Math.round(selectedMeal.c * multiplier)));
+      setEditedF(String(Math.round(selectedMeal.f * multiplier)));
+    }
+    setServings(newServings);
   };
 
   // Add manual entry
@@ -4726,7 +4967,7 @@ const FullMealEntryModal = ({ COLORS, onClose, onSave, foods = [], frequentMeals
                     <span className="text-sm" style={{ color: COLORS.textMuted }}>Servings:</span>
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => setServings(prev => Math.max(0.5, (parseFloat(prev) || 1) - 0.5).toString())}
+                        onClick={() => updateServings(Math.max(0.5, (parseFloat(servings) || 1) - 0.5).toString())}
                         className="w-8 h-8 rounded-lg flex items-center justify-center"
                         style={{ backgroundColor: COLORS.surfaceLight }}
                       >
@@ -4736,12 +4977,12 @@ const FullMealEntryModal = ({ COLORS, onClose, onSave, foods = [], frequentMeals
                         type="text"
                         inputMode="decimal"
                         value={servings}
-                        onChange={(e) => setServings(e.target.value)}
+                        onChange={(e) => updateServings(e.target.value)}
                         className="w-12 text-center py-1 rounded-lg text-sm"
                         style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
                       />
                       <button
-                        onClick={() => setServings(prev => ((parseFloat(prev) || 1) + 0.5).toString())}
+                        onClick={() => updateServings(((parseFloat(servings) || 1) + 0.5).toString())}
                         className="w-8 h-8 rounded-lg flex items-center justify-center"
                         style={{ backgroundColor: COLORS.surfaceLight }}
                       >
@@ -4750,16 +4991,23 @@ const FullMealEntryModal = ({ COLORS, onClose, onSave, foods = [], frequentMeals
                     </div>
                   </div>
 
-                  {/* Macros Preview */}
+                  {/* Editable Macros */}
                   <div className="grid grid-cols-4 gap-2 text-center mb-3">
                     {[
-                      { label: 'Cal', value: Math.round(selectedMeal.cal * (parseFloat(servings) || 1)), color: COLORS.accent },
-                      { label: 'P', value: Math.round(selectedMeal.p * (parseFloat(servings) || 1)), color: COLORS.primary },
-                      { label: 'C', value: Math.round(selectedMeal.c * (parseFloat(servings) || 1)), color: COLORS.warning },
-                      { label: 'F', value: Math.round(selectedMeal.f * (parseFloat(servings) || 1)), color: COLORS.sleep },
+                      { label: 'Cal', value: editedCal, setter: setEditedCal, color: COLORS.accent },
+                      { label: 'P', value: editedP, setter: setEditedP, color: COLORS.primary },
+                      { label: 'C', value: editedC, setter: setEditedC, color: COLORS.warning },
+                      { label: 'F', value: editedF, setter: setEditedF, color: COLORS.sleep },
                     ].map((macro, i) => (
                       <div key={i} className="p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
-                        <p className="text-sm font-bold" style={{ color: macro.color }}>{macro.value}</p>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={macro.value}
+                          onChange={(e) => macro.setter(e.target.value.replace(/\D/g, ''))}
+                          className="w-full text-sm font-bold text-center bg-transparent"
+                          style={{ color: macro.color, border: 'none', outline: 'none' }}
+                        />
                         <p className="text-xs" style={{ color: COLORS.textMuted }}>{macro.label}</p>
                       </div>
                     ))}
@@ -4783,10 +5031,7 @@ const FullMealEntryModal = ({ COLORS, onClose, onSave, foods = [], frequentMeals
                     {searchResults.map((meal, i) => (
                       <button
                         key={i}
-                        onClick={() => {
-                          setSelectedMeal(meal);
-                          setServings('1');
-                        }}
+                        onClick={() => selectMealForEdit(meal)}
                         className="w-full p-3 rounded-xl flex items-center justify-between text-left"
                         style={{ backgroundColor: COLORS.surfaceLight }}
                       >
@@ -4828,7 +5073,7 @@ const FullMealEntryModal = ({ COLORS, onClose, onSave, foods = [], frequentMeals
                     {frequentMeals.slice(0, 5).map((meal, i) => (
                       <button
                         key={i}
-                        onClick={() => quickAddMeal(meal)}
+                        onClick={() => selectMealForEdit(meal)}
                         className="w-full p-3 rounded-xl flex items-center justify-between text-left"
                         style={{ backgroundColor: COLORS.primary + '15' }}
                       >
@@ -4842,7 +5087,7 @@ const FullMealEntryModal = ({ COLORS, onClose, onSave, foods = [], frequentMeals
                           <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: COLORS.primary + '30', color: COLORS.primary }}>
                             {meal.count}x
                           </span>
-                          <Plus size={18} color={COLORS.primary} />
+                          <ChevronRight size={18} color={COLORS.primary} />
                         </div>
                       </button>
                     ))}
@@ -4858,10 +5103,7 @@ const FullMealEntryModal = ({ COLORS, onClose, onSave, foods = [], frequentMeals
                     {mealDatabase.slice(0, 8).map((meal, i) => (
                       <button
                         key={i}
-                        onClick={() => {
-                          setSelectedMeal(meal);
-                          setServings('1');
-                        }}
+                        onClick={() => selectMealForEdit(meal)}
                         className="p-3 rounded-xl text-left"
                         style={{ backgroundColor: COLORS.surfaceLight }}
                       >
@@ -6415,16 +6657,160 @@ const TEMPLATE_TO_WORKOUT_TYPE = {
   athletic_power: 'full_body',
 };
 
+// Estimate weight from base lifts for first-time exercises
+// Calculate estimated 1RM using Epley formula: 1RM = weight × (1 + reps/30)
+const calculate1RM = (weight, reps) => {
+  if (!weight || weight <= 0) return 0;
+  if (!reps || reps <= 0) return weight; // If no reps, assume it's already ~1RM
+  if (reps === 1) return weight;
+  return weight * (1 + reps / 30);
+};
+
+const estimateWeightFromBaseLifts = (exerciseName, muscleGroup, equipment, baseLifts) => {
+  if (!baseLifts) return null;
+
+  const name = exerciseName.toLowerCase();
+
+  // Parse all base lifts and calculate 1RM for each
+  const bench = calculate1RM(parseFloat(baseLifts.bench?.weight), parseFloat(baseLifts.bench?.reps));
+  const dbPress = calculate1RM(parseFloat(baseLifts.dbPress?.weight), parseFloat(baseLifts.dbPress?.reps));
+  const ohp = calculate1RM(parseFloat(baseLifts.ohp?.weight), parseFloat(baseLifts.ohp?.reps));
+  const deadlift = calculate1RM(parseFloat(baseLifts.deadlift?.weight), parseFloat(baseLifts.deadlift?.reps));
+  const row = calculate1RM(parseFloat(baseLifts.row?.weight), parseFloat(baseLifts.row?.reps));
+  const pullup = calculate1RM(parseFloat(baseLifts.pullup?.weight), parseFloat(baseLifts.pullup?.reps));
+  const squat = calculate1RM(parseFloat(baseLifts.squat?.weight), parseFloat(baseLifts.squat?.reps));
+  const legPress = calculate1RM(parseFloat(baseLifts.legPress?.weight), parseFloat(baseLifts.legPress?.reps));
+  const rdl = calculate1RM(parseFloat(baseLifts.rdl?.weight), parseFloat(baseLifts.rdl?.reps));
+  const curl = calculate1RM(parseFloat(baseLifts.curl?.weight), parseFloat(baseLifts.curl?.reps));
+
+  // If no base lifts entered, return null
+  if (!bench && !dbPress && !ohp && !deadlift && !row && !pullup && !squat && !legPress && !rdl && !curl) return null;
+
+  let estimatedWeight = 0;
+
+  // Chest pressing exercises
+  if (muscleGroup === 'chest' || name.includes('bench') || name.includes('chest press')) {
+    if (name.includes('dumbbell') || name.includes('db ')) {
+      // Use dbPress directly if available, otherwise estimate from bench
+      if (dbPress) estimatedWeight = name.includes('incline') ? dbPress * 0.85 : dbPress;
+      else if (bench) estimatedWeight = name.includes('incline') ? bench * 0.32 : bench * 0.38;
+    } else if (name.includes('incline')) {
+      estimatedWeight = bench ? bench * 0.75 : (dbPress ? dbPress * 2.2 : 0);
+    } else if (name.includes('decline')) {
+      estimatedWeight = bench ? bench * 0.9 : (dbPress ? dbPress * 2.5 : 0);
+    } else if (name.includes('fly') || name.includes('flye') || name.includes('pec deck')) {
+      estimatedWeight = dbPress ? dbPress * 0.5 : (bench ? bench * 0.2 : 0);
+    } else {
+      estimatedWeight = bench ? bench * 0.9 : (dbPress ? dbPress * 2.3 : 0);
+    }
+  }
+  // Shoulder exercises
+  else if (muscleGroup === 'shoulders' || name.includes('shoulder') || name.includes('overhead') || name.includes('military') || name.includes('lateral') || name.includes('raise')) {
+    if (name.includes('lateral') || name.includes('raise') || name.includes('fly')) {
+      estimatedWeight = ohp ? ohp * 0.2 : (dbPress ? dbPress * 0.4 : 0);
+    } else if (name.includes('dumbbell') || name.includes('db ')) {
+      estimatedWeight = ohp ? ohp * 0.4 : (dbPress ? dbPress * 0.8 : 0);
+    } else {
+      estimatedWeight = ohp ? ohp * 0.9 : (bench ? bench * 0.55 : 0);
+    }
+  }
+  // Back/Pull exercises
+  else if (muscleGroup === 'back' || name.includes('row') || name.includes('pull') || name.includes('lat')) {
+    if (name.includes('barbell row') || name.includes('bent over row') || name.includes('pendlay')) {
+      estimatedWeight = row ? row : (deadlift ? deadlift * 0.5 : 0);
+    } else if (name.includes('dumbbell row') || name.includes('db row')) {
+      estimatedWeight = row ? row * 0.45 : (deadlift ? deadlift * 0.22 : 0);
+    } else if (name.includes('cable row') || name.includes('seated row')) {
+      estimatedWeight = row ? row * 0.8 : (deadlift ? deadlift * 0.4 : 0);
+    } else if (name.includes('lat pulldown')) {
+      estimatedWeight = pullup ? pullup * 0.8 : (deadlift ? deadlift * 0.35 : 0);
+    } else if (name.includes('pull-up') || name.includes('pullup') || name.includes('chin')) {
+      estimatedWeight = pullup || 0; // Bodyweight or added weight
+    } else {
+      estimatedWeight = row ? row * 0.7 : (deadlift ? deadlift * 0.35 : 0);
+    }
+  }
+  // Deadlift variations
+  else if (name.includes('deadlift') && !name.includes('romanian') && !name.includes('rdl') && !name.includes('stiff')) {
+    estimatedWeight = deadlift ? deadlift * 0.9 : (squat ? squat * 1.2 : 0);
+  }
+  // Hamstring/RDL exercises
+  else if (muscleGroup === 'hamstrings' || name.includes('rdl') || name.includes('romanian') || name.includes('stiff') || name.includes('good morning')) {
+    if (name.includes('dumbbell') || name.includes('db ')) {
+      estimatedWeight = rdl ? rdl * 0.35 : (deadlift ? deadlift * 0.25 : 0);
+    } else {
+      estimatedWeight = rdl ? rdl : (deadlift ? deadlift * 0.6 : 0);
+    }
+  }
+  // Glute exercises
+  else if (muscleGroup === 'glutes' || name.includes('hip thrust') || name.includes('glute')) {
+    estimatedWeight = rdl ? rdl * 1.2 : (deadlift ? deadlift * 0.7 : (squat ? squat * 0.9 : 0));
+  }
+  // Quad exercises
+  else if (muscleGroup === 'quads' || name.includes('squat') || name.includes('leg press') || name.includes('lunge') || name.includes('leg extension')) {
+    if (name.includes('leg press')) {
+      estimatedWeight = legPress ? legPress : (squat ? squat * 1.8 : 0);
+    } else if (name.includes('lunge') || name.includes('split') || name.includes('step')) {
+      estimatedWeight = squat ? squat * 0.35 : (legPress ? legPress * 0.2 : 0);
+    } else if (name.includes('goblet')) {
+      estimatedWeight = squat ? squat * 0.4 : (legPress ? legPress * 0.22 : 0);
+    } else if (name.includes('leg extension')) {
+      estimatedWeight = squat ? squat * 0.35 : (legPress ? legPress * 0.2 : 0);
+    } else if (name.includes('hack') || name.includes('front squat')) {
+      estimatedWeight = squat ? squat * 0.75 : (legPress ? legPress * 0.42 : 0);
+    } else if (name.includes('leg curl')) {
+      estimatedWeight = rdl ? rdl * 0.3 : (squat ? squat * 0.25 : 0);
+    } else {
+      estimatedWeight = squat ? squat * 0.9 : (legPress ? legPress * 0.5 : 0);
+    }
+  }
+  // Triceps exercises
+  else if (muscleGroup === 'triceps' || name.includes('tricep') || name.includes('pushdown') || name.includes('skull') || name.includes('dip')) {
+    if (name.includes('dip')) {
+      estimatedWeight = bench ? bench * 0.3 : (dbPress ? dbPress * 0.7 : 0);
+    } else {
+      estimatedWeight = bench ? bench * 0.25 : (dbPress ? dbPress * 0.6 : 0);
+    }
+  }
+  // Biceps exercises
+  else if (muscleGroup === 'biceps' || name.includes('curl') || name.includes('bicep')) {
+    if (name.includes('barbell') || name.includes('ez')) {
+      estimatedWeight = curl ? curl * 1.6 : (row ? row * 0.35 : (bench ? bench * 0.28 : 0));
+    } else if (name.includes('preacher') || name.includes('concentration')) {
+      estimatedWeight = curl ? curl * 0.7 : (bench ? bench * 0.12 : 0);
+    } else {
+      estimatedWeight = curl ? curl : (row ? row * 0.22 : (bench ? bench * 0.18 : 0));
+    }
+  }
+
+  if (estimatedWeight > 0) {
+    // Round to nearest 2.5kg
+    return Math.round(estimatedWeight / 2.5) * 2.5;
+  }
+
+  return null;
+};
+
 // Calculate suggested weight based on exercise history and RPE
 // Uses progressive overload principles: increase weight when RPE is low, maintain when hard
-const calculateWeightFromHistory = (exerciseName, history, fallbackWeight, targetReps) => {
+const calculateWeightFromHistory = (exerciseName, history, fallbackWeight, targetReps, baseLifts = null, muscleGroup = null, equipment = null) => {
   if (!history || !history[exerciseName]) {
+    // Try to estimate from base lifts
+    const estimatedWeight = estimateWeightFromBaseLifts(exerciseName, muscleGroup, equipment, baseLifts);
+    if (estimatedWeight) {
+      return { weight: estimatedWeight, lastWeight: 0, lastReps: 0, lastRpe: null, isFirstTime: true, fromBaseLifts: true };
+    }
     return { weight: fallbackWeight, lastWeight: 0, lastReps: 0, lastRpe: null, isFirstTime: true };
   }
 
   const { lastWeight, lastReps, lastRpe } = history[exerciseName];
 
   if (!lastWeight || lastWeight <= 0) {
+    // Try to estimate from base lifts
+    const estimatedWeight = estimateWeightFromBaseLifts(exerciseName, muscleGroup, equipment, baseLifts);
+    if (estimatedWeight) {
+      return { weight: estimatedWeight, lastWeight: 0, lastReps: 0, lastRpe: null, isFirstTime: true, fromBaseLifts: true };
+    }
     return { weight: fallbackWeight, lastWeight: 0, lastReps: 0, lastRpe: null, isFirstTime: true };
   }
 
@@ -6551,7 +6937,8 @@ const generateDynamicWorkout = (workoutType, userGoal = 'build_muscle', recently
     const fallbackWeight = calculateSuggestedWeight(ex.name, weightStats, reps);
 
     // Use exercise history for progressive overload if available
-    const historyResult = calculateWeightFromHistory(ex.name, exerciseHistory, fallbackWeight, reps);
+    // Pass base lifts for first-time exercise weight estimation
+    const historyResult = calculateWeightFromHistory(ex.name, exerciseHistory, fallbackWeight, reps, userStats.baseLifts, ex.muscleGroup, ex.equipment);
 
     exercises.push({
       id: generateExerciseId(ex.name),
@@ -6563,6 +6950,7 @@ const generateDynamicWorkout = (workoutType, userGoal = 'build_muscle', recently
       lastReps: historyResult.lastReps ? Array(sets).fill(historyResult.lastReps) : Array(sets).fill(reps),
       lastRpe: historyResult.lastRpe,
       isFirstTime: historyResult.isFirstTime,
+      fromBaseLifts: historyResult.fromBaseLifts || false,
       restTime: Math.max(90, adjustedRest), // Minimum 90s rest for any lifting exercise
       muscleGroup: ex.muscleGroup,
       equipment: ex.equipment,
@@ -6597,7 +6985,7 @@ const generateDynamicWorkout = (workoutType, userGoal = 'build_muscle', recently
     const fallbackCoreWeight = calculateSuggestedWeight(coreEx.name, coreWeightStats, coreReps);
 
     // Use history for core exercises too (for weighted ab work, cable crunches, etc.)
-    const coreHistoryResult = calculateWeightFromHistory(coreEx.name, exerciseHistory, fallbackCoreWeight, coreReps);
+    const coreHistoryResult = calculateWeightFromHistory(coreEx.name, exerciseHistory, fallbackCoreWeight, coreReps, userStats.baseLifts, coreEx.muscleGroup, coreEx.equipment);
 
     exercises.push({
       id: generateExerciseId(coreEx.name),
@@ -17060,6 +17448,19 @@ export default function UpRepDemo() {
         restDays: profile.user_goals?.rest_days || prev.restDays,
         programId: profile.user_goals?.program_id || prev.programId,
         equipment: profile.user_goals?.equipment || prev.equipment,
+        // Base lifts for weight estimation (weight + reps for 1RM calculation)
+        baseLifts: {
+          bench: { weight: profile.user_goals?.base_bench?.toString() || prev.baseLifts?.bench?.weight || '', reps: profile.user_goals?.base_bench_reps?.toString() || prev.baseLifts?.bench?.reps || '' },
+          dbPress: { weight: profile.user_goals?.base_db_press?.toString() || prev.baseLifts?.dbPress?.weight || '', reps: profile.user_goals?.base_db_press_reps?.toString() || prev.baseLifts?.dbPress?.reps || '' },
+          ohp: { weight: profile.user_goals?.base_ohp?.toString() || prev.baseLifts?.ohp?.weight || '', reps: profile.user_goals?.base_ohp_reps?.toString() || prev.baseLifts?.ohp?.reps || '' },
+          deadlift: { weight: profile.user_goals?.base_deadlift?.toString() || prev.baseLifts?.deadlift?.weight || '', reps: profile.user_goals?.base_deadlift_reps?.toString() || prev.baseLifts?.deadlift?.reps || '' },
+          row: { weight: profile.user_goals?.base_row?.toString() || prev.baseLifts?.row?.weight || '', reps: profile.user_goals?.base_row_reps?.toString() || prev.baseLifts?.row?.reps || '' },
+          pullup: { weight: profile.user_goals?.base_pullup?.toString() || prev.baseLifts?.pullup?.weight || '', reps: profile.user_goals?.base_pullup_reps?.toString() || prev.baseLifts?.pullup?.reps || '' },
+          squat: { weight: profile.user_goals?.base_squat?.toString() || prev.baseLifts?.squat?.weight || '', reps: profile.user_goals?.base_squat_reps?.toString() || prev.baseLifts?.squat?.reps || '' },
+          legPress: { weight: profile.user_goals?.base_leg_press?.toString() || prev.baseLifts?.legPress?.weight || '', reps: profile.user_goals?.base_leg_press_reps?.toString() || prev.baseLifts?.legPress?.reps || '' },
+          rdl: { weight: profile.user_goals?.base_rdl?.toString() || prev.baseLifts?.rdl?.weight || '', reps: profile.user_goals?.base_rdl_reps?.toString() || prev.baseLifts?.rdl?.reps || '' },
+          curl: { weight: profile.user_goals?.base_curl?.toString() || prev.baseLifts?.curl?.weight || '', reps: profile.user_goals?.base_curl_reps?.toString() || prev.baseLifts?.curl?.reps || '' },
+        },
       }));
 
       // Sync allow_subscribers from profile to settings (only if explicitly set to true/false)
@@ -19243,6 +19644,7 @@ export default function UpRepDemo() {
   const [showExerciseInfo, setShowExerciseInfo] = useState(null); // exercise name to show info for
   const [showExperienceLevelModal, setShowExperienceLevelModal] = useState(false);
   const [showEquipmentModal, setShowEquipmentModal] = useState(false);
+  const [showBaseLiftsModal, setShowBaseLiftsModal] = useState(false);
 
   // Achievements - will be calculated/loaded from database
   const [achievements] = useState([
@@ -19340,7 +19742,13 @@ export default function UpRepDemo() {
     username: '',
     bio: '',
     gender: null, // 'male', 'female', or 'other'
-    equipment: ['Barbell', 'Dumbbells', 'Cable', 'Machine', 'Bodyweight'] // Available equipment
+    equipment: ['Barbell', 'Dumbbells', 'Cable', 'Machine', 'Bodyweight'], // Available equipment
+    baseLifts: {
+      bench: { weight: '', reps: '' }, dbPress: { weight: '', reps: '' }, ohp: { weight: '', reps: '' },
+      deadlift: { weight: '', reps: '' }, row: { weight: '', reps: '' }, pullup: { weight: '', reps: '' },
+      squat: { weight: '', reps: '' }, legPress: { weight: '', reps: '' }, rdl: { weight: '', reps: '' },
+      curl: { weight: '', reps: '' }
+    } // Base lift weights and reps for 1RM estimation
   });
 
   // Overview stats - will be populated from database
@@ -19998,7 +20406,7 @@ export default function UpRepDemo() {
     // Absolute upper limits to keep targets reasonable
     const MAX_DAILY_CALORIES = 5000;
     const MAX_DAILY_PROTEIN = 350;
-    const MAX_DAILY_WATER = 5000;
+    const MAX_DAILY_WATER = 4000;
 
     return {
       calories: Math.min(baseGoals.calories + calorieAdjustment, MAX_DAILY_CALORIES),
@@ -25435,6 +25843,131 @@ export default function UpRepDemo() {
           </div>
         )}
 
+        {/* Base Lifts Modal */}
+        {showBaseLiftsModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }} onClick={(e) => e.target === e.currentTarget && setShowBaseLiftsModal(false)}>
+            <div className="w-full max-w-md rounded-2xl p-6 max-h-[85vh] overflow-y-auto" style={{ backgroundColor: COLORS.surface }}>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold" style={{ color: COLORS.text }}>Base Lifts</h3>
+                <button onClick={() => setShowBaseLiftsModal(false)} className="p-1">
+                  <X size={20} color={COLORS.textMuted} />
+                </button>
+              </div>
+              <p className="text-sm mb-4" style={{ color: COLORS.textMuted }}>
+                Enter weight and reps to calculate your 1RM for weight suggestions.
+              </p>
+
+              {/* All lifts with weight + reps */}
+              {[
+                { category: 'PUSH', lifts: [
+                  { key: 'bench', label: 'Bench Press' },
+                  { key: 'dbPress', label: 'Dumbbell Press' },
+                  { key: 'ohp', label: 'Overhead Press' },
+                ]},
+                { category: 'PULL', lifts: [
+                  { key: 'deadlift', label: 'Deadlift' },
+                  { key: 'row', label: 'Barbell Row' },
+                  { key: 'pullup', label: 'Pull-up / Lat Pulldown' },
+                ]},
+                { category: 'LEGS', lifts: [
+                  { key: 'squat', label: 'Squat' },
+                  { key: 'legPress', label: 'Leg Press' },
+                  { key: 'rdl', label: 'Romanian Deadlift' },
+                ]},
+                { category: 'ARMS', lifts: [
+                  { key: 'curl', label: 'Bicep Curl' },
+                ]},
+              ].map(group => (
+                <div key={group.category} className="mb-4">
+                  <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>{group.category}</p>
+                  <div className="space-y-2">
+                    {group.lifts.map(lift => (
+                      <div key={lift.key} className="p-3 rounded-xl" style={{ backgroundColor: COLORS.surfaceLight }}>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium" style={{ color: COLORS.text }}>{lift.label}</span>
+                          {userData.baseLifts?.[lift.key]?.weight && userData.baseLifts?.[lift.key]?.reps && (
+                            <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: COLORS.primary + '20', color: COLORS.primary }}>
+                              ~{Math.round(parseFloat(userData.baseLifts[lift.key].weight) * (1 + parseFloat(userData.baseLifts[lift.key].reps) / 30))}kg 1RM
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            placeholder="0"
+                            value={userData.baseLifts?.[lift.key]?.weight || ''}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/\D/g, '');
+                              setUserData(p => ({ ...p, baseLifts: { ...p.baseLifts, [lift.key]: { ...p.baseLifts?.[lift.key], weight: val } } }));
+                            }}
+                            className="w-16 text-center py-2 rounded-lg font-semibold"
+                            style={{ backgroundColor: COLORS.surface, color: COLORS.text, border: 'none' }}
+                          />
+                          <span className="text-xs" style={{ color: COLORS.textMuted }}>kg ×</span>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            placeholder="0"
+                            value={userData.baseLifts?.[lift.key]?.reps || ''}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/\D/g, '');
+                              setUserData(p => ({ ...p, baseLifts: { ...p.baseLifts, [lift.key]: { ...p.baseLifts?.[lift.key], reps: val } } }));
+                            }}
+                            className="w-12 text-center py-2 rounded-lg font-semibold"
+                            style={{ backgroundColor: COLORS.surface, color: COLORS.text, border: 'none' }}
+                          />
+                          <span className="text-xs" style={{ color: COLORS.textMuted }}>reps</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+
+              <button
+                type="button"
+                onClick={async () => {
+                  // Save base lifts to database
+                  if (user?.id && userData.baseLifts) {
+                    try {
+                      await updateGoals({
+                        base_bench: parseInt(userData.baseLifts.bench?.weight) || null,
+                        base_bench_reps: parseInt(userData.baseLifts.bench?.reps) || null,
+                        base_db_press: parseInt(userData.baseLifts.dbPress?.weight) || null,
+                        base_db_press_reps: parseInt(userData.baseLifts.dbPress?.reps) || null,
+                        base_ohp: parseInt(userData.baseLifts.ohp?.weight) || null,
+                        base_ohp_reps: parseInt(userData.baseLifts.ohp?.reps) || null,
+                        base_deadlift: parseInt(userData.baseLifts.deadlift?.weight) || null,
+                        base_deadlift_reps: parseInt(userData.baseLifts.deadlift?.reps) || null,
+                        base_row: parseInt(userData.baseLifts.row?.weight) || null,
+                        base_row_reps: parseInt(userData.baseLifts.row?.reps) || null,
+                        base_pullup: parseInt(userData.baseLifts.pullup?.weight) || null,
+                        base_pullup_reps: parseInt(userData.baseLifts.pullup?.reps) || null,
+                        base_squat: parseInt(userData.baseLifts.squat?.weight) || null,
+                        base_squat_reps: parseInt(userData.baseLifts.squat?.reps) || null,
+                        base_leg_press: parseInt(userData.baseLifts.legPress?.weight) || null,
+                        base_leg_press_reps: parseInt(userData.baseLifts.legPress?.reps) || null,
+                        base_rdl: parseInt(userData.baseLifts.rdl?.weight) || null,
+                        base_rdl_reps: parseInt(userData.baseLifts.rdl?.reps) || null,
+                        base_curl: parseInt(userData.baseLifts.curl?.weight) || null,
+                        base_curl_reps: parseInt(userData.baseLifts.curl?.reps) || null,
+                      });
+                    } catch (err) {
+                      console.warn('Error saving base lifts:', err);
+                    }
+                  }
+                  setShowBaseLiftsModal(false);
+                }}
+                className="w-full py-3 rounded-xl font-semibold"
+                style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Program Selector Modal - Multi-Step */}
         {showProgramSelector && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }} onClick={(e) => e.target === e.currentTarget && (setShowProgramSelector(false), setProgramSelectorStep(0), setSelectedProgramForSetup(null))}>
@@ -27633,6 +28166,26 @@ export default function UpRepDemo() {
                       </button>
                     </div>
                   </div>
+
+                  {/* Base Lifts Setting */}
+                  <button
+                    onClick={() => setShowBaseLiftsModal(true)}
+                    className="w-full p-4 flex items-center justify-between border-b"
+                    style={{ borderColor: COLORS.surfaceLight }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '20' }}>
+                        <Dumbbell size={16} color={COLORS.primary} />
+                      </div>
+                      <div>
+                        <span style={{ color: COLORS.text }}>Base Lifts</span>
+                        <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                          {Object.values(userData.baseLifts || {}).filter(v => v?.weight && parseInt(v.weight) > 0).length} lifts set for weight estimation
+                        </p>
+                      </div>
+                    </div>
+                    <ChevronRight size={18} color={COLORS.textMuted} />
+                  </button>
 
                   <button
                     onClick={() => setShowAccountModal(true)}
