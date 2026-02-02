@@ -15241,24 +15241,24 @@ const FriendsTab = ({
             )}
             <div className="grid grid-cols-3 gap-3 text-center">
               <button
-                onClick={() => overviewStats.totalWorkouts > 0 ? setActiveTab('workouts') : null}
-                className="p-2 rounded-lg"
-                style={{ backgroundColor: COLORS.surfaceLight, opacity: overviewStats.totalWorkouts > 0 ? 1 : 0.6 }}
+                onClick={() => overviewStats.totalWorkouts > 0 && setActiveTab('workouts')}
+                className={`p-2 rounded-lg transition-all duration-150 ${overviewStats.totalWorkouts > 0 ? 'cursor-pointer active:scale-95' : 'cursor-default'}`}
+                style={{ backgroundColor: COLORS.surfaceLight }}
               >
-                <p className="font-bold" style={{ color: COLORS.text }}>{overviewStats.totalWorkouts}</p>
-                <p className="text-xs" style={{ color: COLORS.textMuted }}>{overviewStats.totalWorkouts === 0 ? 'no workouts' : 'workouts'}</p>
+                <p className="font-bold" style={{ color: overviewStats.totalWorkouts > 0 ? COLORS.text : COLORS.textMuted }}>{overviewStats.totalWorkouts}</p>
+                <p className="text-xs" style={{ color: COLORS.textMuted }}>workouts</p>
               </button>
               <button
-                onClick={() => personalRecords.length > 0 ? (setShowPRLeaderboard(true), loadPRLeaderboard()) : null}
-                className="p-2 rounded-lg"
-                style={{ backgroundColor: COLORS.surfaceLight, opacity: personalRecords.length > 0 ? 1 : 0.6 }}
+                onClick={() => personalRecords.length > 0 && (setShowPRLeaderboard(true), loadPRLeaderboard())}
+                className={`p-2 rounded-lg transition-all duration-150 ${personalRecords.length > 0 ? 'cursor-pointer active:scale-95' : 'cursor-default'}`}
+                style={{ backgroundColor: COLORS.surfaceLight }}
               >
-                <p className="font-bold" style={{ color: COLORS.text }}>{personalRecords.length}</p>
-                <p className="text-xs" style={{ color: COLORS.textMuted }}>{personalRecords.length === 0 ? 'no PRs' : 'PRs'}</p>
+                <p className="font-bold" style={{ color: personalRecords.length > 0 ? COLORS.text : COLORS.textMuted }}>{personalRecords.length}</p>
+                <p className="text-xs" style={{ color: COLORS.textMuted }}>PRs</p>
               </button>
               <button
                 onClick={() => setFriendsTab('followers')}
-                className="p-2 rounded-lg"
+                className="p-2 rounded-lg cursor-pointer transition-all duration-150 active:scale-95"
                 style={{ backgroundColor: COLORS.surfaceLight }}
               >
                 <p className="font-bold" style={{ color: COLORS.text }}>{followersList?.length || 0}</p>
@@ -24796,24 +24796,24 @@ export default function UpRepDemo() {
                   )}
                   <div className="grid grid-cols-3 gap-3 text-center">
                     <button
-                      onClick={() => overviewStats.totalWorkouts > 0 ? setActiveTab('workouts') : null}
-                      className="p-2 rounded-lg"
-                      style={{ backgroundColor: COLORS.surfaceLight, opacity: overviewStats.totalWorkouts > 0 ? 1 : 0.6 }}
+                      onClick={() => overviewStats.totalWorkouts > 0 && setActiveTab('workouts')}
+                      className={`p-2 rounded-lg transition-all duration-150 ${overviewStats.totalWorkouts > 0 ? 'cursor-pointer active:scale-95' : 'cursor-default'}`}
+                      style={{ backgroundColor: COLORS.surfaceLight }}
                     >
-                      <p className="font-bold" style={{ color: COLORS.text }}>{overviewStats.totalWorkouts}</p>
-                      <p className="text-xs" style={{ color: COLORS.textMuted }}>{overviewStats.totalWorkouts === 0 ? 'no workouts' : 'workouts'}</p>
+                      <p className="font-bold" style={{ color: overviewStats.totalWorkouts > 0 ? COLORS.text : COLORS.textMuted }}>{overviewStats.totalWorkouts}</p>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>workouts</p>
                     </button>
                     <button
-                      onClick={() => personalRecords.length > 0 ? (setShowPRLeaderboard(true), loadPRLeaderboard()) : null}
-                      className="p-2 rounded-lg"
-                      style={{ backgroundColor: COLORS.surfaceLight, opacity: personalRecords.length > 0 ? 1 : 0.6 }}
+                      onClick={() => personalRecords.length > 0 && (setShowPRLeaderboard(true), loadPRLeaderboard())}
+                      className={`p-2 rounded-lg transition-all duration-150 ${personalRecords.length > 0 ? 'cursor-pointer active:scale-95' : 'cursor-default'}`}
+                      style={{ backgroundColor: COLORS.surfaceLight }}
                     >
-                      <p className="font-bold" style={{ color: COLORS.text }}>{personalRecords.length}</p>
-                      <p className="text-xs" style={{ color: COLORS.textMuted }}>{personalRecords.length === 0 ? 'no PRs' : 'PRs'}</p>
+                      <p className="font-bold" style={{ color: personalRecords.length > 0 ? COLORS.text : COLORS.textMuted }}>{personalRecords.length}</p>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>PRs</p>
                     </button>
                     <button
-                      onClick={() => setFriendsTab('followers')}
-                      className="p-2 rounded-lg"
+                      onClick={() => setActiveTab('friends')}
+                      className="p-2 rounded-lg cursor-pointer transition-all duration-150 active:scale-95"
                       style={{ backgroundColor: COLORS.surfaceLight }}
                     >
                       <p className="font-bold" style={{ color: COLORS.text }}>{followersList?.length || 0}</p>
