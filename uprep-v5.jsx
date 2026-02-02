@@ -5311,6 +5311,7 @@ const FullMealEntryModal = ({ COLORS, onClose, onSave, foods = [], frequentMeals
           </div>
 
           {/* Tab Toggle */}
+          <div className="w-full h-px mb-3" style={{ backgroundColor: COLORS.border }} />
           <div className="flex gap-1 p-1 rounded-xl mb-3" style={{ backgroundColor: COLORS.surfaceLight }}>
             <button
               onClick={() => setActiveTab('search')}
