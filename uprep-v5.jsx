@@ -4029,7 +4029,7 @@ const WaterEntryModal = ({ COLORS, onClose, onSave }) => {
     >
       <div
         className="w-full max-w-md rounded-t-3xl p-6"
-        style={{ backgroundColor: COLORS.surface, WebkitOverflowScrolling: 'touch', pointerEvents: 'auto' }}
+        style={{ backgroundColor: COLORS.surface, WebkitOverflowScrolling: 'touch', pointerEvents: 'auto', borderTop: `3px solid ${COLORS.primary}` }}
       >
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-bold" style={{ color: COLORS.text }}>Add Water</h3>
@@ -5296,7 +5296,7 @@ const FullMealEntryModal = ({ COLORS, onClose, onSave, foods = [], frequentMeals
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-      <div className="w-full max-w-md rounded-t-2xl flex flex-col" style={{ backgroundColor: COLORS.surface, height: '85vh' }}>
+      <div className="w-full max-w-md rounded-t-2xl flex flex-col" style={{ backgroundColor: COLORS.surface, height: '85vh', borderTop: `3px solid ${COLORS.primary}` }}>
         {/* Drag handle */}
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-10 h-1 rounded-full" style={{ backgroundColor: COLORS.surfaceLight }} />
@@ -5347,7 +5347,7 @@ const FullMealEntryModal = ({ COLORS, onClose, onSave, foods = [], frequentMeals
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto px-4 pb-8" style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}>
+        <div className="flex-1 overflow-y-auto px-4 pt-1 pb-8" style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}>
           {/* Search Tab */}
           {activeTab === 'search' && (
             <>

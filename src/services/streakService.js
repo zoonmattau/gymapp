@@ -133,14 +133,29 @@ export const streakService = {
     // For fat loss: must be UNDER goal (but at least 50% to ensure healthy eating)
     // For other goals: within 10% margin
     const targetMin = isFatLossGoal ? goals.calories * 0.5 : goals.calories * 0.9;
-    const targetMax = isFatLossGoal ? goals.calories * 0.99 : goals.calories * 1.1;
+    const targetMax = isFatLossGoal ? goals.calories * 1.0 : goals.calories * 1.1;
 
-    // Streak always counts from YESTERDAY backwards - today is always "in progress"
+    const today = getLocalDateString();
+    const todayEntry = nutrition.find(e => e.log_date === today);
+
+    // For fat loss: if they exceeded the goal TODAY, streak is broken immediately
+    if (isFatLossGoal && todayEntry && todayEntry.total_calories > targetMax) {
+      return { streak: 0, lastDate: today };
+    }
+
     let streak = 0;
     let checkDate = new Date();
-    checkDate.setDate(checkDate.getDate() - 1); // Start from yesterday
 
-    // Count consecutive days meeting goal from yesterday backwards
+    // Check if today's goal is met - if so, include today in streak
+    if (todayEntry && todayEntry.total_calories >= targetMin && todayEntry.total_calories <= targetMax) {
+      streak = 1;
+      checkDate.setDate(checkDate.getDate() - 1); // Now check from yesterday backwards
+    } else {
+      // Today not complete yet or not met - start counting from yesterday
+      checkDate.setDate(checkDate.getDate() - 1);
+    }
+
+    // Count consecutive days meeting goal backwards
     for (const entry of nutrition) {
       const dateStr = entry.log_date;
       const expectedDate = getLocalDateString(checkDate);
@@ -184,11 +199,22 @@ export const streakService = {
 
     // Count consecutive days meeting goal (within 0.5 hour margin)
     const targetMin = goals.target_hours - 0.5;
+    const today = getLocalDateString();
+    const todayEntry = sleepLogs.find(e => e.log_date === today);
 
     let streak = 0;
     let checkDate = new Date();
-    checkDate.setDate(checkDate.getDate() - 1); // Sleep logs are for previous night
 
+    // Check if today's sleep goal is met - if so, include today in streak
+    if (todayEntry && todayEntry.hours_slept >= targetMin) {
+      streak = 1;
+      checkDate.setDate(checkDate.getDate() - 1); // Now check from yesterday backwards
+    } else {
+      // Today not logged yet - start counting from yesterday
+      checkDate.setDate(checkDate.getDate() - 1);
+    }
+
+    // Count consecutive days meeting goal backwards
     for (const entry of sleepLogs) {
       const dateStr = entry.log_date;
       const expectedDate = getLocalDateString(checkDate);
@@ -231,12 +257,22 @@ export const streakService = {
     }
 
     const target = goals.water * 0.9; // 90% of goal
+    const today = getLocalDateString();
+    const todayEntry = nutrition.find(e => e.log_date === today);
 
-    // Streak always counts from YESTERDAY backwards - today is always "in progress"
     let streak = 0;
     let checkDate = new Date();
-    checkDate.setDate(checkDate.getDate() - 1); // Start from yesterday
 
+    // Check if today's goal is met - if so, include today in streak
+    if (todayEntry && todayEntry.water_intake >= target) {
+      streak = 1;
+      checkDate.setDate(checkDate.getDate() - 1); // Now check from yesterday backwards
+    } else {
+      // Today not complete yet - start counting from yesterday
+      checkDate.setDate(checkDate.getDate() - 1);
+    }
+
+    // Count consecutive days meeting goal backwards
     for (const entry of nutrition) {
       const dateStr = entry.log_date;
       const expectedDate = getLocalDateString(checkDate);
