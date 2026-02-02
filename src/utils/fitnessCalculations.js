@@ -405,6 +405,11 @@ export function calculateSuggestedWeight(exerciseName, userStats, targetReps = 1
     'straight arm pulldown': { base: 0.20, type: 'upper', equipment: 'cable' },
     'cable pull through': { base: 0.30, type: 'lower', equipment: 'cable' },
     'cable kickback': { base: 0.15, type: 'lower', equipment: 'cable' },
+    'cable crunch': { base: 0.30, type: 'core', equipment: 'cable' },
+    'cable crunches': { base: 0.30, type: 'core', equipment: 'cable' },
+    'cable woodchop': { base: 0.20, type: 'core', equipment: 'cable' },
+    'wood chop': { base: 0.20, type: 'core', equipment: 'cable' },
+    'wood chops': { base: 0.20, type: 'core', equipment: 'cable' },
 
     // Machine Exercises
     'lat pulldown': { base: 0.55, type: 'upper', equipment: 'machine' },
@@ -462,12 +467,41 @@ export function calculateSuggestedWeight(exerciseName, userStats, targetReps = 1
     'mountain climber': { base: 0, type: 'core', equipment: 'bodyweight' },
     'mountain climbers': { base: 0, type: 'core', equipment: 'bodyweight' },
     'russian twist': { base: 0, type: 'core', equipment: 'bodyweight' },
+    'russian twists': { base: 0, type: 'core', equipment: 'bodyweight' },
     'dead bug': { base: 0, type: 'core', equipment: 'bodyweight' },
     'bird dog': { base: 0, type: 'core', equipment: 'bodyweight' },
     'hollow hold': { base: 0, type: 'core', equipment: 'bodyweight' },
+    'hollow body hold': { base: 0, type: 'core', equipment: 'bodyweight' },
     'v-up': { base: 0, type: 'core', equipment: 'bodyweight' },
+    'v-ups': { base: 0, type: 'core', equipment: 'bodyweight' },
     'ab wheel rollout': { base: 0, type: 'core', equipment: 'bodyweight' },
     'superman': { base: 0, type: 'core', equipment: 'bodyweight' },
+    'toe touch': { base: 0, type: 'core', equipment: 'bodyweight' },
+    'toe touches': { base: 0, type: 'core', equipment: 'bodyweight' },
+    'flutter kick': { base: 0, type: 'core', equipment: 'bodyweight' },
+    'flutter kicks': { base: 0, type: 'core', equipment: 'bodyweight' },
+    'dragon flag': { base: 0, type: 'core', equipment: 'bodyweight' },
+    'dragon flags': { base: 0, type: 'core', equipment: 'bodyweight' },
+    'l-sit': { base: 0, type: 'core', equipment: 'bodyweight' },
+    'l sit': { base: 0, type: 'core', equipment: 'bodyweight' },
+    'hanging knee raise': { base: 0, type: 'core', equipment: 'bodyweight' },
+    'hanging knee raises': { base: 0, type: 'core', equipment: 'bodyweight' },
+    'decline sit up': { base: 0, type: 'core', equipment: 'bodyweight' },
+    'decline sit ups': { base: 0, type: 'core', equipment: 'bodyweight' },
+    'sit up': { base: 0, type: 'core', equipment: 'bodyweight' },
+    'sit ups': { base: 0, type: 'core', equipment: 'bodyweight' },
+    'bicycle crunch': { base: 0, type: 'core', equipment: 'bodyweight' },
+    'bicycle crunches': { base: 0, type: 'core', equipment: 'bodyweight' },
+    'scissor kick': { base: 0, type: 'core', equipment: 'bodyweight' },
+    'scissor kicks': { base: 0, type: 'core', equipment: 'bodyweight' },
+    // Advanced bodyweight
+    'nordic curl': { base: 0, type: 'lower', equipment: 'bodyweight' },
+    'nordic curls': { base: 0, type: 'lower', equipment: 'bodyweight' },
+    'pistol squat': { base: 0, type: 'lower', equipment: 'bodyweight' },
+    'sissy squat': { base: 0, type: 'lower', equipment: 'bodyweight' },
+    'single leg hip thrust': { base: 0, type: 'lower', equipment: 'bodyweight' },
+    'single leg calf raise': { base: 0, type: 'lower', equipment: 'bodyweight' },
+    'inverted row': { base: 0, type: 'upper', equipment: 'bodyweight' },
   };
 
   // Find matching exercise (partial match)
@@ -482,7 +516,17 @@ export function calculateSuggestedWeight(exerciseName, userStats, targetReps = 1
   // Default to a moderate weight if exercise not found
   if (!exerciseData) {
     // Try to guess based on name patterns
-    if (name.includes('curl')) {
+    // Core/ab exercises are almost always bodyweight
+    if (name.includes('crunch') || name.includes('plank') || name.includes('sit up') || name.includes('situp') ||
+        name.includes('leg raise') || name.includes('knee raise') || name.includes('toe touch') ||
+        name.includes('flutter') || name.includes('bicycle') || name.includes('mountain climb') ||
+        name.includes('dead bug') || name.includes('bird dog') || name.includes('hollow') ||
+        name.includes('v-up') || name.includes('v up') || name.includes('superman') ||
+        name.includes('dragon') || name.includes('l-sit') || name.includes('l sit') ||
+        name.includes('scissor') || name.includes('ab ') || name.includes('core') ||
+        name.includes('twist') || name.includes('woodchop')) {
+      exerciseData = { base: 0, type: 'core', equipment: 'bodyweight' };
+    } else if (name.includes('curl') && !name.includes('leg curl') && !name.includes('hamstring')) {
       exerciseData = { base: 0.12, type: 'upper', equipment: 'dumbbell', perHand: true };
     } else if (name.includes('raise') || name.includes('fly')) {
       exerciseData = { base: 0.08, type: 'upper', equipment: 'dumbbell', perHand: true };

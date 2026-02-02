@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
+import { LineChart, Line, AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid, ReferenceLine } from 'recharts';
 import { ChevronRight, ChevronLeft, Check, Plus, Minus, Play, Pause, X, Droplets, Moon, TrendingUp, TrendingDown, User, Home, Dumbbell, Apple, BarChart3, Trophy, Flame, Clock, Target, Info, Calendar, AlertCircle, Zap, Coffee, Utensils, ChevronDown, ChevronUp, Eye, Undo2, Search, Book, History, Award, Edit3, Filter, ArrowLeftRight, GripVertical, Users, Heart, MessageCircle, Share2, Crown, Medal, Loader2, Settings, Sprout, RefreshCw, Scale, Scissors, Wind, Timer, Activity, Star, Sparkles, PartyPopper, Bell, UserPlus, Lock, Bookmark, Upload, Trash2, Camera, RotateCcw } from 'lucide-react';
 
 // Icon mapping helper - converts icon names to Lucide components
@@ -1752,6 +1752,298 @@ const ExerciseInfoModal = ({ COLORS, exerciseName, onClose }) => {
         >
           Got It
         </button>
+      </div>
+    </div>
+  );
+};
+
+// Exercise Detail Modal - shows 1RM history and progress for a specific exercise
+const ExerciseDetailModal = ({ COLORS, exerciseName, userId, onClose, onShowInfo }) => {
+  const [loading, setLoading] = useState(true);
+  const [exerciseData, setExerciseData] = useState(null);
+  const [timeFrame, setTimeFrame] = useState('all'); // '4w', '8w', '12w', 'all'
+
+  // Calculate e1RM using Epley formula
+  const calculateE1RM = (weight, reps) => {
+    if (!weight || !reps || reps < 1) return 0;
+    if (reps === 1) return weight;
+    return weight * (1 + reps / 30);
+  };
+
+  useEffect(() => {
+    const loadExerciseData = async () => {
+      setLoading(true);
+      try {
+        // Get all workout sessions for this user
+        const { data: sessions } = await supabase
+          .from('workout_sessions')
+          .select('id, started_at, workout_name')
+          .eq('user_id', userId)
+          .not('ended_at', 'is', null)
+          .order('started_at', { ascending: false });
+
+        if (!sessions || sessions.length === 0) {
+          setExerciseData(null);
+          setLoading(false);
+          return;
+        }
+
+        const sessionIds = sessions.map(s => s.id);
+
+        // Get sets for this specific exercise
+        const { data: sets } = await supabase
+          .from('workout_sets')
+          .select('*')
+          .in('session_id', sessionIds)
+          .eq('exercise_name', exerciseName)
+          .eq('is_warmup', false);
+
+        if (!sets || sets.length === 0) {
+          setExerciseData(null);
+          setLoading(false);
+          return;
+        }
+
+        // Create session date map
+        const sessionDates = {};
+        sessions.forEach(s => {
+          sessionDates[s.id] = new Date(s.started_at);
+        });
+
+        // Process sets
+        const history = [];
+        let bestE1RM = 0;
+        let bestWeight = 0;
+        let bestReps = 0;
+
+        sets.forEach(set => {
+          const e1rm = calculateE1RM(set.weight, set.reps);
+          const date = sessionDates[set.session_id];
+          if (!date) return;
+
+          history.push({
+            date,
+            dateStr: date.toLocaleDateString(),
+            weight: set.weight,
+            reps: set.reps,
+            e1rm: Math.round(e1rm),
+            sessionId: set.session_id,
+          });
+
+          if (e1rm > bestE1RM) {
+            bestE1RM = Math.round(e1rm);
+            bestWeight = set.weight;
+            bestReps = set.reps;
+          }
+        });
+
+        // Sort by date (newest first)
+        history.sort((a, b) => b.date - a.date);
+
+        // Get last session e1RM
+        let lastE1RM = 0;
+        let trend = 0;
+        if (history.length > 0) {
+          const lastSessionId = history[0].sessionId;
+          const lastSessionSets = history.filter(h => h.sessionId === lastSessionId);
+          lastE1RM = Math.max(...lastSessionSets.map(h => h.e1rm));
+
+          // Calculate trend
+          const previousSessions = history.filter(h => h.sessionId !== lastSessionId);
+          if (previousSessions.length > 0) {
+            const prevSessionId = previousSessions[0].sessionId;
+            const prevSessionSets = previousSessions.filter(h => h.sessionId === prevSessionId);
+            const prevBest = Math.max(...prevSessionSets.map(h => h.e1rm));
+            trend = lastE1RM - prevBest;
+          }
+        }
+
+        // Create chart data (best e1RM per day)
+        const dailyBest = {};
+        history.forEach(h => {
+          const key = h.dateStr;
+          if (!dailyBest[key] || h.e1rm > dailyBest[key].e1rm) {
+            dailyBest[key] = h;
+          }
+        });
+        const chartData = Object.values(dailyBest).sort((a, b) => a.date - b.date);
+
+        setExerciseData({
+          name: exerciseName,
+          history,
+          chartData,
+          bestE1RM,
+          bestWeight,
+          bestReps,
+          lastE1RM,
+          trend,
+        });
+      } catch (err) {
+        console.warn('Error loading exercise data:', err);
+        setExerciseData(null);
+      }
+      setLoading(false);
+    };
+
+    if (userId && exerciseName) loadExerciseData();
+  }, [userId, exerciseName]);
+
+  // Filter chart data by timeframe
+  const getFilteredChartData = () => {
+    if (!exerciseData?.chartData) return [];
+    const data = exerciseData.chartData;
+    if (timeFrame === 'all') return data;
+
+    const weeks = timeFrame === '4w' ? 4 : timeFrame === '8w' ? 8 : 12;
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - weeks * 7);
+    return data.filter(d => d.date >= cutoff);
+  };
+
+  const filteredChartData = getFilteredChartData();
+  const maxE1RM = filteredChartData.length > 0 ? Math.max(...filteredChartData.map(d => d.e1rm), 1) : 1;
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
+      {/* Header */}
+      <div className="p-4 border-b flex items-center justify-between" style={{ borderColor: COLORS.surfaceLight }}>
+        <div className="flex items-center gap-3">
+          <button onClick={onClose}><X size={24} color={COLORS.text} /></button>
+          <h2 className="text-lg font-bold" style={{ color: COLORS.text }}>{exerciseName}</h2>
+        </div>
+        {onShowInfo && (
+          <button
+            onClick={() => onShowInfo(exerciseName)}
+            className="p-2 rounded-full"
+            style={{ backgroundColor: COLORS.surfaceLight }}
+          >
+            <Info size={20} color={COLORS.primary} />
+          </button>
+        )}
+      </div>
+
+      <div className="flex-1 overflow-auto p-4">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center h-64">
+            <Loader2 size={32} color={COLORS.primary} className="animate-spin mb-3" />
+            <p style={{ color: COLORS.textMuted }}>Loading history...</p>
+          </div>
+        ) : !exerciseData ? (
+          <div className="flex flex-col items-center justify-center h-64 text-center px-6">
+            <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4" style={{ backgroundColor: COLORS.surfaceLight }}>
+              <Target size={32} color={COLORS.textMuted} />
+            </div>
+            <h3 className="text-lg font-semibold mb-2" style={{ color: COLORS.text }}>No History Yet</h3>
+            <p className="text-sm" style={{ color: COLORS.textMuted }}>
+              Log some sets for this exercise to see your progress and estimated 1RM here.
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* Stats Cards */}
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              <div className="p-4 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
+                <p className="text-xs mb-1" style={{ color: COLORS.textMuted }}>Best Est. 1RM</p>
+                <div className="flex items-center justify-center gap-2">
+                  <p className="text-3xl font-bold" style={{ color: COLORS.primary }}>{exerciseData.bestE1RM}</p>
+                  {exerciseData.trend !== 0 && (
+                    exerciseData.trend > 0
+                      ? <TrendingUp size={20} color={COLORS.success} />
+                      : <TrendingDown size={20} color={COLORS.error} />
+                  )}
+                </div>
+                <p className="text-xs" style={{ color: COLORS.textMuted }}>kg</p>
+              </div>
+              <div className="p-4 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
+                <p className="text-xs mb-1" style={{ color: COLORS.textMuted }}>Best Lift</p>
+                <p className="text-2xl font-bold" style={{ color: COLORS.text }}>{exerciseData.bestWeight} × {exerciseData.bestReps}</p>
+                <p className="text-xs" style={{ color: COLORS.textMuted }}>kg × reps</p>
+              </div>
+            </div>
+
+            {/* Time Frame Toggle */}
+            {exerciseData.chartData.length > 1 && (
+              <>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-semibold" style={{ color: COLORS.textMuted }}>E1RM PROGRESS</p>
+                  <div className="flex gap-1">
+                    {['4w', '8w', '12w', 'all'].map(tf => (
+                      <button
+                        key={tf}
+                        onClick={() => setTimeFrame(tf)}
+                        className="px-2 py-1 rounded text-xs"
+                        style={{
+                          backgroundColor: timeFrame === tf ? COLORS.primary : 'transparent',
+                          color: timeFrame === tf ? COLORS.text : COLORS.textMuted,
+                        }}
+                      >
+                        {tf === 'all' ? 'All' : tf.toUpperCase()}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Chart */}
+                <div className="p-4 rounded-xl mb-6" style={{ backgroundColor: COLORS.surface }}>
+                  {filteredChartData.length > 0 ? (
+                    <>
+                      <div className="h-32 flex items-end gap-1">
+                        {filteredChartData.map((d, i) => {
+                          const height = (d.e1rm / maxE1RM) * 100;
+                          const isLast = i === filteredChartData.length - 1;
+                          return (
+                            <div key={i} className="flex-1 flex flex-col items-center">
+                              <div
+                                className="w-full rounded-t"
+                                style={{
+                                  height: `${height}%`,
+                                  backgroundColor: isLast ? COLORS.primary : COLORS.primary + '60',
+                                  minHeight: 4,
+                                }}
+                              />
+                              <p className="text-xs mt-1 font-semibold" style={{ color: isLast ? COLORS.primary : COLORS.textMuted }}>
+                                {d.e1rm}
+                              </p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="flex justify-between mt-2">
+                        <span className="text-xs" style={{ color: COLORS.textMuted }}>{filteredChartData[0]?.dateStr}</span>
+                        <span className="text-xs" style={{ color: COLORS.textMuted }}>{filteredChartData[filteredChartData.length - 1]?.dateStr}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-center py-6 text-sm" style={{ color: COLORS.textMuted }}>
+                      No data in this time range
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
+
+            {/* History */}
+            <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>RECENT SETS</p>
+            <div className="space-y-2">
+              {exerciseData.history.slice(0, 30).map((h, i) => (
+                <div
+                  key={i}
+                  className="p-3 rounded-xl flex items-center justify-between"
+                  style={{ backgroundColor: COLORS.surface }}
+                >
+                  <div>
+                    <p className="font-semibold" style={{ color: COLORS.text }}>{h.weight} kg × {h.reps}</p>
+                    <p className="text-xs" style={{ color: COLORS.textMuted }}>{h.dateStr}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold" style={{ color: COLORS.primary }}>{h.e1rm}</p>
+                    <p className="text-xs" style={{ color: COLORS.textMuted }}>e1RM</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -6860,7 +7152,19 @@ const estimateWeightFromBaseLifts = (exerciseName, muscleGroup, equipment, baseL
   }
   // Deadlift variations
   else if (name.includes('deadlift') && !name.includes('romanian') && !name.includes('rdl') && !name.includes('stiff')) {
-    estimatedWeight = deadlift ? deadlift * 0.9 : (squat ? squat * 1.2 : 0);
+    if (name.includes('snatch grip') || name.includes('snatch-grip')) {
+      // Snatch grip is significantly harder due to grip width - typically 65-75% of conventional
+      estimatedWeight = deadlift ? deadlift * 0.70 : (squat ? squat * 0.85 : 0);
+    } else if (name.includes('deficit')) {
+      // Deficit deadlifts are harder off the floor - typically 80-85% of conventional
+      estimatedWeight = deadlift ? deadlift * 0.80 : (squat ? squat * 0.95 : 0);
+    } else if (name.includes('pause') || name.includes('tempo')) {
+      // Pause/tempo deadlifts use less weight
+      estimatedWeight = deadlift ? deadlift * 0.75 : (squat ? squat * 0.90 : 0);
+    } else {
+      // Conventional/sumo variations
+      estimatedWeight = deadlift ? deadlift * 0.85 : (squat ? squat * 1.0 : 0);
+    }
   }
   // Hamstring/RDL exercises
   else if (muscleGroup === 'hamstrings' || name.includes('rdl') || name.includes('romanian') || name.includes('stiff') || name.includes('good morning')) {
@@ -7046,9 +7350,34 @@ const generateDynamicWorkout = (workoutType, userGoal = 'build_muscle', recently
   // Combine and format exercises
   const allSelected = [...primaryExercises, ...secondaryExercises, ...tertiaryExercises];
 
+  // Helper to cap reps for heavy compound exercises that shouldn't be done for high reps
+  const getMaxRepsForExercise = (exerciseName) => {
+    const name = exerciseName.toLowerCase();
+    // Heavy deadlift variations - max 8 reps
+    if (name.includes('snatch grip deadlift') || name.includes('deficit deadlift') ||
+        name.includes('pause deadlift') || name.includes('tempo deadlift')) {
+      return 8;
+    }
+    // Main barbell compounds - max 10 reps for hypertrophy
+    if ((name.includes('deadlift') || name.includes('squat') || name.includes('bench press')) &&
+        !name.includes('dumbbell') && !name.includes('goblet')) {
+      return 10;
+    }
+    // Overhead press variations - max 10 reps
+    if (name.includes('overhead press') || name.includes('military press') || name.includes('ohp')) {
+      return 10;
+    }
+    // Heavy rows - max 12 reps
+    if (name.includes('barbell row') || name.includes('pendlay') || name.includes('bent over row')) {
+      return 12;
+    }
+    return 20; // No cap for isolation/lighter exercises
+  };
+
   allSelected.forEach((ex, index) => {
     const sets = getRandomInRange(params.setsPerExercise[0], params.setsPerExercise[1]);
-    const reps = getRandomInRange(params.repsPerSet[0], params.repsPerSet[1]);
+    const maxReps = getMaxRepsForExercise(ex.name);
+    const reps = Math.min(getRandomInRange(params.repsPerSet[0], params.repsPerSet[1]), maxReps);
     const rest = getRandomInRange(params.restTime[0], params.restTime[1]);
 
     // Compounds get longer rest (+60s), isolations use base rest
@@ -8121,6 +8450,8 @@ function PreWorkoutCheckIn({ onComplete, onSkip, COLORS, sleepLoggedToday = fals
   });
   const [showResults, setShowResults] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [animatingSelection, setAnimatingSelection] = useState(null); // { value, emoji } of currently animating selection
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
   // Questions configuration
   const questions = [
@@ -8195,17 +8526,26 @@ function PreWorkoutCheckIn({ onComplete, onSkip, COLORS, sleepLoggedToday = fals
   const adjustments = workoutCheckinService.getWorkoutAdjustments(readinessScore);
 
   const handleSelect = (value) => {
+    if (isTransitioning) return;
+
+    const selectedOption = currentQuestion.options.find(o => o.value === value);
+    setAnimatingSelection({ value, emoji: selectedOption.emoji });
+    setIsTransitioning(true);
+
     const newResponses = { ...responses, [currentQuestion.key]: value };
     setResponses(newResponses);
 
-    // Auto-advance to next question or results
+    // Phase 1: Highlight selection (300ms)
+    // Phase 2: Slide up and show next question (400ms)
     setTimeout(() => {
+      setAnimatingSelection(null);
       if (step < totalSteps - 1) {
         setStep(step + 1);
       } else {
         setShowResults(true);
       }
-    }, 200);
+      setTimeout(() => setIsTransitioning(false), 50);
+    }, 500);
   };
 
   const handleAccept = async () => {
@@ -8438,8 +8778,9 @@ function PreWorkoutCheckIn({ onComplete, onSkip, COLORS, sleepLoggedToday = fals
       {/* Header */}
       <div className="p-4 flex items-center justify-between">
         <button
-          onClick={() => step > 0 ? setStep(step - 1) : onSkip()}
+          onClick={() => !isTransitioning && (step > 0 ? setStep(step - 1) : onSkip())}
           className="p-2"
+          disabled={isTransitioning}
         >
           {step > 0 ? <ChevronLeft size={24} color={COLORS.text} /> : <X size={24} color={COLORS.text} />}
         </button>
@@ -8447,10 +8788,11 @@ function PreWorkoutCheckIn({ onComplete, onSkip, COLORS, sleepLoggedToday = fals
           {questions.map((_, i) => (
             <div
               key={i}
-              className="w-3 h-3 rounded-full"
+              className="w-3 h-3 rounded-full transition-all duration-300"
               style={{
-                backgroundColor: i <= step ? COLORS.primary : 'transparent',
+                backgroundColor: i < step || (i === step && animatingSelection) ? COLORS.primary : 'transparent',
                 border: `2px solid ${i <= step ? COLORS.primary : COLORS.textMuted}`,
+                transform: i === step && animatingSelection ? 'scale(1.3)' : 'scale(1)',
               }}
             />
           ))}
@@ -8459,14 +8801,54 @@ function PreWorkoutCheckIn({ onComplete, onSkip, COLORS, sleepLoggedToday = fals
           onClick={onSkip}
           className="px-3 py-1 rounded-lg text-sm"
           style={{ color: COLORS.textMuted }}
+          disabled={isTransitioning}
         >
           Skip
         </button>
       </div>
 
-      {/* Question Content */}
-      <div className="flex-1 flex flex-col items-center justify-center p-6">
-        <h2 className="text-2xl font-bold mb-2 text-center" style={{ color: COLORS.text }}>
+      {/* Answered Questions Summary - slides in from top */}
+      {step > 0 && (
+        <div
+          className="px-4 pb-2 flex gap-2 justify-center overflow-x-auto"
+          style={{
+            animation: 'slideDown 0.3s ease-out',
+          }}
+        >
+          {questions.slice(0, step).map((q) => {
+            const response = responses[q.key];
+            const option = q.options.find(o => o.value === response);
+            return (
+              <div
+                key={q.key}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full shrink-0"
+                style={{ backgroundColor: COLORS.surface }}
+              >
+                <span className="text-base">{option?.emoji}</span>
+                <span className="text-xs font-medium" style={{ color: COLORS.textMuted }}>
+                  {q.title.split(' ')[0]}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Question Content - with slide animation */}
+      <div
+        className="flex-1 flex flex-col items-center justify-center p-6"
+        style={{
+          opacity: animatingSelection ? 0.3 : 1,
+          transform: animatingSelection ? 'translateY(-20px) scale(0.95)' : 'translateY(0) scale(1)',
+          transition: 'all 0.4s ease-out',
+        }}
+      >
+        <h2
+          className="text-2xl font-bold mb-2 text-center"
+          style={{
+            color: COLORS.text,
+          }}
+        >
           {currentQuestion.title}
         </h2>
         <p className="text-sm mb-8" style={{ color: COLORS.textMuted }}>
@@ -8475,27 +8857,48 @@ function PreWorkoutCheckIn({ onComplete, onSkip, COLORS, sleepLoggedToday = fals
 
         {/* Options */}
         <div className="w-full flex justify-between gap-1">
-          {currentQuestion.options.map((option) => (
-            <button
-              key={option.value}
-              onClick={() => handleSelect(option.value)}
-              className="flex-1 min-w-0 flex flex-col items-center p-2 rounded-xl transition-all"
-              style={{
-                backgroundColor: responses[currentQuestion.key] === option.value
-                  ? COLORS.primary + '20'
-                  : COLORS.surface,
-                border: `2px solid ${responses[currentQuestion.key] === option.value ? COLORS.primary : 'transparent'}`,
-              }}
-            >
-              <span className="text-2xl mb-1">{option.emoji}</span>
-              <span
-                className="text-xs font-medium text-center leading-tight"
-                style={{ color: responses[currentQuestion.key] === option.value ? COLORS.primary : COLORS.textMuted, fontSize: '10px' }}
+          {currentQuestion.options.map((option) => {
+            const isSelected = animatingSelection?.value === option.value;
+            const wasSelected = responses[currentQuestion.key] === option.value;
+            return (
+              <button
+                key={option.value}
+                onClick={() => handleSelect(option.value)}
+                disabled={isTransitioning}
+                className="flex-1 min-w-0 flex flex-col items-center p-2 rounded-xl"
+                style={{
+                  backgroundColor: isSelected || wasSelected
+                    ? COLORS.primary + '30'
+                    : COLORS.surface,
+                  border: `2px solid ${isSelected || wasSelected ? COLORS.primary : 'transparent'}`,
+                  transform: isSelected ? 'scale(1.15)' : 'scale(1)',
+                  transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                  zIndex: isSelected ? 10 : 1,
+                  boxShadow: isSelected ? `0 8px 24px ${COLORS.primary}40` : 'none',
+                }}
               >
-                {option.label}
-              </span>
-            </button>
-          ))}
+                <span
+                  className="mb-1"
+                  style={{
+                    fontSize: isSelected ? '2.5rem' : '1.5rem',
+                    transition: 'font-size 0.3s ease',
+                  }}
+                >
+                  {option.emoji}
+                </span>
+                <span
+                  className="text-xs font-medium text-center leading-tight"
+                  style={{
+                    color: isSelected || wasSelected ? COLORS.primary : COLORS.textMuted,
+                    fontSize: '10px',
+                    opacity: isSelected ? 1 : 0.9,
+                  }}
+                >
+                  {option.label}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -8505,6 +8908,14 @@ function PreWorkoutCheckIn({ onComplete, onSkip, COLORS, sleepLoggedToday = fals
           Question {step + 1} of {totalSteps}
         </span>
       </div>
+
+      {/* CSS Animation Keyframes */}
+      <style>{`
+        @keyframes slideDown {
+          from { opacity: 0; transform: translateY(-10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </div>
   );
 }
@@ -8523,7 +8934,6 @@ function ActiveWorkoutScreen({ onClose, onComplete, onSaveProgress, COLORS, avai
   const [restTimeLeft, setRestTimeLeft] = useState(0);
   const [completedSets, setCompletedSets] = useState(savedProgress?.completedSets || []);
   const [currentSetData, setCurrentSetData] = useState({ weight: 0, reps: 0, rpe: 5 });
-  const [showExerciseHistory, setShowExerciseHistory] = useState(null);
   const [showSwapExercise, setShowSwapExercise] = useState(null);
   const [swapSearch, setSwapSearch] = useState('');
   // Calculate weight adjustment based on check-in data
@@ -8567,6 +8977,7 @@ function ActiveWorkoutScreen({ onClose, onComplete, onSaveProgress, COLORS, avai
   const [editSetData, setEditSetData] = useState({ weight: 0, reps: 0, rpe: 5 });
   const [showEndWorkoutConfirm, setShowEndWorkoutConfirm] = useState(false);
   const [showExerciseInfoModal, setShowExerciseInfoModal] = useState(null); // exercise name to show info for
+  const [showExerciseDetailModal, setShowExerciseDetailModal] = useState(null); // exercise name to show detail/history for
 
   // Workout media (photos/videos)
   const [workoutMedia, setWorkoutMedia] = useState([]);
@@ -8883,47 +9294,6 @@ function ActiveWorkoutScreen({ onClose, onComplete, onSaveProgress, COLORS, avai
             Go Back
           </button>
         </div>
-      </div>
-    );
-  }
-
-  // EXERCISE HISTORY MODAL
-  if (showExerciseHistory !== null) {
-    const exercise = exercisesForTime[showExerciseHistory];
-    const maxE1rm = Math.max(...(exercise.history?.map(h => h.e1rm) || [0]));
-    return (
-      <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
-        <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
-          <button onClick={() => setShowExerciseHistory(null)}><ChevronLeft size={24} color={COLORS.text} /></button>
-          <h2 className="text-lg font-bold" style={{ color: COLORS.text }}>{exercise.name} History</h2>
-        </div>
-        <div className="flex-1 overflow-auto p-4">
-          <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
-            <p className="text-sm mb-2" style={{ color: COLORS.textMuted }}>Estimated 1RM Progress</p>
-            <div className="h-32 flex items-end gap-2">
-              {exercise.history?.map((h, i) => (
-                <div key={i} className="flex-1 flex flex-col items-center">
-                  <div className="w-full rounded-t" style={{ backgroundColor: COLORS.primary, height: `${(h.e1rm / maxE1rm) * 100}%`, minHeight: 8 }} />
-                  <p className="text-xs mt-1 font-bold" style={{ color: COLORS.text }}>{h.e1rm}kg</p>
-                  <p className="text-xs" style={{ color: COLORS.textMuted }}>{h.date}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-          <p className="font-semibold mb-3" style={{ color: COLORS.text }}>Previous Sessions</p>
-          <div className="space-y-3">
-            {exercise.history?.map((session, i) => (
-              <div key={i} className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
-                <div className="flex justify-between items-center mb-2">
-                  <p className="font-semibold" style={{ color: COLORS.text }}>{session.date}</p>
-                  <span className="text-xs px-2 py-1 rounded" style={{ backgroundColor: COLORS.accent + '20', color: COLORS.accent }}>e1RM: {session.e1rm}kg</span>
-                </div>
-                <p style={{ color: COLORS.textSecondary }}>{session.weight}kg × {session.reps.join(', ')} reps</p>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="p-4"><button onClick={() => setShowExerciseHistory(null)} className="w-full py-4 rounded-xl font-semibold" style={{ backgroundColor: COLORS.primary, color: COLORS.text }}>Back to Workout</button></div>
       </div>
     );
   }
@@ -9389,7 +9759,7 @@ function ActiveWorkoutScreen({ onClose, onComplete, onSaveProgress, COLORS, avai
                     }}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <button onClick={() => setShowExerciseHistory(i)} className="flex items-center gap-3 flex-1 text-left">
+                      <button onClick={() => setShowExerciseDetailModal(exercise.name)} className="flex items-center gap-3 flex-1 text-left">
                         <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '20' }}>
                           <span className="font-bold" style={{ color: COLORS.primary }}>{i + 1}</span>
                         </div>
@@ -9997,7 +10367,7 @@ function ActiveWorkoutScreen({ onClose, onComplete, onSaveProgress, COLORS, avai
           <button onClick={onClose}><X size={24} color={COLORS.text} /></button>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-bold" style={{ color: COLORS.text }}>{currentExercise.name}</h2>
+              <button onClick={() => setShowExerciseDetailModal(currentExercise.name)} className="text-lg font-bold text-left" style={{ color: COLORS.text }}>{currentExercise.name}</button>
               <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowExerciseInfoModal(currentExercise.name); }} className="p-1 rounded-full" style={{ backgroundColor: COLORS.primary + '20' }}><Info size={14} color={COLORS.primary} /></button>
             </div>
             <p className="text-xs" style={{ color: COLORS.textMuted }}>{currentExercise.muscleGroup}</p>
@@ -10460,6 +10830,20 @@ function ActiveWorkoutScreen({ onClose, onComplete, onSaveProgress, COLORS, avai
           onClose={() => setShowExerciseInfoModal(null)}
         />
       )}
+
+      {/* Exercise Detail Modal */}
+      {showExerciseDetailModal && (
+        <ExerciseDetailModal
+          COLORS={COLORS}
+          exerciseName={showExerciseDetailModal}
+          userId={userId}
+          onClose={() => setShowExerciseDetailModal(null)}
+          onShowInfo={(name) => {
+            setShowExerciseDetailModal(null);
+            setShowExerciseInfoModal(name);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -10622,8 +11006,9 @@ const HomeTab = ({
     const adjGoals = adjustedNutritionGoals || {};
     const nutGoals = nutritionGoals || {};
 
-    const supplementsTaken = supplements?.filter(s => s.taken)?.length || 0;
-    const supplementsTotal = supplements?.length || 0;
+    // Calculate total doses needed and taken for supplements
+    const supplementDosesTotal = supplements?.reduce((sum, s) => sum + (s.timesPerDay || s.times_per_day || 1), 0) || 0;
+    const supplementDosesTaken = supplements?.reduce((sum, s) => sum + Math.min(s.takenCount || (s.taken ? 1 : 0), s.timesPerDay || s.times_per_day || 1), 0) || 0;
 
     const quickStats = [
       {
@@ -10653,9 +11038,9 @@ const HomeTab = ({
       {
         id: 'supplements',
         label: 'Supps',
-        current: supplementsTaken,
-        target: Math.max(supplementsTotal, 1),
-        displayValue: `${supplementsTaken}/${supplementsTotal}`,
+        current: supplementDosesTaken,
+        target: Math.max(supplementDosesTotal, 1),
+        displayValue: `${supplementDosesTaken}/${supplementDosesTotal}`,
         color: COLORS.supplements,
         enabled: tracking.supplements
       }
@@ -11362,28 +11747,26 @@ const HomeTab = ({
       <div className="mx-4 p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
         {/* Chart Selector and Time Frame */}
         <div className="flex items-center justify-between mb-3">
-          {/* Chart Type Tabs */}
-          <div className="flex flex-wrap gap-1.5">
-            {[
-              { id: 'weight', label: 'Weight', color: COLORS.primary },
-              { id: 'calories', label: 'Cals', color: COLORS.accent },
-              { id: 'protein', label: 'Protein', color: COLORS.protein || COLORS.primary },
-              { id: 'water', label: 'Water', color: COLORS.water },
-              { id: 'sleep', label: 'Sleep', color: COLORS.sleep },
-            ].map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setSelectedChart(tab.id)}
-                className="px-2.5 py-1 rounded-lg text-xs font-semibold transition-all"
-                style={{
-                  backgroundColor: selectedChart === tab.id ? tab.color + '20' : 'transparent',
-                  color: selectedChart === tab.id ? tab.color : COLORS.textMuted,
-                  border: `1px solid ${selectedChart === tab.id ? tab.color : 'transparent'}`
-                }}
-              >
-                {tab.label}
-              </button>
-            ))}
+          {/* Chart Type Dropdown */}
+          <div className="relative">
+            <select
+              value={selectedChart}
+              onChange={(e) => setSelectedChart(e.target.value)}
+              className="appearance-none pl-3 pr-8 py-1.5 rounded-lg text-sm font-semibold cursor-pointer"
+              style={{
+                backgroundColor: COLORS.surfaceLight,
+                color: selectedChart === 'weight' ? COLORS.primary : selectedChart === 'calories' ? COLORS.accent : selectedChart === 'protein' ? COLORS.protein : selectedChart === 'water' ? COLORS.water : COLORS.sleep,
+                border: `1px solid ${selectedChart === 'weight' ? COLORS.primary : selectedChart === 'calories' ? COLORS.accent : selectedChart === 'protein' ? COLORS.protein : selectedChart === 'water' ? COLORS.water : COLORS.sleep}`,
+                outline: 'none',
+              }}
+            >
+              <option value="weight">Weight</option>
+              <option value="calories">Calories</option>
+              <option value="protein">Protein</option>
+              <option value="water">Water</option>
+              <option value="sleep">Sleep</option>
+            </select>
+            <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" color={selectedChart === 'weight' ? COLORS.primary : selectedChart === 'calories' ? COLORS.accent : selectedChart === 'protein' ? COLORS.protein : selectedChart === 'water' ? COLORS.water : COLORS.sleep} />
           </div>
           {/* Time Frame Toggle */}
           <div className="flex gap-1">
@@ -11427,21 +11810,48 @@ const HomeTab = ({
         {selectedChart === 'weight' && (() => {
           const weeksToShow = chartTimeFrame === '7d' ? 1 : chartTimeFrame === '30d' ? 4 : chartTimeFrame === '90d' ? 13 : chartData?.weight?.length || 16;
           const filteredData = chartData?.weight?.slice(-weeksToShow) || [];
+          // Calculate nice round Y-axis bounds and explicit ticks
+          const allValues = filteredData.flatMap(d => [d.value, d.expected]).filter(v => v != null);
+          const dataMin = Math.min(...allValues);
+          const dataMax = Math.max(...allValues);
+          const yMin = Math.floor(dataMin / 5) * 5 - 5;
+          const yMax = Math.ceil(dataMax / 5) * 5 + 5;
+          // Generate explicit tick values (every 5kg)
+          const yTicks = [];
+          for (let t = yMin; t <= yMax; t += 5) yTicks.push(t);
+          // Get goal weight (use last expected value or userData goal)
+          const goalWeight = filteredData[filteredData.length - 1]?.expected || userData?.goalWeight;
           return (
-          <div style={{ height: 110 }}>
+          <div style={{ height: 150 }}>
             {filteredData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={filteredData.map(d => ({ date: `W${d.week}`, actual: d.value, goal: d.expected }))}>
-                  <XAxis dataKey="date" tick={{ fill: COLORS.textMuted, fontSize: 9 }} axisLine={false} tickLine={false} interval={Math.ceil(filteredData.length / 6)} />
-                  <YAxis tick={{ fill: COLORS.textMuted, fontSize: 9 }} axisLine={false} tickLine={false} width={32} domain={['dataMin - 2', 'dataMax + 2']} tickFormatter={(v) => Math.round(v)} allowDecimals={false} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: COLORS.surface, border: `1px solid ${COLORS.surfaceLight}`, borderRadius: 8, padding: '6px 10px' }}
-                    labelStyle={{ color: COLORS.text, fontSize: 11 }}
-                    formatter={(value, name) => [value ? `${value}kg` : '-', name === 'actual' ? 'You' : 'Goal']}
+                <AreaChart data={filteredData.map(d => ({ date: `W${d.week}`, actual: d.value }))} margin={{ top: 20, right: 50, left: 0, bottom: 5 }}>
+                  <defs>
+                    <linearGradient id="weightGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={COLORS.primary} stopOpacity={0.25} />
+                      <stop offset="100%" stopColor={COLORS.primary} stopOpacity={0.02} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke={COLORS.surfaceLight} vertical={false} />
+                  <XAxis dataKey="date" tick={{ fill: COLORS.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} interval={Math.ceil(filteredData.length / 6)} />
+                  <YAxis
+                    tick={{ fill: COLORS.textMuted, fontSize: 10 }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={38}
+                    domain={[yMin, yMax]}
+                    ticks={yTicks}
+                    tickFormatter={(v) => `${v}`}
                   />
-                  <Line type="monotone" dataKey="actual" stroke={COLORS.primary} strokeWidth={2} dot={{ fill: COLORS.primary, r: 2 }} connectNulls />
-                  <Line type="monotone" dataKey="goal" stroke={COLORS.textMuted} strokeWidth={1} strokeDasharray="4 4" dot={false} />
-                </LineChart>
+                  <Tooltip
+                    contentStyle={{ backgroundColor: COLORS.surface, border: 'none', borderRadius: 12, padding: '8px 12px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}
+                    labelStyle={{ color: COLORS.text, fontSize: 11, fontWeight: 600, marginBottom: 4 }}
+                    formatter={(value) => [value ? `${value}kg` : '-', 'Weight']}
+                    cursor={{ stroke: COLORS.primary, strokeWidth: 1, strokeDasharray: '4 4' }}
+                  />
+                  {goalWeight && <ReferenceLine y={goalWeight} stroke={COLORS.success} strokeWidth={2} strokeDasharray="8 4" label={{ value: `Goal: ${goalWeight}kg`, position: 'right', fill: COLORS.success, fontSize: 9 }} />}
+                  <Area type="monotone" dataKey="actual" stroke={COLORS.primary} strokeWidth={2.5} fill="url(#weightGradient)" dot={{ fill: COLORS.background, stroke: COLORS.primary, strokeWidth: 2, r: 4 }} activeDot={{ fill: COLORS.primary, stroke: COLORS.background, strokeWidth: 2, r: 6 }} connectNulls animationDuration={800} />
+                </AreaChart>
               </ResponsiveContainer>
             ) : (
               <div className="h-full flex items-center justify-center">
@@ -11454,23 +11864,50 @@ const HomeTab = ({
 
         {/* Calories Chart */}
         {selectedChart === 'calories' && (() => {
-          const weeksToShow = chartTimeFrame === '7d' ? 1 : chartTimeFrame === '30d' ? 4 : chartTimeFrame === '90d' ? 13 : weeklyNutrition?.length || 16;
+          const weeksToShow = chartTimeFrame === '7d' ? 1 : chartTimeFrame === '30d' ? 4 : chartTimeFrame === '90d' ? 7 : weeklyNutrition?.length || 7;
           const filteredData = weeklyNutrition?.slice(-weeksToShow) || [];
+          const hasData = filteredData.some(d => d.calories != null);
+          const calorieGoal = adjustedNutritionGoals?.calories || nutritionGoals?.calories || 2200;
+          // Calculate nice round Y-axis bounds
+          const allValues = [...filteredData.map(d => d.calories).filter(v => v != null), calorieGoal];
+          const dataMin = Math.min(...allValues);
+          const dataMax = Math.max(...allValues);
+          const yMin = Math.floor(dataMin / 500) * 500 - 500;
+          const yMax = Math.ceil(dataMax / 500) * 500 + 500;
+          // Generate explicit tick values (every 500 kcal)
+          const yTicks = [];
+          for (let t = yMin; t <= yMax; t += 500) yTicks.push(t);
           return (
-          <div style={{ height: 110 }}>
-            {filteredData.length > 0 ? (
+          <div style={{ height: 150 }}>
+            {filteredData.length > 0 && hasData ? (
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={filteredData.map((d, i) => ({ ...d, week: `W${weeklyNutrition.length - filteredData.length + i + 1}`, actual: d.calories }))}>
-                  <XAxis dataKey="week" tick={{ fill: COLORS.textMuted, fontSize: 9 }} axisLine={false} tickLine={false} interval={Math.ceil(filteredData.length / 6)} />
-                  <YAxis tick={{ fill: COLORS.textMuted, fontSize: 9 }} axisLine={false} tickLine={false} width={32} domain={['dataMin - 200', 'dataMax + 200']} tickFormatter={(v) => Math.round(v)} allowDecimals={false} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: COLORS.surface, border: `1px solid ${COLORS.surfaceLight}`, borderRadius: 8, padding: '6px 10px' }}
-                    labelStyle={{ color: COLORS.text, fontSize: 11 }}
-                    formatter={(value, name) => [value ? `${value}` : '-', name === 'actual' ? 'You' : 'Goal']}
+                <AreaChart data={filteredData.map(d => ({ ...d, actual: d.calories }))} margin={{ top: 20, right: 50, left: 0, bottom: 5 }}>
+                  <defs>
+                    <linearGradient id="caloriesGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={COLORS.accent} stopOpacity={0.25} />
+                      <stop offset="100%" stopColor={COLORS.accent} stopOpacity={0.02} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke={COLORS.surfaceLight} vertical={false} />
+                  <XAxis dataKey="week" tick={{ fill: COLORS.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <YAxis
+                    tick={{ fill: COLORS.textMuted, fontSize: 10 }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={45}
+                    domain={[yMin, yMax]}
+                    ticks={yTicks}
+                    tickFormatter={(v) => `${v}`}
                   />
-                  <Line type="monotone" dataKey="actual" stroke={COLORS.accent} strokeWidth={2} dot={{ fill: COLORS.accent, r: 2 }} />
-                  <Line type="monotone" dataKey="goal" stroke={COLORS.textMuted} strokeWidth={1} strokeDasharray="4 4" dot={false} />
-                </LineChart>
+                  <Tooltip
+                    contentStyle={{ backgroundColor: COLORS.surface, border: 'none', borderRadius: 12, padding: '8px 12px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}
+                    labelStyle={{ color: COLORS.text, fontSize: 11, fontWeight: 600, marginBottom: 4 }}
+                    formatter={(value) => [value ? `${value} kcal` : '-', 'Calories']}
+                    cursor={{ stroke: COLORS.accent, strokeWidth: 1, strokeDasharray: '4 4' }}
+                  />
+                  <ReferenceLine y={calorieGoal} stroke={COLORS.success} strokeWidth={2} strokeDasharray="8 4" label={{ value: `Goal`, position: 'right', fill: COLORS.success, fontSize: 9 }} />
+                  <Area type="monotone" dataKey="actual" stroke={COLORS.accent} strokeWidth={2.5} fill="url(#caloriesGradient)" dot={{ fill: COLORS.background, stroke: COLORS.accent, strokeWidth: 2, r: 4 }} activeDot={{ fill: COLORS.accent, stroke: COLORS.background, strokeWidth: 2, r: 6 }} connectNulls animationDuration={800} />
+                </AreaChart>
               </ResponsiveContainer>
             ) : (
               <div className="h-full flex items-center justify-center">
@@ -11483,23 +11920,50 @@ const HomeTab = ({
 
         {/* Protein Chart */}
         {selectedChart === 'protein' && (() => {
-          const weeksToShow = chartTimeFrame === '7d' ? 1 : chartTimeFrame === '30d' ? 4 : chartTimeFrame === '90d' ? 13 : weeklyNutrition?.length || 16;
+          const weeksToShow = chartTimeFrame === '7d' ? 1 : chartTimeFrame === '30d' ? 4 : chartTimeFrame === '90d' ? 7 : weeklyNutrition?.length || 7;
           const filteredData = weeklyNutrition?.slice(-weeksToShow) || [];
+          const hasData = filteredData.some(d => d.protein != null);
+          const proteinGoal = adjustedNutritionGoals?.protein || nutritionGoals?.protein || 150;
+          // Calculate nice round Y-axis bounds
+          const allValues = [...filteredData.map(d => d.protein).filter(v => v != null), proteinGoal];
+          const dataMin = Math.min(...allValues);
+          const dataMax = Math.max(...allValues);
+          const yMin = Math.max(0, Math.floor(dataMin / 50) * 50 - 50);
+          const yMax = Math.ceil(dataMax / 50) * 50 + 50;
+          // Generate explicit tick values (every 50g)
+          const yTicks = [];
+          for (let t = yMin; t <= yMax; t += 50) yTicks.push(t);
           return (
-          <div style={{ height: 110 }}>
-            {filteredData.length > 0 ? (
+          <div style={{ height: 150 }}>
+            {filteredData.length > 0 && hasData ? (
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={filteredData.map((d, i) => ({ week: `W${weeklyNutrition.length - filteredData.length + i + 1}`, actual: d.protein || 0, goal: d.proteinGoal || 150 }))}>
-                  <XAxis dataKey="week" tick={{ fill: COLORS.textMuted, fontSize: 9 }} axisLine={false} tickLine={false} interval={Math.ceil(filteredData.length / 6)} />
-                  <YAxis tick={{ fill: COLORS.textMuted, fontSize: 9 }} axisLine={false} tickLine={false} width={32} domain={[0, 'auto']} tickFormatter={(v) => Math.round(v)} allowDecimals={false} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: COLORS.surface, border: `1px solid ${COLORS.surfaceLight}`, borderRadius: 8, padding: '6px 10px' }}
-                    labelStyle={{ color: COLORS.text, fontSize: 11 }}
-                    formatter={(value, name) => [value ? `${value}g` : '-', name === 'actual' ? 'You' : 'Goal']}
+                <AreaChart data={filteredData.map(d => ({ ...d, actual: d.protein }))} margin={{ top: 20, right: 50, left: 0, bottom: 5 }}>
+                  <defs>
+                    <linearGradient id="proteinGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={COLORS.protein} stopOpacity={0.25} />
+                      <stop offset="100%" stopColor={COLORS.protein} stopOpacity={0.02} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke={COLORS.surfaceLight} vertical={false} />
+                  <XAxis dataKey="week" tick={{ fill: COLORS.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <YAxis
+                    tick={{ fill: COLORS.textMuted, fontSize: 10 }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={40}
+                    domain={[yMin, yMax]}
+                    ticks={yTicks}
+                    tickFormatter={(v) => `${v}g`}
                   />
-                  <Line type="monotone" dataKey="actual" stroke={COLORS.protein || COLORS.primary} strokeWidth={2} dot={{ fill: COLORS.protein || COLORS.primary, r: 2 }} />
-                  <Line type="monotone" dataKey="goal" stroke={COLORS.textMuted} strokeWidth={1} strokeDasharray="4 4" dot={false} />
-                </LineChart>
+                  <Tooltip
+                    contentStyle={{ backgroundColor: COLORS.surface, border: 'none', borderRadius: 12, padding: '8px 12px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}
+                    labelStyle={{ color: COLORS.text, fontSize: 11, fontWeight: 600, marginBottom: 4 }}
+                    formatter={(value) => [value ? `${value}g` : '-', 'Protein']}
+                    cursor={{ stroke: COLORS.protein, strokeWidth: 1, strokeDasharray: '4 4' }}
+                  />
+                  <ReferenceLine y={proteinGoal} stroke={COLORS.success} strokeWidth={2} strokeDasharray="8 4" label={{ value: `Goal`, position: 'right', fill: COLORS.success, fontSize: 9 }} />
+                  <Area type="monotone" dataKey="actual" stroke={COLORS.protein} strokeWidth={2.5} fill="url(#proteinGradient)" dot={{ fill: COLORS.background, stroke: COLORS.protein, strokeWidth: 2, r: 4 }} activeDot={{ fill: COLORS.protein, stroke: COLORS.background, strokeWidth: 2, r: 6 }} connectNulls animationDuration={800} />
+                </AreaChart>
               </ResponsiveContainer>
             ) : (
               <div className="h-full flex items-center justify-center">
@@ -11512,23 +11976,50 @@ const HomeTab = ({
 
         {/* Water Chart */}
         {selectedChart === 'water' && (() => {
-          const weeksToShow = chartTimeFrame === '7d' ? 1 : chartTimeFrame === '30d' ? 4 : chartTimeFrame === '90d' ? 13 : weeklyNutrition?.length || 16;
+          const weeksToShow = chartTimeFrame === '7d' ? 1 : chartTimeFrame === '30d' ? 4 : chartTimeFrame === '90d' ? 7 : weeklyNutrition?.length || 7;
           const filteredData = weeklyNutrition?.slice(-weeksToShow) || [];
+          const hasData = filteredData.some(d => d.water != null);
+          const waterGoal = adjustedNutritionGoals?.water || nutritionGoals?.water || 2500;
+          // Calculate nice round Y-axis bounds (in ml, display as L)
+          const allValues = [...filteredData.map(d => d.water).filter(v => v != null), waterGoal];
+          const dataMin = Math.min(...allValues);
+          const dataMax = Math.max(...allValues);
+          const yMin = Math.max(0, Math.floor(dataMin / 1000) * 1000 - 1000);
+          const yMax = Math.ceil(dataMax / 1000) * 1000 + 1000;
+          // Generate explicit tick values (every 1L = 1000ml)
+          const yTicks = [];
+          for (let t = yMin; t <= yMax; t += 1000) yTicks.push(t);
           return (
-          <div style={{ height: 110 }}>
-            {filteredData.length > 0 ? (
+          <div style={{ height: 150 }}>
+            {filteredData.length > 0 && hasData ? (
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={filteredData.map((d, i) => ({ week: `W${weeklyNutrition.length - filteredData.length + i + 1}`, actual: d.water, goal: d.waterGoal }))}>
-                  <XAxis dataKey="week" tick={{ fill: COLORS.textMuted, fontSize: 9 }} axisLine={false} tickLine={false} interval={Math.ceil(filteredData.length / 6)} />
-                  <YAxis tick={{ fill: COLORS.textMuted, fontSize: 9 }} axisLine={false} tickLine={false} width={32} domain={['dataMin - 500', 'dataMax + 500']} tickFormatter={(v) => `${(v/1000).toFixed(1)}`} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: COLORS.surface, border: `1px solid ${COLORS.surfaceLight}`, borderRadius: 8, padding: '6px 10px' }}
-                    labelStyle={{ color: COLORS.text, fontSize: 11 }}
-                    formatter={(value, name) => [value ? `${(value/1000).toFixed(1)}L` : '-', name === 'actual' ? 'You' : 'Goal']}
+                <AreaChart data={filteredData.map(d => ({ ...d, actual: d.water }))} margin={{ top: 20, right: 50, left: 0, bottom: 5 }}>
+                  <defs>
+                    <linearGradient id="waterGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={COLORS.water} stopOpacity={0.25} />
+                      <stop offset="100%" stopColor={COLORS.water} stopOpacity={0.02} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke={COLORS.surfaceLight} vertical={false} />
+                  <XAxis dataKey="week" tick={{ fill: COLORS.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <YAxis
+                    tick={{ fill: COLORS.textMuted, fontSize: 10 }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={35}
+                    domain={[yMin, yMax]}
+                    ticks={yTicks}
+                    tickFormatter={(v) => `${v/1000}L`}
                   />
-                  <Line type="monotone" dataKey="actual" stroke={COLORS.water} strokeWidth={2} dot={{ fill: COLORS.water, r: 2 }} />
-                  <Line type="monotone" dataKey="goal" stroke={COLORS.textMuted} strokeWidth={1} strokeDasharray="4 4" dot={false} />
-                </LineChart>
+                  <Tooltip
+                    contentStyle={{ backgroundColor: COLORS.surface, border: 'none', borderRadius: 12, padding: '8px 12px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}
+                    labelStyle={{ color: COLORS.text, fontSize: 11, fontWeight: 600, marginBottom: 4 }}
+                    formatter={(value) => [value ? `${(value/1000).toFixed(1)}L` : '-', 'Water']}
+                    cursor={{ stroke: COLORS.water, strokeWidth: 1, strokeDasharray: '4 4' }}
+                  />
+                  <ReferenceLine y={waterGoal} stroke={COLORS.success} strokeWidth={2} strokeDasharray="8 4" label={{ value: `Goal`, position: 'right', fill: COLORS.success, fontSize: 9 }} />
+                  <Area type="monotone" dataKey="actual" stroke={COLORS.water} strokeWidth={2.5} fill="url(#waterGradient)" dot={{ fill: COLORS.background, stroke: COLORS.water, strokeWidth: 2, r: 4 }} activeDot={{ fill: COLORS.water, stroke: COLORS.background, strokeWidth: 2, r: 6 }} connectNulls animationDuration={800} />
+                </AreaChart>
               </ResponsiveContainer>
             ) : (
               <div className="h-full flex items-center justify-center">
@@ -11554,17 +12045,33 @@ const HomeTab = ({
               }
               return (
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={weeklySleepData}>
-                    <XAxis dataKey="week" tick={{ fill: COLORS.textMuted, fontSize: 9 }} axisLine={false} tickLine={false} interval={Math.ceil(weeklySleepData.length / 6)} />
-                    <YAxis tick={{ fill: COLORS.textMuted, fontSize: 9 }} axisLine={false} tickLine={false} width={24} domain={[4, 10]} tickFormatter={(v) => Math.round(v)} allowDecimals={false} />
-                    <Tooltip
-                      contentStyle={{ backgroundColor: COLORS.surface, border: `1px solid ${COLORS.surfaceLight}`, borderRadius: 8, padding: '6px 10px' }}
-                      labelStyle={{ color: COLORS.text, fontSize: 11 }}
-                      formatter={(value, name) => [value ? `${value}h` : '-', name === 'actual' ? 'You' : 'Goal']}
+                  <AreaChart data={weeklySleepData} margin={{ top: 20, right: 50, left: 0, bottom: 5 }}>
+                    <defs>
+                      <linearGradient id="sleepGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={COLORS.sleep} stopOpacity={0.25} />
+                        <stop offset="100%" stopColor={COLORS.sleep} stopOpacity={0.02} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke={COLORS.surfaceLight} vertical={false} />
+                    <XAxis dataKey="week" tick={{ fill: COLORS.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} interval={Math.ceil(weeklySleepData.length / 6)} />
+                    <YAxis
+                      tick={{ fill: COLORS.textMuted, fontSize: 10 }}
+                      axisLine={false}
+                      tickLine={false}
+                      width={32}
+                      domain={[4, 10]}
+                      ticks={[4, 6, 8, 10]}
+                      tickFormatter={(v) => `${v}h`}
                     />
-                    <Line type="monotone" dataKey="actual" stroke={COLORS.sleep} strokeWidth={2} dot={{ fill: COLORS.sleep, r: 2 }} />
-                    <Line type="monotone" dataKey="goal" stroke={COLORS.textMuted} strokeWidth={1} strokeDasharray="4 4" dot={false} />
-                  </LineChart>
+                    <Tooltip
+                      contentStyle={{ backgroundColor: COLORS.surface, border: 'none', borderRadius: 12, padding: '8px 12px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}
+                      labelStyle={{ color: COLORS.text, fontSize: 11, fontWeight: 600, marginBottom: 4 }}
+                      formatter={(value) => [value ? `${value}h` : '-', 'Sleep']}
+                      cursor={{ stroke: COLORS.sleep, strokeWidth: 1, strokeDasharray: '4 4' }}
+                    />
+                    <ReferenceLine y={8} stroke={COLORS.success} strokeWidth={2} strokeDasharray="8 4" label={{ value: `Goal`, position: 'right', fill: COLORS.success, fontSize: 9 }} />
+                    <Area type="monotone" dataKey="actual" stroke={COLORS.sleep} strokeWidth={2.5} fill="url(#sleepGradient)" dot={{ fill: COLORS.background, stroke: COLORS.sleep, strokeWidth: 2, r: 4 }} activeDot={{ fill: COLORS.sleep, stroke: COLORS.background, strokeWidth: 2, r: 6 }} animationDuration={800} />
+                  </AreaChart>
                 </ResponsiveContainer>
               );
             })() : (
@@ -11578,11 +12085,11 @@ const HomeTab = ({
         {/* Chart Legend */}
         <div className="flex justify-center gap-4 mt-3 pt-2" style={{ borderTop: `1px solid ${COLORS.surfaceLight}` }}>
           <div className="flex items-center gap-1">
-            <div className="w-3 h-0.5" style={{ backgroundColor: selectedChart === 'weight' ? COLORS.primary : selectedChart === 'calories' ? COLORS.accent : COLORS.water }} />
+            <div className="w-3 h-0.5 rounded" style={{ backgroundColor: selectedChart === 'weight' ? COLORS.primary : selectedChart === 'calories' ? COLORS.accent : selectedChart === 'protein' ? COLORS.protein : selectedChart === 'water' ? COLORS.water : COLORS.sleep }} />
             <span className="text-xs" style={{ color: COLORS.textMuted }}>Actual</span>
           </div>
           <div className="flex items-center gap-1">
-            <div className="w-3 h-0.5" style={{ backgroundColor: COLORS.textMuted, borderStyle: 'dashed' }} />
+            <div className="w-3 h-0.5 rounded" style={{ backgroundColor: COLORS.success }} />
             <span className="text-xs" style={{ color: COLORS.textMuted }}>Goal</span>
           </div>
         </div>
@@ -12399,8 +12906,12 @@ const ProgressTab = ({
   chartData,
   setShowWeighIn,
   getLocalDateString,
+  progressChartTimeFrame,
+  setProgressChartTimeFrame,
+  progressTabScrollRef,
+  handleProgressTabScroll,
 }) => (
-          <div className="p-4 h-full overflow-auto">
+          <div ref={progressTabScrollRef} onScroll={handleProgressTabScroll} className="p-4 h-full overflow-auto pb-20">
             {/* Progress Overview */}
             <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>OVERVIEW</p>
             <div className="grid grid-cols-2 gap-3 mb-6">
@@ -12484,274 +12995,94 @@ const ProgressTab = ({
               )}
             </div>
 
-            {/* Daily Insights */}
+            {/* Weight Chart */}
             {(() => {
-              // Generate insights based on current data
-              const generateInsights = () => {
-                const insights = [];
-                const warnings = [];
-                const successes = [];
-
-                // Get tomorrow's date
-                const tomorrow = new Date();
-                tomorrow.setDate(tomorrow.getDate() + 1);
-                const tomorrowKey = getLocalDateString(tomorrow);
-                const tomorrowSchedule = masterSchedule[tomorrowKey];
-                const tomorrowWorkoutType = tomorrowSchedule?.workoutType;
-
-                // Get today's date
-                const todayKey = getLocalDateString();
-                const todaySchedule = masterSchedule[todayKey];
-
-                // Nutrition goals
-                const calorieGoal = adjustedNutritionGoals?.calories || nutritionGoals?.calories || 2200;
-                const proteinGoal = adjustedNutritionGoals?.protein || nutritionGoals?.protein || 150;
-                const waterGoal = adjustedNutritionGoals?.water || nutritionGoals?.water || 2500;
-
-                // Check workout progress
-                if (todaySchedule?.workoutType && !todayWorkoutCompleted) {
-                  const workoutName = WORKOUT_TEMPLATES?.[todaySchedule.workoutType]?.name || 'Today\'s workout';
-                  warnings.push({
-                    icon: Dumbbell,
-                    color: COLORS.warning,
-                    text: `${workoutName} is still waiting. Get it done today to stay on track.`
-                  });
-                } else if (todayWorkoutCompleted) {
-                  successes.push({
-                    icon: Check,
-                    color: COLORS.success,
-                    text: 'Workout completed. Great job staying consistent!'
-                  });
-                }
-
-                // Check tomorrow's workout
-                if (tomorrowWorkoutType) {
-                  const tomorrowName = WORKOUT_TEMPLATES?.[tomorrowWorkoutType]?.name || 'Workout';
-                  insights.push({
-                    icon: Calendar,
-                    color: COLORS.primary,
-                    text: `Tomorrow: ${tomorrowName}. Plan your day around it.`
-                  });
-                } else if (tomorrowSchedule) {
-                  insights.push({
-                    icon: Moon,
-                    color: COLORS.sleep,
-                    text: 'Tomorrow is a rest day. Focus on recovery and nutrition.'
-                  });
-                }
-
-                // Check calories
-                const caloriePercent = (caloriesIntake / calorieGoal) * 100;
-                if (caloriePercent < 70) {
-                  const deficit = calorieGoal - caloriesIntake;
-                  warnings.push({
-                    icon: Flame,
-                    color: COLORS.accent,
-                    text: `You're ${Math.round(deficit)} cal under your goal. A protein-rich snack would help fuel recovery.`
-                  });
-                } else if (caloriePercent >= 90 && caloriePercent <= 110) {
-                  successes.push({
-                    icon: Flame,
-                    color: COLORS.success,
-                    text: 'Calories on track. Keep it up!'
-                  });
-                } else if (caloriePercent > 120) {
-                  warnings.push({
-                    icon: Flame,
-                    color: COLORS.warning,
-                    text: `Over calorie target by ${Math.round(caloriesIntake - calorieGoal)}. Consider a lighter dinner.`
-                  });
-                }
-
-                // Check protein
-                const proteinPercent = (proteinIntake / proteinGoal) * 100;
-                if (proteinPercent < 60) {
-                  const needed = proteinGoal - proteinIntake;
-                  warnings.push({
-                    icon: Target,
-                    color: COLORS.protein || COLORS.primary,
-                    text: `${Math.round(needed)}g protein to go. Add chicken, fish, or a shake to hit your target.`
-                  });
-                }
-
-                // Check water
-                const waterPercent = (waterIntake / waterGoal) * 100;
-                if (waterPercent < 50) {
-                  warnings.push({
-                    icon: Droplets,
-                    color: COLORS.water,
-                    text: 'Water intake is low. Set a reminder to drink 500ml before your next meal.'
-                  });
-                } else if (waterPercent >= 80) {
-                  successes.push({
-                    icon: Droplets,
-                    color: COLORS.success,
-                    text: 'Good hydration today!'
-                  });
-                }
-
-                // Check sleep (calculate from bed/wake times)
-                const getSleepHours = () => {
-                  try {
-                    const bedTime = lastNightBedTime || '23:00';
-                    const wakeTime = lastNightWakeTime || '07:00';
-                    const [bedH, bedM] = bedTime.split(':').map(Number);
-                    const [wakeH, wakeM] = wakeTime.split(':').map(Number);
-                    let hours = wakeH - bedH + (wakeM - bedM) / 60;
-                    if (hours < 0) hours += 24;
-                    return hours;
-                  } catch (e) {
-                    return 7;
-                  }
-                };
-                const currentSleepHours = getSleepHours();
-                if (currentSleepHours > 0 && currentSleepHours < 7) {
-                  insights.push({
-                    icon: Moon,
-                    color: COLORS.sleep,
-                    text: `Only ${currentSleepHours.toFixed(1)}h sleep last night. Aim for 7-8h tonight for better recovery.`
-                  });
-                }
-
-                // Check streaks at risk
-                if (streaks?.calories?.daysInRow >= 3 && caloriePercent < 70) {
-                  warnings.push({
-                    icon: AlertCircle,
-                    color: COLORS.error,
-                    text: `${streaks.calories.daysInRow}-day calorie streak at risk. Don't let it break!`
-                  });
-                }
-
-                return { insights, warnings, successes };
-              };
-
-              const { insights, warnings, successes } = generateInsights();
-              const hasContent = insights.length > 0 || warnings.length > 0 || successes.length > 0;
-
-              if (!hasContent) return null;
-
-              const totalItems = successes.length + warnings.length + insights.length;
-              const statusColor = warnings.length > 0 ? COLORS.warning : COLORS.success;
+              // Filter data based on timeframe
+              const weeksToShow = progressChartTimeFrame === '7d' ? 1 : progressChartTimeFrame === '30d' ? 4 : progressChartTimeFrame === '90d' ? 13 : chartData?.weight?.length || 16;
+              const filteredData = chartData.weight?.slice(-weeksToShow) || [];
+              // Calculate nice round Y-axis bounds and explicit ticks
+              const allValues = filteredData.flatMap(d => [d.value, d.expected]).filter(v => v != null);
+              const dataMin = allValues.length > 0 ? Math.min(...allValues) : 70;
+              const dataMax = allValues.length > 0 ? Math.max(...allValues) : 80;
+              const yMin = Math.floor(dataMin / 5) * 5 - 5;
+              const yMax = Math.ceil(dataMax / 5) * 5 + 5;
+              // Generate explicit tick values (every 5kg)
+              const yTicks = [];
+              for (let t = yMin; t <= yMax; t += 5) yTicks.push(t);
+              // Get goal weight
+              const goalWeight = filteredData[filteredData.length - 1]?.expected || userData?.goalWeight;
 
               return (
-                <div className="mb-6">
-                  <button
-                    onClick={() => setDailyInsightsExpanded(!dailyInsightsExpanded)}
-                    className="w-full p-4 rounded-xl flex items-center justify-between"
-                    style={{ backgroundColor: COLORS.surface }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: statusColor + '20' }}>
-                        <Sparkles size={20} color={statusColor} />
+              <div className="p-4 rounded-xl mb-6" style={{ backgroundColor: COLORS.surface }}>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm font-semibold" style={{ color: COLORS.text }}>Weight Tracking</p>
+                  <div className="flex gap-1">
+                    {[{ id: '7d', label: '7D' }, { id: '30d', label: '30D' }, { id: '90d', label: '90D' }, { id: 'all', label: 'All' }].map(tf => (
+                      <button
+                        key={tf.id}
+                        onClick={() => setProgressChartTimeFrame(tf.id)}
+                        className="px-2 py-1 rounded text-xs"
+                        style={{ backgroundColor: progressChartTimeFrame === tf.id ? COLORS.primary + '20' : 'transparent', color: progressChartTimeFrame === tf.id ? COLORS.primary : COLORS.textMuted }}
+                      >
+                        {tf.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ height: 170 }}>
+                  {filteredData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={filteredData.map(d => ({ date: `W${d.week}`, actual: d.value }))} margin={{ top: 20, right: 50, left: 0, bottom: 5 }}>
+                        <defs>
+                          <linearGradient id="progressWeightGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor={COLORS.primary} stopOpacity={0.25} />
+                            <stop offset="100%" stopColor={COLORS.primary} stopOpacity={0.02} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke={COLORS.surfaceLight} vertical={false} />
+                        <XAxis dataKey="date" tick={{ fill: COLORS.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} interval={Math.ceil(filteredData.length / 8)} />
+                        <YAxis
+                          tick={{ fill: COLORS.textMuted, fontSize: 10 }}
+                          axisLine={false}
+                          tickLine={false}
+                          width={38}
+                          domain={[yMin, yMax]}
+                          ticks={yTicks}
+                          tickFormatter={(v) => `${v}`}
+                        />
+                        <Tooltip
+                          contentStyle={{ backgroundColor: COLORS.surface, border: 'none', borderRadius: 12, padding: '8px 12px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}
+                          labelStyle={{ color: COLORS.text, fontSize: 11, fontWeight: 600, marginBottom: 4 }}
+                          formatter={(value) => [value ? `${value}kg` : '-', 'Weight']}
+                          cursor={{ stroke: COLORS.primary, strokeWidth: 1, strokeDasharray: '4 4' }}
+                        />
+                        {goalWeight && <ReferenceLine y={goalWeight} stroke={COLORS.success} strokeWidth={2} strokeDasharray="8 4" label={{ value: `Goal: ${goalWeight}kg`, position: 'right', fill: COLORS.success, fontSize: 9 }} />}
+                        <Area type="monotone" dataKey="actual" stroke={COLORS.primary} strokeWidth={2.5} fill="url(#progressWeightGradient)" dot={{ fill: COLORS.background, stroke: COLORS.primary, strokeWidth: 2, r: 4 }} activeDot={{ fill: COLORS.primary, stroke: COLORS.background, strokeWidth: 2, r: 6 }} connectNulls animationDuration={800} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-full flex items-center justify-center">
+                      <div className="text-center">
+                        <Scale size={32} color={COLORS.textMuted} className="mx-auto mb-2" />
+                        <p className="text-sm" style={{ color: COLORS.textMuted }}>No weigh-in data yet</p>
+                        <p className="text-xs mt-1" style={{ color: COLORS.textMuted }}>Log your first weigh-in to start tracking</p>
                       </div>
-                      <div className="text-left">
-                        <p className="font-semibold" style={{ color: COLORS.text }}>Daily Insights</p>
-                        <p className="text-xs" style={{ color: COLORS.textMuted }}>
-                          {warnings.length > 0 ? `${warnings.length} area${warnings.length > 1 ? 's' : ''} need attention` : 'All on track'}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs px-2 py-1 rounded-full" style={{ backgroundColor: statusColor + '20', color: statusColor }}>
-                        {totalItems}
-                      </span>
-                      <ChevronDown
-                        size={20}
-                        color={COLORS.textMuted}
-                        style={{ transform: dailyInsightsExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}
-                      />
-                    </div>
-                  </button>
-
-                  {dailyInsightsExpanded && (
-                    <div className="mt-2 p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
-                      {/* Successes */}
-                      {successes.map((item, idx) => (
-                        <div key={`success-${idx}`} className="flex items-start gap-3 mb-3 last:mb-0">
-                          <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: item.color + '20' }}>
-                            <item.icon size={16} color={item.color} />
-                          </div>
-                          <p className="text-sm flex-1 pt-1" style={{ color: COLORS.text }}>{item.text}</p>
-                        </div>
-                      ))}
-
-                      {/* Warnings */}
-                      {warnings.map((item, idx) => (
-                        <div key={`warning-${idx}`} className="flex items-start gap-3 mb-3 last:mb-0">
-                          <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: item.color + '20' }}>
-                            <item.icon size={16} color={item.color} />
-                          </div>
-                          <p className="text-sm flex-1 pt-1" style={{ color: COLORS.text }}>{item.text}</p>
-                        </div>
-                      ))}
-
-                      {/* Tomorrow's Focus / General Insights */}
-                      {insights.map((item, idx) => (
-                        <div key={`insight-${idx}`} className="flex items-start gap-3 mb-3 last:mb-0">
-                          <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: item.color + '20' }}>
-                            <item.icon size={16} color={item.color} />
-                          </div>
-                          <p className="text-sm flex-1 pt-1" style={{ color: COLORS.text }}>{item.text}</p>
-                        </div>
-                      ))}
                     </div>
                   )}
                 </div>
+                <div className="flex justify-center gap-4 mt-2">
+                  <div className="flex items-center gap-1">
+                    <div className="w-3 h-0.5 rounded" style={{ backgroundColor: COLORS.primary }} />
+                    <span className="text-xs" style={{ color: COLORS.textMuted }}>Actual</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-3 h-0.5 rounded" style={{ backgroundColor: COLORS.success }} />
+                    <span className="text-xs" style={{ color: COLORS.textMuted }}>Goal</span>
+                  </div>
+                </div>
+              </div>
               );
             })()}
-
-            {/* Weight Chart */}
-            <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>WEIGHT TRACKING</p>
-            <div className="p-4 rounded-xl mb-6" style={{ backgroundColor: COLORS.surface }}>
-              <div className="flex items-center justify-end mb-3">
-                <div className="flex gap-2">
-                  {['1M', '3M', '6M', 'All'].map(period => (
-                    <button
-                      key={period}
-                      className="px-2 py-1 rounded text-xs"
-                      style={{ backgroundColor: period === '3M' ? COLORS.primary + '20' : 'transparent', color: period === '3M' ? COLORS.primary : COLORS.textMuted }}
-                    >
-                      {period}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div style={{ height: 160 }}>
-                {chartData.weight.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData.weight.map(d => ({ date: `Week ${d.week}`, weight: d.value, expected: d.expected }))}>
-                      <XAxis dataKey="date" tick={{ fill: COLORS.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fill: COLORS.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} width={35} domain={['dataMin - 2', 'dataMax + 2']} />
-                      <Tooltip
-                        contentStyle={{ backgroundColor: COLORS.surface, border: 'none', borderRadius: 8 }}
-                        labelStyle={{ color: COLORS.text }}
-                        formatter={(value, name) => [value ? value + 'kg' : 'No data', name === 'weight' ? 'Actual' : 'Target']}
-                      />
-                      <Line type="monotone" dataKey="expected" stroke={COLORS.textMuted} strokeWidth={1} strokeDasharray="5 5" dot={false} />
-                      <Line type="monotone" dataKey="weight" stroke={COLORS.primary} strokeWidth={2} dot={{ fill: COLORS.primary, r: 3 }} connectNulls />
-                    </LineChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="h-full flex items-center justify-center">
-                    <div className="text-center">
-                      <Scale size={32} color={COLORS.textMuted} className="mx-auto mb-2" />
-                      <p className="text-sm" style={{ color: COLORS.textMuted }}>No weigh-in data yet</p>
-                      <p className="text-xs mt-1" style={{ color: COLORS.textMuted }}>Log your first weigh-in to start tracking</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div className="flex justify-center gap-4 mt-2">
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-0.5 rounded" style={{ backgroundColor: COLORS.primary }} />
-                  <span className="text-xs" style={{ color: COLORS.textMuted }}>Actual</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-0.5 rounded" style={{ backgroundColor: COLORS.textMuted, borderStyle: 'dashed' }} />
-                  <span className="text-xs" style={{ color: COLORS.textMuted }}>Target</span>
-                </div>
-              </div>
-            </div>
 
             {/* Body Composition Chart */}
             <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>BODY COMPOSITION</p>
@@ -14965,7 +15296,6 @@ const FriendsTab = ({
                   {[
                     { id: 'workouts', label: 'Workouts' },
                     { id: 'volume', label: 'Volume' },
-                    { id: 'streak', label: 'Streak' },
                   ].map(type => (
                     <button
                       key={type.id}
@@ -15051,7 +15381,7 @@ const FriendsTab = ({
                             {leaderboardType === 'volume' ? `${(entry.score / 1000).toFixed(1)}k` : entry.score}
                           </p>
                           <p className="text-xs" style={{ color: COLORS.textMuted }}>
-                            {leaderboardType === 'volume' ? 'kg' : leaderboardType === 'streak' ? 'days' : 'sessions'}
+                            {leaderboardType === 'volume' ? 'kg' : 'sessions'}
                           </p>
                         </div>
                       </button>
@@ -15995,6 +16325,8 @@ const NutritionTab = ({
   editSupplementAmountRef,
   editSupplementUnitRef,
   editSupplementTimesRef,
+  nutritionWeeklyChart,
+  setNutritionWeeklyChart,
 }) => {
   const handleScroll = (e) => {
     if (nutritionTabScrollRef?.current !== undefined) {
@@ -16385,8 +16717,8 @@ const NutritionTab = ({
                       <div className="grid grid-cols-2 gap-1.5">
                         {[
                           { label: '100ml', amount: 100 },
-                          { label: '200ml', amount: 200 },
                           { label: '250ml', amount: 250 },
+                          { label: '400ml', amount: 400 },
                           { label: '500ml', amount: 500 },
                           { label: '1L', amount: 1000 },
                           { label: '+', amount: null },
@@ -16663,124 +16995,144 @@ const NutritionTab = ({
                   </div>
                 </div>
 
-                {/* Weekly Calorie Chart */}
-                <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>WEEKLY CALORIES</p>
+                {/* Weekly Nutrition Chart */}
                 <div className="p-4 rounded-xl mb-6" style={{ backgroundColor: COLORS.surface }}>
-                  {weeklyNutrition.length > 0 && weeklyNutrition.some(d => d.calories != null) ? (
-                    <>
-                      <div style={{ height: 120 }}>
-                        <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={weeklyNutrition.map(d => ({ ...d, goal: nutritionGoals.calories }))}>
-                            <XAxis dataKey="week" tick={{ fill: COLORS.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} />
-                            <YAxis tick={{ fill: COLORS.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} width={40} />
-                            <Tooltip
-                              content={({ active, payload, label }) => {
-                                if (active && payload && payload.length) {
-                                  const userVal = payload.find(p => p.dataKey === 'calories')?.value;
-                                  const goalVal = payload.find(p => p.dataKey === 'goal')?.value;
-                                  return (
-                                    <div style={{
-                                      backgroundColor: COLORS.surface,
-                                      border: `1px solid ${COLORS.surfaceLight}`,
-                                      borderRadius: 8,
-                                      padding: '8px 12px',
-                                    }}>
-                                      <p style={{ color: COLORS.textMuted, fontSize: 11, marginBottom: 4 }}>{label}</p>
-                                      {userVal != null && (
-                                        <p style={{ color: COLORS.accent, fontSize: 14, fontWeight: 'bold' }}>Avg: {userVal} kcal</p>
-                                      )}
-                                      {goalVal != null && (
-                                        <p style={{ color: COLORS.textMuted, fontSize: 11 }}>Goal: {goalVal} kcal</p>
-                                      )}
-                                    </div>
-                                  );
-                                }
-                                return null;
-                              }}
-                            />
-                            <Line type="monotone" dataKey="goal" stroke={COLORS.textMuted} strokeWidth={1} strokeDasharray="5 5" dot={false} connectNulls />
-                            <Line type="monotone" dataKey="calories" stroke={COLORS.accent} strokeWidth={2} dot={{ fill: COLORS.accent, r: 3 }} connectNulls />
-                          </LineChart>
-                        </ResponsiveContainer>
-                      </div>
-                      <div className="flex justify-center gap-4 mt-2">
-                        <div className="flex items-center gap-1">
-                          <div className="w-3 h-0.5 rounded" style={{ backgroundColor: COLORS.accent }} />
-                          <span className="text-xs" style={{ color: COLORS.textMuted }}>Avg/day</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <div className="w-3 h-0.5 rounded" style={{ backgroundColor: COLORS.textMuted, opacity: 0.5 }} />
-                          <span className="text-xs" style={{ color: COLORS.textMuted }}>Goal ({nutritionGoals.calories})</span>
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="h-24 flex flex-col items-center justify-center">
-                      <TrendingUp size={32} color={COLORS.textMuted} style={{ opacity: 0.3 }} />
-                      <p className="text-sm mt-2" style={{ color: COLORS.textMuted }}>No calorie data yet</p>
-                      <p className="text-xs" style={{ color: COLORS.textMuted }}>Log meals to see your weekly trends</p>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-sm font-semibold" style={{ color: COLORS.text }}>Weekly Trends</p>
+                    <div className="relative">
+                      <select
+                        value={nutritionWeeklyChart}
+                        onChange={(e) => setNutritionWeeklyChart(e.target.value)}
+                        className="appearance-none text-xs font-medium px-3 py-1.5 pr-7 rounded-lg cursor-pointer"
+                        style={{
+                          backgroundColor: 'transparent',
+                          color: nutritionWeeklyChart === 'calories' ? COLORS.accent : COLORS.water,
+                          border: `1px solid ${nutritionWeeklyChart === 'calories' ? COLORS.accent : COLORS.water}`,
+                        }}
+                      >
+                        <option value="calories">Calories</option>
+                        <option value="water">Hydration</option>
+                      </select>
+                      <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" color={nutritionWeeklyChart === 'calories' ? COLORS.accent : COLORS.water} />
                     </div>
-                  )}
-                </div>
+                  </div>
 
-                {/* Weekly Water Chart */}
-                <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>WEEKLY HYDRATION</p>
-                <div className="p-4 rounded-xl mb-6" style={{ backgroundColor: COLORS.surface }}>
-                  {weeklyNutrition.length > 0 && weeklyNutrition.some(d => d.water != null) ? (
-                    <>
-                      <div style={{ height: 120 }}>
-                        <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={weeklyNutrition.map(d => ({ ...d, waterGoal: nutritionGoals.water }))}>
-                            <XAxis dataKey="week" tick={{ fill: COLORS.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} />
-                            <YAxis tick={{ fill: COLORS.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} width={40} tickFormatter={(v) => `${(v/1000).toFixed(1)}`} />
-                            <Tooltip
-                              content={({ active, payload, label }) => {
-                                if (active && payload && payload.length) {
-                                  const userVal = payload.find(p => p.dataKey === 'water')?.value;
-                                  const goalVal = payload.find(p => p.dataKey === 'waterGoal')?.value;
-                                  return (
-                                    <div style={{
-                                      backgroundColor: COLORS.surface,
-                                      border: `1px solid ${COLORS.surfaceLight}`,
-                                      borderRadius: 8,
-                                      padding: '8px 12px',
-                                    }}>
-                                      <p style={{ color: COLORS.textMuted, fontSize: 11, marginBottom: 4 }}>{label}</p>
-                                      {userVal != null && (
-                                        <p style={{ color: COLORS.water, fontSize: 14, fontWeight: 'bold' }}>Avg: {(userVal / 1000).toFixed(1)}L</p>
-                                      )}
-                                      {goalVal != null && (
-                                        <p style={{ color: COLORS.textMuted, fontSize: 11 }}>Goal: {(goalVal / 1000).toFixed(1)}L</p>
-                                      )}
-                                    </div>
-                                  );
-                                }
-                                return null;
-                              }}
-                            />
-                            <Line type="monotone" dataKey="waterGoal" stroke={COLORS.textMuted} strokeWidth={1} strokeDasharray="5 5" dot={false} connectNulls />
-                            <Line type="monotone" dataKey="water" stroke={COLORS.water} strokeWidth={2} dot={{ fill: COLORS.water, r: 3 }} connectNulls />
-                          </LineChart>
-                        </ResponsiveContainer>
+                  {nutritionWeeklyChart === 'calories' && (() => {
+                    const hasData = weeklyNutrition.length > 0 && weeklyNutrition.some(d => d.calories != null);
+                    const calorieGoal = nutritionGoals?.calories || 2200;
+                    const allValues = [...weeklyNutrition.map(d => d.calories).filter(v => v != null), calorieGoal];
+                    const dataMin = allValues.length > 0 ? Math.min(...allValues) : 1500;
+                    const dataMax = allValues.length > 0 ? Math.max(...allValues) : 2500;
+                    const yMin = Math.floor(dataMin / 500) * 500 - 500;
+                    const yMax = Math.ceil(dataMax / 500) * 500 + 500;
+                    const yTicks = [];
+                    for (let t = yMin; t <= yMax; t += 500) yTicks.push(t);
+                    return (
+                      <div style={{ height: 150 }}>
+                        {hasData ? (
+                          <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={weeklyNutrition.map(d => ({ ...d, actual: d.calories }))} margin={{ top: 20, right: 50, left: 0, bottom: 5 }}>
+                              <defs>
+                                <linearGradient id="nutritionCaloriesGradient" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="0%" stopColor={COLORS.accent} stopOpacity={0.25} />
+                                  <stop offset="100%" stopColor={COLORS.accent} stopOpacity={0.02} />
+                                </linearGradient>
+                              </defs>
+                              <CartesianGrid strokeDasharray="3 3" stroke={COLORS.surfaceLight} vertical={false} />
+                              <XAxis dataKey="week" tick={{ fill: COLORS.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} />
+                              <YAxis
+                                tick={{ fill: COLORS.textMuted, fontSize: 10 }}
+                                axisLine={false}
+                                tickLine={false}
+                                width={45}
+                                domain={[yMin, yMax]}
+                                ticks={yTicks}
+                                tickFormatter={(v) => `${v}`}
+                              />
+                              <Tooltip
+                                contentStyle={{ backgroundColor: COLORS.surface, border: 'none', borderRadius: 12, padding: '8px 12px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}
+                                labelStyle={{ color: COLORS.text, fontSize: 11, fontWeight: 600, marginBottom: 4 }}
+                                formatter={(value) => [value ? `${value} kcal` : '-', 'Avg/day']}
+                                cursor={{ stroke: COLORS.accent, strokeWidth: 1, strokeDasharray: '4 4' }}
+                              />
+                              <ReferenceLine y={calorieGoal} stroke={COLORS.success} strokeWidth={2} strokeDasharray="8 4" label={{ value: `Goal`, position: 'right', fill: COLORS.success, fontSize: 9 }} />
+                              <Area type="monotone" dataKey="actual" stroke={COLORS.accent} strokeWidth={2.5} fill="url(#nutritionCaloriesGradient)" dot={{ fill: COLORS.background, stroke: COLORS.accent, strokeWidth: 2, r: 4 }} activeDot={{ fill: COLORS.accent, stroke: COLORS.background, strokeWidth: 2, r: 6 }} connectNulls animationDuration={800} />
+                            </AreaChart>
+                          </ResponsiveContainer>
+                        ) : (
+                          <div className="h-full flex flex-col items-center justify-center">
+                            <TrendingUp size={32} color={COLORS.textMuted} style={{ opacity: 0.3 }} />
+                            <p className="text-sm mt-2" style={{ color: COLORS.textMuted }}>No calorie data yet</p>
+                            <p className="text-xs" style={{ color: COLORS.textMuted }}>Log meals to see your weekly trends</p>
+                          </div>
+                        )}
                       </div>
-                      <div className="flex justify-center gap-4 mt-2">
-                        <div className="flex items-center gap-1">
-                          <div className="w-3 h-0.5 rounded" style={{ backgroundColor: COLORS.water }} />
-                          <span className="text-xs" style={{ color: COLORS.textMuted }}>Avg/day</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <div className="w-3 h-0.5 rounded" style={{ backgroundColor: COLORS.textMuted, opacity: 0.5 }} />
-                          <span className="text-xs" style={{ color: COLORS.textMuted }}>Goal ({(nutritionGoals.water / 1000).toFixed(1)}L)</span>
-                        </div>
+                    );
+                  })()}
+
+                  {nutritionWeeklyChart === 'water' && (() => {
+                    const hasData = weeklyNutrition.length > 0 && weeklyNutrition.some(d => d.water != null);
+                    const waterGoal = nutritionGoals?.water || 2500;
+                    const allValues = [...weeklyNutrition.map(d => d.water).filter(v => v != null), waterGoal];
+                    const dataMin = allValues.length > 0 ? Math.min(...allValues) : 1000;
+                    const dataMax = allValues.length > 0 ? Math.max(...allValues) : 3000;
+                    const yMin = Math.max(0, Math.floor(dataMin / 1000) * 1000 - 1000);
+                    const yMax = Math.ceil(dataMax / 1000) * 1000 + 1000;
+                    const yTicks = [];
+                    for (let t = yMin; t <= yMax; t += 1000) yTicks.push(t);
+                    return (
+                      <div style={{ height: 150 }}>
+                        {hasData ? (
+                          <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={weeklyNutrition.map(d => ({ ...d, actual: d.water }))} margin={{ top: 20, right: 50, left: 0, bottom: 5 }}>
+                              <defs>
+                                <linearGradient id="nutritionWaterGradient" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="0%" stopColor={COLORS.water} stopOpacity={0.25} />
+                                  <stop offset="100%" stopColor={COLORS.water} stopOpacity={0.02} />
+                                </linearGradient>
+                              </defs>
+                              <CartesianGrid strokeDasharray="3 3" stroke={COLORS.surfaceLight} vertical={false} />
+                              <XAxis dataKey="week" tick={{ fill: COLORS.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} />
+                              <YAxis
+                                tick={{ fill: COLORS.textMuted, fontSize: 10 }}
+                                axisLine={false}
+                                tickLine={false}
+                                width={35}
+                                domain={[yMin, yMax]}
+                                ticks={yTicks}
+                                tickFormatter={(v) => `${v/1000}L`}
+                              />
+                              <Tooltip
+                                contentStyle={{ backgroundColor: COLORS.surface, border: 'none', borderRadius: 12, padding: '8px 12px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}
+                                labelStyle={{ color: COLORS.text, fontSize: 11, fontWeight: 600, marginBottom: 4 }}
+                                formatter={(value) => [value ? `${(value/1000).toFixed(1)}L` : '-', 'Avg/day']}
+                                cursor={{ stroke: COLORS.water, strokeWidth: 1, strokeDasharray: '4 4' }}
+                              />
+                              <ReferenceLine y={waterGoal} stroke={COLORS.success} strokeWidth={2} strokeDasharray="8 4" label={{ value: `Goal`, position: 'right', fill: COLORS.success, fontSize: 9 }} />
+                              <Area type="monotone" dataKey="actual" stroke={COLORS.water} strokeWidth={2.5} fill="url(#nutritionWaterGradient)" dot={{ fill: COLORS.background, stroke: COLORS.water, strokeWidth: 2, r: 4 }} activeDot={{ fill: COLORS.water, stroke: COLORS.background, strokeWidth: 2, r: 6 }} connectNulls animationDuration={800} />
+                            </AreaChart>
+                          </ResponsiveContainer>
+                        ) : (
+                          <div className="h-full flex flex-col items-center justify-center">
+                            <Droplets size={32} color={COLORS.textMuted} style={{ opacity: 0.3 }} />
+                            <p className="text-sm mt-2" style={{ color: COLORS.textMuted }}>No hydration data yet</p>
+                            <p className="text-xs" style={{ color: COLORS.textMuted }}>Log water intake to see your weekly trends</p>
+                          </div>
+                        )}
                       </div>
-                    </>
-                  ) : (
-                    <div className="h-24 flex flex-col items-center justify-center">
-                      <Droplets size={32} color={COLORS.textMuted} style={{ opacity: 0.3 }} />
-                      <p className="text-sm mt-2" style={{ color: COLORS.textMuted }}>No hydration data yet</p>
-                      <p className="text-xs" style={{ color: COLORS.textMuted }}>Log water intake to see your weekly trends</p>
+                    );
+                  })()}
+
+                  <div className="flex justify-center gap-4 mt-2">
+                    <div className="flex items-center gap-1">
+                      <div className="w-3 h-0.5 rounded" style={{ backgroundColor: nutritionWeeklyChart === 'calories' ? COLORS.accent : COLORS.water }} />
+                      <span className="text-xs" style={{ color: COLORS.textMuted }}>Avg/day</span>
                     </div>
-                  )}
+                    <div className="flex items-center gap-1">
+                      <div className="w-3 h-0.5 rounded" style={{ backgroundColor: COLORS.success }} />
+                      <span className="text-xs" style={{ color: COLORS.textMuted }}>Goal</span>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Monthly Nutrition Calendar */}
@@ -18781,7 +19133,7 @@ export default function UpRepDemo() {
 
             if (weekNum <= 7) {
               if (!weeklyData[weekNum]) {
-                weeklyData[weekNum] = { calories: 0, caloriesCount: 0, water: 0, waterCount: 0 };
+                weeklyData[weekNum] = { calories: 0, caloriesCount: 0, water: 0, waterCount: 0, protein: 0, proteinCount: 0 };
               }
               if (entry.total_calories) {
                 weeklyData[weekNum].calories += entry.total_calories;
@@ -18792,6 +19144,11 @@ export default function UpRepDemo() {
               if (waterAmount) {
                 weeklyData[weekNum].water += waterAmount;
                 weeklyData[weekNum].waterCount++;
+              }
+              // Track protein
+              if (entry.total_protein) {
+                weeklyData[weekNum].protein += entry.total_protein;
+                weeklyData[weekNum].proteinCount++;
               }
             }
           });
@@ -18804,8 +19161,7 @@ export default function UpRepDemo() {
               week: week === 1 ? 'This Week' : `${week}w ago`,
               calories: weekData?.caloriesCount ? Math.round(weekData.calories / weekData.caloriesCount) : null,
               water: weekData?.waterCount ? Math.round(weekData.water / weekData.waterCount) : null,
-              goal: 2500, // Will be overridden by actual goal in render
-              waterGoal: 2500, // Will be overridden by actual goal in render
+              protein: weekData?.proteinCount ? Math.round(weekData.protein / weekData.proteinCount) : null,
             });
           }
 
@@ -19555,9 +19911,11 @@ export default function UpRepDemo() {
   const workoutTabScrollRef = useRef(null);
   const profileTabScrollRef = useRef(null);
   const friendsTabScrollRef = useRef(null);
+  const progressTabScrollRef = useRef(null);
   const workoutTabScrollPos = useRef(0);
   const profileTabScrollPos = useRef(0);
   const friendsTabScrollPos = useRef(0);
+  const progressTabScrollPos = useRef(0);
   const goalChangeInProgressRef = useRef(false); // Prevent profile sync from overwriting goal during change
 
   // Track scroll position on workouts tab
@@ -19569,6 +19927,22 @@ export default function UpRepDemo() {
   const handleProfileTabScroll = (e) => {
     profileTabScrollPos.current = e.target.scrollTop;
   };
+
+  // Track scroll position on progress tab
+  const handleProgressTabScroll = (e) => {
+    progressTabScrollPos.current = e.target.scrollTop;
+  };
+
+  // Restore progress tab scroll position after re-renders
+  useEffect(() => {
+    if (activeTab === 'progress' && progressTabScrollRef.current && progressTabScrollPos.current > 0) {
+      requestAnimationFrame(() => {
+        if (progressTabScrollRef.current) {
+          progressTabScrollRef.current.scrollTop = progressTabScrollPos.current;
+        }
+      });
+    }
+  }, [activeTab]);
 
   // Restore profile tab scroll position after re-renders
   useEffect(() => {
@@ -20714,6 +21088,8 @@ export default function UpRepDemo() {
 
   const [selectedChart, setSelectedChart] = useState('weight');
   const [chartTimeFrame, setChartTimeFrame] = useState('all'); // '7d', '30d', '90d', 'all'
+  const [progressChartTimeFrame, setProgressChartTimeFrame] = useState('all'); // '7d', '30d', '90d', 'all'
+  const [nutritionWeeklyChart, setNutritionWeeklyChart] = useState('calories'); // 'calories', 'water'
   const [chartData, setChartData] = useState({
     weight: [],
     workouts: [],
@@ -23405,6 +23781,8 @@ export default function UpRepDemo() {
             editSupplementAmountRef={editSupplementAmountRef}
             editSupplementUnitRef={editSupplementUnitRef}
             editSupplementTimesRef={editSupplementTimesRef}
+            nutritionWeeklyChart={nutritionWeeklyChart}
+            setNutritionWeeklyChart={setNutritionWeeklyChart}
           />
         )}
         {activeTab === 'friends' && (
@@ -24447,7 +24825,6 @@ export default function UpRepDemo() {
                         {[
                           { id: 'workouts', label: 'Workouts' },
                           { id: 'volume', label: 'Volume' },
-                          { id: 'streak', label: 'Streak' },
                         ].map(type => (
                           <button
                             key={type.id}
@@ -24533,7 +24910,7 @@ export default function UpRepDemo() {
                                   {leaderboardType === 'volume' ? `${(entry.score / 1000).toFixed(1)}k` : entry.score}
                                 </p>
                                 <p className="text-xs" style={{ color: COLORS.textMuted }}>
-                                  {leaderboardType === 'volume' ? 'kg' : leaderboardType === 'streak' ? 'days' : 'sessions'}
+                                  {leaderboardType === 'volume' ? 'kg' : 'sessions'}
                                 </p>
                               </div>
                             </button>
@@ -28562,6 +28939,10 @@ export default function UpRepDemo() {
             chartData={chartData}
             setShowWeighIn={setShowWeighIn}
             getLocalDateString={getLocalDateString}
+            progressChartTimeFrame={progressChartTimeFrame}
+            setProgressChartTimeFrame={setProgressChartTimeFrame}
+            progressTabScrollRef={progressTabScrollRef}
+            handleProgressTabScroll={handleProgressTabScroll}
           />
         )}
         {activeTab === 'profile' && (

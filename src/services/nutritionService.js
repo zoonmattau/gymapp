@@ -220,8 +220,7 @@ export const nutritionService = {
       .from('water_logs')
       .select('*')
       .eq('user_id', userId)
-      .eq('log_date', logDate)
-      .order('created_at');
+      .eq('log_date', logDate);
 
     return { data, error };
   },
