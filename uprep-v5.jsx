@@ -3321,6 +3321,175 @@ const MealEntryModal = ({ COLORS, onClose, onSave, userId }) => {
   );
 };
 
+// Edit Meal Modal - for editing or deleting existing meals
+const EditMealModal = ({ COLORS, meal, onClose, onSave, onDelete }) => {
+  const [name, setName] = React.useState(meal?.name || '');
+  const [calories, setCalories] = React.useState(meal?.calories?.toString() || '');
+  const [protein, setProtein] = React.useState(meal?.protein?.toString() || '');
+  const [carbs, setCarbs] = React.useState(meal?.carbs?.toString() || '');
+  const [fats, setFats] = React.useState(meal?.fats?.toString() || '');
+  const [time, setTime] = React.useState(meal?.time || '12:00');
+  const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
+
+  const handleSave = () => {
+    onSave({
+      ...meal,
+      name: name || 'Meal',
+      calories: parseInt(calories) || 0,
+      protein: parseInt(protein) || 0,
+      carbs: parseInt(carbs) || 0,
+      fats: parseInt(fats) || 0,
+      time,
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+      <div className="w-full max-w-md rounded-t-2xl flex flex-col" style={{ backgroundColor: COLORS.surface, maxHeight: '80vh' }}>
+        {/* Drag handle */}
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-10 h-1 rounded-full" style={{ backgroundColor: COLORS.surfaceLight }} />
+        </div>
+
+        {/* Header */}
+        <div className="px-4 pb-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-bold" style={{ color: COLORS.text }}>Edit Meal</h3>
+            <button onClick={onClose} className="p-2 rounded-full" style={{ backgroundColor: COLORS.surfaceLight }}>
+              <X size={18} color={COLORS.textMuted} />
+            </button>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto px-4 pb-8" style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}>
+          {showDeleteConfirm ? (
+            <div className="text-center py-6">
+              <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: COLORS.error + '20' }}>
+                <Trash2 size={28} color={COLORS.error} />
+              </div>
+              <p className="font-semibold mb-2" style={{ color: COLORS.text }}>Delete this meal?</p>
+              <p className="text-sm mb-6" style={{ color: COLORS.textMuted }}>
+                This will remove "{meal?.name}" from your log.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="flex-1 py-3 rounded-xl font-semibold"
+                  style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => onDelete(meal)}
+                  className="flex-1 py-3 rounded-xl font-semibold"
+                  style={{ backgroundColor: COLORS.error, color: '#fff' }}
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-semibold mb-1.5 block" style={{ color: COLORS.textMuted }}>Meal Name</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  placeholder="e.g. Chicken & Rice"
+                  className="w-full p-3 rounded-xl text-sm"
+                  style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold mb-1.5 block" style={{ color: COLORS.textMuted }}>Time</label>
+                <input
+                  type="time"
+                  value={time}
+                  onChange={e => setTime(e.target.value)}
+                  className="w-full p-3 rounded-xl text-sm"
+                  style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none', colorScheme: 'dark' }}
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold mb-1.5 block" style={{ color: COLORS.textMuted }}>Calories</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={calories}
+                  onChange={e => setCalories(e.target.value.replace(/\D/g, ''))}
+                  placeholder="0"
+                  className="w-full p-3 rounded-xl text-sm"
+                  style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="text-xs font-semibold mb-1.5 block" style={{ color: COLORS.textMuted }}>Protein (g)</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={protein}
+                    onChange={e => setProtein(e.target.value.replace(/\D/g, ''))}
+                    placeholder="0"
+                    className="w-full p-3 rounded-xl text-sm text-center"
+                    style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold mb-1.5 block" style={{ color: COLORS.textMuted }}>Carbs (g)</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={carbs}
+                    onChange={e => setCarbs(e.target.value.replace(/\D/g, ''))}
+                    placeholder="0"
+                    className="w-full p-3 rounded-xl text-sm text-center"
+                    style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold mb-1.5 block" style={{ color: COLORS.textMuted }}>Fats (g)</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={fats}
+                    onChange={e => setFats(e.target.value.replace(/\D/g, ''))}
+                    placeholder="0"
+                    className="w-full p-3 rounded-xl text-sm text-center"
+                    style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="w-12 h-12 rounded-xl flex items-center justify-center"
+                  style={{ backgroundColor: COLORS.error + '20' }}
+                >
+                  <Trash2 size={20} color={COLORS.error} />
+                </button>
+                <button
+                  onClick={handleSave}
+                  className="flex-1 py-3 rounded-xl font-semibold"
+                  style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+                >
+                  Save Changes
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Water Entry Modal - separate component to prevent input focus loss
 const WaterEntryModal = ({ COLORS, onClose, onSave }) => {
   const [amount, setAmount] = React.useState('');
@@ -3618,7 +3787,7 @@ const MissedDayPromptModal = ({ COLORS, missedDayData, nutritionGoals, onDismiss
   const hasLoggedEnough = missedDayData.calories >= 500 && missedDayData.water >= 500;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }} onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="w-full max-w-md rounded-2xl p-6" style={{ backgroundColor: COLORS.surface }}>
         <div className="flex items-center gap-3 mb-4">
           <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.warning + '20' }}>
@@ -3961,7 +4130,7 @@ const WeighInModal = ({ COLORS, onClose, onSave, initialWeight, currentWeight, u
   const changeColor = diff === 0 ? COLORS.textMuted : isGoodChange ? COLORS.success : COLORS.error;
   
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }} onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="w-full max-w-sm rounded-2xl p-6 max-h-[90vh] overflow-auto" style={{ backgroundColor: COLORS.surface }}>
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-xl font-bold" style={{ color: COLORS.text }}>Log Weigh-In</h3>
@@ -4139,7 +4308,7 @@ const WeighInModal = ({ COLORS, onClose, onSave, initialWeight, currentWeight, u
 // Full Meal Entry Modal - Redesigned for simplicity
 const FullMealEntryModal = ({ COLORS, onClose, onSave, foods = [], frequentMeals = [] }) => {
   const [searchQuery, setSearchQuery] = React.useState('');
-  const [activeTab, setActiveTab] = React.useState('search'); // 'search' or 'manual'
+  const [activeTab, setActiveTab] = React.useState('search'); // 'search', 'manual', or 'build'
   const [selectedMeal, setSelectedMeal] = React.useState(null);
   const [servings, setServings] = React.useState('1');
   const [time, setTime] = React.useState(() => {
@@ -4153,6 +4322,187 @@ const FullMealEntryModal = ({ COLORS, onClose, onSave, foods = [], frequentMeals
   const [manualProtein, setManualProtein] = React.useState('');
   const [manualCarbs, setManualCarbs] = React.useState('');
   const [manualFats, setManualFats] = React.useState('');
+
+  // Meal builder state
+  const [builderSearch, setBuilderSearch] = React.useState('');
+  const [builderItems, setBuilderItems] = React.useState([]); // Items added to the meal
+  const [selectedBuilderFood, setSelectedBuilderFood] = React.useState(null);
+  const [builderQuantity, setBuilderQuantity] = React.useState('100');
+  const [builderUnit, setBuilderUnit] = React.useState('g');
+  const [mealName, setMealName] = React.useState('');
+
+  // Comprehensive food database with per-unit nutritional info
+  const foodDatabase = [
+    // Proteins
+    { name: 'Chicken Breast', category: 'protein', per100g: { cal: 165, p: 31, c: 0, f: 4 }, defaultUnit: 'g', unitOptions: ['g', 'oz'] },
+    { name: 'Chicken Thigh', category: 'protein', per100g: { cal: 209, p: 26, c: 0, f: 11 }, defaultUnit: 'g', unitOptions: ['g', 'oz'] },
+    { name: 'Beef Steak', category: 'protein', per100g: { cal: 250, p: 26, c: 0, f: 15 }, defaultUnit: 'g', unitOptions: ['g', 'oz'] },
+    { name: 'Beef Mince', category: 'protein', per100g: { cal: 176, p: 20, c: 0, f: 10 }, defaultUnit: 'g', unitOptions: ['g', 'oz'] },
+    { name: 'Salmon', category: 'protein', per100g: { cal: 208, p: 20, c: 0, f: 13 }, defaultUnit: 'g', unitOptions: ['g', 'oz', 'fillet'] },
+    { name: 'Tuna', category: 'protein', per100g: { cal: 132, p: 28, c: 0, f: 1 }, defaultUnit: 'g', unitOptions: ['g', 'can'] },
+    { name: 'Prawns', category: 'protein', per100g: { cal: 99, p: 24, c: 0, f: 0 }, defaultUnit: 'g', unitOptions: ['g', 'oz'] },
+    { name: 'White Fish', category: 'protein', per100g: { cal: 96, p: 21, c: 0, f: 1 }, defaultUnit: 'g', unitOptions: ['g', 'fillet'] },
+    { name: 'Eggs', category: 'protein', per100g: { cal: 155, p: 13, c: 1, f: 11 }, perUnit: { cal: 78, p: 6, c: 0.6, f: 5 }, defaultUnit: 'unit', unitOptions: ['unit', 'g'] },
+    { name: 'Egg Whites', category: 'protein', per100g: { cal: 52, p: 11, c: 1, f: 0 }, perUnit: { cal: 17, p: 4, c: 0.2, f: 0 }, defaultUnit: 'unit', unitOptions: ['unit', 'g'] },
+    { name: 'Tofu', category: 'protein', per100g: { cal: 76, p: 8, c: 2, f: 4 }, defaultUnit: 'g', unitOptions: ['g', 'block'] },
+    { name: 'Greek Yogurt', category: 'protein', per100g: { cal: 97, p: 9, c: 4, f: 5 }, defaultUnit: 'g', unitOptions: ['g', 'cup'] },
+    { name: 'Turkey Breast', category: 'protein', per100g: { cal: 135, p: 30, c: 0, f: 1 }, defaultUnit: 'g', unitOptions: ['g', 'oz'] },
+    { name: 'Lamb', category: 'protein', per100g: { cal: 294, p: 25, c: 0, f: 21 }, defaultUnit: 'g', unitOptions: ['g', 'oz'] },
+    { name: 'Pork Loin', category: 'protein', per100g: { cal: 143, p: 26, c: 0, f: 4 }, defaultUnit: 'g', unitOptions: ['g', 'oz'] },
+    { name: 'Bacon', category: 'protein', per100g: { cal: 541, p: 37, c: 1, f: 42 }, perUnit: { cal: 43, p: 3, c: 0, f: 3 }, defaultUnit: 'strip', unitOptions: ['strip', 'g'] },
+    { name: 'Protein Powder', category: 'protein', per100g: { cal: 400, p: 80, c: 10, f: 5 }, perUnit: { cal: 120, p: 24, c: 3, f: 2 }, defaultUnit: 'scoop', unitOptions: ['scoop', 'g'] },
+    // Carbs
+    { name: 'White Rice', category: 'carb', per100g: { cal: 130, p: 3, c: 28, f: 0 }, defaultUnit: 'g', unitOptions: ['g', 'cup'] },
+    { name: 'Brown Rice', category: 'carb', per100g: { cal: 112, p: 3, c: 24, f: 1 }, defaultUnit: 'g', unitOptions: ['g', 'cup'] },
+    { name: 'Pasta', category: 'carb', per100g: { cal: 131, p: 5, c: 25, f: 1 }, defaultUnit: 'g', unitOptions: ['g', 'cup'] },
+    { name: 'Potato', category: 'carb', per100g: { cal: 77, p: 2, c: 17, f: 0 }, perUnit: { cal: 163, p: 4, c: 37, f: 0 }, defaultUnit: 'medium', unitOptions: ['medium', 'g'] },
+    { name: 'Sweet Potato', category: 'carb', per100g: { cal: 86, p: 2, c: 20, f: 0 }, perUnit: { cal: 103, p: 2, c: 24, f: 0 }, defaultUnit: 'medium', unitOptions: ['medium', 'g'] },
+    { name: 'Bread', category: 'carb', per100g: { cal: 265, p: 9, c: 49, f: 3 }, perUnit: { cal: 79, p: 3, c: 15, f: 1 }, defaultUnit: 'slice', unitOptions: ['slice', 'g'] },
+    { name: 'Oatmeal', category: 'carb', per100g: { cal: 389, p: 17, c: 66, f: 7 }, perUnit: { cal: 150, p: 5, c: 27, f: 3 }, defaultUnit: 'cup', unitOptions: ['cup', 'g'] },
+    { name: 'Quinoa', category: 'carb', per100g: { cal: 120, p: 4, c: 21, f: 2 }, defaultUnit: 'g', unitOptions: ['g', 'cup'] },
+    { name: 'Noodles', category: 'carb', per100g: { cal: 138, p: 5, c: 25, f: 2 }, defaultUnit: 'g', unitOptions: ['g', 'cup'] },
+    { name: 'Tortilla/Wrap', category: 'carb', per100g: { cal: 218, p: 6, c: 36, f: 5 }, perUnit: { cal: 120, p: 3, c: 20, f: 3 }, defaultUnit: 'wrap', unitOptions: ['wrap', 'g'] },
+    { name: 'Bagel', category: 'carb', per100g: { cal: 250, p: 10, c: 48, f: 1 }, perUnit: { cal: 245, p: 10, c: 48, f: 1 }, defaultUnit: 'unit', unitOptions: ['unit', 'g'] },
+    { name: 'Banana', category: 'carb', per100g: { cal: 89, p: 1, c: 23, f: 0 }, perUnit: { cal: 105, p: 1, c: 27, f: 0 }, defaultUnit: 'unit', unitOptions: ['unit', 'g'] },
+    { name: 'Apple', category: 'carb', per100g: { cal: 52, p: 0, c: 14, f: 0 }, perUnit: { cal: 95, p: 0, c: 25, f: 0 }, defaultUnit: 'unit', unitOptions: ['unit', 'g'] },
+    // Fats
+    { name: 'Avocado', category: 'fat', per100g: { cal: 160, p: 2, c: 9, f: 15 }, perUnit: { cal: 234, p: 3, c: 12, f: 21 }, defaultUnit: 'half', unitOptions: ['half', 'whole', 'g'] },
+    { name: 'Olive Oil', category: 'fat', per100g: { cal: 884, p: 0, c: 0, f: 100 }, perUnit: { cal: 119, p: 0, c: 0, f: 14 }, defaultUnit: 'tbsp', unitOptions: ['tbsp', 'ml'] },
+    { name: 'Butter', category: 'fat', per100g: { cal: 717, p: 1, c: 0, f: 81 }, perUnit: { cal: 36, p: 0, c: 0, f: 4 }, defaultUnit: 'pat', unitOptions: ['pat', 'tbsp', 'g'] },
+    { name: 'Almonds', category: 'fat', per100g: { cal: 579, p: 21, c: 22, f: 50 }, perUnit: { cal: 164, p: 6, c: 6, f: 14 }, defaultUnit: 'handful', unitOptions: ['handful', 'g'] },
+    { name: 'Peanuts', category: 'fat', per100g: { cal: 567, p: 26, c: 16, f: 49 }, perUnit: { cal: 161, p: 7, c: 5, f: 14 }, defaultUnit: 'handful', unitOptions: ['handful', 'g'] },
+    { name: 'Cheese', category: 'fat', per100g: { cal: 402, p: 25, c: 1, f: 33 }, perUnit: { cal: 113, p: 7, c: 0, f: 9 }, defaultUnit: 'slice', unitOptions: ['slice', 'g', 'oz'] },
+    { name: 'Peanut Butter', category: 'fat', per100g: { cal: 588, p: 25, c: 20, f: 50 }, perUnit: { cal: 94, p: 4, c: 3, f: 8 }, defaultUnit: 'tbsp', unitOptions: ['tbsp', 'g'] },
+    { name: 'Coconut Oil', category: 'fat', per100g: { cal: 862, p: 0, c: 0, f: 100 }, perUnit: { cal: 121, p: 0, c: 0, f: 14 }, defaultUnit: 'tbsp', unitOptions: ['tbsp', 'ml'] },
+    // Vegetables
+    { name: 'Broccoli', category: 'veg', per100g: { cal: 35, p: 2, c: 7, f: 0 }, perUnit: { cal: 55, p: 4, c: 11, f: 0 }, defaultUnit: 'cup', unitOptions: ['cup', 'g'] },
+    { name: 'Spinach', category: 'veg', per100g: { cal: 23, p: 3, c: 4, f: 0 }, perUnit: { cal: 7, p: 1, c: 1, f: 0 }, defaultUnit: 'cup', unitOptions: ['cup', 'g'] },
+    { name: 'Mixed Salad', category: 'veg', per100g: { cal: 20, p: 1, c: 4, f: 0 }, perUnit: { cal: 10, p: 1, c: 2, f: 0 }, defaultUnit: 'cup', unitOptions: ['cup', 'g'] },
+    { name: 'Mushrooms', category: 'veg', per100g: { cal: 22, p: 3, c: 3, f: 0 }, perUnit: { cal: 15, p: 2, c: 2, f: 0 }, defaultUnit: 'cup', unitOptions: ['cup', 'g'] },
+    { name: 'Capsicum/Bell Pepper', category: 'veg', per100g: { cal: 31, p: 1, c: 6, f: 0 }, perUnit: { cal: 37, p: 1, c: 7, f: 0 }, defaultUnit: 'unit', unitOptions: ['unit', 'g'] },
+    { name: 'Asparagus', category: 'veg', per100g: { cal: 20, p: 2, c: 4, f: 0 }, perUnit: { cal: 3, p: 0, c: 1, f: 0 }, defaultUnit: 'spear', unitOptions: ['spear', 'g'] },
+    { name: 'Green Beans', category: 'veg', per100g: { cal: 31, p: 2, c: 7, f: 0 }, perUnit: { cal: 44, p: 2, c: 10, f: 0 }, defaultUnit: 'cup', unitOptions: ['cup', 'g'] },
+    { name: 'Carrots', category: 'veg', per100g: { cal: 41, p: 1, c: 10, f: 0 }, perUnit: { cal: 25, p: 1, c: 6, f: 0 }, defaultUnit: 'medium', unitOptions: ['medium', 'g'] },
+    { name: 'Tomato', category: 'veg', per100g: { cal: 18, p: 1, c: 4, f: 0 }, perUnit: { cal: 22, p: 1, c: 5, f: 0 }, defaultUnit: 'medium', unitOptions: ['medium', 'g'] },
+    { name: 'Onion', category: 'veg', per100g: { cal: 40, p: 1, c: 9, f: 0 }, perUnit: { cal: 44, p: 1, c: 10, f: 0 }, defaultUnit: 'medium', unitOptions: ['medium', 'g'] },
+    { name: 'Corn', category: 'veg', per100g: { cal: 86, p: 3, c: 19, f: 1 }, perUnit: { cal: 77, p: 3, c: 17, f: 1 }, defaultUnit: 'ear', unitOptions: ['ear', 'cup', 'g'] },
+    // Sauces & Condiments
+    { name: 'Soy Sauce', category: 'sauce', per100g: { cal: 53, p: 8, c: 5, f: 0 }, perUnit: { cal: 8, p: 1, c: 1, f: 0 }, defaultUnit: 'tbsp', unitOptions: ['tbsp', 'ml'] },
+    { name: 'Teriyaki Sauce', category: 'sauce', per100g: { cal: 89, p: 6, c: 16, f: 0 }, perUnit: { cal: 16, p: 1, c: 3, f: 0 }, defaultUnit: 'tbsp', unitOptions: ['tbsp', 'ml'] },
+    { name: 'BBQ Sauce', category: 'sauce', per100g: { cal: 172, p: 1, c: 41, f: 1 }, perUnit: { cal: 29, p: 0, c: 7, f: 0 }, defaultUnit: 'tbsp', unitOptions: ['tbsp', 'ml'] },
+    { name: 'Hot Sauce', category: 'sauce', per100g: { cal: 11, p: 1, c: 2, f: 0 }, perUnit: { cal: 1, p: 0, c: 0, f: 0 }, defaultUnit: 'tsp', unitOptions: ['tsp', 'tbsp'] },
+    { name: 'Salsa', category: 'sauce', per100g: { cal: 36, p: 2, c: 7, f: 0 }, perUnit: { cal: 10, p: 0, c: 2, f: 0 }, defaultUnit: 'tbsp', unitOptions: ['tbsp', 'g'] },
+    { name: 'Hummus', category: 'sauce', per100g: { cal: 166, p: 8, c: 14, f: 10 }, perUnit: { cal: 25, p: 1, c: 2, f: 2 }, defaultUnit: 'tbsp', unitOptions: ['tbsp', 'g'] },
+    { name: 'Mayonnaise', category: 'sauce', per100g: { cal: 680, p: 1, c: 1, f: 75 }, perUnit: { cal: 94, p: 0, c: 0, f: 10 }, defaultUnit: 'tbsp', unitOptions: ['tbsp', 'g'] },
+    { name: 'Ketchup', category: 'sauce', per100g: { cal: 112, p: 1, c: 26, f: 0 }, perUnit: { cal: 19, p: 0, c: 5, f: 0 }, defaultUnit: 'tbsp', unitOptions: ['tbsp', 'g'] },
+    { name: 'Mustard', category: 'sauce', per100g: { cal: 66, p: 4, c: 6, f: 3 }, perUnit: { cal: 3, p: 0, c: 0, f: 0 }, defaultUnit: 'tsp', unitOptions: ['tsp', 'tbsp'] },
+    { name: 'Pesto', category: 'sauce', per100g: { cal: 400, p: 5, c: 5, f: 40 }, perUnit: { cal: 80, p: 1, c: 1, f: 8 }, defaultUnit: 'tbsp', unitOptions: ['tbsp', 'g'] },
+    // Dairy & Other
+    { name: 'Milk', category: 'dairy', per100g: { cal: 42, p: 3, c: 5, f: 1 }, perUnit: { cal: 149, p: 8, c: 12, f: 8 }, defaultUnit: 'cup', unitOptions: ['cup', 'ml'] },
+    { name: 'Cottage Cheese', category: 'dairy', per100g: { cal: 98, p: 11, c: 3, f: 4 }, perUnit: { cal: 222, p: 25, c: 8, f: 10 }, defaultUnit: 'cup', unitOptions: ['cup', 'g'] },
+    { name: 'Cream Cheese', category: 'dairy', per100g: { cal: 342, p: 6, c: 4, f: 34 }, perUnit: { cal: 51, p: 1, c: 1, f: 5 }, defaultUnit: 'tbsp', unitOptions: ['tbsp', 'g'] },
+  ];
+
+  // Search builder foods
+  const getBuilderSearchResults = () => {
+    const query = builderSearch.toLowerCase().trim();
+    if (!query) return [];
+    return foodDatabase.filter(food =>
+      food.name.toLowerCase().includes(query)
+    ).slice(0, 8);
+  };
+
+  // Calculate macros for a food item with quantity and unit
+  const calculateFoodMacros = (food, quantity, unit) => {
+    const qty = parseFloat(quantity) || 0;
+    let multiplier = qty / 100;
+
+    // Check if using a non-gram unit with perUnit data
+    if (unit !== 'g' && unit !== 'ml' && unit !== 'oz' && food.perUnit) {
+      return {
+        cal: Math.round(food.perUnit.cal * qty),
+        p: Math.round(food.perUnit.p * qty),
+        c: Math.round(food.perUnit.c * qty),
+        f: Math.round(food.perUnit.f * qty)
+      };
+    }
+
+    // Handle ounces (1 oz = 28.35g)
+    if (unit === 'oz') {
+      multiplier = (qty * 28.35) / 100;
+    }
+
+    // Handle cups (approximately 240ml/g for most foods)
+    if (unit === 'cup') {
+      multiplier = (qty * 150) / 100; // Approximate for cooked foods
+    }
+
+    return {
+      cal: Math.round(food.per100g.cal * multiplier),
+      p: Math.round(food.per100g.p * multiplier),
+      c: Math.round(food.per100g.c * multiplier),
+      f: Math.round(food.per100g.f * multiplier)
+    };
+  };
+
+  // Add food to builder
+  const addFoodToBuilder = () => {
+    if (!selectedBuilderFood) return;
+    const macros = calculateFoodMacros(selectedBuilderFood, builderQuantity, builderUnit);
+    setBuilderItems([...builderItems, {
+      id: Date.now(),
+      food: selectedBuilderFood,
+      quantity: builderQuantity,
+      unit: builderUnit,
+      ...macros
+    }]);
+    setSelectedBuilderFood(null);
+    setBuilderSearch('');
+    setBuilderQuantity('100');
+    setBuilderUnit('g');
+  };
+
+  // Remove food from builder
+  const removeFoodFromBuilder = (id) => {
+    setBuilderItems(builderItems.filter(item => item.id !== id));
+  };
+
+  // Calculate builder totals
+  const builderTotals = builderItems.reduce((acc, item) => ({
+    cal: acc.cal + item.cal,
+    p: acc.p + item.p,
+    c: acc.c + item.c,
+    f: acc.f + item.f
+  }), { cal: 0, p: 0, c: 0, f: 0 });
+
+  // Add built meal
+  const addBuiltMeal = () => {
+    if (builderItems.length === 0) return;
+    const name = mealName || builderItems.map(i => i.food.name).join(' + ');
+    onSave({
+      id: Date.now(),
+      name,
+      time,
+      calories: builderTotals.cal,
+      protein: builderTotals.p,
+      carbs: builderTotals.c,
+      fats: builderTotals.f
+    });
+  };
+
+  const builderSearchResults = getBuilderSearchResults();
+
+  // Ref for search input - focus only on initial mount
+  const searchInputRef = React.useRef(null);
+  const hasInitialFocused = React.useRef(false);
+
+  React.useEffect(() => {
+    // Only auto-focus once on initial mount, and only if starting on search tab
+    if (!hasInitialFocused.current && activeTab === 'search' && searchInputRef.current) {
+      searchInputRef.current.focus();
+      hasInitialFocused.current = true;
+    }
+  }, []);
 
   // Comprehensive meal database (common meals + foods)
   const mealDatabase = [
@@ -4284,10 +4634,14 @@ const FullMealEntryModal = ({ COLORS, onClose, onSave, foods = [], frequentMeals
   const searchResults = getSearchResults();
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-      <div className="w-full max-w-md rounded-2xl flex flex-col" style={{ backgroundColor: COLORS.surface, maxHeight: '90vh' }}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+      <div className="w-full max-w-md rounded-t-2xl flex flex-col" style={{ backgroundColor: COLORS.surface, height: '85vh' }}>
+        {/* Drag handle */}
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-10 h-1 rounded-full" style={{ backgroundColor: COLORS.surfaceLight }} />
+        </div>
         {/* Header */}
-        <div className="p-4 pb-2">
+        <div className="px-4 pb-2">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-lg font-bold" style={{ color: COLORS.text }}>Log Meal</h3>
             <button onClick={onClose} className="p-2 rounded-full" style={{ backgroundColor: COLORS.surfaceLight }}>
@@ -4296,10 +4650,10 @@ const FullMealEntryModal = ({ COLORS, onClose, onSave, foods = [], frequentMeals
           </div>
 
           {/* Tab Toggle */}
-          <div className="flex gap-2 p-1 rounded-xl mb-3" style={{ backgroundColor: COLORS.surfaceLight }}>
+          <div className="flex gap-1 p-1 rounded-xl mb-3" style={{ backgroundColor: COLORS.surfaceLight }}>
             <button
               onClick={() => setActiveTab('search')}
-              className="flex-1 py-2 rounded-lg text-sm font-semibold transition-all"
+              className="flex-1 py-2 rounded-lg text-xs font-semibold transition-all"
               style={{
                 backgroundColor: activeTab === 'search' ? COLORS.primary : 'transparent',
                 color: activeTab === 'search' ? COLORS.text : COLORS.textMuted
@@ -4308,26 +4662,38 @@ const FullMealEntryModal = ({ COLORS, onClose, onSave, foods = [], frequentMeals
               Search
             </button>
             <button
+              onClick={() => setActiveTab('build')}
+              className="flex-1 py-2 rounded-lg text-xs font-semibold transition-all"
+              style={{
+                backgroundColor: activeTab === 'build' ? COLORS.primary : 'transparent',
+                color: activeTab === 'build' ? COLORS.text : COLORS.textMuted
+              }}
+            >
+              Build Meal
+            </button>
+            <button
               onClick={() => setActiveTab('manual')}
-              className="flex-1 py-2 rounded-lg text-sm font-semibold transition-all"
+              className="flex-1 py-2 rounded-lg text-xs font-semibold transition-all"
               style={{
                 backgroundColor: activeTab === 'manual' ? COLORS.primary : 'transparent',
                 color: activeTab === 'manual' ? COLORS.text : COLORS.textMuted
               }}
             >
-              Manual Entry
+              Manual
             </button>
           </div>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto px-4 pb-4">
-          {activeTab === 'search' ? (
+        <div className="flex-1 overflow-y-auto px-4 pb-8" style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}>
+          {/* Search Tab */}
+          {activeTab === 'search' && (
             <>
               {/* Search Bar */}
               <div className="relative mb-4">
                 <Search size={18} color={COLORS.textMuted} className="absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
+                  ref={searchInputRef}
                   type="text"
                   value={searchQuery}
                   onChange={(e) => {
@@ -4337,7 +4703,6 @@ const FullMealEntryModal = ({ COLORS, onClose, onSave, foods = [], frequentMeals
                   placeholder="Search for a meal or food..."
                   className="w-full pl-10 pr-4 py-3 rounded-xl text-sm"
                   style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
-                  autoFocus
                 />
               </div>
 
@@ -4508,8 +4873,207 @@ const FullMealEntryModal = ({ COLORS, onClose, onSave, foods = [], frequentMeals
                 </div>
               )}
             </>
-          ) : (
-            /* Manual Entry Tab */
+          )}
+
+          {/* Build Meal Tab */}
+          {activeTab === 'build' && (
+            <div className="space-y-4">
+              {/* Search for foods */}
+              <div className="relative">
+                <Search size={18} color={COLORS.textMuted} className="absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={builderSearch}
+                  onChange={(e) => {
+                    setBuilderSearch(e.target.value);
+                    setSelectedBuilderFood(null);
+                  }}
+                  placeholder="Search foods (e.g. eggs, rice, chicken...)"
+                  className="w-full pl-10 pr-4 py-3 rounded-xl text-sm"
+                  style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+                />
+              </div>
+
+              {/* Search Results */}
+              {builderSearch && builderSearchResults.length > 0 && !selectedBuilderFood && (
+                <div className="space-y-1">
+                  {builderSearchResults.map((food, i) => (
+                    <button
+                      key={i}
+                      onClick={() => {
+                        setSelectedBuilderFood(food);
+                        setBuilderUnit(food.defaultUnit);
+                        setBuilderQuantity(food.defaultUnit === 'g' ? '100' : '1');
+                      }}
+                      className="w-full p-3 rounded-xl flex items-center justify-between text-left"
+                      style={{ backgroundColor: COLORS.surfaceLight }}
+                    >
+                      <div>
+                        <p className="text-sm font-semibold" style={{ color: COLORS.text }}>{food.name}</p>
+                        <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                          {food.per100g.cal} cal/100g | P:{food.per100g.p}g C:{food.per100g.c}g F:{food.per100g.f}g
+                        </p>
+                      </div>
+                      <Plus size={18} color={COLORS.primary} />
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Selected Food - Add with quantity */}
+              {selectedBuilderFood && (
+                <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.primary + '15', border: `2px solid ${COLORS.primary}` }}>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="font-semibold" style={{ color: COLORS.text }}>{selectedBuilderFood.name}</p>
+                    <button onClick={() => setSelectedBuilderFood(null)}>
+                      <X size={16} color={COLORS.textMuted} />
+                    </button>
+                  </div>
+
+                  {/* Quantity and Unit */}
+                  <div className="flex items-center gap-2 mb-3">
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={builderQuantity}
+                      onChange={(e) => setBuilderQuantity(e.target.value)}
+                      className="w-20 text-center py-2 rounded-lg text-sm"
+                      style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+                    />
+                    <div className="flex gap-1 flex-wrap flex-1">
+                      {selectedBuilderFood.unitOptions.map(unit => (
+                        <button
+                          key={unit}
+                          onClick={() => {
+                            setBuilderUnit(unit);
+                            if (unit === 'g' || unit === 'ml') {
+                              setBuilderQuantity('100');
+                            } else {
+                              setBuilderQuantity('1');
+                            }
+                          }}
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                          style={{
+                            backgroundColor: builderUnit === unit ? COLORS.primary : COLORS.surfaceLight,
+                            color: builderUnit === unit ? COLORS.text : COLORS.textMuted
+                          }}
+                        >
+                          {unit}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Preview macros */}
+                  {(() => {
+                    const preview = calculateFoodMacros(selectedBuilderFood, builderQuantity, builderUnit);
+                    return (
+                      <div className="grid grid-cols-4 gap-2 text-center mb-3">
+                        <div className="p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
+                          <p className="text-sm font-bold" style={{ color: COLORS.accent }}>{preview.cal}</p>
+                          <p className="text-xs" style={{ color: COLORS.textMuted }}>cal</p>
+                        </div>
+                        <div className="p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
+                          <p className="text-sm font-bold" style={{ color: COLORS.primary }}>{preview.p}g</p>
+                          <p className="text-xs" style={{ color: COLORS.textMuted }}>protein</p>
+                        </div>
+                        <div className="p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
+                          <p className="text-sm font-bold" style={{ color: COLORS.warning }}>{preview.c}g</p>
+                          <p className="text-xs" style={{ color: COLORS.textMuted }}>carbs</p>
+                        </div>
+                        <div className="p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
+                          <p className="text-sm font-bold" style={{ color: COLORS.sleep }}>{preview.f}g</p>
+                          <p className="text-xs" style={{ color: COLORS.textMuted }}>fats</p>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  <button
+                    onClick={addFoodToBuilder}
+                    className="w-full py-2 rounded-xl font-semibold text-sm"
+                    style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+                  >
+                    Add to Meal
+                  </button>
+                </div>
+              )}
+
+              {/* Added Items */}
+              {builderItems.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>YOUR MEAL</p>
+                  <div className="space-y-2 mb-3">
+                    {builderItems.map(item => (
+                      <div
+                        key={item.id}
+                        className="p-3 rounded-xl flex items-center justify-between"
+                        style={{ backgroundColor: COLORS.surfaceLight }}
+                      >
+                        <div>
+                          <p className="text-sm font-semibold" style={{ color: COLORS.text }}>
+                            {item.food.name}
+                          </p>
+                          <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                            {item.quantity} {item.unit} - {item.cal} cal | P:{item.p}g C:{item.c}g F:{item.f}g
+                          </p>
+                        </div>
+                        <button onClick={() => removeFoodFromBuilder(item.id)}>
+                          <X size={16} color={COLORS.error} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Totals */}
+                  <div className="p-3 rounded-xl mb-3" style={{ backgroundColor: COLORS.accent + '15' }}>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-semibold" style={{ color: COLORS.text }}>Total</span>
+                      <div className="flex gap-3 text-xs">
+                        <span style={{ color: COLORS.accent }}>{builderTotals.cal} cal</span>
+                        <span style={{ color: COLORS.primary }}>P:{builderTotals.p}g</span>
+                        <span style={{ color: COLORS.warning }}>C:{builderTotals.c}g</span>
+                        <span style={{ color: COLORS.sleep }}>F:{builderTotals.f}g</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Meal Name */}
+                  <input
+                    type="text"
+                    value={mealName}
+                    onChange={e => setMealName(e.target.value)}
+                    placeholder="Meal name (optional)"
+                    className="w-full p-3 rounded-xl text-sm mb-3"
+                    style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+                  />
+
+                  <button
+                    onClick={addBuiltMeal}
+                    className="w-full py-3 rounded-xl font-semibold"
+                    style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+                  >
+                    Log Meal ({builderTotals.cal} cal)
+                  </button>
+                </div>
+              )}
+
+              {/* Empty state */}
+              {!builderSearch && builderItems.length === 0 && (
+                <div className="text-center py-8">
+                  <p className="text-sm" style={{ color: COLORS.textMuted }}>
+                    Search for foods to build your meal
+                  </p>
+                  <p className="text-xs mt-2" style={{ color: COLORS.textMuted }}>
+                    Add items one by one with custom quantities
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Manual Entry Tab */}
+          {activeTab === 'manual' && (
             <div className="space-y-4">
               <div>
                 <label className="text-xs font-semibold mb-1.5 block" style={{ color: COLORS.textMuted }}>Meal Name</label>
@@ -4859,15 +5423,17 @@ const DEFAULT_ALL_EXERCISES = [
 // ============================================
 
 // Goal-based training parameters
+// Rest times are BASE values - compounds get +60s, core/abs get reduced
+// Minimum 90s for any lifting exercise, 45s for core/abs
 const GOAL_TRAINING_PARAMS = {
-  bulk: { setsPerExercise: [4, 5], repsPerSet: [6, 10], restTime: [90, 150], compoundFirst: true },
-  build_muscle: { setsPerExercise: [3, 4], repsPerSet: [8, 12], restTime: [60, 120], compoundFirst: true },
+  bulk: { setsPerExercise: [4, 5], repsPerSet: [6, 10], restTime: [150, 210], compoundFirst: true },
+  build_muscle: { setsPerExercise: [3, 4], repsPerSet: [8, 12], restTime: [120, 180], compoundFirst: true },
   strength: { setsPerExercise: [4, 5], repsPerSet: [3, 6], restTime: [180, 300], compoundFirst: true },
-  recomp: { setsPerExercise: [3, 4], repsPerSet: [8, 12], restTime: [60, 90], compoundFirst: true },
-  fitness: { setsPerExercise: [2, 3], repsPerSet: [12, 15], restTime: [45, 60], compoundFirst: false },
-  athletic: { setsPerExercise: [3, 4], repsPerSet: [6, 10], restTime: [60, 120], compoundFirst: true },
-  lean: { setsPerExercise: [3, 4], repsPerSet: [10, 15], restTime: [30, 60], compoundFirst: false },
-  lose_fat: { setsPerExercise: [3, 4], repsPerSet: [12, 15], restTime: [30, 45], compoundFirst: false },
+  recomp: { setsPerExercise: [3, 4], repsPerSet: [8, 12], restTime: [120, 150], compoundFirst: true },
+  fitness: { setsPerExercise: [2, 3], repsPerSet: [12, 15], restTime: [90, 120], compoundFirst: false },
+  athletic: { setsPerExercise: [3, 4], repsPerSet: [6, 10], restTime: [120, 150], compoundFirst: true },
+  lean: { setsPerExercise: [3, 4], repsPerSet: [10, 15], restTime: [90, 120], compoundFirst: false },
+  lose_fat: { setsPerExercise: [3, 4], repsPerSet: [12, 15], restTime: [90, 120], compoundFirst: false },
 };
 
 // Complementary muscle pairings for supersets (antagonist muscles only)
@@ -5849,8 +6415,78 @@ const TEMPLATE_TO_WORKOUT_TYPE = {
   athletic_power: 'full_body',
 };
 
+// Calculate suggested weight based on exercise history and RPE
+// Uses progressive overload principles: increase weight when RPE is low, maintain when hard
+const calculateWeightFromHistory = (exerciseName, history, fallbackWeight, targetReps) => {
+  if (!history || !history[exerciseName]) {
+    return { weight: fallbackWeight, lastWeight: 0, lastReps: 0, lastRpe: null, isFirstTime: true };
+  }
+
+  const { lastWeight, lastReps, lastRpe } = history[exerciseName];
+
+  if (!lastWeight || lastWeight <= 0) {
+    return { weight: fallbackWeight, lastWeight: 0, lastReps: 0, lastRpe: null, isFirstTime: true };
+  }
+
+  let adjustmentFactor = 1.0;
+
+  // Adjust based on RPE from last session
+  if (lastRpe !== null && lastRpe !== undefined) {
+    if (lastRpe <= 6) {
+      // Too easy - increase 7.5-10%
+      adjustmentFactor = 1.075 + Math.random() * 0.025;
+    } else if (lastRpe <= 7) {
+      // Slightly easy - increase 5%
+      adjustmentFactor = 1.05;
+    } else if (lastRpe <= 8) {
+      // Good difficulty - small increase 2.5%
+      adjustmentFactor = 1.025;
+    } else if (lastRpe <= 9) {
+      // Challenging - maintain weight
+      adjustmentFactor = 1.0;
+    } else {
+      // RPE 10 - too hard, reduce 5%
+      adjustmentFactor = 0.95;
+    }
+  } else {
+    // No RPE recorded - assume it was moderate, small increase
+    adjustmentFactor = 1.025;
+  }
+
+  // Also adjust if rep target changed significantly
+  if (lastReps && targetReps) {
+    const repDiff = targetReps - lastReps;
+    if (repDiff >= 4) {
+      // Much higher reps = lower weight
+      adjustmentFactor *= 0.90;
+    } else if (repDiff >= 2) {
+      adjustmentFactor *= 0.95;
+    } else if (repDiff <= -4) {
+      // Much lower reps = higher weight
+      adjustmentFactor *= 1.10;
+    } else if (repDiff <= -2) {
+      adjustmentFactor *= 1.05;
+    }
+  }
+
+  // Calculate new weight and round to nearest 2.5kg
+  let suggestedWeight = lastWeight * adjustmentFactor;
+  suggestedWeight = Math.round(suggestedWeight / 2.5) * 2.5;
+
+  // Ensure minimum weight (don't go below what they did before minus 20%)
+  suggestedWeight = Math.max(suggestedWeight, lastWeight * 0.8);
+
+  return {
+    weight: suggestedWeight,
+    lastWeight,
+    lastReps,
+    lastRpe,
+    isFirstTime: false
+  };
+};
+
 // Generate a complete dynamic workout
-const generateDynamicWorkout = (workoutType, userGoal = 'build_muscle', recentlyUsedExercises = [], userExperience = 'beginner', allExercises = [], userStats = {}) => {
+const generateDynamicWorkout = (workoutType, userGoal = 'build_muscle', recentlyUsedExercises = [], userExperience = 'beginner', allExercises = [], userStats = {}, exerciseHistory = {}) => {
   // Map old template IDs to new workout types for backwards compatibility
   const mappedType = TEMPLATE_TO_WORKOUT_TYPE[workoutType] || workoutType;
   const structure = WORKOUT_STRUCTURES[mappedType];
@@ -5901,27 +6537,33 @@ const generateDynamicWorkout = (workoutType, userGoal = 'build_muscle', recently
     const reps = getRandomInRange(params.repsPerSet[0], params.repsPerSet[1]);
     const rest = getRandomInRange(params.restTime[0], params.restTime[1]);
 
-    // Compounds get longer rest, isolations get shorter
-    const adjustedRest = ex.type === 'compound' ? rest + 30 : rest - 15;
+    // Compounds get longer rest (+60s), isolations use base rest
+    // Minimum 90 seconds for any lifting exercise
+    const adjustedRest = ex.type === 'compound' ? rest + 60 : rest;
 
-    // Calculate suggested weight based on user stats
+    // Calculate suggested weight based on user stats (as fallback for new exercises)
     const weightStats = {
       bodyWeight: parseFloat(userStats.currentWeight) || parseFloat(userStats.weight) || 70,
       experience: userExperience,
       gender: userStats.gender || 'male',
       goal: userGoal,
     };
-    const calculatedWeight = calculateSuggestedWeight(ex.name, weightStats, reps);
+    const fallbackWeight = calculateSuggestedWeight(ex.name, weightStats, reps);
+
+    // Use exercise history for progressive overload if available
+    const historyResult = calculateWeightFromHistory(ex.name, exerciseHistory, fallbackWeight, reps);
 
     exercises.push({
       id: generateExerciseId(ex.name),
       name: ex.name,
       sets: sets,
       targetReps: reps,
-      suggestedWeight: calculatedWeight,
-      lastWeight: 0,
-      lastReps: Array(sets).fill(reps),
-      restTime: Math.max(30, adjustedRest),
+      suggestedWeight: historyResult.weight,
+      lastWeight: historyResult.lastWeight,
+      lastReps: historyResult.lastReps ? Array(sets).fill(historyResult.lastReps) : Array(sets).fill(reps),
+      lastRpe: historyResult.lastRpe,
+      isFirstTime: historyResult.isFirstTime,
+      restTime: Math.max(90, adjustedRest), // Minimum 90s rest for any lifting exercise
       muscleGroup: ex.muscleGroup,
       equipment: ex.equipment,
       exerciseType: ex.type,
@@ -5952,16 +6594,21 @@ const generateDynamicWorkout = (workoutType, userGoal = 'build_muscle', recently
       gender: userStats.gender || 'male',
       goal: userGoal,
     };
-    const coreWeight = calculateSuggestedWeight(coreEx.name, coreWeightStats, coreReps);
+    const fallbackCoreWeight = calculateSuggestedWeight(coreEx.name, coreWeightStats, coreReps);
+
+    // Use history for core exercises too (for weighted ab work, cable crunches, etc.)
+    const coreHistoryResult = calculateWeightFromHistory(coreEx.name, exerciseHistory, fallbackCoreWeight, coreReps);
 
     exercises.push({
       id: generateExerciseId(coreEx.name),
       name: coreEx.name,
       sets: setsPerCoreExercise,
       targetReps: coreReps, // Seconds for holds, reps for movements
-      suggestedWeight: coreWeight,
-      lastWeight: 0,
-      lastReps: isHold ? [45, 40] : [15, 12],
+      suggestedWeight: coreHistoryResult.weight,
+      lastWeight: coreHistoryResult.lastWeight,
+      lastReps: coreHistoryResult.lastReps ? Array(setsPerCoreExercise).fill(coreHistoryResult.lastReps) : (isHold ? [45, 40] : [15, 12]),
+      lastRpe: coreHistoryResult.lastRpe,
+      isFirstTime: coreHistoryResult.isFirstTime,
       restTime: 45,
       muscleGroup: coreEx.muscleGroup,
       equipment: coreEx.equipment,
@@ -6050,9 +6697,9 @@ const WORKOUT_TEMPLATES = {
       { id: 'bench', name: 'Barbell Bench Press', sets: 4, targetReps: 6, suggestedWeight: 80, lastWeight: 77.5, lastReps: [6, 6, 5, 5], restTime: 180, muscleGroup: 'Chest' },
       { id: 'incline_db', name: 'Incline Dumbbell Press', sets: 3, targetReps: 10, suggestedWeight: 30, lastWeight: 28, lastReps: [10, 9, 8], restTime: 120, muscleGroup: 'Upper Chest' },
       { id: 'ohp', name: 'Overhead Press', sets: 3, targetReps: 8, suggestedWeight: 50, lastWeight: 47.5, lastReps: [8, 7, 6], restTime: 150, muscleGroup: 'Shoulders' },
-      { id: 'lateral', name: 'Lateral Raises', sets: 3, targetReps: 15, suggestedWeight: 12, lastWeight: 10, lastReps: [15, 14, 12], restTime: 60, muscleGroup: 'Side Delts' },
-      { id: 'pushdown', name: 'Tricep Pushdowns', sets: 3, targetReps: 12, suggestedWeight: 30, lastWeight: 27.5, lastReps: [12, 11, 10], restTime: 60, muscleGroup: 'Triceps' },
-      { id: 'hanging_leg_raise', name: 'Hanging Leg Raises', sets: 3, targetReps: 12, suggestedWeight: 0, lastWeight: 0, lastReps: [12, 10, 8], restTime: 60, muscleGroup: 'Abs' },
+      { id: 'lateral', name: 'Lateral Raises', sets: 3, targetReps: 15, suggestedWeight: 12, lastWeight: 10, lastReps: [15, 14, 12], restTime: 90, muscleGroup: 'Side Delts' },
+      { id: 'pushdown', name: 'Tricep Pushdowns', sets: 3, targetReps: 12, suggestedWeight: 30, lastWeight: 27.5, lastReps: [12, 11, 10], restTime: 90, muscleGroup: 'Triceps' },
+      { id: 'hanging_leg_raise', name: 'Hanging Leg Raises', sets: 3, targetReps: 12, suggestedWeight: 0, lastWeight: 0, lastReps: [12, 10, 8], restTime: 45, muscleGroup: 'Abs' },
     ]
   },
   push_b: {
@@ -6065,10 +6712,10 @@ const WORKOUT_TEMPLATES = {
       { id: 'ohp', name: 'Overhead Press', sets: 4, targetReps: 6, suggestedWeight: 55, lastWeight: 52.5, lastReps: [6, 6, 5, 5], restTime: 180, muscleGroup: 'Shoulders' },
       { id: 'incline_bb', name: 'Incline Barbell Press', sets: 3, targetReps: 8, suggestedWeight: 65, lastWeight: 62.5, lastReps: [8, 7, 7], restTime: 150, muscleGroup: 'Upper Chest' },
       { id: 'db_press', name: 'Seated Dumbbell Press', sets: 3, targetReps: 10, suggestedWeight: 26, lastWeight: 24, lastReps: [10, 9, 8], restTime: 120, muscleGroup: 'Shoulders' },
-      { id: 'cable_fly', name: 'Cable Fly', sets: 3, targetReps: 12, suggestedWeight: 15, lastWeight: 12.5, lastReps: [12, 12, 10], restTime: 60, muscleGroup: 'Chest' },
+      { id: 'cable_fly', name: 'Cable Fly', sets: 3, targetReps: 12, suggestedWeight: 15, lastWeight: 12.5, lastReps: [12, 12, 10], restTime: 90, muscleGroup: 'Chest' },
       { id: 'skull', name: 'Skull Crushers', sets: 3, targetReps: 10, suggestedWeight: 30, lastWeight: 27.5, lastReps: [10, 9, 8], restTime: 90, muscleGroup: 'Triceps' },
-      { id: 'face_pull', name: 'Face Pulls', sets: 3, targetReps: 15, suggestedWeight: 20, lastWeight: 17.5, lastReps: [15, 15, 12], restTime: 60, muscleGroup: 'Rear Delts' },
-      { id: 'cable_crunch', name: 'Cable Crunches', sets: 3, targetReps: 15, suggestedWeight: 0, lastWeight: 0, lastReps: [15, 14, 12], restTime: 60, muscleGroup: 'Abs' },
+      { id: 'face_pull', name: 'Face Pulls', sets: 3, targetReps: 15, suggestedWeight: 20, lastWeight: 17.5, lastReps: [15, 15, 12], restTime: 90, muscleGroup: 'Rear Delts' },
+      { id: 'cable_crunch', name: 'Cable Crunches', sets: 3, targetReps: 15, suggestedWeight: 0, lastWeight: 0, lastReps: [15, 14, 12], restTime: 45, muscleGroup: 'Abs' },
     ]
   },
   pull_a: {
@@ -6081,9 +6728,9 @@ const WORKOUT_TEMPLATES = {
       { id: 'pullup', name: 'Pull Ups', sets: 4, targetReps: 8, suggestedWeight: 0, lastWeight: 0, lastReps: [8, 7, 6, 5], restTime: 150, muscleGroup: 'Lats' },
       { id: 'row', name: 'Barbell Row', sets: 4, targetReps: 8, suggestedWeight: 80, lastWeight: 77.5, lastReps: [8, 8, 7, 6], restTime: 150, muscleGroup: 'Back' },
       { id: 'lat_pull', name: 'Lat Pulldown', sets: 3, targetReps: 10, suggestedWeight: 60, lastWeight: 57.5, lastReps: [10, 9, 8], restTime: 90, muscleGroup: 'Lats' },
-      { id: 'face_pull', name: 'Face Pulls', sets: 3, targetReps: 15, suggestedWeight: 22.5, lastWeight: 20, lastReps: [15, 14, 12], restTime: 60, muscleGroup: 'Rear Delts' },
-      { id: 'curl', name: 'Barbell Curl', sets: 3, targetReps: 10, suggestedWeight: 35, lastWeight: 32.5, lastReps: [10, 9, 8], restTime: 60, muscleGroup: 'Biceps' },
-      { id: 'hammer', name: 'Hammer Curls', sets: 3, targetReps: 12, suggestedWeight: 14, lastWeight: 12, lastReps: [12, 11, 10], restTime: 60, muscleGroup: 'Biceps' },
+      { id: 'face_pull', name: 'Face Pulls', sets: 3, targetReps: 15, suggestedWeight: 22.5, lastWeight: 20, lastReps: [15, 14, 12], restTime: 90, muscleGroup: 'Rear Delts' },
+      { id: 'curl', name: 'Barbell Curl', sets: 3, targetReps: 10, suggestedWeight: 35, lastWeight: 32.5, lastReps: [10, 9, 8], restTime: 90, muscleGroup: 'Biceps' },
+      { id: 'hammer', name: 'Hammer Curls', sets: 3, targetReps: 12, suggestedWeight: 14, lastWeight: 12, lastReps: [12, 11, 10], restTime: 90, muscleGroup: 'Biceps' },
       { id: 'dead_bug', name: 'Dead Bug', sets: 3, targetReps: 10, suggestedWeight: 0, lastWeight: 0, lastReps: [10, 10, 8], restTime: 45, muscleGroup: 'Core' },
     ]
   },
@@ -6097,10 +6744,10 @@ const WORKOUT_TEMPLATES = {
       { id: 'deadlift', name: 'Deadlift', sets: 4, targetReps: 5, suggestedWeight: 140, lastWeight: 135, lastReps: [5, 5, 5, 4], restTime: 240, muscleGroup: 'Back' },
       { id: 'db_row', name: 'Dumbbell Row', sets: 3, targetReps: 10, suggestedWeight: 36, lastWeight: 34, lastReps: [10, 9, 8], restTime: 90, muscleGroup: 'Back' },
       { id: 'cable_row', name: 'Seated Cable Row', sets: 3, targetReps: 12, suggestedWeight: 65, lastWeight: 60, lastReps: [12, 11, 10], restTime: 90, muscleGroup: 'Back' },
-      { id: 'straight_arm', name: 'Straight Arm Pulldown', sets: 3, targetReps: 12, suggestedWeight: 30, lastWeight: 27.5, lastReps: [12, 12, 10], restTime: 60, muscleGroup: 'Lats' },
-      { id: 'preacher', name: 'Preacher Curl', sets: 3, targetReps: 10, suggestedWeight: 25, lastWeight: 22.5, lastReps: [10, 9, 8], restTime: 60, muscleGroup: 'Biceps' },
-      { id: 'reverse_curl', name: 'Reverse Curls', sets: 2, targetReps: 15, suggestedWeight: 20, lastWeight: 17.5, lastReps: [15, 12], restTime: 60, muscleGroup: 'Forearms' },
-      { id: 'hanging_knee_raise', name: 'Hanging Knee Raises', sets: 3, targetReps: 15, suggestedWeight: 0, lastWeight: 0, lastReps: [15, 12, 10], restTime: 60, muscleGroup: 'Abs' },
+      { id: 'straight_arm', name: 'Straight Arm Pulldown', sets: 3, targetReps: 12, suggestedWeight: 30, lastWeight: 27.5, lastReps: [12, 12, 10], restTime: 90, muscleGroup: 'Lats' },
+      { id: 'preacher', name: 'Preacher Curl', sets: 3, targetReps: 10, suggestedWeight: 25, lastWeight: 22.5, lastReps: [10, 9, 8], restTime: 90, muscleGroup: 'Biceps' },
+      { id: 'reverse_curl', name: 'Reverse Curls', sets: 2, targetReps: 15, suggestedWeight: 20, lastWeight: 17.5, lastReps: [15, 12], restTime: 90, muscleGroup: 'Forearms' },
+      { id: 'hanging_knee_raise', name: 'Hanging Knee Raises', sets: 3, targetReps: 15, suggestedWeight: 0, lastWeight: 0, lastReps: [15, 12, 10], restTime: 45, muscleGroup: 'Abs' },
     ]
   },
   legs_a: {
@@ -6113,9 +6760,9 @@ const WORKOUT_TEMPLATES = {
       { id: 'squat', name: 'Barbell Back Squat', sets: 4, targetReps: 6, suggestedWeight: 120, lastWeight: 115, lastReps: [6, 6, 5, 5], restTime: 240, muscleGroup: 'Quads' },
       { id: 'leg_press', name: 'Leg Press', sets: 3, targetReps: 10, suggestedWeight: 200, lastWeight: 180, lastReps: [10, 9, 8], restTime: 150, muscleGroup: 'Quads' },
       { id: 'rdl', name: 'Romanian Deadlift', sets: 3, targetReps: 10, suggestedWeight: 90, lastWeight: 85, lastReps: [10, 9, 8], restTime: 120, muscleGroup: 'Hamstrings' },
-      { id: 'leg_ext', name: 'Leg Extension', sets: 3, targetReps: 12, suggestedWeight: 50, lastWeight: 45, lastReps: [12, 11, 10], restTime: 60, muscleGroup: 'Quads' },
-      { id: 'leg_curl', name: 'Lying Leg Curl', sets: 3, targetReps: 12, suggestedWeight: 40, lastWeight: 37.5, lastReps: [12, 11, 10], restTime: 60, muscleGroup: 'Hamstrings' },
-      { id: 'calf', name: 'Standing Calf Raises', sets: 4, targetReps: 15, suggestedWeight: 80, lastWeight: 70, lastReps: [15, 14, 12, 10], restTime: 60, muscleGroup: 'Calves' },
+      { id: 'leg_ext', name: 'Leg Extension', sets: 3, targetReps: 12, suggestedWeight: 50, lastWeight: 45, lastReps: [12, 11, 10], restTime: 90, muscleGroup: 'Quads' },
+      { id: 'leg_curl', name: 'Lying Leg Curl', sets: 3, targetReps: 12, suggestedWeight: 40, lastWeight: 37.5, lastReps: [12, 11, 10], restTime: 90, muscleGroup: 'Hamstrings' },
+      { id: 'calf', name: 'Standing Calf Raises', sets: 4, targetReps: 15, suggestedWeight: 80, lastWeight: 70, lastReps: [15, 14, 12, 10], restTime: 90, muscleGroup: 'Calves' },
       { id: 'plank', name: 'Plank', sets: 3, targetReps: 45, suggestedWeight: 0, lastWeight: 0, lastReps: [45, 45, 40], restTime: 45, muscleGroup: 'Core' },
     ]
   },
@@ -6129,10 +6776,10 @@ const WORKOUT_TEMPLATES = {
       { id: 'rdl', name: 'Romanian Deadlift', sets: 4, targetReps: 8, suggestedWeight: 100, lastWeight: 95, lastReps: [8, 8, 7, 6], restTime: 180, muscleGroup: 'Hamstrings' },
       { id: 'hip_thrust', name: 'Hip Thrust', sets: 4, targetReps: 10, suggestedWeight: 100, lastWeight: 90, lastReps: [10, 10, 9, 8], restTime: 120, muscleGroup: 'Glutes' },
       { id: 'bss', name: 'Bulgarian Split Squat', sets: 3, targetReps: 10, suggestedWeight: 24, lastWeight: 22, lastReps: [10, 9, 8], restTime: 90, muscleGroup: 'Quads' },
-      { id: 'leg_curl', name: 'Seated Leg Curl', sets: 3, targetReps: 12, suggestedWeight: 45, lastWeight: 40, lastReps: [12, 11, 10], restTime: 60, muscleGroup: 'Hamstrings' },
-      { id: 'abduct', name: 'Hip Abduction', sets: 3, targetReps: 15, suggestedWeight: 50, lastWeight: 45, lastReps: [15, 14, 12], restTime: 60, muscleGroup: 'Glutes' },
-      { id: 'calf', name: 'Seated Calf Raises', sets: 4, targetReps: 15, suggestedWeight: 40, lastWeight: 35, lastReps: [15, 14, 12, 10], restTime: 60, muscleGroup: 'Calves' },
-      { id: 'ab_wheel', name: 'Ab Wheel Rollout', sets: 3, targetReps: 10, suggestedWeight: 0, lastWeight: 0, lastReps: [10, 8, 8], restTime: 60, muscleGroup: 'Core' },
+      { id: 'leg_curl', name: 'Seated Leg Curl', sets: 3, targetReps: 12, suggestedWeight: 45, lastWeight: 40, lastReps: [12, 11, 10], restTime: 90, muscleGroup: 'Hamstrings' },
+      { id: 'abduct', name: 'Hip Abduction', sets: 3, targetReps: 15, suggestedWeight: 50, lastWeight: 45, lastReps: [15, 14, 12], restTime: 90, muscleGroup: 'Glutes' },
+      { id: 'calf', name: 'Seated Calf Raises', sets: 4, targetReps: 15, suggestedWeight: 40, lastWeight: 35, lastReps: [15, 14, 12, 10], restTime: 90, muscleGroup: 'Calves' },
+      { id: 'ab_wheel', name: 'Ab Wheel Rollout', sets: 3, targetReps: 10, suggestedWeight: 0, lastWeight: 0, lastReps: [10, 8, 8], restTime: 45, muscleGroup: 'Core' },
     ]
   },
   upper_a: {
@@ -6146,9 +6793,9 @@ const WORKOUT_TEMPLATES = {
       { id: 'row', name: 'Barbell Row', sets: 4, targetReps: 8, suggestedWeight: 82.5, lastWeight: 80, lastReps: [8, 7, 7, 6], restTime: 150, muscleGroup: 'Back' },
       { id: 'db_press', name: 'Seated Dumbbell Press', sets: 3, targetReps: 10, suggestedWeight: 28, lastWeight: 26, lastReps: [10, 9, 8], restTime: 120, muscleGroup: 'Shoulders' },
       { id: 'lat_pull', name: 'Lat Pulldown', sets: 3, targetReps: 10, suggestedWeight: 62.5, lastWeight: 60, lastReps: [10, 9, 8], restTime: 90, muscleGroup: 'Lats' },
-      { id: 'curl', name: 'EZ Bar Curl', sets: 3, targetReps: 10, suggestedWeight: 32.5, lastWeight: 30, lastReps: [10, 9, 8], restTime: 60, muscleGroup: 'Biceps' },
-      { id: 'pushdown', name: 'Rope Pushdowns', sets: 3, targetReps: 12, suggestedWeight: 25, lastWeight: 22.5, lastReps: [12, 11, 10], restTime: 60, muscleGroup: 'Triceps' },
-      { id: 'hanging_leg_raise', name: 'Hanging Leg Raises', sets: 3, targetReps: 12, suggestedWeight: 0, lastWeight: 0, lastReps: [12, 10, 8], restTime: 60, muscleGroup: 'Abs' },
+      { id: 'curl', name: 'EZ Bar Curl', sets: 3, targetReps: 10, suggestedWeight: 32.5, lastWeight: 30, lastReps: [10, 9, 8], restTime: 90, muscleGroup: 'Biceps' },
+      { id: 'pushdown', name: 'Rope Pushdowns', sets: 3, targetReps: 12, suggestedWeight: 25, lastWeight: 22.5, lastReps: [12, 11, 10], restTime: 90, muscleGroup: 'Triceps' },
+      { id: 'hanging_leg_raise', name: 'Hanging Leg Raises', sets: 3, targetReps: 12, suggestedWeight: 0, lastWeight: 0, lastReps: [12, 10, 8], restTime: 45, muscleGroup: 'Abs' },
     ]
   },
   upper_b: {
@@ -6162,9 +6809,9 @@ const WORKOUT_TEMPLATES = {
       { id: 'pullup', name: 'Chin Ups', sets: 4, targetReps: 8, suggestedWeight: 0, lastWeight: 0, lastReps: [8, 7, 6, 5], restTime: 150, muscleGroup: 'Lats' },
       { id: 'incline', name: 'Incline Dumbbell Press', sets: 3, targetReps: 10, suggestedWeight: 32, lastWeight: 30, lastReps: [10, 9, 8], restTime: 120, muscleGroup: 'Upper Chest' },
       { id: 'cable_row', name: 'Seated Cable Row', sets: 3, targetReps: 12, suggestedWeight: 67.5, lastWeight: 65, lastReps: [12, 11, 10], restTime: 90, muscleGroup: 'Back' },
-      { id: 'lateral', name: 'Lateral Raises', sets: 3, targetReps: 15, suggestedWeight: 12, lastWeight: 10, lastReps: [15, 14, 12], restTime: 60, muscleGroup: 'Side Delts' },
-      { id: 'hammer', name: 'Hammer Curls', sets: 3, targetReps: 12, suggestedWeight: 16, lastWeight: 14, lastReps: [12, 11, 10], restTime: 60, muscleGroup: 'Biceps' },
-      { id: 'overhead_ext', name: 'Overhead Tricep Extension', sets: 3, targetReps: 12, suggestedWeight: 27.5, lastWeight: 25, lastReps: [12, 11, 10], restTime: 60, muscleGroup: 'Triceps' },
+      { id: 'lateral', name: 'Lateral Raises', sets: 3, targetReps: 15, suggestedWeight: 12, lastWeight: 10, lastReps: [15, 14, 12], restTime: 90, muscleGroup: 'Side Delts' },
+      { id: 'hammer', name: 'Hammer Curls', sets: 3, targetReps: 12, suggestedWeight: 16, lastWeight: 14, lastReps: [12, 11, 10], restTime: 90, muscleGroup: 'Biceps' },
+      { id: 'overhead_ext', name: 'Overhead Tricep Extension', sets: 3, targetReps: 12, suggestedWeight: 27.5, lastWeight: 25, lastReps: [12, 11, 10], restTime: 90, muscleGroup: 'Triceps' },
       { id: 'v_ups', name: 'V-Ups', sets: 3, targetReps: 12, suggestedWeight: 0, lastWeight: 0, lastReps: [12, 10, 8], restTime: 45, muscleGroup: 'Abs' },
     ]
   },
@@ -6178,9 +6825,9 @@ const WORKOUT_TEMPLATES = {
       { id: 'squat', name: 'Barbell Back Squat', sets: 4, targetReps: 6, suggestedWeight: 125, lastWeight: 120, lastReps: [6, 6, 5, 5], restTime: 240, muscleGroup: 'Quads' },
       { id: 'rdl', name: 'Romanian Deadlift', sets: 3, targetReps: 10, suggestedWeight: 95, lastWeight: 90, lastReps: [10, 9, 8], restTime: 150, muscleGroup: 'Hamstrings' },
       { id: 'bss', name: 'Bulgarian Split Squat', sets: 3, targetReps: 10, suggestedWeight: 26, lastWeight: 24, lastReps: [10, 9, 8], restTime: 90, muscleGroup: 'Quads' },
-      { id: 'leg_curl', name: 'Lying Leg Curl', sets: 3, targetReps: 12, suggestedWeight: 42.5, lastWeight: 40, lastReps: [12, 11, 10], restTime: 60, muscleGroup: 'Hamstrings' },
-      { id: 'leg_ext', name: 'Leg Extension', sets: 3, targetReps: 12, suggestedWeight: 52.5, lastWeight: 50, lastReps: [12, 11, 10], restTime: 60, muscleGroup: 'Quads' },
-      { id: 'calf', name: 'Standing Calf Raises', sets: 4, targetReps: 15, suggestedWeight: 85, lastWeight: 80, lastReps: [15, 14, 12, 10], restTime: 60, muscleGroup: 'Calves' },
+      { id: 'leg_curl', name: 'Lying Leg Curl', sets: 3, targetReps: 12, suggestedWeight: 42.5, lastWeight: 40, lastReps: [12, 11, 10], restTime: 90, muscleGroup: 'Hamstrings' },
+      { id: 'leg_ext', name: 'Leg Extension', sets: 3, targetReps: 12, suggestedWeight: 52.5, lastWeight: 50, lastReps: [12, 11, 10], restTime: 90, muscleGroup: 'Quads' },
+      { id: 'calf', name: 'Standing Calf Raises', sets: 4, targetReps: 15, suggestedWeight: 85, lastWeight: 80, lastReps: [15, 14, 12, 10], restTime: 90, muscleGroup: 'Calves' },
       { id: 'bicycle_crunch', name: 'Bicycle Crunches', sets: 3, targetReps: 20, suggestedWeight: 0, lastWeight: 0, lastReps: [20, 18, 15], restTime: 45, muscleGroup: 'Abs' },
     ]
   },
@@ -6196,7 +6843,7 @@ const WORKOUT_TEMPLATES = {
       { id: 'row', name: 'Barbell Row', sets: 4, targetReps: 6, suggestedWeight: 77.5, lastWeight: 75, lastReps: [6, 6, 5, 5], restTime: 150, muscleGroup: 'Back' },
       { id: 'ohp', name: 'Overhead Press', sets: 3, targetReps: 8, suggestedWeight: 47.5, lastWeight: 45, lastReps: [8, 7, 6], restTime: 120, muscleGroup: 'Shoulders' },
       { id: 'rdl', name: 'Romanian Deadlift', sets: 3, targetReps: 10, suggestedWeight: 85, lastWeight: 80, lastReps: [10, 9, 8], restTime: 120, muscleGroup: 'Hamstrings' },
-      { id: 'hanging_knee_raise', name: 'Hanging Knee Raises', sets: 3, targetReps: 15, suggestedWeight: 0, lastWeight: 0, lastReps: [15, 12, 10], restTime: 60, muscleGroup: 'Abs' },
+      { id: 'hanging_knee_raise', name: 'Hanging Knee Raises', sets: 3, targetReps: 15, suggestedWeight: 0, lastWeight: 0, lastReps: [15, 12, 10], restTime: 45, muscleGroup: 'Abs' },
     ]
   },
   full_body_b: {
@@ -6210,9 +6857,9 @@ const WORKOUT_TEMPLATES = {
       { id: 'db_bench', name: 'Dumbbell Bench Press', sets: 3, targetReps: 10, suggestedWeight: 34, lastWeight: 32, lastReps: [10, 9, 8], restTime: 120, muscleGroup: 'Chest' },
       { id: 'pullup', name: 'Pull Ups', sets: 3, targetReps: 8, suggestedWeight: 0, lastWeight: 0, lastReps: [8, 7, 6], restTime: 120, muscleGroup: 'Lats' },
       { id: 'hip_thrust', name: 'Hip Thrust', sets: 3, targetReps: 12, suggestedWeight: 90, lastWeight: 85, lastReps: [12, 11, 10], restTime: 90, muscleGroup: 'Glutes' },
-      { id: 'lateral', name: 'Lateral Raises', sets: 3, targetReps: 15, suggestedWeight: 10, lastWeight: 8, lastReps: [15, 14, 12], restTime: 60, muscleGroup: 'Side Delts' },
-      { id: 'curl', name: 'Dumbbell Curl', sets: 2, targetReps: 12, suggestedWeight: 14, lastWeight: 12, lastReps: [12, 10], restTime: 60, muscleGroup: 'Biceps' },
-      { id: 'pushdown', name: 'Tricep Pushdowns', sets: 2, targetReps: 12, suggestedWeight: 27.5, lastWeight: 25, lastReps: [12, 10], restTime: 60, muscleGroup: 'Triceps' },
+      { id: 'lateral', name: 'Lateral Raises', sets: 3, targetReps: 15, suggestedWeight: 10, lastWeight: 8, lastReps: [15, 14, 12], restTime: 90, muscleGroup: 'Side Delts' },
+      { id: 'curl', name: 'Dumbbell Curl', sets: 2, targetReps: 12, suggestedWeight: 14, lastWeight: 12, lastReps: [12, 10], restTime: 90, muscleGroup: 'Biceps' },
+      { id: 'pushdown', name: 'Tricep Pushdowns', sets: 2, targetReps: 12, suggestedWeight: 27.5, lastWeight: 25, lastReps: [12, 10], restTime: 90, muscleGroup: 'Triceps' },
       { id: 'dead_bug', name: 'Dead Bug', sets: 3, targetReps: 10, suggestedWeight: 0, lastWeight: 0, lastReps: [10, 10, 8], restTime: 45, muscleGroup: 'Core' },
     ]
   },
@@ -6226,11 +6873,11 @@ const WORKOUT_TEMPLATES = {
       { id: 'close_grip', name: 'Close Grip Bench Press', sets: 4, targetReps: 8, suggestedWeight: 65, lastWeight: 62.5, lastReps: [8, 8, 7, 6], restTime: 150, muscleGroup: 'Triceps' },
       { id: 'curl', name: 'Barbell Curl', sets: 4, targetReps: 8, suggestedWeight: 37.5, lastWeight: 35, lastReps: [8, 8, 7, 6], restTime: 90, muscleGroup: 'Biceps' },
       { id: 'skull', name: 'Skull Crushers', sets: 3, targetReps: 10, suggestedWeight: 32.5, lastWeight: 30, lastReps: [10, 9, 8], restTime: 90, muscleGroup: 'Triceps' },
-      { id: 'incline_curl', name: 'Incline Dumbbell Curl', sets: 3, targetReps: 10, suggestedWeight: 12, lastWeight: 10, lastReps: [10, 9, 8], restTime: 60, muscleGroup: 'Biceps' },
-      { id: 'pushdown', name: 'Rope Pushdowns', sets: 3, targetReps: 12, suggestedWeight: 27.5, lastWeight: 25, lastReps: [12, 11, 10], restTime: 60, muscleGroup: 'Triceps' },
-      { id: 'hammer', name: 'Hammer Curls', sets: 3, targetReps: 12, suggestedWeight: 16, lastWeight: 14, lastReps: [12, 11, 10], restTime: 60, muscleGroup: 'Biceps' },
-      { id: 'overhead_ext', name: 'Overhead Tricep Extension', sets: 2, targetReps: 15, suggestedWeight: 25, lastWeight: 22.5, lastReps: [15, 12], restTime: 60, muscleGroup: 'Triceps' },
-      { id: 'conc_curl', name: 'Concentration Curl', sets: 2, targetReps: 12, suggestedWeight: 10, lastWeight: 8, lastReps: [12, 10], restTime: 60, muscleGroup: 'Biceps' },
+      { id: 'incline_curl', name: 'Incline Dumbbell Curl', sets: 3, targetReps: 10, suggestedWeight: 12, lastWeight: 10, lastReps: [10, 9, 8], restTime: 90, muscleGroup: 'Biceps' },
+      { id: 'pushdown', name: 'Rope Pushdowns', sets: 3, targetReps: 12, suggestedWeight: 27.5, lastWeight: 25, lastReps: [12, 11, 10], restTime: 90, muscleGroup: 'Triceps' },
+      { id: 'hammer', name: 'Hammer Curls', sets: 3, targetReps: 12, suggestedWeight: 16, lastWeight: 14, lastReps: [12, 11, 10], restTime: 90, muscleGroup: 'Biceps' },
+      { id: 'overhead_ext', name: 'Overhead Tricep Extension', sets: 2, targetReps: 15, suggestedWeight: 25, lastWeight: 22.5, lastReps: [15, 12], restTime: 90, muscleGroup: 'Triceps' },
+      { id: 'conc_curl', name: 'Concentration Curl', sets: 2, targetReps: 12, suggestedWeight: 10, lastWeight: 8, lastReps: [12, 10], restTime: 90, muscleGroup: 'Biceps' },
       { id: 'plank', name: 'Plank', sets: 3, targetReps: 45, suggestedWeight: 0, lastWeight: 0, lastReps: [45, 40, 35], restTime: 45, muscleGroup: 'Core' },
     ]
   },
@@ -6247,11 +6894,11 @@ const WORKOUT_TEMPLATES = {
       { id: 'incline_bb', name: 'Incline Barbell Press', sets: 4, targetReps: 8, suggestedWeight: 70, lastWeight: 67.5, lastReps: [8, 8, 7, 6], restTime: 180, muscleGroup: 'Upper Chest' },
       { id: 'bench', name: 'Barbell Bench Press', sets: 4, targetReps: 8, suggestedWeight: 85, lastWeight: 82.5, lastReps: [8, 8, 7, 6], restTime: 180, muscleGroup: 'Chest' },
       { id: 'db_fly', name: 'Dumbbell Fly', sets: 3, targetReps: 12, suggestedWeight: 18, lastWeight: 16, lastReps: [12, 11, 10], restTime: 90, muscleGroup: 'Chest' },
-      { id: 'cable_fly_high', name: 'Cable Fly', sets: 3, targetReps: 15, suggestedWeight: 15, lastWeight: 12.5, lastReps: [15, 14, 12], restTime: 60, muscleGroup: 'Chest' },
-      { id: 'incline_fly', name: 'Incline Cable Fly', sets: 3, targetReps: 15, suggestedWeight: 12.5, lastWeight: 10, lastReps: [15, 14, 12], restTime: 60, muscleGroup: 'Upper Chest' },
+      { id: 'cable_fly_high', name: 'Cable Fly', sets: 3, targetReps: 15, suggestedWeight: 15, lastWeight: 12.5, lastReps: [15, 14, 12], restTime: 90, muscleGroup: 'Chest' },
+      { id: 'incline_fly', name: 'Incline Cable Fly', sets: 3, targetReps: 15, suggestedWeight: 12.5, lastWeight: 10, lastReps: [15, 14, 12], restTime: 90, muscleGroup: 'Upper Chest' },
       { id: 'dips', name: 'Dips', sets: 3, targetReps: 12, suggestedWeight: 0, lastWeight: 0, lastReps: [12, 10, 8], restTime: 90, muscleGroup: 'Lower Chest' },
-      { id: 'pushdown', name: 'Tricep Pushdowns', sets: 3, targetReps: 15, suggestedWeight: 25, lastWeight: 22.5, lastReps: [15, 14, 12], restTime: 60, muscleGroup: 'Triceps' },
-      { id: 'hanging_leg_raise', name: 'Hanging Leg Raises', sets: 3, targetReps: 12, suggestedWeight: 0, lastWeight: 0, lastReps: [12, 10, 8], restTime: 60, muscleGroup: 'Abs' },
+      { id: 'pushdown', name: 'Tricep Pushdowns', sets: 3, targetReps: 15, suggestedWeight: 25, lastWeight: 22.5, lastReps: [15, 14, 12], restTime: 90, muscleGroup: 'Triceps' },
+      { id: 'hanging_leg_raise', name: 'Hanging Leg Raises', sets: 3, targetReps: 12, suggestedWeight: 0, lastWeight: 0, lastReps: [12, 10, 8], restTime: 45, muscleGroup: 'Abs' },
     ]
   },
   back_specialization: {
@@ -6267,11 +6914,11 @@ const WORKOUT_TEMPLATES = {
       { id: 'pendlay_row', name: 'Pendlay Row', sets: 4, targetReps: 6, suggestedWeight: 90, lastWeight: 87.5, lastReps: [6, 6, 5, 5], restTime: 180, muscleGroup: 'Back' },
       { id: 'wide_pulldown', name: 'Wide Grip Pulldown', sets: 3, targetReps: 10, suggestedWeight: 65, lastWeight: 62.5, lastReps: [10, 9, 8], restTime: 90, muscleGroup: 'Lats' },
       { id: 'chest_row', name: 'Chest Supported Row', sets: 3, targetReps: 10, suggestedWeight: 32, lastWeight: 30, lastReps: [10, 9, 8], restTime: 90, muscleGroup: 'Back' },
-      { id: 'straight_arm', name: 'Straight Arm Pulldown', sets: 3, targetReps: 12, suggestedWeight: 32.5, lastWeight: 30, lastReps: [12, 11, 10], restTime: 60, muscleGroup: 'Lats' },
-      { id: 'face_pull', name: 'Face Pulls', sets: 3, targetReps: 15, suggestedWeight: 22.5, lastWeight: 20, lastReps: [15, 15, 12], restTime: 60, muscleGroup: 'Rear Delts' },
+      { id: 'straight_arm', name: 'Straight Arm Pulldown', sets: 3, targetReps: 12, suggestedWeight: 32.5, lastWeight: 30, lastReps: [12, 11, 10], restTime: 90, muscleGroup: 'Lats' },
+      { id: 'face_pull', name: 'Face Pulls', sets: 3, targetReps: 15, suggestedWeight: 22.5, lastWeight: 20, lastReps: [15, 15, 12], restTime: 90, muscleGroup: 'Rear Delts' },
       { id: 'shrugs', name: 'Barbell Shrugs', sets: 3, targetReps: 12, suggestedWeight: 100, lastWeight: 95, lastReps: [12, 11, 10], restTime: 90, muscleGroup: 'Traps' },
-      { id: 'curl', name: 'EZ Bar Curl', sets: 3, targetReps: 10, suggestedWeight: 35, lastWeight: 32.5, lastReps: [10, 9, 8], restTime: 60, muscleGroup: 'Biceps' },
-      { id: 'ab_wheel', name: 'Ab Wheel Rollout', sets: 3, targetReps: 10, suggestedWeight: 0, lastWeight: 0, lastReps: [10, 8, 8], restTime: 60, muscleGroup: 'Core' },
+      { id: 'curl', name: 'EZ Bar Curl', sets: 3, targetReps: 10, suggestedWeight: 35, lastWeight: 32.5, lastReps: [10, 9, 8], restTime: 90, muscleGroup: 'Biceps' },
+      { id: 'ab_wheel', name: 'Ab Wheel Rollout', sets: 3, targetReps: 10, suggestedWeight: 0, lastWeight: 0, lastReps: [10, 8, 8], restTime: 45, muscleGroup: 'Core' },
     ]
   },
   leg_specialization: {
@@ -6287,10 +6934,10 @@ const WORKOUT_TEMPLATES = {
       { id: 'rdl', name: 'Romanian Deadlift', sets: 4, targetReps: 8, suggestedWeight: 105, lastWeight: 100, lastReps: [8, 8, 7, 6], restTime: 180, muscleGroup: 'Hamstrings' },
       { id: 'hack_squat', name: 'Hack Squat', sets: 3, targetReps: 10, suggestedWeight: 120, lastWeight: 110, lastReps: [10, 9, 8], restTime: 150, muscleGroup: 'Quads' },
       { id: 'hip_thrust', name: 'Hip Thrust', sets: 4, targetReps: 10, suggestedWeight: 110, lastWeight: 100, lastReps: [10, 10, 9, 8], restTime: 120, muscleGroup: 'Glutes' },
-      { id: 'leg_ext', name: 'Leg Extension', sets: 3, targetReps: 12, suggestedWeight: 55, lastWeight: 50, lastReps: [12, 11, 10], restTime: 60, muscleGroup: 'Quads' },
-      { id: 'leg_curl', name: 'Lying Leg Curl', sets: 3, targetReps: 12, suggestedWeight: 45, lastWeight: 42.5, lastReps: [12, 11, 10], restTime: 60, muscleGroup: 'Hamstrings' },
-      { id: 'calf_standing', name: 'Standing Calf Raises', sets: 4, targetReps: 12, suggestedWeight: 90, lastWeight: 85, lastReps: [12, 12, 10, 10], restTime: 60, muscleGroup: 'Calves' },
-      { id: 'calf_seated', name: 'Seated Calf Raises', sets: 3, targetReps: 15, suggestedWeight: 45, lastWeight: 40, lastReps: [15, 14, 12], restTime: 60, muscleGroup: 'Calves' },
+      { id: 'leg_ext', name: 'Leg Extension', sets: 3, targetReps: 12, suggestedWeight: 55, lastWeight: 50, lastReps: [12, 11, 10], restTime: 90, muscleGroup: 'Quads' },
+      { id: 'leg_curl', name: 'Lying Leg Curl', sets: 3, targetReps: 12, suggestedWeight: 45, lastWeight: 42.5, lastReps: [12, 11, 10], restTime: 90, muscleGroup: 'Hamstrings' },
+      { id: 'calf_standing', name: 'Standing Calf Raises', sets: 4, targetReps: 12, suggestedWeight: 90, lastWeight: 85, lastReps: [12, 12, 10, 10], restTime: 90, muscleGroup: 'Calves' },
+      { id: 'calf_seated', name: 'Seated Calf Raises', sets: 3, targetReps: 15, suggestedWeight: 45, lastWeight: 40, lastReps: [15, 14, 12], restTime: 90, muscleGroup: 'Calves' },
       { id: 'hollow_hold', name: 'Hollow Body Hold', sets: 3, targetReps: 30, suggestedWeight: 0, lastWeight: 0, lastReps: [30, 25, 20], restTime: 45, muscleGroup: 'Core' },
     ]
   },
@@ -6306,8 +6953,8 @@ const WORKOUT_TEMPLATES = {
       { id: 'pause_squat', name: 'Front Squat', sets: 3, targetReps: 5, suggestedWeight: 100, lastWeight: 95, lastReps: [5, 5, 4], restTime: 180, muscleGroup: 'Quads' },
       { id: 'bss', name: 'Bulgarian Split Squat', sets: 3, targetReps: 8, suggestedWeight: 30, lastWeight: 28, lastReps: [8, 8, 7], restTime: 120, muscleGroup: 'Quads' },
       { id: 'rdl', name: 'Romanian Deadlift', sets: 3, targetReps: 8, suggestedWeight: 95, lastWeight: 90, lastReps: [8, 8, 7], restTime: 120, muscleGroup: 'Hamstrings' },
-      { id: 'leg_curl', name: 'Lying Leg Curl', sets: 3, targetReps: 12, suggestedWeight: 42.5, lastWeight: 40, lastReps: [12, 11, 10], restTime: 60, muscleGroup: 'Hamstrings' },
-      { id: 'core', name: 'Ab Wheel Rollout', sets: 3, targetReps: 10, suggestedWeight: 0, lastWeight: 0, lastReps: [10, 8, 8], restTime: 60, muscleGroup: 'Core' },
+      { id: 'leg_curl', name: 'Lying Leg Curl', sets: 3, targetReps: 12, suggestedWeight: 42.5, lastWeight: 40, lastReps: [12, 11, 10], restTime: 90, muscleGroup: 'Hamstrings' },
+      { id: 'core', name: 'Ab Wheel Rollout', sets: 3, targetReps: 10, suggestedWeight: 0, lastWeight: 0, lastReps: [10, 8, 8], restTime: 45, muscleGroup: 'Core' },
     ]
   },
   powerlifting_bench: {
@@ -6322,8 +6969,8 @@ const WORKOUT_TEMPLATES = {
       { id: 'close_grip', name: 'Close Grip Bench Press', sets: 4, targetReps: 6, suggestedWeight: 85, lastWeight: 82.5, lastReps: [6, 6, 5, 5], restTime: 180, muscleGroup: 'Triceps' },
       { id: 'db_bench', name: 'Dumbbell Bench Press', sets: 3, targetReps: 8, suggestedWeight: 38, lastWeight: 36, lastReps: [8, 8, 7], restTime: 120, muscleGroup: 'Chest' },
       { id: 'row', name: 'Barbell Row', sets: 4, targetReps: 8, suggestedWeight: 82.5, lastWeight: 80, lastReps: [8, 8, 7, 6], restTime: 120, muscleGroup: 'Back' },
-      { id: 'face_pull', name: 'Face Pulls', sets: 3, targetReps: 15, suggestedWeight: 22.5, lastWeight: 20, lastReps: [15, 14, 12], restTime: 60, muscleGroup: 'Rear Delts' },
-      { id: 'tricep_ext', name: 'Overhead Tricep Extension', sets: 3, targetReps: 12, suggestedWeight: 30, lastWeight: 27.5, lastReps: [12, 11, 10], restTime: 60, muscleGroup: 'Triceps' },
+      { id: 'face_pull', name: 'Face Pulls', sets: 3, targetReps: 15, suggestedWeight: 22.5, lastWeight: 20, lastReps: [15, 14, 12], restTime: 90, muscleGroup: 'Rear Delts' },
+      { id: 'tricep_ext', name: 'Overhead Tricep Extension', sets: 3, targetReps: 12, suggestedWeight: 30, lastWeight: 27.5, lastReps: [12, 11, 10], restTime: 90, muscleGroup: 'Triceps' },
       { id: 'dead_bug', name: 'Dead Bug', sets: 3, targetReps: 10, suggestedWeight: 0, lastWeight: 0, lastReps: [10, 10, 8], restTime: 45, muscleGroup: 'Core' },
     ]
   },
@@ -6339,7 +6986,7 @@ const WORKOUT_TEMPLATES = {
       { id: 'deficit_dl', name: 'Romanian Deadlift', sets: 3, targetReps: 6, suggestedWeight: 115, lastWeight: 110, lastReps: [6, 6, 5], restTime: 180, muscleGroup: 'Hamstrings' },
       { id: 'row', name: 'Pendlay Row', sets: 4, targetReps: 6, suggestedWeight: 85, lastWeight: 82.5, lastReps: [6, 6, 5, 5], restTime: 150, muscleGroup: 'Back' },
       { id: 'pullup', name: 'Pull Ups', sets: 3, targetReps: 8, suggestedWeight: 10, lastWeight: 7.5, lastReps: [8, 7, 6], restTime: 120, muscleGroup: 'Lats' },
-      { id: 'leg_curl', name: 'Lying Leg Curl', sets: 3, targetReps: 12, suggestedWeight: 42.5, lastWeight: 40, lastReps: [12, 11, 10], restTime: 60, muscleGroup: 'Hamstrings' },
+      { id: 'leg_curl', name: 'Lying Leg Curl', sets: 3, targetReps: 12, suggestedWeight: 42.5, lastWeight: 40, lastReps: [12, 11, 10], restTime: 90, muscleGroup: 'Hamstrings' },
       { id: 'shrugs', name: 'Barbell Shrugs', sets: 3, targetReps: 10, suggestedWeight: 110, lastWeight: 105, lastReps: [10, 9, 8], restTime: 90, muscleGroup: 'Traps' },
       { id: 'pallof_press', name: 'Pallof Press', sets: 3, targetReps: 10, suggestedWeight: 0, lastWeight: 0, lastReps: [10, 10, 8], restTime: 45, muscleGroup: 'Core' },
     ]
@@ -6357,7 +7004,7 @@ const WORKOUT_TEMPLATES = {
       { id: 'front_squat', name: 'Front Squat', sets: 4, targetReps: 6, suggestedWeight: 85, lastWeight: 80, lastReps: [6, 6, 5, 5], restTime: 180, muscleGroup: 'Quads' },
       { id: 'push_press', name: 'Push Press', sets: 4, targetReps: 5, suggestedWeight: 60, lastWeight: 57.5, lastReps: [5, 5, 5, 4], restTime: 150, muscleGroup: 'Shoulders' },
       { id: 'kb_swing', name: 'Kettlebell Swings', sets: 3, targetReps: 15, suggestedWeight: 24, lastWeight: 20, lastReps: [15, 15, 12], restTime: 90, muscleGroup: 'Glutes' },
-      { id: 'plank', name: 'Plank', sets: 3, targetReps: 60, suggestedWeight: 0, lastWeight: 0, lastReps: [60, 45, 45], restTime: 60, muscleGroup: 'Core' },
+      { id: 'plank', name: 'Plank', sets: 3, targetReps: 60, suggestedWeight: 0, lastWeight: 0, lastReps: [60, 45, 45], restTime: 45, muscleGroup: 'Core' },
     ]
   }
 };
@@ -6882,9 +7529,9 @@ const optimizeExercisesForTimeAndCount = (baseExerciseList, fullExercisePool, ta
          timing.availableRestTime / timing.totalRestPeriods > IDEAL_REST_TIME + 30 &&
          optimized.some(ex => ex.sets < MAX_SETS_PER_EXERCISE)) {
     // Find exercise with fewest sets that's under max
-    const minSetsEx = optimized
-      .filter(ex => ex.sets < MAX_SETS_PER_EXERCISE)
-      .reduce((min, ex) => (ex.sets < min.sets) ? ex : min, optimized.find(ex => ex.sets < MAX_SETS_PER_EXERCISE));
+    const eligibleExercises = optimized.filter(ex => ex.sets < MAX_SETS_PER_EXERCISE);
+    if (eligibleExercises.length === 0) break;
+    const minSetsEx = eligibleExercises.reduce((min, ex) => (ex.sets < min.sets) ? ex : min, eligibleExercises[0]);
 
     if (!minSetsEx) break;
 
@@ -7051,7 +7698,7 @@ function ActiveWorkoutScreen({ onClose, onComplete, onSaveProgress, COLORS, avai
 
   const totalSets = exercisesForTime.reduce((acc, ex) => acc + ex.sets, 0);
   const completedSetsCount = completedSets.length;
-  const progressPercent = (completedSetsCount / totalSets) * 100;
+  const progressPercent = totalSets > 0 ? (completedSetsCount / totalSets) * 100 : 0;
   const currentExercise = exercisesForTime[currentExerciseIndex];
 
   useEffect(() => {
@@ -8743,7 +9390,7 @@ function ActiveWorkoutScreen({ onClose, onComplete, onSaveProgress, COLORS, avai
       
       {/* Edit Set Modal */}
       {editingSet && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }} onClick={(e) => e.target === e.currentTarget && setEditingSet(null)}>
           <div className="w-full max-w-sm rounded-2xl p-6" style={{ backgroundColor: COLORS.surface }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold" style={{ color: COLORS.text }}>Edit Set</h3>
@@ -8797,7 +9444,7 @@ function ActiveWorkoutScreen({ onClose, onComplete, onSaveProgress, COLORS, avai
       
       {/* End Workout Confirmation */}
       {showEndWorkoutConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }} onClick={(e) => e.target === e.currentTarget && setShowEndWorkoutConfirm(false)}>
           <div className="w-full max-w-sm rounded-2xl p-6" style={{ backgroundColor: COLORS.surface }}>
             <div className="text-center mb-6">
               <div className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center" style={{ backgroundColor: COLORS.warning + '20' }}>
@@ -8967,6 +9614,9 @@ const HomeTab = ({
   expandedExerciseId,
   setExpandedExerciseId,
   moveExerciseInHome,
+  swapExerciseInHome,
+  removeExerciseInHome,
+  setShowExerciseInfo,
 }) => {
     const handleScroll = (e) => {
       homeScrollPos.current = e.target.scrollTop;
@@ -9436,7 +10086,15 @@ const HomeTab = ({
                   {/* Warmup/Cooldown Toggles */}
                   <div className="flex items-center gap-2 mb-3">
                     <button
-                      onClick={() => setPersonalWarmup(!personalWarmup)}
+                      onClick={() => {
+                        const scrollTop = homeScrollRef.current?.scrollTop;
+                        setPersonalWarmup(!personalWarmup);
+                        requestAnimationFrame(() => {
+                          if (homeScrollRef.current && scrollTop !== undefined) {
+                            homeScrollRef.current.scrollTop = scrollTop;
+                          }
+                        });
+                      }}
                       className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold"
                       style={{
                         backgroundColor: personalWarmup ? COLORS.primary + '20' : COLORS.surfaceLight,
@@ -9448,7 +10106,15 @@ const HomeTab = ({
                       {personalWarmup ? <Check size={12} /> : null}
                     </button>
                     <button
-                      onClick={() => setPersonalCooldown(!personalCooldown)}
+                      onClick={() => {
+                        const scrollTop = homeScrollRef.current?.scrollTop;
+                        setPersonalCooldown(!personalCooldown);
+                        requestAnimationFrame(() => {
+                          if (homeScrollRef.current && scrollTop !== undefined) {
+                            homeScrollRef.current.scrollTop = scrollTop;
+                          }
+                        });
+                      }}
                       className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold"
                       style={{
                         backgroundColor: personalCooldown ? COLORS.primary + '20' : COLORS.surfaceLight,
@@ -9597,20 +10263,20 @@ const HomeTab = ({
                                   <div className="px-2 pb-2 pt-1 border-t" style={{ borderColor: COLORS.surfaceLight }}>
                                     <div className="flex gap-2">
                                       <button
-                                        onClick={() => swapExercise(originalIndex)}
+                                        onClick={() => swapExerciseInHome(exercise.id)}
                                         className="flex-1 py-1.5 rounded-lg text-xs font-medium flex items-center justify-center gap-1"
                                         style={{ backgroundColor: COLORS.primary + '20', color: COLORS.primary }}
                                       >
                                         <ArrowLeftRight size={12} /> Swap
                                       </button>
                                       <button
-                                        onClick={() => removeExercise(originalIndex)}
-                                        disabled={allExercises.length <= 2}
+                                        onClick={() => removeExerciseInHome(exercise.id)}
+                                        disabled={exercisesForTime.length <= 2}
                                         className="flex-1 py-1.5 rounded-lg text-xs font-medium flex items-center justify-center gap-1"
                                         style={{
-                                          backgroundColor: allExercises.length <= 2 ? COLORS.surfaceLight : COLORS.error + '20',
-                                          color: allExercises.length <= 2 ? COLORS.textMuted : COLORS.error,
-                                          opacity: allExercises.length <= 2 ? 0.5 : 1
+                                          backgroundColor: exercisesForTime.length <= 2 ? COLORS.surfaceLight : COLORS.error + '20',
+                                          color: exercisesForTime.length <= 2 ? COLORS.textMuted : COLORS.error,
+                                          opacity: exercisesForTime.length <= 2 ? 0.5 : 1
                                         }}
                                       >
                                         <X size={12} /> Remove
@@ -10625,7 +11291,7 @@ const HomeTab = ({
 
       {/* Weigh-In Reminder */}
       {showWeighInReminder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} onClick={(e) => e.target === e.currentTarget && setShowWeighInReminder(false)}>
           <div className="w-full max-w-sm rounded-2xl p-5" style={{ backgroundColor: COLORS.surface }}>
             <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '20' }}>
@@ -11625,7 +12291,15 @@ const WorkoutTab = ({
                       {/* Warmup/Cooldown Toggles */}
                       <div className="flex items-center gap-2 mb-3">
                         <button
-                          onClick={() => setPersonalWarmup(!personalWarmup)}
+                          onClick={() => {
+                            const scrollTop = workoutTabScrollRef.current?.scrollTop;
+                            setPersonalWarmup(!personalWarmup);
+                            requestAnimationFrame(() => {
+                              if (workoutTabScrollRef.current && scrollTop !== undefined) {
+                                workoutTabScrollRef.current.scrollTop = scrollTop;
+                              }
+                            });
+                          }}
                           className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold"
                           style={{
                             backgroundColor: personalWarmup ? COLORS.primary + '20' : COLORS.surfaceLight,
@@ -11637,7 +12311,15 @@ const WorkoutTab = ({
                           {personalWarmup ? <Check size={12} /> : null}
                         </button>
                         <button
-                          onClick={() => setPersonalCooldown(!personalCooldown)}
+                          onClick={() => {
+                            const scrollTop = workoutTabScrollRef.current?.scrollTop;
+                            setPersonalCooldown(!personalCooldown);
+                            requestAnimationFrame(() => {
+                              if (workoutTabScrollRef.current && scrollTop !== undefined) {
+                                workoutTabScrollRef.current.scrollTop = scrollTop;
+                              }
+                            });
+                          }}
                           className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold"
                           style={{
                             backgroundColor: personalCooldown ? COLORS.primary + '20' : COLORS.surfaceLight,
@@ -14015,6 +14697,75 @@ const NutritionTab = ({
     }
   };
 
+  // Memoize sleep chart data to prevent recalculation on every render
+  const sleepChartDataMemo = React.useMemo(() => {
+    const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    let chartData = [];
+
+    if (sleepChartView === '7days') {
+      // Last 7 nights (excluding today)
+      for (let i = 7; i >= 1; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const dateKey = getLocalDateString(date);
+        const dayName = weekDays[date.getDay()];
+        const sleepEntry = monthlyTracking.sleep[dateKey];
+        chartData.push({
+          label: dayName,
+          hours: sleepEntry?.hours || 0,
+          goal: sleepHours
+        });
+      }
+    } else if (sleepChartView === 'weekly') {
+      // Last 4 weeks - weekly averages
+      for (let week = 4; week >= 1; week--) {
+        let totalHours = 0;
+        let count = 0;
+        for (let day = 0; day < 7; day++) {
+          const date = new Date();
+          date.setDate(date.getDate() - (week * 7) + day);
+          const dateKey = getLocalDateString(date);
+          const sleepEntry = monthlyTracking.sleep[dateKey];
+          if (sleepEntry?.hours) {
+            totalHours += sleepEntry.hours;
+            count++;
+          }
+        }
+        chartData.push({
+          label: `W${5 - week}`,
+          hours: count > 0 ? parseFloat((totalHours / count).toFixed(1)) : 0,
+          goal: sleepHours
+        });
+      }
+    } else {
+      // Last 3 months - monthly averages
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      for (let month = 2; month >= 0; month--) {
+        let totalHours = 0;
+        let count = 0;
+        const targetMonth = new Date();
+        targetMonth.setMonth(targetMonth.getMonth() - month);
+        const monthKey = targetMonth.getMonth();
+        const yearKey = targetMonth.getFullYear();
+
+        Object.entries(monthlyTracking.sleep).forEach(([dateKey, entry]) => {
+          const entryDate = new Date(dateKey);
+          if (entryDate.getMonth() === monthKey && entryDate.getFullYear() === yearKey && entry?.hours) {
+            totalHours += entry.hours;
+            count++;
+          }
+        });
+        chartData.push({
+          label: monthNames[monthKey],
+          hours: count > 0 ? parseFloat((totalHours / count).toFixed(1)) : 0,
+          goal: sleepHours
+        });
+      }
+    }
+
+    return chartData;
+  }, [sleepChartView, monthlyTracking.sleep, sleepHours, getLocalDateString]);
+
   return (
           <>
           <div
@@ -14290,18 +15041,7 @@ const NutritionTab = ({
                               onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                console.log('=== MACRO CLICK START ===');
-                                console.log('Macro clicked:', macro.id);
-                                console.log('Current showMacroDetail before:', showMacroDetail);
-
-                                // Use functional update to ensure we get latest state
-                                setShowMacroDetail(prev => {
-                                  console.log('Previous showMacroDetail:', prev);
-                                  console.log('Setting to:', macro.id);
-                                  return macro.id;
-                                });
-
-                                console.log('=== MACRO CLICK END ===');
+                                setShowMacroDetail(macro.id);
                               }}
                               className="flex-1 flex flex-col items-center"
                               style={{ cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
@@ -14752,6 +15492,17 @@ const NutritionTab = ({
                     {(() => {
                       const days = [];
                       const today = new Date();
+
+                      // Calculate start date (27 days ago) and its day of week (Monday = 0)
+                      const startDate = new Date(today);
+                      startDate.setDate(today.getDate() - 27);
+                      const startDayOfWeek = (startDate.getDay() + 6) % 7; // Convert to Monday=0
+
+                      // Add empty cells to align with the correct day of week
+                      for (let i = 0; i < startDayOfWeek; i++) {
+                        days.push(<div key={`empty-${i}`} className="aspect-square" />);
+                      }
+
                       // Start from 27 days ago to show 4 complete weeks ending today
                       for (let i = 27; i >= 0; i--) {
                         const date = new Date(today);
@@ -14759,7 +15510,6 @@ const NutritionTab = ({
                         const dateKey = getLocalDateString(date);
                         const data = monthlyTracking?.nutrition?.[dateKey];
                         const isToday = i === 0;
-                        const isFuture = false;
 
                         let bgColor = COLORS.surfaceLight;
                         if (data) {
@@ -14862,7 +15612,12 @@ const NutritionTab = ({
                 <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>TODAY'S MEALS</p>
                 <div className="space-y-3">
                   {mealLog.map(meal => (
-                    <div key={meal.id} className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+                    <button
+                      key={meal.id}
+                      onClick={() => setEditingMeal(meal)}
+                      className="w-full p-4 rounded-xl text-left"
+                      style={{ backgroundColor: COLORS.surface }}
+                    >
                       <div className="flex justify-between items-start mb-2">
                         <div>
                           <p className="font-semibold" style={{ color: COLORS.text }}>{meal.name}</p>
@@ -14881,6 +15636,7 @@ const NutritionTab = ({
                         <div className="flex items-center gap-2">
                           <span className="text-lg font-bold" style={{ color: COLORS.accent }}>{meal.calories}</span>
                           <span className="text-xs" style={{ color: COLORS.textMuted }}>kcal</span>
+                          <ChevronRight size={16} color={COLORS.textMuted} />
                         </div>
                       </div>
                       <div className="flex gap-4 pt-2 border-t" style={{ borderColor: COLORS.surfaceLight }}>
@@ -14893,7 +15649,7 @@ const NutritionTab = ({
                           <span className="text-xs" style={{ color: COLORS.textSecondary }}>{meal.carbs}g C</span>
                         </div>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
 
@@ -14911,6 +15667,17 @@ const NutritionTab = ({
                     {(() => {
                       const days = [];
                       const today = new Date();
+
+                      // Calculate start date (27 days ago) and its day of week (Monday = 0)
+                      const startDate = new Date(today);
+                      startDate.setDate(today.getDate() - 27);
+                      const startDayOfWeek = (startDate.getDay() + 6) % 7; // Convert to Monday=0
+
+                      // Add empty cells to align with the correct day of week
+                      for (let i = 0; i < startDayOfWeek; i++) {
+                        days.push(<div key={`empty-${i}`} className="aspect-square" />);
+                      }
+
                       for (let i = 27; i >= 0; i--) {
                         const date = new Date(today);
                         date.setDate(today.getDate() - i);
@@ -15039,6 +15806,8 @@ const NutritionTab = ({
                             const { data: userSupplements } = await nutritionService.getSupplements(user.id);
                             // Total is sum of all timesPerDay, not just supplement count
                             const totalDosesNeeded = userSupplements?.reduce((sum, s) => sum + (s.times_per_day || 1), 0) || 0;
+                            const numActiveSupplements = userSupplements?.length || 0;
+                            const todayKey = getLocalDateString();
 
                             // Build history by date
                             const historyMap = new Map();
@@ -15046,7 +15815,16 @@ const NutritionTab = ({
                               const date = new Date();
                               date.setDate(date.getDate() - i);
                               const dateKey = getLocalDateString(date);
-                              historyMap.set(dateKey, { date: dateKey, completed: 0, total: totalDosesNeeded, allTaken: false });
+                              const isToday = dateKey === todayKey;
+                              // For past days, we use number of active supplements as the target (at least 1 dose each)
+                              // For today, we use the full doses needed
+                              historyMap.set(dateKey, {
+                                date: dateKey,
+                                completed: 0,
+                                total: isToday ? totalDosesNeeded : numActiveSupplements,
+                                allTaken: false,
+                                uniqueSupplements: new Set()
+                              });
                             }
 
                             // Count completed supplement doses per day
@@ -15055,7 +15833,16 @@ const NutritionTab = ({
                               if (historyMap.has(dateKey)) {
                                 const day = historyMap.get(dateKey);
                                 day.completed++;
-                                day.allTaken = day.completed >= day.total;
+                                day.uniqueSupplements.add(log.supplement_id);
+                                // For past days: complete if took at least 1 dose of each unique supplement logged
+                                // For today: complete if total doses met
+                                const isToday = dateKey === todayKey;
+                                if (isToday) {
+                                  day.allTaken = day.completed >= day.total;
+                                } else {
+                                  // Past day: complete if unique supplements count >= total (i.e., took each supplement at least once)
+                                  day.allTaken = day.uniqueSupplements.size >= day.total && day.total > 0;
+                                }
                               }
                             });
 
@@ -15160,17 +15947,37 @@ const NutritionTab = ({
                               );
 
                               const { data: userSupplements } = await nutritionService.getSupplements(user.id);
-                              // Total is sum of all timesPerDay, not just supplement count
-                              const totalDosesNeeded = userSupplements?.reduce((sum, s) => sum + (s.times_per_day || 1), 0) || 0;
+                              // Today's total is sum of all timesPerDay
+                              const todayTotalDoses = userSupplements?.reduce((sum, s) => sum + (s.times_per_day || 1), 0) || 0;
 
-                              // Build history by date
+                              // Build history by date - for past days, use number of unique supplements logged that day
                               const historyMap = new Map();
+                              const todayKey = getLocalDateString(new Date());
                               for (let i = 0; i < 28; i++) {
                                 const date = new Date();
                                 date.setDate(date.getDate() - i);
                                 const dateKey = getLocalDateString(date);
-                                historyMap.set(dateKey, { date: dateKey, completed: 0, total: totalDosesNeeded, allTaken: false });
+                                // For today use current supplements, for past days we'll calculate from logs
+                                historyMap.set(dateKey, { date: dateKey, completed: 0, total: dateKey === todayKey ? todayTotalDoses : 0, allTaken: false });
                               }
+
+                              // For past days, count unique supplements that were logged (that was their target for that day)
+                              const pastDaySupplements = new Map(); // dateKey -> Set of supplement_ids
+                              supplementLogsRange?.forEach(log => {
+                                const dateKey = log.log_date;
+                                if (dateKey !== todayKey && historyMap.has(dateKey)) {
+                                  if (!pastDaySupplements.has(dateKey)) {
+                                    pastDaySupplements.set(dateKey, new Set());
+                                  }
+                                  pastDaySupplements.get(dateKey).add(log.supplement_id);
+                                }
+                              });
+                              // Set total for past days based on unique supplements logged
+                              pastDaySupplements.forEach((supplements, dateKey) => {
+                                if (historyMap.has(dateKey)) {
+                                  historyMap.get(dateKey).total = supplements.size;
+                                }
+                              });
 
                               // Count completed supplement doses per day
                               supplementLogsRange?.forEach(log => {
@@ -15178,7 +15985,7 @@ const NutritionTab = ({
                                 if (historyMap.has(dateKey)) {
                                   const day = historyMap.get(dateKey);
                                   day.completed++;
-                                  day.allTaken = day.completed >= day.total;
+                                  day.allTaken = day.completed >= day.total && day.total > 0;
                                 }
                               });
 
@@ -15541,6 +16348,17 @@ const NutritionTab = ({
                     {(() => {
                       const days = [];
                       const today = new Date();
+
+                      // Calculate start date (27 days ago) and its day of week (Monday = 0)
+                      const startDate = new Date(today);
+                      startDate.setDate(today.getDate() - 27);
+                      const startDayOfWeek = (startDate.getDay() + 6) % 7; // Convert to Monday=0
+
+                      // Add empty cells to align with the correct day of week
+                      for (let i = 0; i < startDayOfWeek; i++) {
+                        days.push(<div key={`empty-${i}`} className="aspect-square" />);
+                      }
+
                       for (let i = 27; i >= 0; i--) {
                         const date = new Date(today);
                         date.setDate(today.getDate() - i);
@@ -15926,112 +16744,44 @@ const NutritionTab = ({
                 </div>
                 <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
                   <div style={{ height: 120 }}>
-                    {(() => {
-                      const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-                      let chartData = [];
-
-                      if (sleepChartView === '7days') {
-                        // Last 7 nights (excluding today)
-                        for (let i = 7; i >= 1; i--) {
-                          const date = new Date();
-                          date.setDate(date.getDate() - i);
-                          const dateKey = getLocalDateString(date);
-                          const dayName = weekDays[date.getDay()];
-                          const sleepEntry = monthlyTracking.sleep[dateKey];
-                          chartData.push({
-                            label: dayName,
-                            hours: sleepEntry?.hours || 0,
-                            goal: sleepHours
-                          });
-                        }
-                      } else if (sleepChartView === 'weekly') {
-                        // Last 4 weeks - weekly averages
-                        for (let week = 4; week >= 1; week--) {
-                          let totalHours = 0;
-                          let count = 0;
-                          for (let day = 0; day < 7; day++) {
-                            const date = new Date();
-                            date.setDate(date.getDate() - (week * 7) + day);
-                            const dateKey = getLocalDateString(date);
-                            const sleepEntry = monthlyTracking.sleep[dateKey];
-                            if (sleepEntry?.hours) {
-                              totalHours += sleepEntry.hours;
-                              count++;
-                            }
-                          }
-                          chartData.push({
-                            label: `W${5 - week}`,
-                            hours: count > 0 ? parseFloat((totalHours / count).toFixed(1)) : 0,
-                            goal: sleepHours
-                          });
-                        }
-                      } else {
-                        // Last 3 months - monthly averages
-                        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                        for (let month = 2; month >= 0; month--) {
-                          let totalHours = 0;
-                          let count = 0;
-                          const targetMonth = new Date();
-                          targetMonth.setMonth(targetMonth.getMonth() - month);
-                          const monthKey = targetMonth.getMonth();
-                          const yearKey = targetMonth.getFullYear();
-
-                          Object.entries(monthlyTracking.sleep).forEach(([dateKey, entry]) => {
-                            const entryDate = new Date(dateKey);
-                            if (entryDate.getMonth() === monthKey && entryDate.getFullYear() === yearKey && entry?.hours) {
-                              totalHours += entry.hours;
-                              count++;
-                            }
-                          });
-                          chartData.push({
-                            label: monthNames[monthKey],
-                            hours: count > 0 ? parseFloat((totalHours / count).toFixed(1)) : 0,
-                            goal: sleepHours
-                          });
-                        }
-                      }
-
-                      return (
-                        <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={chartData}>
-                            <XAxis
-                              dataKey="label"
-                              tick={{ fill: COLORS.textMuted, fontSize: 10 }}
-                              axisLine={false}
-                              tickLine={false}
-                            />
-                            <YAxis
-                              tick={{ fill: COLORS.textMuted, fontSize: 10 }}
-                              axisLine={false}
-                              tickLine={false}
-                              width={25}
-                              domain={[0, 12]}
-                              ticks={[0, 3, 6, 9, 12]}
-                              interval={0}
-                            />
-                            <Line
-                              type="monotone"
-                              dataKey="hours"
-                              stroke={COLORS.sleep}
-                              strokeWidth={2}
-                              dot={(props) => {
-                                if (!props.payload.hours || props.payload.hours === 0) return null;
-                                return <circle cx={props.cx} cy={props.cy} r={4} fill={COLORS.sleep} />;
-                              }}
-                              connectNulls={false}
-                            />
-                            <Line
-                              type="monotone"
-                              dataKey="goal"
-                              stroke={COLORS.textMuted}
-                              strokeWidth={1}
-                              strokeDasharray="3 3"
-                              dot={false}
-                            />
-                          </LineChart>
-                        </ResponsiveContainer>
-                      );
-                    })()}
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={sleepChartDataMemo}>
+                        <XAxis
+                          dataKey="label"
+                          tick={{ fill: COLORS.textMuted, fontSize: 10 }}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+                        <YAxis
+                          tick={{ fill: COLORS.textMuted, fontSize: 10 }}
+                          axisLine={false}
+                          tickLine={false}
+                          width={25}
+                          domain={[0, 12]}
+                          ticks={[0, 3, 6, 9, 12]}
+                          interval={0}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="hours"
+                          stroke={COLORS.sleep}
+                          strokeWidth={2}
+                          dot={(props) => {
+                            if (!props.payload.hours || props.payload.hours === 0) return null;
+                            return <circle key={`sleep-dot-${props.index}`} cx={props.cx} cy={props.cy} r={4} fill={COLORS.sleep} />;
+                          }}
+                          connectNulls={false}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="goal"
+                          stroke={COLORS.textMuted}
+                          strokeWidth={1}
+                          strokeDasharray="3 3"
+                          dot={false}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
                   </div>
                 </div>
 
@@ -16049,6 +16799,17 @@ const NutritionTab = ({
                     {(() => {
                       const days = [];
                       const today = new Date();
+
+                      // Calculate start date (27 days ago) and its day of week (Monday = 0)
+                      const startDate = new Date(today);
+                      startDate.setDate(today.getDate() - 27);
+                      const startDayOfWeek = (startDate.getDay() + 6) % 7; // Convert to Monday=0
+
+                      // Add empty cells to align with the correct day of week
+                      for (let i = 0; i < startDayOfWeek; i++) {
+                        days.push(<div key={`empty-${i}`} style={{ minHeight: 40 }} />);
+                      }
+
                       for (let i = 27; i >= 0; i--) {
                         const date = new Date(today);
                         date.setDate(today.getDate() - i);
@@ -16106,7 +16867,6 @@ const NutritionTab = ({
 
           {/* Macro Detail Modal */}
           {showMacroDetail && (() => {
-            console.log('Rendering macro modal for:', showMacroDetail);
             const macros = {
               protein: { name: 'Protein', key: 'protein', current: nutritionSelectedDate === TODAY_DATE_KEY ? proteinIntake : (backdateNutrition?.protein || 0), target: adjustedNutritionGoals.protein, color: COLORS.primary },
               carbs: { name: 'Carbs', key: 'carbs', current: nutritionSelectedDate === TODAY_DATE_KEY ? carbsIntake : (backdateNutrition?.carbs || 0), target: nutritionGoals.carbs, color: COLORS.warning },
@@ -16179,17 +16939,26 @@ const NutritionTab = ({
                         {mealLog.map((meal, idx) => {
                           const macroAmount = meal[macro.key] || 0;
                           return (
-                            <div key={meal.id || idx} className="p-3 rounded-xl" style={{ backgroundColor: COLORS.surfaceLight }}>
+                            <button
+                              key={meal.id || idx}
+                              onClick={() => {
+                                setShowMacroDetail(null);
+                                setEditingMeal(meal);
+                              }}
+                              className="w-full p-3 rounded-xl text-left"
+                              style={{ backgroundColor: COLORS.surfaceLight }}
+                            >
                               <div className="flex items-start justify-between mb-1">
                                 <div className="flex-1 min-w-0">
                                   <p className="text-sm font-semibold truncate" style={{ color: COLORS.text }}>{meal.name}</p>
                                   <p className="text-xs" style={{ color: COLORS.textMuted }}>{meal.calories} cal</p>
                                 </div>
-                                <div className="text-right ml-2">
+                                <div className="flex items-center gap-2 ml-2">
                                   <p className="text-lg font-bold" style={{ color: macro.color }}>{macroAmount}g</p>
+                                  <ChevronRight size={14} color={COLORS.textMuted} />
                                 </div>
                               </div>
-                            </div>
+                            </button>
                           );
                         })}
                       </div>
@@ -17373,17 +18142,20 @@ export default function UpRepDemo() {
         const { data: sleepEntry } = await sleepService.getSleepLog(user.id, selectedSleepDate);
 
         if (isMounted) {
+          // Helper to strip seconds from time string (e.g., "23:00:00" -> "23:00")
+          const stripSeconds = (time) => time ? time.substring(0, 5) : time;
+
           if (sleepEntry) {
             // Load existing entry for selected date and show as confirmed
-            setLastNightBedTime(sleepEntry.bed_time || '23:00');
-            setLastNightWakeTime(sleepEntry.wake_time || '06:30');
+            setLastNightBedTime(stripSeconds(sleepEntry.bed_time) || '23:00');
+            setLastNightWakeTime(stripSeconds(sleepEntry.wake_time) || '06:30');
             setLastNightConfirmed(true);
           } else {
             // No entry for this date - show edit form with defaults
             setLastNightConfirmed(false);
             if (recentWithTimes) {
-              setLastNightBedTime(recentWithTimes.bed_time);
-              setLastNightWakeTime(recentWithTimes.wake_time);
+              setLastNightBedTime(stripSeconds(recentWithTimes.bed_time));
+              setLastNightWakeTime(stripSeconds(recentWithTimes.wake_time));
             } else {
               setLastNightBedTime('23:00');
               setLastNightWakeTime('06:30');
@@ -17392,8 +18164,8 @@ export default function UpRepDemo() {
 
           // Update target sleep times defaults
           if (recentWithTimes) {
-            setBedTime(recentWithTimes.bed_time);
-            setWakeTime(recentWithTimes.wake_time);
+            setBedTime(stripSeconds(recentWithTimes.bed_time));
+            setWakeTime(stripSeconds(recentWithTimes.wake_time));
           }
         }
       } catch (err) {
@@ -17556,6 +18328,20 @@ export default function UpRepDemo() {
     requestAnimationFrame(() => {
       if (friendsTabScrollRef.current && scrollTop !== undefined) {
         friendsTabScrollRef.current.scrollTop = scrollTop;
+      }
+    });
+  };
+
+  // Toggle warmup/cooldown with scroll preservation (for workouts tab)
+  const toggleWarmupCooldownForWorkouts = (workoutId, type) => {
+    const scrollTop = workoutTabScrollRef.current?.scrollTop;
+    setWorkoutWarmupCooldown(prev => ({
+      ...prev,
+      [workoutId]: { ...prev[workoutId], [type]: !(prev[workoutId]?.[type] ?? true) }
+    }));
+    requestAnimationFrame(() => {
+      if (workoutTabScrollRef.current && scrollTop !== undefined) {
+        workoutTabScrollRef.current.scrollTop = scrollTop;
       }
     });
   };
@@ -17821,6 +18607,7 @@ export default function UpRepDemo() {
 
   // Meal Log - start empty, load from database
   const [mealLog, setMealLog] = useState([]);
+  const [editingMeal, setEditingMeal] = useState(null); // Meal being edited
   
   // Nutrition Goals (calculated from user stats)
   const [nutritionGoals, setNutritionGoals] = useState({
@@ -18005,12 +18792,6 @@ export default function UpRepDemo() {
         // Load meals for selected date
         const { data: meals } = await nutritionService.getMeals(user.id, nutritionSelectedDate);
 
-        console.log('Backdating data loaded for', nutritionSelectedDate, ':', {
-          dailyData,
-          meals,
-          calories: dailyData?.total_calories || 0,
-          protein: dailyData?.total_protein || 0,
-        });
 
         if (isMounted) {
           setBackdateNutrition({
@@ -18597,10 +19378,6 @@ export default function UpRepDemo() {
   const [weightLogValue, setWeightLogValue] = useState('');
   const [showMacroDetail, setShowMacroDetail] = useState(null); // 'protein', 'carbs', or 'fats'
 
-  // Debug showMacroDetail changes
-  useEffect(() => {
-    console.log('showMacroDetail changed to:', showMacroDetail);
-  }, [showMacroDetail]);
 
   // History modals for viewing/editing entries
   const [showMealHistory, setShowMealHistory] = useState(false);
@@ -19301,6 +20078,10 @@ export default function UpRepDemo() {
   // Get suggested next programs
   const suggestedNextPrograms = NEXT_PROGRAM_SUGGESTIONS[currentProgram.id] || NEXT_PROGRAM_SUGGESTIONS.upper_lower;
 
+  // Exercise history for progressive overload - last weight/reps per exercise
+  // Declared early because getWorkoutForDate needs it
+  const [exerciseHistory, setExerciseHistory] = useState({});
+
   // Ref-based cache for workouts (doesn't trigger re-renders)
   const workoutCacheRef = useRef({});
 
@@ -19321,7 +20102,7 @@ export default function UpRepDemo() {
     }
 
     // Generate new workout with user stats for weight calculation
-    const workout = generateDynamicWorkout(scheduleEntry.workoutType, userGoal, recentlyUsedExercises, userData.experience, ALL_EXERCISES, userData);
+    const workout = generateDynamicWorkout(scheduleEntry.workoutType, userGoal, recentlyUsedExercises, userData.experience, ALL_EXERCISES, userData, exerciseHistory);
 
     // Cache it in ref (doesn't trigger re-render)
     if (workout) {
@@ -19543,6 +20324,59 @@ export default function UpRepDemo() {
     });
   };
 
+  // Swap exercise with alternative (for Home Tab - uses homeScrollRef)
+  // Takes exerciseId instead of index for robustness
+  const swapExerciseInHome = (exerciseId) => {
+    const scrollTop = homeScrollRef.current?.scrollTop;
+    const exercises = getCurrentExercises();
+    const exerciseIndex = exercises.findIndex(ex => ex.id === exerciseId);
+    if (exerciseIndex === -1) return;
+
+    const currentExercise = exercises[exerciseIndex];
+    const excludeIds = exercises.map(ex => ex.id);
+    const alternative = getAlternativeExercise(currentExercise, excludeIds);
+
+    if (alternative) {
+      const newExercises = [...exercises];
+      newExercises[exerciseIndex] = alternative;
+      setCustomizedExercises(newExercises);
+      setExpandedExerciseId(null);
+      requestAnimationFrame(() => {
+        if (homeScrollRef.current && scrollTop !== undefined) {
+          homeScrollRef.current.scrollTop = scrollTop;
+        }
+      });
+    }
+  };
+
+  // Remove exercise and redistribute sets (for Home Tab - uses homeScrollRef)
+  // Takes exerciseId instead of index for robustness
+  const removeExerciseInHome = (exerciseId) => {
+    const scrollTop = homeScrollRef.current?.scrollTop;
+    const exercises = getCurrentExercises();
+    if (exercises.length <= 2) return;
+
+    const exerciseIndex = exercises.findIndex(ex => ex.id === exerciseId);
+    if (exerciseIndex === -1) return;
+
+    const removedExercise = exercises[exerciseIndex];
+    const removedSets = removedExercise.sets;
+    const newExercises = exercises.filter((_, i) => i !== exerciseIndex);
+
+    const redistributedExercises = newExercises.map((ex, i) => ({
+      ...ex,
+      sets: ex.sets + (i < removedSets ? 1 : 0)
+    }));
+
+    setCustomizedExercises(redistributedExercises);
+    setExpandedExerciseId(null);
+    requestAnimationFrame(() => {
+      if (homeScrollRef.current && scrollTop !== undefined) {
+        homeScrollRef.current.scrollTop = scrollTop;
+      }
+    });
+  };
+
   // Move exercise up or down in the list (for Home Tab)
   // Takes the current displayed exercise list to work with
   const moveExerciseInHome = (exerciseId, direction, displayedExercises = null) => {
@@ -19729,9 +20563,6 @@ export default function UpRepDemo() {
 
   // Personal records - loaded from database
   const [personalRecords, setPersonalRecords] = useState([]);
-
-  // Exercise history for progressive overload - last weight/reps per exercise
-  const [exerciseHistory, setExerciseHistory] = useState({});
 
   // Load workout history, personal records, and exercise history from database
   useEffect(() => {
@@ -21042,6 +21873,9 @@ export default function UpRepDemo() {
             expandedExerciseId={expandedExerciseId}
             setExpandedExerciseId={setExpandedExerciseId}
             moveExerciseInHome={moveExerciseInHome}
+            swapExerciseInHome={swapExerciseInHome}
+            removeExerciseInHome={removeExerciseInHome}
+            setShowExerciseInfo={setShowExerciseInfo}
           />
         )}
         {activeTab === 'workouts' && (
@@ -23331,7 +24165,7 @@ export default function UpRepDemo() {
 
         {/* Share Modal */}
         {showShareModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }} onClick={(e) => e.target === e.currentTarget && setShowShareModal(false)}>
             <div className="w-full max-w-sm rounded-2xl p-6" style={{ backgroundColor: COLORS.surface }}>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-xl font-bold" style={{ color: COLORS.text }}>Share Your Progress</h3>
@@ -23660,7 +24494,7 @@ export default function UpRepDemo() {
 
         {/* Units Modal */}
         {showUnitsModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }} onClick={(e) => e.target === e.currentTarget && setShowUnitsModal(false)}>
             <div className="w-full max-w-sm rounded-2xl" style={{ backgroundColor: COLORS.surface }}>
               <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
                 <button onClick={() => setShowUnitsModal(false)}><X size={24} color={COLORS.text} /></button>
@@ -24143,7 +24977,6 @@ export default function UpRepDemo() {
               // Save to database if logged in
               if (user?.id) {
                 try {
-                  console.log('Saving goal change:', { goal: goalData.goal, current_weight: currentW, goal_weight: goalW, program_weeks: goalData.programWeeks });
                   const goalsResult = await updateGoals({
                     goal: goalData.goal,
                     current_weight: currentW,
@@ -24478,7 +25311,7 @@ export default function UpRepDemo() {
 
         {/* Experience Level Modal */}
         {showExperienceLevelModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }} onClick={(e) => e.target === e.currentTarget && setShowExperienceLevelModal(false)}>
             <div className="w-full max-w-sm rounded-2xl p-6" style={{ backgroundColor: COLORS.surface }}>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-bold" style={{ color: COLORS.text }}>Gym Experience Level</h3>
@@ -24536,7 +25369,7 @@ export default function UpRepDemo() {
 
         {/* Equipment Modal */}
         {showEquipmentModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }} onClick={(e) => e.target === e.currentTarget && setShowEquipmentModal(false)}>
             <div className="w-full max-w-md rounded-2xl p-6 max-h-[80vh] overflow-y-auto" style={{ backgroundColor: COLORS.surface }}>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-bold" style={{ color: COLORS.text }}>Gym Equipment</h3>
@@ -24604,7 +25437,7 @@ export default function UpRepDemo() {
 
         {/* Program Selector Modal - Multi-Step */}
         {showProgramSelector && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }} onClick={(e) => e.target === e.currentTarget && (setShowProgramSelector(false), setProgramSelectorStep(0), setSelectedProgramForSetup(null))}>
             <div className="w-full max-w-md rounded-2xl p-6 max-h-[85vh] overflow-y-auto" style={{ backgroundColor: COLORS.surface }}>
               {/* Header with step indicator */}
               <div className="flex items-center justify-between mb-2">
@@ -26904,7 +27737,7 @@ export default function UpRepDemo() {
 
       {/* Logout Confirm Modal */}
       {showLogoutConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }} onClick={(e) => e.target === e.currentTarget && setShowLogoutConfirm(false)}>
           <div className="w-full max-w-sm rounded-2xl p-6" style={{ backgroundColor: COLORS.surface }}>
             <h3 className="text-xl font-bold mb-2 text-center" style={{ color: COLORS.text }}>Log Out?</h3>
             <p className="text-sm text-center mb-6" style={{ color: COLORS.textMuted }}>
@@ -27827,7 +28660,7 @@ export default function UpRepDemo() {
                       key={typeId}
                       onClick={() => {
                         setWorkoutForDay(editingScheduleDay.dateKey, typeId);
-                        const newWorkout = generateDynamicWorkout(typeId, userGoal, recentlyUsedExercises, userData.experience, ALL_EXERCISES, userData);
+                        const newWorkout = generateDynamicWorkout(typeId, userGoal, recentlyUsedExercises, userData.experience, ALL_EXERCISES, userData, exerciseHistory);
                         setEditingScheduleDay({ ...editingScheduleDay, workout: newWorkout, workoutType: typeId });
                       }}
                       className="w-full p-3 rounded-xl flex items-center gap-3"
@@ -27967,7 +28800,7 @@ export default function UpRepDemo() {
                       key={typeId}
                       onClick={() => {
                         setWorkoutForDay(editingScheduleDay.dateKey, typeId);
-                        const newWorkout = generateDynamicWorkout(typeId, userGoal, recentlyUsedExercises, userData.experience, ALL_EXERCISES, userData);
+                        const newWorkout = generateDynamicWorkout(typeId, userGoal, recentlyUsedExercises, userData.experience, ALL_EXERCISES, userData, exerciseHistory);
                         setEditingScheduleDay({ ...editingScheduleDay, workout: newWorkout, workoutType: typeId });
                       }}
                       className="w-full p-3 rounded-xl flex items-center gap-3"
@@ -28020,7 +28853,7 @@ export default function UpRepDemo() {
               <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3" style={{ backgroundColor: COLORS.success + '20' }}>
                 <Check size={32} color={COLORS.success} />
               </div>
-              <h3 className="text-xl font-bold" style={{ color: COLORS.text }}>{showWorkoutSummary.workout.name}</h3>
+              <h3 className="text-xl font-bold" style={{ color: COLORS.text }}>{showWorkoutSummary.workout?.name}</h3>
               <p className="text-sm" style={{ color: COLORS.textMuted }}>{showWorkoutSummary.date}</p>
             </div>
 
@@ -28034,14 +28867,14 @@ export default function UpRepDemo() {
                 <p className="text-xs" style={{ color: COLORS.textMuted }}>exercises</p>
               </div>
               <div className="p-3 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
-                <p className="text-2xl font-bold" style={{ color: COLORS.warning }}>{(showWorkoutSummary.totalVolume / 1000).toFixed(1)}k</p>
+                <p className="text-2xl font-bold" style={{ color: COLORS.warning }}>{((showWorkoutSummary.totalVolume || 0) / 1000).toFixed(1)}k</p>
                 <p className="text-xs" style={{ color: COLORS.textMuted }}>kg volume</p>
               </div>
             </div>
 
             <h4 className="font-semibold mb-3" style={{ color: COLORS.text }}>Exercises Completed</h4>
             <div className="space-y-2">
-              {showWorkoutSummary.workout.exercises.map((ex, i) => (
+              {(showWorkoutSummary.workout?.exercises || []).map((ex, i) => (
                 <div key={i} className="p-3 rounded-xl flex items-center justify-between" style={{ backgroundColor: COLORS.surface }}>
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.success + '20' }}>
@@ -28073,9 +28906,9 @@ export default function UpRepDemo() {
                 onClick={() => {
                   // Set up publish modal with this workout's data
                   setWorkoutToPublish({
-                    name: showWorkoutSummary.workout.name,
-                    focus: showWorkoutSummary.workout.focus || 'general',
-                    exercises: showWorkoutSummary.workout.exercises,
+                    name: showWorkoutSummary.workout?.name || 'Workout',
+                    focus: showWorkoutSummary.workout?.focus || 'general',
+                    exercises: showWorkoutSummary.workout?.exercises || [],
                   });
                   setPublishDescription('');
                   setShowPublishModal(true);
@@ -28349,9 +29182,71 @@ export default function UpRepDemo() {
         />
       )}
 
+      {/* Edit Meal Modal */}
+      {editingMeal && (
+        <EditMealModal
+          COLORS={COLORS}
+          meal={editingMeal}
+          onClose={() => setEditingMeal(null)}
+          onSave={async (updatedMeal) => {
+            // Update in database
+            if (user?.id && updatedMeal.id) {
+              const { error } = await supabase
+                .from('meal_logs')
+                .update({
+                  meal_name: updatedMeal.name,
+                  meal_time: updatedMeal.time,
+                  calories: updatedMeal.calories,
+                  protein: updatedMeal.protein,
+                  carbs: updatedMeal.carbs,
+                  fats: updatedMeal.fats,
+                })
+                .eq('id', updatedMeal.id);
+
+              if (error) {
+                console.error('Error updating meal:', error);
+                alert('Failed to update meal');
+                return;
+              }
+            }
+
+            // Update local state
+            const oldMeal = mealLog.find(m => m.id === updatedMeal.id);
+            if (oldMeal) {
+              // Adjust totals
+              setCaloriesIntake(prev => prev - oldMeal.calories + updatedMeal.calories);
+              setProteinIntake(prev => prev - oldMeal.protein + updatedMeal.protein);
+              setCarbsIntake(prev => prev - oldMeal.carbs + updatedMeal.carbs);
+              setFatsIntake(prev => prev - oldMeal.fats + updatedMeal.fats);
+            }
+            setMealLog(prev => prev.map(m => m.id === updatedMeal.id ? updatedMeal : m));
+            setEditingMeal(null);
+          }}
+          onDelete={async (meal) => {
+            // Delete from database
+            if (user?.id && meal.id) {
+              const { error } = await nutritionService.deleteMeal(meal.id, user.id, TODAY_DATE_KEY);
+              if (error) {
+                console.error('Error deleting meal:', error);
+                alert('Failed to delete meal');
+                return;
+              }
+            }
+
+            // Update local state
+            setMealLog(prev => prev.filter(m => m.id !== meal.id));
+            setCaloriesIntake(prev => prev - meal.calories);
+            setProteinIntake(prev => prev - meal.protein);
+            setCarbsIntake(prev => prev - meal.carbs);
+            setFatsIntake(prev => prev - meal.fats);
+            setEditingMeal(null);
+          }}
+        />
+      )}
+
       {/* Meal History Modal */}
       {showMealHistory && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }}>
+        <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }} onClick={(e) => e.target === e.currentTarget && setShowMealHistory(false)}>
           <div className="w-full max-w-md rounded-t-3xl p-6 max-h-[85vh] overflow-y-auto" style={{ backgroundColor: COLORS.surface }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold" style={{ color: COLORS.text }}>
@@ -28366,7 +29261,17 @@ export default function UpRepDemo() {
             <div className="space-y-3 mb-4">
               {(nutritionSelectedDate === TODAY_DATE_KEY ? mealLog : (backdateNutrition?.meals || [])).length > 0 ? (
                 (nutritionSelectedDate === TODAY_DATE_KEY ? mealLog : (backdateNutrition?.meals || [])).map((meal, idx) => (
-                  <div key={meal.id || idx} className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surfaceLight }}>
+                  <button
+                    key={meal.id || idx}
+                    onClick={() => {
+                      if (nutritionSelectedDate === TODAY_DATE_KEY) {
+                        setShowMealHistory(false);
+                        setEditingMeal(meal);
+                      }
+                    }}
+                    className="w-full p-4 rounded-xl text-left"
+                    style={{ backgroundColor: COLORS.surfaceLight }}
+                  >
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
                         <p className="font-semibold" style={{ color: COLORS.text }}>{meal.name}</p>
@@ -28386,36 +29291,11 @@ export default function UpRepDemo() {
                           <span className="text-xs" style={{ color: COLORS.warning }}>{meal.carbs}g C</span>
                         </div>
                       </div>
-                      <button
-                        onClick={async () => {
-                          if (!user?.id || !meal.id) return;
-                          const targetDate = nutritionSelectedDate !== TODAY_DATE_KEY ? nutritionSelectedDate : TODAY_DATE_KEY;
-                          await nutritionService.deleteMeal(meal.id, user.id, targetDate);
-
-                          if (nutritionSelectedDate === TODAY_DATE_KEY) {
-                            setMealLog(prev => prev.filter(m => m.id !== meal.id));
-                            setCaloriesIntake(prev => prev - meal.calories);
-                            setProteinIntake(prev => prev - meal.protein);
-                            setCarbsIntake(prev => prev - meal.carbs);
-                            setFatsIntake(prev => prev - meal.fats);
-                          } else {
-                            setBackdateNutrition(prev => prev ? {
-                              ...prev,
-                              calories: (prev.calories || 0) - meal.calories,
-                              protein: (prev.protein || 0) - meal.protein,
-                              carbs: (prev.carbs || 0) - meal.carbs,
-                              fats: (prev.fats || 0) - meal.fats,
-                              meals: (prev.meals || []).filter(m => m.id !== meal.id),
-                            } : null);
-                          }
-                        }}
-                        className="p-2 rounded-lg"
-                        style={{ backgroundColor: COLORS.error + '20' }}
-                      >
-                        <Trash2 size={16} color={COLORS.error} />
-                      </button>
+                      {nutritionSelectedDate === TODAY_DATE_KEY && (
+                        <ChevronRight size={18} color={COLORS.textMuted} className="ml-2" />
+                      )}
                     </div>
-                  </div>
+                  </button>
                 ))
               ) : (
                 <div className="text-center py-8">
@@ -28443,7 +29323,7 @@ export default function UpRepDemo() {
 
       {/* Water History Modal */}
       {showWaterHistory && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }}>
+        <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }} onClick={(e) => e.target === e.currentTarget && setShowWaterHistory(false)}>
           <div className="w-full max-w-md rounded-t-3xl p-6 max-h-[85vh] overflow-y-auto" style={{ backgroundColor: COLORS.surface }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold" style={{ color: COLORS.text }}>
@@ -28591,7 +29471,7 @@ export default function UpRepDemo() {
 
       {/* Supplement History Modal */}
       {showSupplementHistory && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }}>
+        <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }} onClick={(e) => e.target === e.currentTarget && setShowSupplementHistory(false)}>
           <div className="w-full max-w-md rounded-t-3xl p-6 max-h-[85vh] overflow-y-auto" style={{ backgroundColor: COLORS.surface }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold" style={{ color: COLORS.text }}>
@@ -28832,7 +29712,7 @@ export default function UpRepDemo() {
 
       {/* Publish Workout Modal */}
       {showPublishModal && workoutToPublish && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }} onClick={(e) => e.target === e.currentTarget && (setShowPublishModal(false), setWorkoutToPublish(null), setPublishDescription(''))}>
           <div className="w-full max-w-md rounded-2xl p-6 max-h-[90vh] overflow-auto" style={{ backgroundColor: COLORS.surface }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold" style={{ color: COLORS.text }}>Share Workout</h3>
@@ -29100,7 +29980,6 @@ export default function UpRepDemo() {
                     <p className="text-sm" style={{ color: COLORS.textSecondary }}>
                       {renderCommentWithMentions(comment.content, COLORS, (username) => {
                         // Could navigate to user profile here
-                        console.log('Clicked mention:', username);
                       })}
                     </p>
                   </div>

@@ -1,5 +1,13 @@
 import { supabase } from '../lib/supabase';
 
+// Helper to get local date string (YYYY-MM-DD) - avoids UTC timezone issues
+const getLocalDateString = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export const sleepService = {
   // Get sleep goals
   async getSleepGoals(userId) {
@@ -73,7 +81,7 @@ export const sleepService = {
   // Get sleep log for a specific date
   async getSleepLog(userId, date = null) {
     try {
-      const logDate = date || new Date().toISOString().split('T')[0];
+      const logDate = date || getLocalDateString();
 
       const { data, error } = await supabase
         .from('sleep_logs')
@@ -123,8 +131,8 @@ export const sleepService = {
 
     return this.getSleepHistory(
       userId,
-      startDate.toISOString().split('T')[0],
-      endDate.toISOString().split('T')[0]
+      getLocalDateString(startDate),
+      getLocalDateString(endDate)
     );
   },
 
@@ -151,7 +159,7 @@ export const sleepService = {
   async isLastNightLogged(userId) {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    const yesterdayStr = getLocalDateString(yesterday);
 
     const { data } = await this.getSleepLog(userId, yesterdayStr);
     return !!data;

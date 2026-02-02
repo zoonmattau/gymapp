@@ -1,5 +1,13 @@
 import { supabase } from '../lib/supabase';
 
+// Helper to get local date string (YYYY-MM-DD) - avoids UTC timezone issues
+const getLocalDateString = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export const nutritionService = {
   // Get nutrition goals
   async getNutritionGoals(userId) {
@@ -47,7 +55,7 @@ export const nutritionService = {
   // Get or create daily nutrition entry
   async getDailyNutrition(userId, date = null) {
     try {
-      const logDate = date || new Date().toISOString().split('T')[0];
+      const logDate = date || getLocalDateString();
 
       // Try to get existing entry
       const { data, error } = await supabase
@@ -94,7 +102,7 @@ export const nutritionService = {
 
   // Log a meal
   async logMeal(userId, meal) {
-    const logDate = meal.date || new Date().toISOString().split('T')[0];
+    const logDate = meal.date || getLocalDateString();
 
     // Get existing daily nutrition entry (may be null)
     const { data: daily } = await this.getDailyNutrition(userId, logDate);
@@ -157,7 +165,7 @@ export const nutritionService = {
 
   // Get meals for a date
   async getMeals(userId, date = null) {
-    const logDate = date || new Date().toISOString().split('T')[0];
+    const logDate = date || getLocalDateString();
 
     const { data, error } = await supabase
       .from('meal_logs')
@@ -171,7 +179,7 @@ export const nutritionService = {
 
   // Log water intake
   async logWater(userId, amountMl, date = null) {
-    const logDate = date || new Date().toISOString().split('T')[0];
+    const logDate = date || getLocalDateString();
 
     const { data, error } = await supabase
       .from('water_logs')
@@ -206,7 +214,7 @@ export const nutritionService = {
 
   // Get water logs for a date
   async getWaterLogs(userId, date = null) {
-    const logDate = date || new Date().toISOString().split('T')[0];
+    const logDate = date || getLocalDateString();
 
     const { data, error } = await supabase
       .from('water_logs')
@@ -248,7 +256,7 @@ export const nutritionService = {
 
   // Log supplement taken
   async logSupplement(userId, supplementId, date = null) {
-    const logDate = date || new Date().toISOString().split('T')[0];
+    const logDate = date || getLocalDateString();
 
     const { data, error } = await supabase
       .from('supplement_logs')
@@ -265,7 +273,7 @@ export const nutritionService = {
 
   // Get supplement logs for a date
   async getSupplementLogs(userId, date = null) {
-    const logDate = date || new Date().toISOString().split('T')[0];
+    const logDate = date || getLocalDateString();
 
     const { data, error } = await supabase
       .from('supplement_logs')
@@ -309,7 +317,9 @@ export const nutritionService = {
 
   // Get user's most frequently logged meals
   async getFrequentMeals(userId, limit = 8) {
-    const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const ninetyDaysAgoDate = new Date();
+    ninetyDaysAgoDate.setDate(ninetyDaysAgoDate.getDate() - 90);
+    const ninetyDaysAgo = getLocalDateString(ninetyDaysAgoDate);
 
     const { data, error } = await supabase
       .from('meal_logs')

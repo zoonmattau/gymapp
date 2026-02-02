@@ -1,5 +1,13 @@
 import { supabase } from '../lib/supabase';
 
+// Helper to get local date string (YYYY-MM-DD) - avoids UTC timezone issues
+const getLocalDateString = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export const profileService = {
   // Get user's privacy settings
   async getUserSettings(userId) {
@@ -188,7 +196,7 @@ export const profileService = {
   // Log a weight entry
   async logWeight(userId, weight, date = null, bodyFat = null, muscleMass = null) {
     try {
-      const logDate = date || new Date().toISOString().split('T')[0];
+      const logDate = date || getLocalDateString();
 
       const logEntry = {
         user_id: userId,
@@ -285,8 +293,8 @@ export const profileService = {
         .from('weight_logs')
         .select('*')
         .eq('user_id', userId)
-        .gte('log_date', startDate.toISOString().split('T')[0])
-        .lte('log_date', endDate.toISOString().split('T')[0])
+        .gte('log_date', getLocalDateString(startDate))
+        .lte('log_date', getLocalDateString(endDate))
         .order('log_date', { ascending: true });
 
       if (error) {
@@ -309,7 +317,7 @@ export const profileService = {
         const date = new Date(entry.log_date);
         const weekStart = new Date(date);
         weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-        const weekKey = weekStart.toISOString().split('T')[0];
+        const weekKey = getLocalDateString(weekStart);
 
         if (!weeklyData[weekKey]) {
           weeklyData[weekKey] = { total: 0, count: 0 };

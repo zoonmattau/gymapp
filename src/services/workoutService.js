@@ -1,5 +1,13 @@
 import { supabase } from '../lib/supabase';
 
+// Helper to get local date string (YYYY-MM-DD) - avoids UTC timezone issues
+const getLocalDateString = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export const workoutService = {
   // Get all exercises
   async getExercises() {
@@ -29,7 +37,7 @@ export const workoutService = {
 
   // Get today's scheduled workout
   async getTodaySchedule(userId) {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateString();
     const { data, error } = await supabase
       .from('workout_schedule')
       .select(`
