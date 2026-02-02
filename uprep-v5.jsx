@@ -14682,6 +14682,8 @@ const FriendsTab = ({
   // Utility
   setActiveTab,
   handleFriendsTabScroll,
+  setShowPRLeaderboard,
+  loadPRLeaderboard,
 }) => {
   return (
     <div
@@ -15238,18 +15240,30 @@ const FriendsTab = ({
               <p className="text-sm mb-3" style={{ color: COLORS.textSecondary }}>{userData.bio}</p>
             )}
             <div className="grid grid-cols-3 gap-3 text-center">
-              <div className="p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
+              <button
+                onClick={() => overviewStats.totalWorkouts > 0 ? setActiveTab('workouts') : null}
+                className="p-2 rounded-lg"
+                style={{ backgroundColor: COLORS.surfaceLight, opacity: overviewStats.totalWorkouts > 0 ? 1 : 0.6 }}
+              >
                 <p className="font-bold" style={{ color: COLORS.text }}>{overviewStats.totalWorkouts}</p>
-                <p className="text-xs" style={{ color: COLORS.textMuted }}>workouts</p>
-              </div>
-              <div className="p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
+                <p className="text-xs" style={{ color: COLORS.textMuted }}>{overviewStats.totalWorkouts === 0 ? 'no workouts' : 'workouts'}</p>
+              </button>
+              <button
+                onClick={() => personalRecords.length > 0 ? (setShowPRLeaderboard(true), loadPRLeaderboard()) : null}
+                className="p-2 rounded-lg"
+                style={{ backgroundColor: COLORS.surfaceLight, opacity: personalRecords.length > 0 ? 1 : 0.6 }}
+              >
                 <p className="font-bold" style={{ color: COLORS.text }}>{personalRecords.length}</p>
-                <p className="text-xs" style={{ color: COLORS.textMuted }}>PRs</p>
-              </div>
-              <div className="p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
-                <p className="font-bold" style={{ color: COLORS.text }}>{streaks.weeklyWorkouts?.weeksCompleted || 0}</p>
-                <p className="text-xs" style={{ color: COLORS.textMuted }}>week streak</p>
-              </div>
+                <p className="text-xs" style={{ color: COLORS.textMuted }}>{personalRecords.length === 0 ? 'no PRs' : 'PRs'}</p>
+              </button>
+              <button
+                onClick={() => setFriendsTab('followers')}
+                className="p-2 rounded-lg"
+                style={{ backgroundColor: COLORS.surfaceLight }}
+              >
+                <p className="font-bold" style={{ color: COLORS.text }}>{followersList?.length || 0}</p>
+                <p className="text-xs" style={{ color: COLORS.textMuted }}>followers</p>
+              </button>
             </div>
           </div>
 
@@ -23885,6 +23899,8 @@ export default function UpRepDemo() {
             supabase={supabase}
             setActiveTab={setActiveTab}
             handleFriendsTabScroll={handleFriendsTabScroll}
+            setShowPRLeaderboard={setShowPRLeaderboard}
+            loadPRLeaderboard={loadPRLeaderboard}
           />
         )}
 
@@ -24779,18 +24795,30 @@ export default function UpRepDemo() {
                     <p className="text-sm mb-3" style={{ color: COLORS.textSecondary }}>{userData.bio}</p>
                   )}
                   <div className="grid grid-cols-3 gap-3 text-center">
-                    <div className="p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
+                    <button
+                      onClick={() => overviewStats.totalWorkouts > 0 ? setActiveTab('workouts') : null}
+                      className="p-2 rounded-lg"
+                      style={{ backgroundColor: COLORS.surfaceLight, opacity: overviewStats.totalWorkouts > 0 ? 1 : 0.6 }}
+                    >
                       <p className="font-bold" style={{ color: COLORS.text }}>{overviewStats.totalWorkouts}</p>
-                      <p className="text-xs" style={{ color: COLORS.textMuted }}>workouts</p>
-                    </div>
-                    <div className="p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>{overviewStats.totalWorkouts === 0 ? 'no workouts' : 'workouts'}</p>
+                    </button>
+                    <button
+                      onClick={() => personalRecords.length > 0 ? (setShowPRLeaderboard(true), loadPRLeaderboard()) : null}
+                      className="p-2 rounded-lg"
+                      style={{ backgroundColor: COLORS.surfaceLight, opacity: personalRecords.length > 0 ? 1 : 0.6 }}
+                    >
                       <p className="font-bold" style={{ color: COLORS.text }}>{personalRecords.length}</p>
-                      <p className="text-xs" style={{ color: COLORS.textMuted }}>PRs</p>
-                    </div>
-                    <div className="p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }}>
-                      <p className="font-bold" style={{ color: COLORS.text }}>{streaks.weeklyWorkouts.weeksCompleted}</p>
-                      <p className="text-xs" style={{ color: COLORS.textMuted }}>week streak</p>
-                    </div>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>{personalRecords.length === 0 ? 'no PRs' : 'PRs'}</p>
+                    </button>
+                    <button
+                      onClick={() => setFriendsTab('followers')}
+                      className="p-2 rounded-lg"
+                      style={{ backgroundColor: COLORS.surfaceLight }}
+                    >
+                      <p className="font-bold" style={{ color: COLORS.text }}>{followersList?.length || 0}</p>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>followers</p>
+                    </button>
                   </div>
                 </div>
 
