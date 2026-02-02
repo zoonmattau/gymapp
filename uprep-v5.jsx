@@ -221,6 +221,7 @@ import { exerciseService } from './src/services/exerciseService';
 import { competitionService } from './src/services/competitionService';
 import { accountabilityService } from './src/services/accountabilityService';
 import { prLeaderboardService } from './src/services/prLeaderboardService';
+import { workoutCheckinService } from './src/services/workoutCheckinService';
 import { generateNutritionTargets, projectWeightProgress, generateWorkoutSchedule, calculateSuggestedWeight } from './src/utils/fitnessCalculations';
 
 // Helper function to get local date string in YYYY-MM-DD format (avoids UTC timezone issues)
@@ -8108,8 +8109,408 @@ const optimizeExercisesForTimeAndCount = (baseExerciseList, fullExercisePool, ta
   return optimized;
 };
 
+// Pre-Workout Wellness Check-In Component
+function PreWorkoutCheckIn({ onComplete, onSkip, COLORS, sleepLoggedToday = false, userId }) {
+  const [step, setStep] = useState(0);
+  const [responses, setResponses] = useState({
+    energy: null,
+    mood: null,
+    sleep: null,
+    soreness: null,
+    motivation: null,
+  });
+  const [showResults, setShowResults] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Questions configuration
+  const questions = [
+    {
+      key: 'energy',
+      title: 'Energy Level',
+      subtitle: 'How do you feel right now?',
+      options: [
+        { value: 1, emoji: '😴', label: 'Exhausted' },
+        { value: 2, emoji: '😔', label: 'Low' },
+        { value: 3, emoji: '😐', label: 'Okay' },
+        { value: 4, emoji: '😊', label: 'Good' },
+        { value: 5, emoji: '💪', label: 'Great' },
+      ],
+    },
+    {
+      key: 'mood',
+      title: 'Mental State',
+      subtitle: 'How focused are you?',
+      options: [
+        { value: 1, emoji: '😰', label: 'Stressed' },
+        { value: 2, emoji: '😟', label: 'Anxious' },
+        { value: 3, emoji: '😐', label: 'Neutral' },
+        { value: 4, emoji: '😌', label: 'Calm' },
+        { value: 5, emoji: '🎯', label: 'Focused' },
+      ],
+    },
+    // Sleep quality only shown if not already logged today
+    ...(!sleepLoggedToday ? [{
+      key: 'sleep',
+      title: 'Sleep Quality',
+      subtitle: 'How did you sleep last night?',
+      options: [
+        { value: 1, emoji: '😫', label: 'Terrible' },
+        { value: 2, emoji: '😕', label: 'Poor' },
+        { value: 3, emoji: '😐', label: 'Okay' },
+        { value: 4, emoji: '😊', label: 'Good' },
+        { value: 5, emoji: '😴', label: 'Great' },
+      ],
+    }] : []),
+    {
+      key: 'soreness',
+      title: 'Muscle Soreness',
+      subtitle: 'How sore are your muscles?',
+      options: [
+        { value: 1, emoji: '🔥', label: 'Very Sore' },
+        { value: 2, emoji: '😣', label: 'Sore' },
+        { value: 3, emoji: '😐', label: 'Moderate' },
+        { value: 4, emoji: '😌', label: 'Slight' },
+        { value: 5, emoji: '✨', label: 'Fresh' },
+      ],
+    },
+    {
+      key: 'motivation',
+      title: 'Motivation',
+      subtitle: 'How motivated are you to train?',
+      options: [
+        { value: 1, emoji: '😒', label: 'Not at all' },
+        { value: 2, emoji: '😕', label: 'Low' },
+        { value: 3, emoji: '😐', label: 'Neutral' },
+        { value: 4, emoji: '🙂', label: 'Ready' },
+        { value: 5, emoji: '🔥', label: 'Pumped' },
+      ],
+    },
+  ];
+
+  const currentQuestion = questions[step];
+  const totalSteps = questions.length;
+
+  // Calculate readiness score
+  const readinessScore = workoutCheckinService.calculateReadiness(responses);
+  const adjustments = workoutCheckinService.getWorkoutAdjustments(readinessScore);
+
+  const handleSelect = (value) => {
+    const newResponses = { ...responses, [currentQuestion.key]: value };
+    setResponses(newResponses);
+
+    // Auto-advance to next question or results
+    setTimeout(() => {
+      if (step < totalSteps - 1) {
+        setStep(step + 1);
+      } else {
+        setShowResults(true);
+      }
+    }, 200);
+  };
+
+  const handleAccept = async () => {
+    setIsSaving(true);
+    try {
+      const { data } = await workoutCheckinService.saveCheckin(userId, {
+        energyLevel: responses.energy,
+        moodState: responses.mood,
+        sleepQuality: responses.sleep,
+        muscleSoreness: responses.soreness,
+        motivationLevel: responses.motivation,
+        sleepAutoFilled: sleepLoggedToday,
+        userOverrode: false,
+      });
+
+      onComplete({
+        checkinId: data?.id,
+        readinessScore,
+        adjustments,
+        responses,
+        overrode: false,
+      });
+    } catch (err) {
+      console.warn('Error saving check-in:', err);
+      // Still complete even if save fails
+      onComplete({
+        readinessScore,
+        adjustments,
+        responses,
+        overrode: false,
+      });
+    }
+    setIsSaving(false);
+  };
+
+  const handleOverride = async () => {
+    setIsSaving(true);
+    try {
+      const { data } = await workoutCheckinService.saveCheckin(userId, {
+        energyLevel: responses.energy,
+        moodState: responses.mood,
+        sleepQuality: responses.sleep,
+        muscleSoreness: responses.soreness,
+        motivationLevel: responses.motivation,
+        sleepAutoFilled: sleepLoggedToday,
+        userOverrode: true,
+      });
+
+      onComplete({
+        checkinId: data?.id,
+        readinessScore,
+        adjustments: {
+          weightAdjustmentPercent: 0,
+          restAdjustmentSeconds: 0,
+          intensity: 'full',
+          message: 'Full intensity - you chose to override.',
+          color: '#22C55E',
+        },
+        responses,
+        overrode: true,
+      });
+    } catch (err) {
+      console.warn('Error saving check-in:', err);
+      onComplete({
+        readinessScore,
+        adjustments: {
+          weightAdjustmentPercent: 0,
+          restAdjustmentSeconds: 0,
+          intensity: 'full',
+          message: 'Full intensity - you chose to override.',
+          color: '#22C55E',
+        },
+        responses,
+        overrode: true,
+      });
+    }
+    setIsSaving(false);
+  };
+
+  // Results screen
+  if (showResults) {
+    const getScoreColor = () => {
+      if (readinessScore >= 80) return '#22C55E';
+      if (readinessScore >= 60) return '#3B82F6';
+      if (readinessScore >= 40) return '#F59E0B';
+      return '#EF4444';
+    };
+
+    const scoreColor = getScoreColor();
+    const circumference = 2 * Math.PI * 60;
+    const strokeDashoffset = circumference - (readinessScore / 100) * circumference;
+
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
+        {/* Header */}
+        <div className="p-4 flex items-center justify-between">
+          <button onClick={onSkip} className="p-2">
+            <X size={24} color={COLORS.text} />
+          </button>
+          <h2 className="text-lg font-bold" style={{ color: COLORS.text }}>Readiness Check</h2>
+          <div style={{ width: 40 }} />
+        </div>
+
+        {/* Results Content */}
+        <div className="flex-1 flex flex-col items-center justify-center p-6">
+          {/* Circular Gauge */}
+          <div className="relative mb-6">
+            <svg width="160" height="160" className="transform -rotate-90">
+              {/* Background circle */}
+              <circle
+                cx="80"
+                cy="80"
+                r="60"
+                stroke={COLORS.surfaceLight}
+                strokeWidth="12"
+                fill="none"
+              />
+              {/* Score circle */}
+              <circle
+                cx="80"
+                cy="80"
+                r="60"
+                stroke={scoreColor}
+                strokeWidth="12"
+                fill="none"
+                strokeLinecap="round"
+                strokeDasharray={circumference}
+                strokeDashoffset={strokeDashoffset}
+                style={{ transition: 'stroke-dashoffset 1s ease-out' }}
+              />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-4xl font-bold" style={{ color: scoreColor }}>{readinessScore}</span>
+              <span className="text-xs" style={{ color: COLORS.textMuted }}>Readiness</span>
+            </div>
+          </div>
+
+          {/* Intensity Label */}
+          <div
+            className="px-4 py-2 rounded-full mb-4"
+            style={{ backgroundColor: adjustments.color + '20' }}
+          >
+            <span className="font-semibold" style={{ color: adjustments.color }}>
+              {adjustments.intensity === 'full' ? 'Full Intensity' :
+               adjustments.intensity === 'moderate' ? 'Moderate Intensity' :
+               adjustments.intensity === 'light' ? 'Light Intensity' : 'Rest Suggested'}
+            </span>
+          </div>
+
+          {/* Message */}
+          <p className="text-center mb-6" style={{ color: COLORS.textSecondary }}>
+            {adjustments.message}
+          </p>
+
+          {/* Adjustments Preview */}
+          {adjustments.intensity !== 'full' && adjustments.intensity !== 'skip' && (
+            <div className="w-full p-4 rounded-xl mb-6" style={{ backgroundColor: COLORS.surface }}>
+              <p className="text-sm font-semibold mb-3" style={{ color: COLORS.text }}>Workout Adjustments</p>
+              <div className="flex justify-around">
+                <div className="text-center">
+                  <p className="text-lg font-bold" style={{ color: adjustments.color }}>
+                    {adjustments.weightAdjustmentPercent}%
+                  </p>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>Weight</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-lg font-bold" style={{ color: adjustments.color }}>
+                    +{adjustments.restAdjustmentSeconds}s
+                  </p>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>Rest Time</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Response Summary */}
+          <div className="w-full p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+            <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>YOUR RESPONSES</p>
+            <div className="grid grid-cols-5 gap-2">
+              {questions.map((q) => {
+                const response = responses[q.key];
+                const option = q.options.find(o => o.value === response);
+                return (
+                  <div key={q.key} className="text-center">
+                    <span className="text-xl">{option?.emoji || '—'}</span>
+                    <p className="text-xs mt-1" style={{ color: COLORS.textMuted }}>{q.title.split(' ')[0]}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="p-4 space-y-3">
+          <button
+            onClick={handleAccept}
+            disabled={isSaving}
+            className="w-full py-4 rounded-xl font-semibold flex items-center justify-center gap-2"
+            style={{ backgroundColor: adjustments.color, color: '#fff' }}
+          >
+            {isSaving ? (
+              <Loader2 size={20} className="animate-spin" />
+            ) : (
+              <>
+                <Play size={20} />
+                {adjustments.intensity === 'skip' ? 'Start Light Workout' : 'Start Workout'}
+              </>
+            )}
+          </button>
+
+          {adjustments.intensity !== 'full' && (
+            <button
+              onClick={handleOverride}
+              disabled={isSaving}
+              className="w-full py-3 rounded-xl font-semibold"
+              style={{ backgroundColor: COLORS.surface, color: COLORS.text }}
+            >
+              Go Full Intensity Anyway
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Question screen
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
+      {/* Header */}
+      <div className="p-4 flex items-center justify-between">
+        <button
+          onClick={() => step > 0 ? setStep(step - 1) : onSkip()}
+          className="p-2"
+        >
+          {step > 0 ? <ChevronLeft size={24} color={COLORS.text} /> : <X size={24} color={COLORS.text} />}
+        </button>
+        <div className="flex gap-2">
+          {questions.map((_, i) => (
+            <div
+              key={i}
+              className="w-3 h-3 rounded-full"
+              style={{
+                backgroundColor: i <= step ? COLORS.primary : 'transparent',
+                border: `2px solid ${i <= step ? COLORS.primary : COLORS.textMuted}`,
+              }}
+            />
+          ))}
+        </div>
+        <button
+          onClick={onSkip}
+          className="px-3 py-1 rounded-lg text-sm"
+          style={{ color: COLORS.textMuted }}
+        >
+          Skip
+        </button>
+      </div>
+
+      {/* Question Content */}
+      <div className="flex-1 flex flex-col items-center justify-center p-6">
+        <h2 className="text-2xl font-bold mb-2 text-center" style={{ color: COLORS.text }}>
+          {currentQuestion.title}
+        </h2>
+        <p className="text-sm mb-8" style={{ color: COLORS.textMuted }}>
+          {currentQuestion.subtitle}
+        </p>
+
+        {/* Options */}
+        <div className="w-full flex justify-between gap-1">
+          {currentQuestion.options.map((option) => (
+            <button
+              key={option.value}
+              onClick={() => handleSelect(option.value)}
+              className="flex-1 min-w-0 flex flex-col items-center p-2 rounded-xl transition-all"
+              style={{
+                backgroundColor: responses[currentQuestion.key] === option.value
+                  ? COLORS.primary + '20'
+                  : COLORS.surface,
+                border: `2px solid ${responses[currentQuestion.key] === option.value ? COLORS.primary : 'transparent'}`,
+              }}
+            >
+              <span className="text-2xl mb-1">{option.emoji}</span>
+              <span
+                className="text-xs font-medium text-center leading-tight"
+                style={{ color: responses[currentQuestion.key] === option.value ? COLORS.primary : COLORS.textMuted, fontSize: '10px' }}
+              >
+                {option.label}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Step indicator */}
+      <div className="p-4 text-center">
+        <span className="text-sm" style={{ color: COLORS.textMuted }}>
+          Question {step + 1} of {totalSteps}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 // ActiveWorkoutScreen as separate component
-function ActiveWorkoutScreen({ onClose, onComplete, onSaveProgress, COLORS, availableTime = 60, userGoal = 'build_muscle', userExperience = 'beginner', userId = null, workoutName = 'Workout', workoutTemplate = null, injuries = [], includeWarmup = true, includeCooldown = true, savedProgress = null }) {
+function ActiveWorkoutScreen({ onClose, onComplete, onSaveProgress, COLORS, availableTime = 60, userGoal = 'build_muscle', userExperience = 'beginner', userId = null, workoutName = 'Workout', workoutTemplate = null, injuries = [], includeWarmup = true, includeCooldown = true, savedProgress = null, checkInData = null }) {
   // Use passed workout template (workoutTemplate prop is now required)
   const activeWorkout = workoutTemplate;
   const isAdvancedUser = ['experienced', 'expert'].includes(userExperience);
@@ -8125,6 +8526,10 @@ function ActiveWorkoutScreen({ onClose, onComplete, onSaveProgress, COLORS, avai
   const [showExerciseHistory, setShowExerciseHistory] = useState(null);
   const [showSwapExercise, setShowSwapExercise] = useState(null);
   const [swapSearch, setSwapSearch] = useState('');
+  // Calculate weight adjustment based on check-in data
+  const weightAdjustmentPercent = checkInData?.adjustments?.weightAdjustmentPercent || 0;
+  const restAdjustmentSeconds = checkInData?.adjustments?.restAdjustmentSeconds || 0;
+
   // Use exercises exactly as passed from the workout template (already optimized)
   const [exercises, setExercises] = useState(() => {
     // If resuming, use saved exercises
@@ -8133,11 +8538,27 @@ function ActiveWorkoutScreen({ onClose, onComplete, onSaveProgress, COLORS, avai
     }
     const baseExercises = activeWorkout?.exercises || [];
     // Use exercises directly as passed - they're already optimized for time/count
-    return baseExercises.map(ex => ({
-      ...ex,
-      history: [],
-      alternatives: DEFAULT_ALL_EXERCISES.filter(e => e.muscleGroup === ex.muscleGroup).slice(0, 5).map(e => e.name)
-    }));
+    // Apply weight adjustment from check-in if present
+    return baseExercises.map(ex => {
+      let adjustedWeight = ex.suggestedWeight || ex.lastWeight || 0;
+      if (weightAdjustmentPercent !== 0 && adjustedWeight > 0) {
+        adjustedWeight = Math.round(adjustedWeight * (1 + weightAdjustmentPercent / 100));
+      }
+      // Apply rest time adjustment
+      let adjustedRestTime = ex.restTime || 90;
+      if (restAdjustmentSeconds > 0) {
+        adjustedRestTime += restAdjustmentSeconds;
+      }
+      return {
+        ...ex,
+        suggestedWeight: adjustedWeight,
+        restTime: adjustedRestTime,
+        originalWeight: ex.suggestedWeight || ex.lastWeight || 0,
+        originalRestTime: ex.restTime || 90,
+        history: [],
+        alternatives: DEFAULT_ALL_EXERCISES.filter(e => e.muscleGroup === ex.muscleGroup).slice(0, 5).map(e => e.name)
+      };
+    });
   });
   const [showAddExercise, setShowAddExercise] = useState(false);
   const [addExerciseSearch, setAddExerciseSearch] = useState('');
@@ -9592,13 +10013,41 @@ function ActiveWorkoutScreen({ onClose, onComplete, onSaveProgress, COLORS, avai
           </div>
         </div>
       </div>
-      
+
+      {/* Readiness Check-In Banner */}
+      {checkInData && checkInData.adjustments && checkInData.adjustments.intensity !== 'full' && (
+        <div
+          className="px-4 py-2 flex items-center justify-between"
+          style={{ backgroundColor: checkInData.adjustments.color + '15' }}
+        >
+          <div className="flex items-center gap-2">
+            <Activity size={16} color={checkInData.adjustments.color} />
+            <span className="text-sm" style={{ color: checkInData.adjustments.color }}>
+              {checkInData.readinessScore}% Readiness
+            </span>
+            {weightAdjustmentPercent !== 0 && (
+              <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: checkInData.adjustments.color + '20', color: checkInData.adjustments.color }}>
+                {weightAdjustmentPercent}% weight
+              </span>
+            )}
+            {restAdjustmentSeconds > 0 && (
+              <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: checkInData.adjustments.color + '20', color: checkInData.adjustments.color }}>
+                +{restAdjustmentSeconds}s rest
+              </span>
+            )}
+          </div>
+          {checkInData.overrode && (
+            <span className="text-xs" style={{ color: COLORS.textMuted }}>Overridden</span>
+          )}
+        </div>
+      )}
+
       {/* Inline Rest Timer Banner */}
       {isResting && (
         <div className="p-4" style={{ backgroundColor: COLORS.accent + '15' }}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div 
+              <div
                 className="w-14 h-14 rounded-full flex items-center justify-center"
                 style={{ backgroundColor: COLORS.accent + '30', border: `3px solid ${COLORS.accent}` }}
               >
@@ -10132,6 +10581,14 @@ const HomeTab = ({
   swapExerciseInHome,
   removeExerciseInHome,
   setShowExerciseInfo,
+  handleStartWorkout,
+  showPreWorkoutCheckIn,
+  handleCheckInComplete,
+  handleCheckInSkip,
+  checkInData,
+  setCheckInData,
+  monthlyTracking,
+  TODAY_DATE_KEY,
 }) => {
     const handleScroll = (e) => {
       homeScrollPos.current = e.target.scrollTop;
@@ -10823,7 +11280,7 @@ const HomeTab = ({
               );
             })()}
 
-            <button onClick={() => setShowActiveWorkout(true)} className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2" style={{ backgroundColor: partialWorkoutProgress ? COLORS.warning : COLORS.primary, color: COLORS.text }}>
+            <button onClick={handleStartWorkout} className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2" style={{ backgroundColor: partialWorkoutProgress ? COLORS.warning : COLORS.primary, color: COLORS.text }}>
               {partialWorkoutProgress ? <><Play size={18} /> Resume Workout</> : 'Start Workout'}
             </button>
           </>
@@ -11848,14 +12305,25 @@ const HomeTab = ({
         </div>
       )}
 
+      {/* Pre-Workout Check-In Modal */}
+      {showPreWorkoutCheckIn && (
+        <PreWorkoutCheckIn
+          onComplete={handleCheckInComplete}
+          onSkip={handleCheckInSkip}
+          COLORS={COLORS}
+          sleepLoggedToday={!!monthlyTracking?.sleep?.[TODAY_DATE_KEY]}
+          userId={user?.id}
+        />
+      )}
+
       {/* Active Workout Screen */}
       {showActiveWorkout && (() => {
         // Check if resuming a partial workout
         if (partialWorkoutProgress) {
           return (
             <ActiveWorkoutScreen
-              onClose={() => setShowActiveWorkout(false)}
-              onComplete={() => { setPartialWorkoutProgress(null); completeTodayWorkout(); }}
+              onClose={() => { setShowActiveWorkout(false); setCheckInData(null); }}
+              onComplete={() => { setPartialWorkoutProgress(null); setCheckInData(null); completeTodayWorkout(); }}
               onSaveProgress={setPartialWorkoutProgress}
               COLORS={COLORS}
               availableTime={workoutTime}
@@ -11868,6 +12336,7 @@ const HomeTab = ({
               includeWarmup={personalWarmup}
               includeCooldown={personalCooldown}
               savedProgress={partialWorkoutProgress}
+              checkInData={null}
             />
           );
         }
@@ -11887,8 +12356,8 @@ const HomeTab = ({
         const template = { ...todayWorkoutTemplate, exercises: optimizedExercises };
         return (
           <ActiveWorkoutScreen
-            onClose={() => setShowActiveWorkout(false)}
-            onComplete={() => { setPartialWorkoutProgress(null); completeTodayWorkout(); }}
+            onClose={() => { setShowActiveWorkout(false); setCheckInData(null); }}
+            onComplete={() => { setPartialWorkoutProgress(null); setCheckInData(null); completeTodayWorkout(); }}
             onSaveProgress={setPartialWorkoutProgress}
             COLORS={COLORS}
             availableTime={workoutTime}
@@ -11900,6 +12369,7 @@ const HomeTab = ({
             injuries={injuries}
             includeWarmup={personalWarmup}
             includeCooldown={personalCooldown}
+            checkInData={checkInData}
           />
         );
       })()}
@@ -12357,6 +12827,312 @@ const ProgressTab = ({
 
 );
 
+// Estimated 1RM Tracker Component - shows calculated 1RMs from workout history
+const Estimate1RMTracker = ({ COLORS, onClose, workoutHistory, userId }) => {
+  const [exerciseData, setExerciseData] = useState([]);
+  const [selectedExercise, setSelectedExercise] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  // Calculate e1RM using Epley formula
+  const calculateE1RM = (weight, reps) => {
+    if (!weight || !reps || reps < 1) return 0;
+    if (reps === 1) return weight;
+    return weight * (1 + reps / 30);
+  };
+
+  // Load and process workout data
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        // Get all workout sets from history
+        const { data: sessions } = await supabase
+          .from('workout_sessions')
+          .select('id, started_at, workout_name')
+          .eq('user_id', userId)
+          .not('ended_at', 'is', null)
+          .order('started_at', { ascending: false });
+
+        if (!sessions || sessions.length === 0) {
+          setExerciseData([]);
+          setLoading(false);
+          return;
+        }
+
+        const sessionIds = sessions.map(s => s.id);
+        const { data: sets } = await supabase
+          .from('workout_sets')
+          .select('*')
+          .in('session_id', sessionIds)
+          .eq('is_warmup', false);
+
+        if (!sets || sets.length === 0) {
+          setExerciseData([]);
+          setLoading(false);
+          return;
+        }
+
+        // Create a map of session dates
+        const sessionDates = {};
+        sessions.forEach(s => {
+          sessionDates[s.id] = new Date(s.started_at);
+        });
+
+        // Group sets by exercise name and calculate e1RM for each
+        const exerciseMap = {};
+        sets.forEach(set => {
+          const name = set.exercise_name;
+          if (!name) return;
+
+          const e1rm = calculateE1RM(set.weight, set.reps);
+          const date = sessionDates[set.session_id];
+          if (!date) return;
+
+          if (!exerciseMap[name]) {
+            exerciseMap[name] = {
+              name,
+              history: [],
+              bestE1RM: 0,
+              bestWeight: 0,
+              bestReps: 0,
+              lastE1RM: 0,
+              trend: 0,
+            };
+          }
+
+          exerciseMap[name].history.push({
+            date,
+            dateStr: date.toLocaleDateString(),
+            weight: set.weight,
+            reps: set.reps,
+            e1rm: Math.round(e1rm),
+            sessionId: set.session_id,
+          });
+
+          if (e1rm > exerciseMap[name].bestE1RM) {
+            exerciseMap[name].bestE1RM = Math.round(e1rm);
+            exerciseMap[name].bestWeight = set.weight;
+            exerciseMap[name].bestReps = set.reps;
+          }
+        });
+
+        // Calculate trends and last e1RM for each exercise
+        Object.values(exerciseMap).forEach(ex => {
+          // Sort history by date (newest first for display, oldest first for trend)
+          ex.history.sort((a, b) => b.date - a.date);
+
+          if (ex.history.length > 0) {
+            // Get best e1RM from last session
+            const lastSessionId = ex.history[0].sessionId;
+            const lastSessionSets = ex.history.filter(h => h.sessionId === lastSessionId);
+            ex.lastE1RM = Math.max(...lastSessionSets.map(h => h.e1rm));
+
+            // Calculate trend (compare last session to previous)
+            if (ex.history.length > 1) {
+              const previousSessions = ex.history.filter(h => h.sessionId !== lastSessionId);
+              if (previousSessions.length > 0) {
+                const prevSessionId = previousSessions[0].sessionId;
+                const prevSessionSets = previousSessions.filter(h => h.sessionId === prevSessionId);
+                const prevBest = Math.max(...prevSessionSets.map(h => h.e1rm));
+                ex.trend = ex.lastE1RM - prevBest;
+              }
+            }
+          }
+
+          // Create chart data (best e1RM per day, sorted oldest to newest)
+          const dailyBest = {};
+          ex.history.forEach(h => {
+            const key = h.dateStr;
+            if (!dailyBest[key] || h.e1rm > dailyBest[key].e1rm) {
+              dailyBest[key] = h;
+            }
+          });
+          ex.chartData = Object.values(dailyBest).sort((a, b) => a.date - b.date).slice(-10);
+        });
+
+        // Sort exercises by best e1RM (highest first)
+        const sorted = Object.values(exerciseMap)
+          .filter(ex => ex.bestE1RM > 0)
+          .sort((a, b) => b.bestE1RM - a.bestE1RM);
+
+        setExerciseData(sorted);
+      } catch (err) {
+        console.warn('Error loading 1RM data:', err);
+      }
+      setLoading(false);
+    };
+
+    if (userId) loadData();
+  }, [userId]);
+
+  // Exercise detail view
+  if (selectedExercise) {
+    const ex = selectedExercise;
+    const maxE1RM = Math.max(...ex.chartData.map(d => d.e1rm), 1);
+
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
+        <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
+          <button onClick={() => setSelectedExercise(null)}><ChevronLeft size={24} color={COLORS.text} /></button>
+          <h2 className="text-lg font-bold" style={{ color: COLORS.text }}>{ex.name}</h2>
+        </div>
+
+        <div className="flex-1 overflow-auto p-4">
+          {/* Current Stats */}
+          <div className="grid grid-cols-2 gap-3 mb-6">
+            <div className="p-4 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
+              <p className="text-xs mb-1" style={{ color: COLORS.textMuted }}>Best Est. 1RM</p>
+              <p className="text-3xl font-bold" style={{ color: COLORS.primary }}>{ex.bestE1RM}</p>
+              <p className="text-xs" style={{ color: COLORS.textMuted }}>kg</p>
+            </div>
+            <div className="p-4 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
+              <p className="text-xs mb-1" style={{ color: COLORS.textMuted }}>Best Lift</p>
+              <p className="text-2xl font-bold" style={{ color: COLORS.text }}>{ex.bestWeight} × {ex.bestReps}</p>
+              <p className="text-xs" style={{ color: COLORS.textMuted }}>kg × reps</p>
+            </div>
+          </div>
+
+          {/* Trend Chart */}
+          {ex.chartData.length > 1 && (
+            <>
+              <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>E1RM PROGRESS</p>
+              <div className="p-4 rounded-xl mb-6" style={{ backgroundColor: COLORS.surface }}>
+                <div className="h-32 flex items-end gap-1">
+                  {ex.chartData.map((d, i) => {
+                    const height = (d.e1rm / maxE1RM) * 100;
+                    const isLast = i === ex.chartData.length - 1;
+                    return (
+                      <div key={i} className="flex-1 flex flex-col items-center">
+                        <div
+                          className="w-full rounded-t"
+                          style={{
+                            height: `${height}%`,
+                            backgroundColor: isLast ? COLORS.primary : COLORS.primary + '60',
+                            minHeight: 4,
+                          }}
+                        />
+                        <p className="text-xs mt-1 font-semibold" style={{ color: isLast ? COLORS.primary : COLORS.textMuted }}>
+                          {d.e1rm}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex justify-between mt-2">
+                  <span className="text-xs" style={{ color: COLORS.textMuted }}>{ex.chartData[0]?.dateStr}</span>
+                  <span className="text-xs" style={{ color: COLORS.textMuted }}>{ex.chartData[ex.chartData.length - 1]?.dateStr}</span>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* History */}
+          <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>RECENT SETS</p>
+          <div className="space-y-2">
+            {ex.history.slice(0, 20).map((h, i) => (
+              <div
+                key={i}
+                className="p-3 rounded-xl flex items-center justify-between"
+                style={{ backgroundColor: COLORS.surface }}
+              >
+                <div>
+                  <p className="font-semibold" style={{ color: COLORS.text }}>{h.weight} kg × {h.reps}</p>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>{h.dateStr}</p>
+                </div>
+                <div className="text-right">
+                  <p className="font-semibold" style={{ color: COLORS.primary }}>{h.e1rm}</p>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>e1RM</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Main list view
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
+      <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
+        <button onClick={onClose}><X size={24} color={COLORS.text} /></button>
+        <h2 className="text-lg font-bold" style={{ color: COLORS.text }}>Estimated 1RMs</h2>
+      </div>
+
+      <div className="flex-1 overflow-auto p-4">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center h-full">
+            <Loader2 size={32} color={COLORS.primary} className="animate-spin mb-3" />
+            <p style={{ color: COLORS.textMuted }}>Loading your lift data...</p>
+          </div>
+        ) : exerciseData.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-center px-6">
+            <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4" style={{ backgroundColor: COLORS.surfaceLight }}>
+              <Target size={32} color={COLORS.textMuted} />
+            </div>
+            <h3 className="text-lg font-semibold mb-2" style={{ color: COLORS.text }}>No Data Yet</h3>
+            <p className="text-sm" style={{ color: COLORS.textMuted }}>
+              Complete some workouts and log your sets to see your estimated 1RMs here.
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* Info */}
+            <div className="p-3 rounded-xl mb-4" style={{ backgroundColor: COLORS.primary + '15', border: `1px solid ${COLORS.primary}30` }}>
+              <p className="text-xs" style={{ color: COLORS.text }}>
+                Estimated 1RM calculated from your logged sets using the Epley formula. Tap an exercise for details.
+              </p>
+            </div>
+
+            {/* Exercise List */}
+            <div className="space-y-2">
+              {exerciseData.map((ex, i) => (
+                <button
+                  key={ex.name}
+                  onClick={() => setSelectedExercise(ex)}
+                  className="w-full p-4 rounded-xl flex items-center justify-between"
+                  style={{ backgroundColor: COLORS.surface }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-10 h-10 rounded-full flex items-center justify-center"
+                      style={{ backgroundColor: COLORS.primary + '20' }}
+                    >
+                      <span className="font-bold" style={{ color: COLORS.primary }}>{i + 1}</span>
+                    </div>
+                    <div className="text-left">
+                      <p className="font-semibold" style={{ color: COLORS.text }}>{ex.name}</p>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                        Best: {ex.bestWeight}kg × {ex.bestReps} • {ex.history.length} sets logged
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right flex items-center gap-2">
+                    <div>
+                      <p className="text-xl font-bold" style={{ color: COLORS.primary }}>{ex.bestE1RM}</p>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>kg</p>
+                    </div>
+                    {ex.trend !== 0 && (
+                      <div className="flex items-center">
+                        {ex.trend > 0 ? (
+                          <TrendingUp size={16} color={COLORS.success} />
+                        ) : (
+                          <TrendingDown size={16} color={COLORS.error} />
+                        )}
+                      </div>
+                    )}
+                    <ChevronRight size={18} color={COLORS.textMuted} />
+                  </div>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // WorkoutTab Component - extracted outside UpRepDemo to prevent re-creation on state changes
 const WorkoutTab = ({
   COLORS,
@@ -12439,6 +13215,10 @@ const WorkoutTab = ({
   selectedBreakDuration,
   setSelectedBreakDuration,
   BREAK_OPTIONS,
+  handleStartWorkout,
+  showEstimate1RM,
+  setShowEstimate1RM,
+  user,
 }) => (
           <div ref={workoutTabScrollRef} onScroll={handleWorkoutTabScroll} className="p-4 h-full overflow-auto">
             {/* Scrollable Week Schedule */}
@@ -13076,7 +13856,7 @@ const WorkoutTab = ({
                 })()}
 
                 <button
-                  onClick={() => setShowActiveWorkout(true)}
+                  onClick={handleStartWorkout}
                   className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
                   style={{ backgroundColor: partialWorkoutProgress ? COLORS.warning : getWorkoutColor(todayWorkout.type, COLORS), color: COLORS.text }}
                 >
@@ -13152,7 +13932,7 @@ const WorkoutTab = ({
                 style={{ backgroundColor: COLORS.surface }}
               >
                 <Book size={20} color={COLORS.accent} />
-                <span className="text-xs font-semibold text-center" style={{ color: COLORS.text }}>Library</span>
+                <span className="text-xs font-semibold text-center" style={{ color: COLORS.text }}>Exercises</span>
               </button>
               <button
                 onClick={() => setShowWorkoutHistory(true)}
@@ -13171,12 +13951,12 @@ const WorkoutTab = ({
                 <span className="text-xs font-semibold text-center" style={{ color: COLORS.text }}>PRs</span>
               </button>
               <button
-                onClick={() => setShowCustomWorkout(true)}
+                onClick={() => setShowEstimate1RM(true)}
                 className="p-3 rounded-xl flex flex-col items-center gap-1"
                 style={{ backgroundColor: COLORS.surface }}
               >
-                <Edit3 size={20} color={COLORS.primary} />
-                <span className="text-xs font-semibold text-center" style={{ color: COLORS.text }}>Custom</span>
+                <Target size={20} color={COLORS.primary} />
+                <span className="text-xs font-semibold text-center" style={{ color: COLORS.text }}>Est. 1RM</span>
               </button>
             </div>
 
@@ -13458,6 +14238,15 @@ const WorkoutTab = ({
               </div>
             </div>
 
+          {/* Estimated 1RM Tracker Modal */}
+          {showEstimate1RM && (
+            <Estimate1RMTracker
+              COLORS={COLORS}
+              onClose={() => setShowEstimate1RM(false)}
+              workoutHistory={workoutHistory}
+              userId={user?.id}
+            />
+          )}
           </div>
 );
 
@@ -15124,6 +15913,7 @@ const FriendsTab = ({
           </button>
         </>
       )}
+
     </div>
   );
 };
@@ -18754,6 +19544,8 @@ export default function UpRepDemo() {
 
   const [showActiveWorkout, setShowActiveWorkout] = useState(false);
   const [partialWorkoutProgress, setPartialWorkoutProgress] = useState(null); // Tracks incomplete workout for resume
+  const [showPreWorkoutCheckIn, setShowPreWorkoutCheckIn] = useState(false);
+  const [checkInData, setCheckInData] = useState(null); // Stores check-in results for ActiveWorkoutScreen
   const [workoutTime, setWorkoutTime] = useState(60);
   const [showTimeEditor, setShowTimeEditor] = useState(false);
   const [expandedExerciseId, setExpandedExerciseId] = useState(null);
@@ -19965,6 +20757,7 @@ export default function UpRepDemo() {
   const [showWorkoutHistory, setShowWorkoutHistory] = useState(false);
   const [showPersonalRecords, setShowPersonalRecords] = useState(false);
   const [showCustomWorkout, setShowCustomWorkout] = useState(false);
+  const [showEstimate1RM, setShowEstimate1RM] = useState(false);
   const [showFullSchedule, setShowFullSchedule] = useState(false);
   const [fullScheduleMonth, setFullScheduleMonth] = useState(currentMonth);
   const [fullScheduleYear, setFullScheduleYear] = useState(currentYear);
@@ -20986,6 +21779,31 @@ export default function UpRepDemo() {
         console.warn('Error incrementing completion:', err?.message);
       }
     }
+  };
+
+  // Handler for starting a workout - shows check-in or skips if resuming
+  const handleStartWorkout = () => {
+    // Skip check-in if resuming a partial workout
+    if (partialWorkoutProgress) {
+      setShowActiveWorkout(true);
+      return;
+    }
+    // Show pre-workout check-in
+    setShowPreWorkoutCheckIn(true);
+  };
+
+  // Handler for when check-in is completed
+  const handleCheckInComplete = (data) => {
+    setCheckInData(data);
+    setShowPreWorkoutCheckIn(false);
+    setShowActiveWorkout(true);
+  };
+
+  // Handler for skipping check-in
+  const handleCheckInSkip = () => {
+    setCheckInData(null);
+    setShowPreWorkoutCheckIn(false);
+    setShowActiveWorkout(true);
   };
 
   // Get week dates for display
@@ -22411,6 +23229,14 @@ export default function UpRepDemo() {
             swapExerciseInHome={swapExerciseInHome}
             removeExerciseInHome={removeExerciseInHome}
             setShowExerciseInfo={setShowExerciseInfo}
+            handleStartWorkout={handleStartWorkout}
+            showPreWorkoutCheckIn={showPreWorkoutCheckIn}
+            handleCheckInComplete={handleCheckInComplete}
+            handleCheckInSkip={handleCheckInSkip}
+            checkInData={checkInData}
+            setCheckInData={setCheckInData}
+            monthlyTracking={monthlyTracking}
+            TODAY_DATE_KEY={TODAY_DATE_KEY}
           />
         )}
         {activeTab === 'workouts' && (
@@ -22495,6 +23321,10 @@ export default function UpRepDemo() {
             selectedBreakDuration={selectedBreakDuration}
             setSelectedBreakDuration={setSelectedBreakDuration}
             BREAK_OPTIONS={BREAK_OPTIONS}
+            handleStartWorkout={handleStartWorkout}
+            showEstimate1RM={showEstimate1RM}
+            setShowEstimate1RM={setShowEstimate1RM}
+            user={user}
           />
         )}
         {activeTab === 'nutrition' && (
@@ -28524,7 +29354,7 @@ export default function UpRepDemo() {
                 </div>
               </div>
               <button
-                onClick={() => { setShowWorkoutPreview(null); setShowActiveWorkout(true); }}
+                onClick={() => { setShowWorkoutPreview(null); handleStartWorkout(); }}
                 className="w-full py-4 rounded-xl font-semibold flex items-center justify-center gap-2"
                 style={{ backgroundColor: getWorkoutColor(workout.name, COLORS), color: COLORS.text }}
               >
@@ -29608,14 +30438,25 @@ export default function UpRepDemo() {
         );
       })()}
 
+      {/* Pre-Workout Check-In Modal - rendered at MainScreen level */}
+      {showPreWorkoutCheckIn && (
+        <PreWorkoutCheckIn
+          onComplete={handleCheckInComplete}
+          onSkip={handleCheckInSkip}
+          COLORS={COLORS}
+          sleepLoggedToday={!!monthlyTracking?.sleep?.[TODAY_DATE_KEY]}
+          userId={user?.id}
+        />
+      )}
+
       {/* Active Workout Screen - rendered at MainScreen level for access from all tabs */}
       {showActiveWorkout && (() => {
         // Check if resuming a partial workout
         if (partialWorkoutProgress) {
           return (
             <ActiveWorkoutScreen
-              onClose={() => setShowActiveWorkout(false)}
-              onComplete={() => { setPartialWorkoutProgress(null); completeTodayWorkout(); }}
+              onClose={() => { setShowActiveWorkout(false); setCheckInData(null); }}
+              onComplete={() => { setPartialWorkoutProgress(null); setCheckInData(null); completeTodayWorkout(); }}
               onSaveProgress={setPartialWorkoutProgress}
               COLORS={COLORS}
               availableTime={workoutTime}
@@ -29628,6 +30469,7 @@ export default function UpRepDemo() {
               includeWarmup={personalWarmup}
               includeCooldown={personalCooldown}
               savedProgress={partialWorkoutProgress}
+              checkInData={null}
             />
           );
         }
@@ -29647,8 +30489,8 @@ export default function UpRepDemo() {
         const template = { ...todayWorkoutTemplate, exercises: optimizedExercises };
         return (
           <ActiveWorkoutScreen
-            onClose={() => setShowActiveWorkout(false)}
-            onComplete={() => { setPartialWorkoutProgress(null); completeTodayWorkout(); }}
+            onClose={() => { setShowActiveWorkout(false); setCheckInData(null); }}
+            onComplete={() => { setPartialWorkoutProgress(null); setCheckInData(null); completeTodayWorkout(); }}
             onSaveProgress={setPartialWorkoutProgress}
             COLORS={COLORS}
             availableTime={workoutTime}
@@ -29660,6 +30502,7 @@ export default function UpRepDemo() {
             injuries={injuries}
             includeWarmup={personalWarmup}
             includeCooldown={personalCooldown}
+            checkInData={checkInData}
           />
         );
       })()}
