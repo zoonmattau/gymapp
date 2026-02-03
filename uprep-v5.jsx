@@ -8921,6 +8921,1103 @@ function PreWorkoutCheckIn({ onComplete, onSkip, COLORS, sleepLoggedToday = fals
   );
 }
 
+// WorkoutStartModal - Choose between scheduled and free-form workout
+function WorkoutStartModal({ COLORS, onClose, onStartScheduled, onStartFreeform, scheduledWorkout, hasPartialProgress }) {
+  const [selectedType, setSelectedType] = useState(hasPartialProgress ? 'resume' : 'scheduled');
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div
+        className="w-full max-w-md rounded-2xl p-6"
+        style={{ backgroundColor: COLORS.surface }}
+      >
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-bold" style={{ color: COLORS.text }}>Start Your Workout</h2>
+          <button onClick={onClose} className="p-2 rounded-full" style={{ backgroundColor: COLORS.surfaceLight }}>
+            <X size={20} color={COLORS.textMuted} />
+          </button>
+        </div>
+
+        {/* Workout Type Toggle */}
+        <div className="flex rounded-xl p-1 mb-6" style={{ backgroundColor: COLORS.surfaceLight }}>
+          {hasPartialProgress && (
+            <button
+              onClick={() => setSelectedType('resume')}
+              className="flex-1 py-3 rounded-lg font-semibold text-sm transition-all"
+              style={{
+                backgroundColor: selectedType === 'resume' ? COLORS.warning : 'transparent',
+                color: selectedType === 'resume' ? COLORS.text : COLORS.textMuted
+              }}
+            >
+              Resume
+            </button>
+          )}
+          <button
+            onClick={() => setSelectedType('scheduled')}
+            className="flex-1 py-3 rounded-lg font-semibold text-sm transition-all"
+            style={{
+              backgroundColor: selectedType === 'scheduled' ? COLORS.primary : 'transparent',
+              color: selectedType === 'scheduled' ? COLORS.text : COLORS.textMuted
+            }}
+          >
+            Scheduled
+          </button>
+          <button
+            onClick={() => setSelectedType('freeform')}
+            className="flex-1 py-3 rounded-lg font-semibold text-sm transition-all"
+            style={{
+              backgroundColor: selectedType === 'freeform' ? COLORS.accent : 'transparent',
+              color: selectedType === 'freeform' ? COLORS.text : COLORS.textMuted
+            }}
+          >
+            Free-form
+          </button>
+        </div>
+
+        {/* Type Description */}
+        <div className="p-4 rounded-xl mb-6" style={{ backgroundColor: COLORS.surfaceLight }}>
+          {selectedType === 'resume' && hasPartialProgress && (
+            <>
+              <div className="flex items-center gap-2 mb-2">
+                <Play size={20} color={COLORS.warning} />
+                <span className="font-semibold" style={{ color: COLORS.warning }}>Resume Previous Workout</span>
+              </div>
+              <p className="text-sm" style={{ color: COLORS.textMuted }}>
+                Continue where you left off. Your progress has been saved.
+              </p>
+            </>
+          )}
+          {selectedType === 'scheduled' && (
+            <>
+              <div className="flex items-center gap-2 mb-2">
+                <Calendar size={20} color={COLORS.primary} />
+                <span className="font-semibold" style={{ color: COLORS.text }}>
+                  {scheduledWorkout?.name || "Today's Workout"}
+                </span>
+              </div>
+              <p className="text-sm mb-3" style={{ color: COLORS.textMuted }}>
+                Pre-loaded with today's exercises from your program. You'll complete a quick wellness check-in first.
+              </p>
+              {scheduledWorkout && (
+                <div className="flex items-center gap-3 text-xs" style={{ color: COLORS.textSecondary }}>
+                  <span>{scheduledWorkout.exercises?.length || 0} exercises</span>
+                  <span>•</span>
+                  <span>{scheduledWorkout.focus || 'Full Body'}</span>
+                </div>
+              )}
+            </>
+          )}
+          {selectedType === 'freeform' && (
+            <>
+              <div className="flex items-center gap-2 mb-2">
+                <Dumbbell size={20} color={COLORS.accent} />
+                <span className="font-semibold" style={{ color: COLORS.text }}>Free-form Workout</span>
+              </div>
+              <p className="text-sm" style={{ color: COLORS.textMuted }}>
+                Start empty and add exercises as you go. Complete flexibility to train however you want today. No check-in required.
+              </p>
+            </>
+          )}
+        </div>
+
+        {/* Start Button */}
+        <button
+          onClick={() => {
+            if (selectedType === 'resume') {
+              onStartScheduled(true); // true = resume
+            } else if (selectedType === 'scheduled') {
+              onStartScheduled(false); // false = new scheduled
+            } else {
+              onStartFreeform();
+            }
+          }}
+          className="w-full py-4 rounded-xl font-semibold flex items-center justify-center gap-2"
+          style={{
+            backgroundColor: selectedType === 'resume' ? COLORS.warning : selectedType === 'scheduled' ? COLORS.primary : COLORS.accent,
+            color: COLORS.text
+          }}
+        >
+          <Play size={20} />
+          {selectedType === 'resume' ? 'Resume Workout' : selectedType === 'scheduled' ? 'Start Scheduled Workout' : 'Start Free-form Workout'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// NewWorkoutScreen - Non-linear workout tracking with flexible exercise/set logging
+function NewWorkoutScreen({
+  COLORS,
+  onClose,
+  onComplete,
+  onSaveProgress,
+  userId = null,
+  workoutName = 'Workout',
+  workoutType = 'freeform', // 'scheduled' | 'freeform'
+  initialExercises = [], // Pre-loaded for scheduled, empty for freeform
+  savedProgress = null,
+  checkInData = null,
+  userGoal = 'build_muscle',
+  userExperience = 'beginner'
+}) {
+  const isAdvancedUser = ['experienced', 'expert'].includes(userExperience);
+
+  // Session state
+  const [sessionId, setSessionId] = useState(savedProgress?.sessionId || null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Workout data state
+  const [exercises, setExercises] = useState(() => {
+    if (savedProgress?.exercises) return savedProgress.exercises;
+    return initialExercises.map(ex => ({
+      ...ex,
+      id: ex.id || `${ex.name.toLowerCase().replace(/\s/g, '_')}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      expanded: true, // Start expanded
+    }));
+  });
+
+  const [sets, setSets] = useState(savedProgress?.sets || []); // All logged sets
+  const [failedSaves, setFailedSaves] = useState([]); // Retry queue for failed network saves
+
+  // Time tracking
+  const [workoutStartTime] = useState(() => savedProgress?.workoutStartTime || Date.now());
+  const [elapsedTime, setElapsedTime] = useState(0);
+
+  // Rest timer state
+  const [restTimeRemaining, setRestTimeRemaining] = useState(0);
+  const [restDuration, setRestDuration] = useState(savedProgress?.restDuration || 90);
+  const [showRestEditor, setShowRestEditor] = useState(false);
+
+  // UI state
+  const [showAddExercise, setShowAddExercise] = useState(false);
+  const [showAddSet, setShowAddSet] = useState(null); // exercise id to add set to
+  const [showEditSet, setShowEditSet] = useState(null); // { exerciseId, setId }
+  const [showEndConfirm, setShowEndConfirm] = useState(false);
+  const [showExerciseInfo, setShowExerciseInfo] = useState(null);
+
+  // Current set data for AddSetModal
+  const [currentSetData, setCurrentSetData] = useState({ weight: 0, reps: 10, rpe: 7 });
+
+  // Calculate weight adjustment from check-in
+  const weightAdjustmentPercent = checkInData?.adjustments?.weightAdjustmentPercent || 0;
+  const restAdjustmentSeconds = checkInData?.adjustments?.restAdjustmentSeconds || 0;
+
+  // Elapsed time counter
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setElapsedTime(Math.floor((Date.now() - workoutStartTime) / 1000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [workoutStartTime]);
+
+  // Rest timer countdown
+  useEffect(() => {
+    if (restTimeRemaining > 0) {
+      const interval = setInterval(() => {
+        setRestTimeRemaining(prev => Math.max(0, prev - 1));
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [restTimeRemaining]);
+
+  // Start workout session in Supabase
+  useEffect(() => {
+    const startSession = async () => {
+      if (userId && !sessionId) {
+        try {
+          const { data: session } = await workoutService.startWorkout(userId, null, null, workoutName);
+          if (session) setSessionId(session.id);
+        } catch (err) {
+          console.error('Error starting workout session:', err);
+        }
+      }
+    };
+    startSession();
+  }, [userId, workoutName, sessionId]);
+
+  // Retry failed saves
+  useEffect(() => {
+    if (failedSaves.length > 0 && sessionId) {
+      const retryTimeout = setTimeout(async () => {
+        const toRetry = [...failedSaves];
+        setFailedSaves([]);
+        for (const setData of toRetry) {
+          try {
+            await workoutService.logSet(sessionId, null, setData.exerciseName, {
+              setNumber: setData.setNumber,
+              weight: setData.weight,
+              reps: setData.reps,
+              rpe: setData.rpe,
+            });
+            // Mark as saved on successful retry
+            setSets(prev => prev.map(s => s.id === setData.id ? { ...s, saved: true } : s));
+          } catch (err) {
+            setFailedSaves(prev => [...prev, setData]);
+          }
+        }
+      }, 5000);
+      return () => clearTimeout(retryTimeout);
+    }
+  }, [failedSaves, sessionId]);
+
+  // Save progress to parent (for localStorage backup)
+  useEffect(() => {
+    if (onSaveProgress) {
+      onSaveProgress({
+        exercises,
+        sets,
+        workoutStartTime,
+        sessionId,
+        workoutName,
+        workoutType,
+        restDuration,
+      });
+    }
+  }, [exercises, sets, workoutStartTime, sessionId, workoutName, workoutType, restDuration, onSaveProgress]);
+
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Get sets for a specific exercise
+  const getSetsForExercise = (exerciseId) => sets.filter(s => s.exerciseId === exerciseId);
+
+  // Add exercise to workout
+  const addExercise = (exerciseName) => {
+    const existingExercise = DEFAULT_ALL_EXERCISES.find(e => e.name === exerciseName);
+    const newEx = {
+      id: `${exerciseName.toLowerCase().replace(/\s/g, '_')}_${Date.now()}`,
+      name: exerciseName,
+      muscleGroup: existingExercise?.muscleGroup || 'Other',
+      equipment: existingExercise?.equipment || 'Other',
+      type: existingExercise?.type || 'compound',
+      targetReps: existingExercise?.type === 'compound' ? 8 : 12,
+      suggestedWeight: 20,
+      restTime: existingExercise?.type === 'compound' ? 180 : 90,
+      expanded: true,
+    };
+
+    // Apply weight adjustment from check-in
+    if (weightAdjustmentPercent !== 0 && newEx.suggestedWeight > 0) {
+      newEx.suggestedWeight = Math.round(newEx.suggestedWeight * (1 + weightAdjustmentPercent / 100));
+    }
+
+    setExercises(prev => [...prev, newEx]);
+    setShowAddExercise(false);
+  };
+
+  // Remove exercise from workout
+  const removeExercise = (exerciseId) => {
+    setExercises(prev => prev.filter(ex => ex.id !== exerciseId));
+    // Keep sets in case user wants to restore
+  };
+
+  // Toggle exercise expanded/collapsed
+  const toggleExercise = (exerciseId) => {
+    setExercises(prev => prev.map(ex =>
+      ex.id === exerciseId ? { ...ex, expanded: !ex.expanded } : ex
+    ));
+  };
+
+  // Log a new set
+  const logSet = async (exerciseId, setData) => {
+    const exercise = exercises.find(ex => ex.id === exerciseId);
+    if (!exercise) return;
+
+    const exerciseSets = getSetsForExercise(exerciseId);
+    const setNumber = exerciseSets.length + 1;
+
+    const newSet = {
+      id: `${exerciseId}_set_${Date.now()}`,
+      exerciseId,
+      exerciseName: exercise.name,
+      setNumber,
+      weight: setData.weight,
+      reps: setData.reps,
+      rpe: setData.rpe,
+      timestamp: Date.now(),
+      saved: false,
+    };
+
+    setSets(prev => [...prev, newSet]);
+    setShowAddSet(null);
+
+    // Start rest timer
+    const exerciseRestTime = exercise.restTime || 90;
+    setRestTimeRemaining(exerciseRestTime + restAdjustmentSeconds);
+
+    // Auto-save to Supabase
+    if (sessionId) {
+      try {
+        await workoutService.logSet(sessionId, null, exercise.name, {
+          setNumber,
+          weight: setData.weight,
+          reps: setData.reps,
+          rpe: setData.rpe,
+        });
+
+        // Mark as saved
+        setSets(prev => prev.map(s => s.id === newSet.id ? { ...s, saved: true } : s));
+
+        // Check for PRs
+        await workoutService.checkAndCreatePR(userId, null, exercise.name, setData.weight, setData.reps, sessionId);
+      } catch (err) {
+        console.error('Error saving set:', err);
+        // Add to retry queue
+        setFailedSaves(prev => [...prev, { ...newSet, exerciseName: exercise.name }]);
+      }
+    } else {
+      // No session yet - queue for retry when session is available
+      setFailedSaves(prev => [...prev, { ...newSet, exerciseName: exercise.name }]);
+    }
+  };
+
+  // Edit an existing set
+  const updateSet = async (setId, newData) => {
+    setSets(prev => prev.map(s =>
+      s.id === setId ? { ...s, ...newData, saved: false } : s
+    ));
+    setShowEditSet(null);
+
+    // TODO: Update in Supabase if needed
+  };
+
+  // Delete a set
+  const deleteSet = (setId) => {
+    setSets(prev => prev.filter(s => s.id !== setId));
+    setShowEditSet(null);
+  };
+
+  // End workout
+  const endWorkout = async () => {
+    setIsSaving(true);
+
+    if (userId && sessionId) {
+      try {
+        // Calculate stats
+        const totalVolume = sets.reduce((acc, set) => acc + (set.weight * set.reps), 0);
+        const totalReps = sets.reduce((acc, set) => acc + set.reps, 0);
+        const durationMins = Math.round(elapsedTime / 60);
+
+        // Complete the session
+        await workoutService.completeWorkout(sessionId, {
+          durationMinutes: durationMins,
+          totalVolume,
+        });
+      } catch (err) {
+        console.error('Error completing workout:', err);
+      }
+    }
+
+    setIsSaving(false);
+    if (onComplete) onComplete();
+    onClose();
+  };
+
+  // Calculate workout stats
+  const totalSets = sets.length;
+  const totalVolume = sets.reduce((acc, set) => acc + (set.weight * set.reps), 0);
+  const totalReps = sets.reduce((acc, set) => acc + set.reps, 0);
+  const exercisesWithSets = exercises.filter(ex => getSetsForExercise(ex.id).length > 0).length;
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
+      {/* Header */}
+      <div className="p-4 border-b flex items-center justify-between" style={{ borderColor: COLORS.surfaceLight }}>
+        <div className="flex items-center gap-3">
+          <button onClick={() => setShowEndConfirm(true)}>
+            <X size={24} color={COLORS.text} />
+          </button>
+          <div>
+            <h2 className="text-lg font-bold" style={{ color: COLORS.text }}>{workoutName}</h2>
+            <div className="flex items-center gap-2">
+              <Timer size={14} color={COLORS.textMuted} />
+              <span className="text-sm" style={{ color: COLORS.textMuted }}>{formatTime(elapsedTime)}</span>
+              {failedSaves.length > 0 && (
+                <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: COLORS.warning + '20', color: COLORS.warning }}>
+                  {failedSaves.length} pending
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+        <button
+          onClick={() => setShowEndConfirm(true)}
+          className="px-4 py-2 rounded-xl font-semibold"
+          style={{ backgroundColor: COLORS.success, color: COLORS.text }}
+        >
+          Done
+        </button>
+      </div>
+
+      {/* Check-in readiness banner */}
+      {checkInData && checkInData.adjustments && checkInData.adjustments.intensity !== 'full' && (
+        <div
+          className="px-4 py-2 flex items-center justify-between"
+          style={{ backgroundColor: checkInData.adjustments.color + '15' }}
+        >
+          <div className="flex items-center gap-2">
+            <Activity size={16} color={checkInData.adjustments.color} />
+            <span className="text-sm" style={{ color: checkInData.adjustments.color }}>
+              {checkInData.readinessScore}% Readiness
+            </span>
+            {weightAdjustmentPercent !== 0 && (
+              <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: checkInData.adjustments.color + '20', color: checkInData.adjustments.color }}>
+                {weightAdjustmentPercent}% weight
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Rest Timer Banner (non-blocking) */}
+      {restTimeRemaining > 0 && (
+        <div className="px-4 py-3 flex items-center justify-between" style={{ backgroundColor: COLORS.accent + '15' }}>
+          <div className="flex items-center gap-3">
+            <div
+              className="w-12 h-12 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: COLORS.accent + '30', border: `2px solid ${COLORS.accent}` }}
+            >
+              <span className="text-lg font-bold" style={{ color: COLORS.accent }}>{formatTime(restTimeRemaining)}</span>
+            </div>
+            <div>
+              <p className="text-sm font-semibold" style={{ color: COLORS.text }}>Rest Time</p>
+              <button
+                onClick={() => setShowRestEditor(true)}
+                className="text-xs"
+                style={{ color: COLORS.accent }}
+              >
+                Tap to edit • {restDuration}s default
+              </button>
+            </div>
+          </div>
+          <button
+            onClick={() => setRestTimeRemaining(0)}
+            className="px-4 py-2 rounded-xl text-sm font-semibold"
+            style={{ backgroundColor: COLORS.accent, color: COLORS.text }}
+          >
+            Skip
+          </button>
+        </div>
+      )}
+
+      {/* Main Content */}
+      <div className="flex-1 overflow-auto p-4">
+        {/* Add Exercise Button - Always at top */}
+        <button
+          onClick={() => setShowAddExercise(true)}
+          className="w-full p-4 rounded-xl flex items-center justify-center gap-2 mb-4"
+          style={{ backgroundColor: COLORS.primary + '20', border: `2px dashed ${COLORS.primary}` }}
+        >
+          <Plus size={20} color={COLORS.primary} />
+          <span className="font-semibold" style={{ color: COLORS.primary }}>Add Exercise</span>
+        </button>
+
+        {/* Exercise List */}
+        {exercises.length === 0 ? (
+          <div className="text-center py-12">
+            <Dumbbell size={48} color={COLORS.textMuted} className="mx-auto mb-4" style={{ opacity: 0.5 }} />
+            <p className="text-lg font-semibold mb-2" style={{ color: COLORS.text }}>No Exercises Yet</p>
+            <p className="text-sm" style={{ color: COLORS.textMuted }}>
+              Tap "Add Exercise" above to start building your workout
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {exercises.map(exercise => {
+              const exerciseSets = getSetsForExercise(exercise.id);
+
+              return (
+                <div key={exercise.id} className="rounded-xl overflow-hidden" style={{ backgroundColor: COLORS.surface }}>
+                  {/* Exercise Header */}
+                  <button
+                    onClick={() => toggleExercise(exercise.id)}
+                    className="w-full p-4 flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center">
+                        {exercise.expanded ? (
+                          <ChevronDown size={20} color={COLORS.textMuted} />
+                        ) : (
+                          <ChevronRight size={20} color={COLORS.textMuted} />
+                        )}
+                      </div>
+                      <div className="text-left">
+                        <p className="font-semibold" style={{ color: COLORS.text }}>{exercise.name}</p>
+                        <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                          {exercise.muscleGroup} • {exerciseSets.length} sets logged
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setShowExerciseInfo(exercise.name); }}
+                        className="p-2 rounded-full"
+                        style={{ backgroundColor: COLORS.surfaceLight }}
+                      >
+                        <Info size={16} color={COLORS.textMuted} />
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); removeExercise(exercise.id); }}
+                        className="p-2 rounded-full"
+                        style={{ backgroundColor: COLORS.error + '20' }}
+                      >
+                        <Trash2 size={16} color={COLORS.error} />
+                      </button>
+                    </div>
+                  </button>
+
+                  {/* Expanded Content */}
+                  {exercise.expanded && (
+                    <div className="px-4 pb-4">
+                      {/* Logged Sets */}
+                      {exerciseSets.length > 0 && (
+                        <div className="space-y-2 mb-3">
+                          {exerciseSets.map((set, idx) => (
+                            <button
+                              key={set.id}
+                              onClick={() => { setShowEditSet({ exerciseId: exercise.id, setId: set.id }); setCurrentSetData({ weight: set.weight, reps: set.reps, rpe: set.rpe }); }}
+                              className="w-full p-3 rounded-lg flex items-center justify-between"
+                              style={{ backgroundColor: COLORS.surfaceLight }}
+                            >
+                              <div className="flex items-center gap-3">
+                                <div
+                                  className="w-8 h-8 rounded-full flex items-center justify-center"
+                                  style={{ backgroundColor: set.saved ? COLORS.success + '20' : COLORS.warning + '20' }}
+                                >
+                                  {set.saved ? (
+                                    <Check size={14} color={COLORS.success} />
+                                  ) : (
+                                    <Loader2 size={14} color={COLORS.warning} className="animate-spin" />
+                                  )}
+                                </div>
+                                <span className="text-sm" style={{ color: COLORS.textMuted }}>Set {idx + 1}</span>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <span className="font-semibold" style={{ color: COLORS.text }}>
+                                  {set.weight}kg × {set.reps}
+                                </span>
+                                {set.rpe && (
+                                  <span className="text-xs px-2 py-1 rounded" style={{ backgroundColor: COLORS.accent + '20', color: COLORS.accent }}>
+                                    RPE {set.rpe}
+                                  </span>
+                                )}
+                                <Edit3 size={14} color={COLORS.textMuted} />
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Add Set Button */}
+                      <button
+                        onClick={() => {
+                          // Pre-populate with last set data or exercise defaults
+                          const lastSet = exerciseSets[exerciseSets.length - 1];
+                          setCurrentSetData({
+                            weight: lastSet?.weight || exercise.suggestedWeight || 20,
+                            reps: lastSet?.reps || exercise.targetReps || 10,
+                            rpe: lastSet?.rpe || 7,
+                          });
+                          setShowAddSet(exercise.id);
+                        }}
+                        className="w-full p-3 rounded-lg flex items-center justify-center gap-2"
+                        style={{ backgroundColor: COLORS.primary + '15', border: `1px dashed ${COLORS.primary}` }}
+                      >
+                        <Plus size={18} color={COLORS.primary} />
+                        <span className="font-medium" style={{ color: COLORS.primary }}>Add Set</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Bottom Stats Bar */}
+      <div className="p-4 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-4">
+            <div className="text-center">
+              <p className="text-lg font-bold" style={{ color: COLORS.primary }}>{totalSets}</p>
+              <p className="text-xs" style={{ color: COLORS.textMuted }}>Sets</p>
+            </div>
+            <div className="text-center">
+              <p className="text-lg font-bold" style={{ color: COLORS.accent }}>{totalReps}</p>
+              <p className="text-xs" style={{ color: COLORS.textMuted }}>Reps</p>
+            </div>
+            <div className="text-center">
+              <p className="text-lg font-bold" style={{ color: COLORS.success }}>{(totalVolume / 1000).toFixed(1)}k</p>
+              <p className="text-xs" style={{ color: COLORS.textMuted }}>kg Vol</p>
+            </div>
+          </div>
+          <div className="text-right">
+            <p className="text-sm" style={{ color: COLORS.textMuted }}>{exercisesWithSets}/{exercises.length} exercises</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Add Exercise Modal */}
+      {showAddExercise && (
+        <ExerciseSearchModal
+          COLORS={COLORS}
+          onClose={() => setShowAddExercise(false)}
+          onSelect={addExercise}
+          excludeExercises={exercises.map(ex => ex.name)}
+          userGoal={userGoal}
+        />
+      )}
+
+      {/* Add Set Modal */}
+      {showAddSet && (
+        <AddSetModal
+          COLORS={COLORS}
+          exercise={exercises.find(ex => ex.id === showAddSet)}
+          setNumber={getSetsForExercise(showAddSet).length + 1}
+          initialData={currentSetData}
+          onClose={() => setShowAddSet(null)}
+          onSave={(data) => logSet(showAddSet, data)}
+        />
+      )}
+
+      {/* Edit Set Modal */}
+      {showEditSet && (
+        <AddSetModal
+          COLORS={COLORS}
+          exercise={exercises.find(ex => ex.id === showEditSet.exerciseId)}
+          setNumber={sets.find(s => s.id === showEditSet.setId)?.setNumber || 1}
+          initialData={currentSetData}
+          isEdit={true}
+          onClose={() => setShowEditSet(null)}
+          onSave={(data) => updateSet(showEditSet.setId, data)}
+          onDelete={() => deleteSet(showEditSet.setId)}
+        />
+      )}
+
+      {/* Rest Duration Editor */}
+      {showRestEditor && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+          onClick={(e) => e.target === e.currentTarget && setShowRestEditor(false)}
+        >
+          <div className="w-full max-w-sm rounded-2xl p-6" style={{ backgroundColor: COLORS.surface }}>
+            <h3 className="text-lg font-bold mb-4" style={{ color: COLORS.text }}>Edit Rest Timer</h3>
+            <div className="flex items-center justify-center gap-4 mb-6">
+              <button
+                onClick={() => setRestDuration(prev => Math.max(30, prev - 15))}
+                className="w-12 h-12 rounded-full flex items-center justify-center"
+                style={{ backgroundColor: COLORS.surfaceLight }}
+              >
+                <Minus size={20} color={COLORS.text} />
+              </button>
+              <div className="text-center">
+                <p className="text-4xl font-bold" style={{ color: COLORS.accent }}>{restDuration}</p>
+                <p className="text-sm" style={{ color: COLORS.textMuted }}>seconds</p>
+              </div>
+              <button
+                onClick={() => setRestDuration(prev => Math.min(300, prev + 15))}
+                className="w-12 h-12 rounded-full flex items-center justify-center"
+                style={{ backgroundColor: COLORS.surfaceLight }}
+              >
+                <Plus size={20} color={COLORS.text} />
+              </button>
+            </div>
+            <div className="flex gap-2 mb-4">
+              {[60, 90, 120, 180].map(time => (
+                <button
+                  key={time}
+                  onClick={() => setRestDuration(time)}
+                  className="flex-1 py-2 rounded-lg text-sm font-medium"
+                  style={{
+                    backgroundColor: restDuration === time ? COLORS.accent : COLORS.surfaceLight,
+                    color: restDuration === time ? COLORS.text : COLORS.textMuted
+                  }}
+                >
+                  {time}s
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setShowRestEditor(false)}
+              className="w-full py-3 rounded-xl font-semibold"
+              style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* End Workout Confirmation */}
+      {showEndConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+          onClick={(e) => e.target === e.currentTarget && setShowEndConfirm(false)}
+        >
+          <div className="w-full max-w-sm rounded-2xl p-6" style={{ backgroundColor: COLORS.surface }}>
+            <div className="text-center mb-6">
+              <div
+                className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center"
+                style={{ backgroundColor: totalSets > 0 ? COLORS.success + '20' : COLORS.warning + '20' }}
+              >
+                {totalSets > 0 ? (
+                  <Check size={32} color={COLORS.success} />
+                ) : (
+                  <AlertCircle size={32} color={COLORS.warning} />
+                )}
+              </div>
+              <h3 className="text-xl font-bold mb-2" style={{ color: COLORS.text }}>
+                {totalSets > 0 ? 'Finish Workout?' : 'End Without Logging?'}
+              </h3>
+              <p className="text-sm" style={{ color: COLORS.textMuted }}>
+                {totalSets > 0
+                  ? `You've logged ${totalSets} sets across ${exercisesWithSets} exercises.`
+                  : "You haven't logged any sets yet."}
+              </p>
+            </div>
+
+            {/* Workout Summary */}
+            {totalSets > 0 && (
+              <div className="grid grid-cols-3 gap-2 mb-6">
+                <div className="p-3 rounded-lg text-center" style={{ backgroundColor: COLORS.surfaceLight }}>
+                  <p className="text-lg font-bold" style={{ color: COLORS.primary }}>{totalSets}</p>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>Sets</p>
+                </div>
+                <div className="p-3 rounded-lg text-center" style={{ backgroundColor: COLORS.surfaceLight }}>
+                  <p className="text-lg font-bold" style={{ color: COLORS.accent }}>{totalReps}</p>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>Reps</p>
+                </div>
+                <div className="p-3 rounded-lg text-center" style={{ backgroundColor: COLORS.surfaceLight }}>
+                  <p className="text-lg font-bold" style={{ color: COLORS.success }}>{formatTime(elapsedTime)}</p>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>Time</p>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <button
+                onClick={() => setShowEndConfirm(false)}
+                className="w-full py-3 rounded-xl font-semibold"
+                style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text }}
+              >
+                Continue Workout
+              </button>
+              {totalSets > 0 && (
+                <button
+                  onClick={() => {
+                    // Save progress for later resume
+                    if (onSaveProgress) {
+                      onSaveProgress({
+                        exercises,
+                        sets,
+                        workoutStartTime,
+                        sessionId,
+                        workoutName,
+                        workoutType,
+                        restDuration,
+                      });
+                    }
+                    setShowEndConfirm(false);
+                    onClose();
+                  }}
+                  className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
+                  style={{ backgroundColor: COLORS.warning + '20', color: COLORS.warning }}
+                >
+                  <Pause size={18} /> Save & Exit (Resume Later)
+                </button>
+              )}
+              <button
+                onClick={endWorkout}
+                disabled={isSaving}
+                className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
+                style={{ backgroundColor: COLORS.success, color: COLORS.text, opacity: isSaving ? 0.7 : 1 }}
+              >
+                {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Check size={18} />}
+                {isSaving ? 'Saving...' : 'Finish Workout'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Exercise Info Modal */}
+      {showExerciseInfo && (
+        <ExerciseInfoModal
+          COLORS={COLORS}
+          exerciseName={showExerciseInfo}
+          onClose={() => setShowExerciseInfo(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// AddSetModal - Modal for logging a set
+function AddSetModal({ COLORS, exercise, setNumber, initialData, isEdit = false, onClose, onSave, onDelete }) {
+  const [weight, setWeight] = useState(initialData?.weight || 0);
+  const [reps, setReps] = useState(initialData?.reps || 10);
+  const [rpe, setRpe] = useState(initialData?.rpe || 7);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center"
+      style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div
+        className="w-full max-w-md rounded-t-3xl p-6"
+        style={{ backgroundColor: COLORS.surface }}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-bold" style={{ color: COLORS.text }}>
+              {exercise?.name || 'Exercise'} - Set {setNumber}
+            </h3>
+            <p className="text-xs" style={{ color: COLORS.textMuted }}>{isEdit ? 'Edit set details' : 'Log your performance'}</p>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-full" style={{ backgroundColor: COLORS.surfaceLight }}>
+            <X size={20} color={COLORS.textMuted} />
+          </button>
+        </div>
+
+        {/* Weight Input */}
+        <div className="mb-4">
+          <label className="text-xs mb-2 block" style={{ color: COLORS.textMuted }}>Weight (kg)</label>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setWeight(prev => Math.max(0, prev - 2.5))}
+              className="w-14 h-14 rounded-xl flex items-center justify-center"
+              style={{ backgroundColor: COLORS.surfaceLight }}
+            >
+              <Minus size={24} color={COLORS.text} />
+            </button>
+            <input
+              type="number"
+              value={weight || ''}
+              onChange={(e) => setWeight(parseFloat(e.target.value) || 0)}
+              className="flex-1 p-4 rounded-xl text-center text-3xl font-bold"
+              style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+            />
+            <button
+              onClick={() => setWeight(prev => prev + 2.5)}
+              className="w-14 h-14 rounded-xl flex items-center justify-center"
+              style={{ backgroundColor: COLORS.surfaceLight }}
+            >
+              <Plus size={24} color={COLORS.text} />
+            </button>
+          </div>
+        </div>
+
+        {/* Reps Input */}
+        <div className="mb-4">
+          <label className="text-xs mb-2 block" style={{ color: COLORS.textMuted }}>Reps</label>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setReps(prev => Math.max(1, prev - 1))}
+              className="w-14 h-14 rounded-xl flex items-center justify-center"
+              style={{ backgroundColor: COLORS.surfaceLight }}
+            >
+              <Minus size={24} color={COLORS.text} />
+            </button>
+            <input
+              type="number"
+              value={reps || ''}
+              onChange={(e) => setReps(parseInt(e.target.value) || 0)}
+              className="flex-1 p-4 rounded-xl text-center text-3xl font-bold"
+              style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+            />
+            <button
+              onClick={() => setReps(prev => prev + 1)}
+              className="w-14 h-14 rounded-xl flex items-center justify-center"
+              style={{ backgroundColor: COLORS.surfaceLight }}
+            >
+              <Plus size={24} color={COLORS.text} />
+            </button>
+          </div>
+        </div>
+
+        {/* RPE Selector */}
+        <div className="mb-6">
+          <label className="text-xs mb-2 block" style={{ color: COLORS.textMuted }}>RPE (Rate of Perceived Exertion)</label>
+          <div className="flex gap-1">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(r => (
+              <button
+                key={r}
+                onClick={() => setRpe(r)}
+                className="flex-1 py-3 rounded-lg text-xs font-semibold"
+                style={{
+                  backgroundColor: rpe === r ? COLORS.accent : COLORS.surfaceLight,
+                  color: rpe === r ? COLORS.text : COLORS.textMuted
+                }}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs mt-2 text-center" style={{ color: COLORS.textMuted }}>
+            {rpe <= 3 && 'Light - could do many more'}
+            {rpe >= 4 && rpe <= 5 && 'Moderate - starting to work'}
+            {rpe === 6 && 'Moderate-hard - 4+ reps left'}
+            {rpe === 7 && 'Hard - 3 reps left'}
+            {rpe === 8 && 'Very hard - 2 reps left'}
+            {rpe === 9 && 'Near max - 1 rep left'}
+            {rpe === 10 && 'Failure - no more reps possible'}
+          </p>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex gap-3">
+          {isEdit && onDelete && (
+            <button
+              onClick={onDelete}
+              className="px-4 py-4 rounded-xl font-semibold"
+              style={{ backgroundColor: COLORS.error + '20', color: COLORS.error }}
+            >
+              <Trash2 size={20} />
+            </button>
+          )}
+          <button
+            onClick={() => onSave({ weight, reps, rpe })}
+            className="flex-1 py-4 rounded-xl font-semibold flex items-center justify-center gap-2"
+            style={{ backgroundColor: COLORS.success, color: COLORS.text }}
+          >
+            <Check size={20} />
+            {isEdit ? 'Update Set' : 'Log Set'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ExerciseSearchModal - Search and add exercises
+function ExerciseSearchModal({ COLORS, onClose, onSelect, excludeExercises = [], userGoal }) {
+  const [search, setSearch] = useState('');
+  const [selectedMuscle, setSelectedMuscle] = useState(null);
+
+  const muscleGroups = [...new Set(DEFAULT_ALL_EXERCISES.map(ex => ex.muscleGroup))];
+
+  const filteredExercises = DEFAULT_ALL_EXERCISES.filter(ex => {
+    const matchesSearch = ex.name.toLowerCase().includes(search.toLowerCase());
+    const matchesMuscle = !selectedMuscle || ex.muscleGroup === selectedMuscle;
+    const notExcluded = !excludeExercises.includes(ex.name);
+    return matchesSearch && matchesMuscle && notExcluded;
+  });
+
+  // Group by muscle group for display
+  const groupedExercises = filteredExercises.reduce((acc, ex) => {
+    if (!acc[ex.muscleGroup]) acc[ex.muscleGroup] = [];
+    acc[ex.muscleGroup].push(ex);
+    return acc;
+  }, {});
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
+      <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
+        <button onClick={onClose}>
+          <ChevronLeft size={24} color={COLORS.text} />
+        </button>
+        <h2 className="text-lg font-bold" style={{ color: COLORS.text }}>Add Exercise</h2>
+      </div>
+
+      {/* Search Input */}
+      <div className="p-4 pb-2">
+        <div className="relative">
+          <Search size={18} color={COLORS.textMuted} className="absolute left-3 top-1/2 transform -translate-y-1/2" />
+          <input
+            type="text"
+            placeholder="Search exercises..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-10 pr-4 py-3 rounded-xl"
+            style={{ backgroundColor: COLORS.surface, color: COLORS.text, border: `1px solid ${COLORS.surfaceLight}` }}
+            autoFocus
+          />
+        </div>
+      </div>
+
+      {/* Muscle Group Filter */}
+      <div className="px-4 py-2 overflow-x-auto">
+        <div className="flex gap-2">
+          <button
+            onClick={() => setSelectedMuscle(null)}
+            className="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap"
+            style={{
+              backgroundColor: !selectedMuscle ? COLORS.primary : COLORS.surfaceLight,
+              color: !selectedMuscle ? COLORS.text : COLORS.textMuted
+            }}
+          >
+            All
+          </button>
+          {muscleGroups.slice(0, 8).map(muscle => (
+            <button
+              key={muscle}
+              onClick={() => setSelectedMuscle(muscle === selectedMuscle ? null : muscle)}
+              className="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap"
+              style={{
+                backgroundColor: selectedMuscle === muscle ? COLORS.primary : COLORS.surfaceLight,
+                color: selectedMuscle === muscle ? COLORS.text : COLORS.textMuted
+              }}
+            >
+              {muscle}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Exercise List */}
+      <div className="flex-1 overflow-auto px-4 pb-4">
+        {filteredExercises.length === 0 ? (
+          <div className="text-center py-12">
+            <p style={{ color: COLORS.textMuted }}>No exercises found</p>
+          </div>
+        ) : (
+          Object.entries(groupedExercises).map(([muscle, exercises]) => (
+            <div key={muscle} className="mb-4">
+              <p className="text-xs font-semibold mb-2 px-1" style={{ color: COLORS.textMuted }}>
+                {muscle.toUpperCase()}
+              </p>
+              <div className="space-y-2">
+                {exercises.map(ex => (
+                  <button
+                    key={ex.name}
+                    onClick={() => onSelect(ex.name)}
+                    className="w-full p-4 rounded-xl flex items-center justify-between"
+                    style={{ backgroundColor: COLORS.surface }}
+                  >
+                    <div className="text-left">
+                      <p className="font-medium" style={{ color: COLORS.text }}>{ex.name}</p>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                        {ex.equipment} • {ex.type}
+                      </p>
+                    </div>
+                    <div
+                      className="w-8 h-8 rounded-full flex items-center justify-center"
+                      style={{ backgroundColor: COLORS.primary }}
+                    >
+                      <Plus size={18} color={COLORS.text} />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ActiveWorkoutScreen as separate component
 function ActiveWorkoutScreen({ onClose, onComplete, onSaveProgress, COLORS, availableTime = 60, userGoal = 'build_muscle', userExperience = 'beginner', userId = null, workoutName = 'Workout', workoutTemplate = null, injuries = [], includeWarmup = true, includeCooldown = true, savedProgress = null, checkInData = null }) {
   // Use passed workout template (workoutTemplate prop is now required)
@@ -10974,6 +12071,12 @@ const HomeTab = ({
   setCheckInData,
   monthlyTracking,
   TODAY_DATE_KEY,
+  showWorkoutStartModal,
+  setShowWorkoutStartModal,
+  workoutType,
+  setWorkoutType,
+  handleStartScheduledWorkout,
+  handleStartFreeformWorkout,
 }) => {
     const handleScroll = (e) => {
       homeScrollPos.current = e.target.scrollTop;
@@ -11317,358 +12420,30 @@ const HomeTab = ({
           </div>
         ) : (
           <>
-            <div className="flex justify-between items-start mb-3">
+            <div className="flex justify-between items-start mb-4">
               <div>
                 <span className="text-xs px-2 py-1 rounded font-semibold"
                   style={{ backgroundColor: COLORS.primary + '20', color: COLORS.primary }}>
                   TODAY
                 </span>
                 <h4 className="text-xl font-bold mt-2" style={{ color: COLORS.text }}>{todayWorkout?.name || 'Workout'}</h4>
-                <p className="text-sm" style={{ color: COLORS.primary }}>{todayWorkout?.focus || ''}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button onClick={() => setShowPausePlan(true)} className="p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }} title="Pause Plan">
-                  <Moon size={16} color={COLORS.textMuted} />
-                </button>
-                <button onClick={() => setShowReschedule(true)} className="p-2 rounded-lg" style={{ backgroundColor: COLORS.surfaceLight }} title="Reschedule">
-                  <Calendar size={16} color={COLORS.textMuted} />
-                </button>
+                <p className="text-sm" style={{ color: COLORS.textMuted }}>{todayWorkout?.focus || ''}</p>
               </div>
             </div>
 
-            {/* Time Editor Toggle */}
-            <button
-              onClick={() => setShowWorkoutTimeEditor(!showWorkoutTimeEditor)}
-              className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg w-full justify-between"
-              style={{ backgroundColor: COLORS.surfaceLight }}
-            >
-              <div className="flex items-center gap-2">
-                <Clock size={14} color={COLORS.textSecondary} />
-                <span className="text-sm" style={{ color: COLORS.textSecondary }}>
-                  {workoutTime} min • {customExerciseCount || Math.max(2, Math.floor(workoutTime / 12))} exercises
-                </span>
-              </div>
-              <ChevronDown size={14} color={COLORS.textMuted} style={{ transform: showWorkoutTimeEditor ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
-            </button>
-
-            {/* Expanded Time Editor */}
-            {showWorkoutTimeEditor && (() => {
-              const defaultExerciseCount = Math.max(2, Math.floor(workoutTime / 12));
-              const exerciseCount = customExerciseCount || defaultExerciseCount;
-              const allExercises = getCurrentExercises();
-              // Use template exercises, or current exercises, or fall back to ALL_EXERCISES
-              const fullPool = (todayWorkoutTemplate?.exercises?.length > 0 ? todayWorkoutTemplate.exercises : null)
-                || (allExercises?.length > 0 ? allExercises : null)
-                || ALL_EXERCISES;
-              const minExercises = 2;
-              const maxExercises = Math.min(fullPool.length, Math.floor(workoutTime / 5));
-              const workoutTypeForCoverage = todayWorkoutTemplate?.workoutType || todayWorkout?.type || null;
-              const exercisesForTime = optimizeExercisesForTimeAndCount(allExercises, fullPool, workoutTime, exerciseCount, workoutTypeForCoverage, settings.workout.corePosition, personalWarmup, personalCooldown, !!customizedExercises);
-              const timeBreakdown = getWorkoutTimeBreakdown(exercisesForTime);
-
-              return (
-                <div className="mb-3 p-3 rounded-lg" style={{ backgroundColor: COLORS.background }}>
-                  <p className="text-xs mb-2" style={{ color: COLORS.textMuted }}>How much time do you have?</p>
-                  <div className="grid grid-cols-6 gap-1.5 mb-3">
-                    {[20, 30, 45, 60, 75, 90].map(time => (
-                      <button
-                        key={time}
-                        onClick={() => setWorkoutTime(time)}
-                        className="py-1.5 rounded-lg text-xs font-semibold"
-                        style={{
-                          backgroundColor: workoutTime === time ? COLORS.primary : COLORS.surface,
-                          color: workoutTime === time ? COLORS.text : COLORS.textMuted
-                        }}
-                      >
-                        {time}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Exercise Count */}
-                  <div className="flex items-center justify-between mb-3 p-2 rounded-lg" style={{ backgroundColor: COLORS.surface }}>
-                    <span className="text-xs" style={{ color: COLORS.textSecondary }}>Exercises</span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => {
-                          const newCount = Math.max(minExercises, exerciseCount - 1);
-                          setCustomExerciseCount(newCount === defaultExerciseCount ? null : newCount);
-                        }}
-                        disabled={exerciseCount <= minExercises}
-                        className="w-7 h-7 rounded-full flex items-center justify-center"
-                        style={{
-                          backgroundColor: exerciseCount <= minExercises ? COLORS.surfaceLight : COLORS.primary + '20',
-                          opacity: exerciseCount <= minExercises ? 0.5 : 1
-                        }}
-                      >
-                        <Minus size={14} color={exerciseCount <= minExercises ? COLORS.textMuted : COLORS.primary} />
-                      </button>
-                      <span className="text-sm font-bold w-6 text-center" style={{ color: COLORS.text }}>{exerciseCount}</span>
-                      <button
-                        onClick={() => {
-                          const newCount = Math.min(maxExercises, exerciseCount + 1);
-                          setCustomExerciseCount(newCount === defaultExerciseCount ? null : newCount);
-                        }}
-                        disabled={exerciseCount >= maxExercises}
-                        className="w-7 h-7 rounded-full flex items-center justify-center"
-                        style={{
-                          backgroundColor: exerciseCount >= maxExercises ? COLORS.surfaceLight : COLORS.primary + '20',
-                          opacity: exerciseCount >= maxExercises ? 0.5 : 1
-                        }}
-                      >
-                        <Plus size={14} color={exerciseCount >= maxExercises ? COLORS.textMuted : COLORS.primary} />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Time Breakdown */}
-                  <div className="grid grid-cols-4 gap-1.5 mb-3">
-                    <div className="p-2 rounded-lg text-center" style={{ backgroundColor: COLORS.primary + '15' }}>
-                      <p className="text-xs font-bold" style={{ color: COLORS.primary }}>{Math.floor(timeBreakdown.workingTime / 60)}m</p>
-                      <p className="text-xs" style={{ color: COLORS.textMuted }}>Work</p>
-                    </div>
-                    <div className="p-2 rounded-lg text-center" style={{ backgroundColor: COLORS.warning + '15' }}>
-                      <p className="text-xs font-bold" style={{ color: COLORS.warning }}>{Math.floor(timeBreakdown.restTime / 60)}m</p>
-                      <p className="text-xs" style={{ color: COLORS.textMuted }}>Rest</p>
-                    </div>
-                    <div className="p-2 rounded-lg text-center" style={{ backgroundColor: COLORS.sleep + '15' }}>
-                      <p className="text-xs font-bold" style={{ color: COLORS.sleep }}>{(personalWarmup ? 5 : 0) + (personalCooldown ? 5 : 0)}m</p>
-                      <p className="text-xs" style={{ color: COLORS.textMuted }}>Warm/Cool</p>
-                    </div>
-                    <div className="p-2 rounded-lg text-center" style={{ backgroundColor: COLORS.success + '15' }}>
-                      <p className="text-xs font-bold" style={{ color: COLORS.success }}>~{Math.round((timeBreakdown.workingTime + timeBreakdown.restTime) / 60 + (personalWarmup ? 5 : 0) + (personalCooldown ? 5 : 0))}m</p>
-                      <p className="text-xs" style={{ color: COLORS.textMuted }}>Total</p>
-                    </div>
-                  </div>
-
-                  {/* Warmup/Cooldown Toggles */}
-                  <div className="flex items-center gap-2 mb-3">
-                    <button
-                      onClick={() => {
-                        const scrollTop = homeScrollRef.current?.scrollTop;
-                        setPersonalWarmup(!personalWarmup);
-                        requestAnimationFrame(() => {
-                          if (homeScrollRef.current && scrollTop !== undefined) {
-                            homeScrollRef.current.scrollTop = scrollTop;
-                          }
-                        });
-                      }}
-                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold"
-                      style={{
-                        backgroundColor: personalWarmup ? COLORS.primary + '20' : COLORS.surfaceLight,
-                        color: personalWarmup ? COLORS.primary : COLORS.textMuted
-                      }}
-                    >
-                      <Wind size={14} />
-                      Warmup 5min
-                      {personalWarmup ? <Check size={12} /> : null}
-                    </button>
-                    <button
-                      onClick={() => {
-                        const scrollTop = homeScrollRef.current?.scrollTop;
-                        setPersonalCooldown(!personalCooldown);
-                        requestAnimationFrame(() => {
-                          if (homeScrollRef.current && scrollTop !== undefined) {
-                            homeScrollRef.current.scrollTop = scrollTop;
-                          }
-                        });
-                      }}
-                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold"
-                      style={{
-                        backgroundColor: personalCooldown ? COLORS.primary + '20' : COLORS.surfaceLight,
-                        color: personalCooldown ? COLORS.primary : COLORS.textMuted
-                      }}
-                    >
-                      <Sprout size={14} />
-                      Cooldown 5min
-                      {personalCooldown ? <Check size={12} /> : null}
-                    </button>
-                  </div>
-
-                  {/* Exercise List Toggle */}
-                  <div className="border-t pt-3" style={{ borderColor: COLORS.surfaceLight }}>
-                    <button
-                      onClick={() => setExerciseListCollapsed(!exerciseListCollapsed)}
-                      className="w-full flex items-center justify-between mb-2"
-                    >
-                      <div className="flex items-center gap-2">
-                        <ChevronDown
-                          size={14}
-                          color={COLORS.textMuted}
-                          style={{ transform: exerciseListCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}
-                        />
-                        <p className="text-xs font-semibold" style={{ color: COLORS.textMuted }}>
-                          {exercisesForTime.length} EXERCISES • {exercisesForTime.reduce((acc, ex) => acc + (ex.sets || 3), 0)} SETS
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {(customizedExercises || customExerciseCount) && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              resetCustomizations();
-                              setCustomExerciseCount(null);
-                            }}
-                            className="text-xs px-2 py-1 rounded-full flex items-center gap-1"
-                            style={{ backgroundColor: COLORS.warning + '20', color: COLORS.warning }}
-                          >
-                            <Undo2 size={10} /> Reset
-                          </button>
-                        )}
-                        <span className="text-xs" style={{ color: COLORS.textMuted }}>
-                          {exerciseListCollapsed ? 'Show' : 'Hide'}
-                        </span>
-                      </div>
-                    </button>
-
-                    {!exerciseListCollapsed && (
-                      <div className="space-y-1.5">
-                        {/* Warmup Item */}
-                        {personalWarmup && (
-                          <div className="p-2 rounded-lg flex items-center gap-2" style={{ backgroundColor: COLORS.primary + '15', border: `1px dashed ${COLORS.primary}40` }}>
-                            <div className="w-5 h-5 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '30' }}>
-                              <Wind size={12} color={COLORS.primary} />
-                            </div>
-                            <div className="flex-1">
-                              <p className="text-xs font-semibold" style={{ color: COLORS.primary }}>Warmup</p>
-                              <p className="text-xs" style={{ color: COLORS.textMuted }}>Dynamic stretches</p>
-                            </div>
-                            <p className="text-xs font-semibold" style={{ color: COLORS.primary }}>5min</p>
-                          </div>
-                        )}
-                        {exercisesForTime.map((exercise, i) => {
-                          const isExpanded = expandedExerciseId === exercise.id;
-                          const originalIndex = allExercises.findIndex(ex => ex.id === exercise.id);
-
-                          return (
-                            <div key={exercise.id} className="flex items-stretch gap-1">
-                              {/* Up/Down arrows on left */}
-                              <div className="flex items-center gap-0.5">
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); moveExerciseInHome(exercise.id, 'up', exercisesForTime); }}
-                                  disabled={i === 0}
-                                  className="p-1 rounded"
-                                  style={{
-                                    backgroundColor: i === 0 ? 'transparent' : COLORS.surfaceLight,
-                                    opacity: i === 0 ? 0.3 : 1
-                                  }}
-                                >
-                                  <ChevronUp size={14} color={i === 0 ? COLORS.textMuted : COLORS.text} />
-                                </button>
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); moveExerciseInHome(exercise.id, 'down', exercisesForTime); }}
-                                  disabled={i === exercisesForTime.length - 1}
-                                  className="p-1 rounded"
-                                  style={{
-                                    backgroundColor: i === exercisesForTime.length - 1 ? 'transparent' : COLORS.surfaceLight,
-                                    opacity: i === exercisesForTime.length - 1 ? 0.3 : 1
-                                  }}
-                                >
-                                  <ChevronDown size={14} color={i === exercisesForTime.length - 1 ? COLORS.textMuted : COLORS.text} />
-                                </button>
-                              </div>
-
-                              {/* Exercise card */}
-                              <div className="flex-1 rounded-lg overflow-hidden" style={{ backgroundColor: COLORS.surface }}>
-                                <div
-                                  onClick={() => setExpandedExerciseId(isExpanded ? null : exercise.id)}
-                                  className="w-full flex items-center justify-between p-2 cursor-pointer"
-                                  role="button"
-                                  tabIndex={0}
-                                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setExpandedExerciseId(isExpanded ? null : exercise.id); }}
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <div
-                                      className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold"
-                                      style={{ backgroundColor: COLORS.primary + '20', color: COLORS.primary }}
-                                    >
-                                      {i + 1}
-                                    </div>
-                                    <div className="text-left">
-                                      <div className="flex items-center gap-1">
-                                        <p className="text-xs font-medium" style={{ color: COLORS.text }}>{exercise.name}</p>
-                                        <button
-                                          onClick={(e) => { e.stopPropagation(); setShowExerciseInfo(exercise.name); }}
-                                          className="p-0.5 rounded-full"
-                                          style={{ backgroundColor: COLORS.primary + '20' }}
-                                        >
-                                          <Info size={10} color={COLORS.primary} />
-                                        </button>
-                                      </div>
-                                      <p className="text-xs" style={{ color: COLORS.textMuted }}>{exercise.muscleGroup}</p>
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <div className="text-right">
-                                      <p className="text-xs font-semibold" style={{ color: COLORS.text }}>{exercise.sets}×{exercise.targetReps}</p>
-                                      <div className="flex items-center gap-1">
-                                        <p className="text-xs" style={{ color: COLORS.textMuted }}>{exercise.suggestedWeight}kg</p>
-                                        <span className="text-xs px-1 py-0.5 rounded" style={{ backgroundColor: COLORS.warning + '15', color: COLORS.warning }}>
-                                          {Math.floor((exercise.restTime || 90) / 60)}:{((exercise.restTime || 90) % 60).toString().padStart(2, '0')}
-                                        </span>
-                                      </div>
-                                    </div>
-                                    <ChevronDown
-                                      size={14}
-                                      color={COLORS.textMuted}
-                                      style={{ transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
-                                    />
-                                  </div>
-                                </div>
-
-                                {/* Expanded Options */}
-                                {isExpanded && (
-                                  <div className="px-2 pb-2 pt-1 border-t" style={{ borderColor: COLORS.surfaceLight }}>
-                                    <div className="flex gap-2">
-                                      <button
-                                        onClick={() => swapExerciseInHome(exercise.id)}
-                                        className="flex-1 py-1.5 rounded-lg text-xs font-medium flex items-center justify-center gap-1"
-                                        style={{ backgroundColor: COLORS.primary + '20', color: COLORS.primary }}
-                                      >
-                                        <ArrowLeftRight size={12} /> Swap
-                                      </button>
-                                      <button
-                                        onClick={() => removeExerciseInHome(exercise.id)}
-                                        disabled={exercisesForTime.length <= 2}
-                                        className="flex-1 py-1.5 rounded-lg text-xs font-medium flex items-center justify-center gap-1"
-                                        style={{
-                                          backgroundColor: exercisesForTime.length <= 2 ? COLORS.surfaceLight : COLORS.error + '20',
-                                          color: exercisesForTime.length <= 2 ? COLORS.textMuted : COLORS.error,
-                                          opacity: exercisesForTime.length <= 2 ? 0.5 : 1
-                                        }}
-                                      >
-                                        <X size={12} /> Remove
-                                      </button>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                        {/* Cooldown Item */}
-                        {personalCooldown && (
-                          <div className="p-2 rounded-lg flex items-center gap-2" style={{ backgroundColor: COLORS.primary + '15', border: `1px dashed ${COLORS.primary}40` }}>
-                            <div className="w-5 h-5 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '30' }}>
-                              <Sprout size={12} color={COLORS.primary} />
-                            </div>
-                            <div className="flex-1">
-                              <p className="text-xs font-semibold" style={{ color: COLORS.primary }}>Cooldown</p>
-                              <p className="text-xs" style={{ color: COLORS.textMuted }}>Static stretches</p>
-                            </div>
-                            <p className="text-xs font-semibold" style={{ color: COLORS.primary }}>5min</p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })()}
-
-            <button onClick={handleStartWorkout} className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2" style={{ backgroundColor: partialWorkoutProgress ? COLORS.warning : COLORS.primary, color: COLORS.text }}>
-              {partialWorkoutProgress ? <><Play size={18} /> Resume Workout</> : 'Start Workout'}
-            </button>
+            {partialWorkoutProgress ? (
+              <button onClick={handleStartWorkout} className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2" style={{ backgroundColor: COLORS.warning, color: COLORS.text }}>
+                <Play size={18} /> Resume Workout
+              </button>
+            ) : (
+              <button
+                onClick={handleStartFreeformWorkout}
+                className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
+                style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+              >
+                <Play size={18} /> Start Blank Workout
+              </button>
+            )}
           </>
         )}
       </div>
@@ -12813,6 +13588,18 @@ const HomeTab = ({
         </div>
       )}
 
+      {/* Workout Start Modal - Choose between scheduled and free-form */}
+      {showWorkoutStartModal && (
+        <WorkoutStartModal
+          COLORS={COLORS}
+          onClose={() => setShowWorkoutStartModal(false)}
+          onStartScheduled={handleStartScheduledWorkout}
+          onStartFreeform={handleStartFreeformWorkout}
+          scheduledWorkout={todayWorkoutTemplate || todayWorkout}
+          hasPartialProgress={!!partialWorkoutProgress}
+        />
+      )}
+
       {/* Pre-Workout Check-In Modal */}
       {showPreWorkoutCheckIn && (
         <PreWorkoutCheckIn
@@ -12826,12 +13613,53 @@ const HomeTab = ({
 
       {/* Active Workout Screen */}
       {showActiveWorkout && (() => {
+        // Free-form workout uses new non-linear UI
+        if (workoutType === 'freeform') {
+          return (
+            <NewWorkoutScreen
+              COLORS={COLORS}
+              onClose={() => { setShowActiveWorkout(false); setCheckInData(null); setWorkoutType(null); }}
+              onComplete={() => { setPartialWorkoutProgress(null); setCheckInData(null); setWorkoutType(null); }}
+              onSaveProgress={setPartialWorkoutProgress}
+              userId={user?.id}
+              workoutName="Free-form Workout"
+              workoutType="freeform"
+              initialExercises={[]}
+              savedProgress={partialWorkoutProgress?.workoutType === 'freeform' ? partialWorkoutProgress : null}
+              checkInData={null}
+              userGoal={userData.goal || 'build_muscle'}
+              userExperience={userData.experience || 'beginner'}
+            />
+          );
+        }
+
         // Check if resuming a partial workout
         if (partialWorkoutProgress) {
+          // If resuming a freeform workout
+          if (partialWorkoutProgress.workoutType === 'freeform') {
+            return (
+              <NewWorkoutScreen
+                COLORS={COLORS}
+                onClose={() => { setShowActiveWorkout(false); setCheckInData(null); setWorkoutType(null); }}
+                onComplete={() => { setPartialWorkoutProgress(null); setCheckInData(null); setWorkoutType(null); }}
+                onSaveProgress={setPartialWorkoutProgress}
+                userId={user?.id}
+                workoutName={partialWorkoutProgress.workoutName || 'Free-form Workout'}
+                workoutType="freeform"
+                initialExercises={partialWorkoutProgress.exercises || []}
+                savedProgress={partialWorkoutProgress}
+                checkInData={null}
+                userGoal={userData.goal || 'build_muscle'}
+                userExperience={userData.experience || 'beginner'}
+              />
+            );
+          }
+
+          // Resuming a scheduled workout
           return (
             <ActiveWorkoutScreen
-              onClose={() => { setShowActiveWorkout(false); setCheckInData(null); }}
-              onComplete={() => { setPartialWorkoutProgress(null); setCheckInData(null); completeTodayWorkout(); }}
+              onClose={() => { setShowActiveWorkout(false); setCheckInData(null); setWorkoutType(null); }}
+              onComplete={() => { setPartialWorkoutProgress(null); setCheckInData(null); setWorkoutType(null); completeTodayWorkout(); }}
               onSaveProgress={setPartialWorkoutProgress}
               COLORS={COLORS}
               availableTime={workoutTime}
@@ -12861,23 +13689,21 @@ const HomeTab = ({
         const workoutTypeForCoverage = todayWorkoutTemplate?.workoutType || todayWorkout?.type || null;
         const optimizedExercises = optimizeExercisesForTimeAndCount(baseExercises, fullPool, workoutTime, exerciseCount, workoutTypeForCoverage, settings.workout.corePosition, personalWarmup, personalCooldown, !!customizedExercises);
 
-        const template = { ...todayWorkoutTemplate, exercises: optimizedExercises };
+        // Scheduled workout uses new non-linear UI
         return (
-          <ActiveWorkoutScreen
-            onClose={() => { setShowActiveWorkout(false); setCheckInData(null); }}
-            onComplete={() => { setPartialWorkoutProgress(null); setCheckInData(null); completeTodayWorkout(); }}
-            onSaveProgress={setPartialWorkoutProgress}
+          <NewWorkoutScreen
             COLORS={COLORS}
-            availableTime={workoutTime}
-            userGoal={userData.goal || 'build_muscle'}
-            userExperience={userData.experience || 'beginner'}
+            onClose={() => { setShowActiveWorkout(false); setCheckInData(null); setWorkoutType(null); }}
+            onComplete={() => { setPartialWorkoutProgress(null); setCheckInData(null); setWorkoutType(null); completeTodayWorkout(); }}
+            onSaveProgress={setPartialWorkoutProgress}
             userId={user?.id}
             workoutName={todayWorkout?.name || 'Workout'}
-            workoutTemplate={template}
-            injuries={injuries}
-            includeWarmup={personalWarmup}
-            includeCooldown={personalCooldown}
+            workoutType="scheduled"
+            initialExercises={optimizedExercises}
+            savedProgress={null}
             checkInData={checkInData}
+            userGoal={userData.goal || 'build_muscle'}
+            userExperience={userData.experience || 'beginner'}
           />
         );
       })()}
@@ -19907,8 +20733,22 @@ export default function UpRepDemo() {
   };
 
   const [showActiveWorkout, setShowActiveWorkout] = useState(false);
-  const [partialWorkoutProgress, setPartialWorkoutProgress] = useState(null); // Tracks incomplete workout for resume
+  const [partialWorkoutProgress, setPartialWorkoutProgress] = useState(() => {
+    // Restore workout progress from localStorage on mount
+    try {
+      const saved = localStorage.getItem('uprep_workout_progress');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (e) {
+      console.warn('Error restoring workout progress:', e);
+      localStorage.removeItem('uprep_workout_progress');
+    }
+    return null;
+  });
   const [showPreWorkoutCheckIn, setShowPreWorkoutCheckIn] = useState(false);
+  const [showWorkoutStartModal, setShowWorkoutStartModal] = useState(false); // New modal for workout type selection
+  const [workoutType, setWorkoutType] = useState(null); // 'scheduled' | 'freeform'
   const [checkInData, setCheckInData] = useState(null); // Stores check-in results for ActiveWorkoutScreen
   const [workoutTime, setWorkoutTime] = useState(60);
   const [showTimeEditor, setShowTimeEditor] = useState(false);
@@ -19974,6 +20814,19 @@ export default function UpRepDemo() {
       });
     }
   }, [activeTab]);
+
+  // Persist workout progress to localStorage for crash recovery
+  useEffect(() => {
+    if (partialWorkoutProgress) {
+      try {
+        localStorage.setItem('uprep_workout_progress', JSON.stringify(partialWorkoutProgress));
+      } catch (e) {
+        console.warn('Error saving workout progress to localStorage:', e);
+      }
+    } else {
+      localStorage.removeItem('uprep_workout_progress');
+    }
+  }, [partialWorkoutProgress]);
 
   // Track scroll position on friends tab
   const handleFriendsTabScroll = (e) => {
@@ -22176,15 +23029,32 @@ export default function UpRepDemo() {
     }
   };
 
-  // Handler for starting a workout - shows check-in or skips if resuming
+  // Handler for starting a workout - shows workout type selection modal
   const handleStartWorkout = () => {
-    // Skip check-in if resuming a partial workout
-    if (partialWorkoutProgress) {
+    setShowWorkoutStartModal(true);
+  };
+
+  // Handler for starting a scheduled workout (with or without resuming)
+  const handleStartScheduledWorkout = (isResume) => {
+    setShowWorkoutStartModal(false);
+    setWorkoutType('scheduled');
+
+    if (isResume && partialWorkoutProgress) {
+      // Resume with saved progress
       setShowActiveWorkout(true);
       return;
     }
-    // Show pre-workout check-in
+
+    // Start new scheduled workout - show pre-workout check-in
     setShowPreWorkoutCheckIn(true);
+  };
+
+  // Handler for starting a free-form workout
+  const handleStartFreeformWorkout = () => {
+    setShowWorkoutStartModal(false);
+    setWorkoutType('freeform');
+    setCheckInData(null); // No check-in for freeform
+    setShowActiveWorkout(true);
   };
 
   // Handler for when check-in is completed
@@ -23632,6 +24502,12 @@ export default function UpRepDemo() {
             setCheckInData={setCheckInData}
             monthlyTracking={monthlyTracking}
             TODAY_DATE_KEY={TODAY_DATE_KEY}
+            showWorkoutStartModal={showWorkoutStartModal}
+            setShowWorkoutStartModal={setShowWorkoutStartModal}
+            workoutType={workoutType}
+            setWorkoutType={setWorkoutType}
+            handleStartScheduledWorkout={handleStartScheduledWorkout}
+            handleStartFreeformWorkout={handleStartFreeformWorkout}
           />
         )}
         {activeTab === 'workouts' && (
@@ -30862,14 +31738,67 @@ export default function UpRepDemo() {
         />
       )}
 
+      {/* Workout Start Modal - Choose between scheduled and free-form */}
+      {showWorkoutStartModal && (
+        <WorkoutStartModal
+          COLORS={COLORS}
+          onClose={() => setShowWorkoutStartModal(false)}
+          onStartScheduled={handleStartScheduledWorkout}
+          onStartFreeform={handleStartFreeformWorkout}
+          scheduledWorkout={todayWorkoutTemplate || todayWorkout}
+          hasPartialProgress={!!partialWorkoutProgress}
+        />
+      )}
+
       {/* Active Workout Screen - rendered at MainScreen level for access from all tabs */}
       {showActiveWorkout && (() => {
+        // Free-form workout uses new non-linear UI
+        if (workoutType === 'freeform') {
+          return (
+            <NewWorkoutScreen
+              COLORS={COLORS}
+              onClose={() => { setShowActiveWorkout(false); setCheckInData(null); setWorkoutType(null); }}
+              onComplete={() => { setPartialWorkoutProgress(null); setCheckInData(null); setWorkoutType(null); }}
+              onSaveProgress={setPartialWorkoutProgress}
+              userId={user?.id}
+              workoutName="Free-form Workout"
+              workoutType="freeform"
+              initialExercises={[]}
+              savedProgress={partialWorkoutProgress?.workoutType === 'freeform' ? partialWorkoutProgress : null}
+              checkInData={null}
+              userGoal={userData.goal || 'build_muscle'}
+              userExperience={userData.experience || 'beginner'}
+            />
+          );
+        }
+
         // Check if resuming a partial workout
         if (partialWorkoutProgress) {
+          // If resuming a freeform workout
+          if (partialWorkoutProgress.workoutType === 'freeform') {
+            return (
+              <NewWorkoutScreen
+                COLORS={COLORS}
+                onClose={() => { setShowActiveWorkout(false); setCheckInData(null); setWorkoutType(null); }}
+                onComplete={() => { setPartialWorkoutProgress(null); setCheckInData(null); setWorkoutType(null); }}
+                onSaveProgress={setPartialWorkoutProgress}
+                userId={user?.id}
+                workoutName={partialWorkoutProgress.workoutName || 'Free-form Workout'}
+                workoutType="freeform"
+                initialExercises={partialWorkoutProgress.exercises || []}
+                savedProgress={partialWorkoutProgress}
+                checkInData={null}
+                userGoal={userData.goal || 'build_muscle'}
+                userExperience={userData.experience || 'beginner'}
+              />
+            );
+          }
+
+          // Resuming a scheduled workout - use old ActiveWorkoutScreen for now
           return (
             <ActiveWorkoutScreen
-              onClose={() => { setShowActiveWorkout(false); setCheckInData(null); }}
-              onComplete={() => { setPartialWorkoutProgress(null); setCheckInData(null); completeTodayWorkout(); }}
+              onClose={() => { setShowActiveWorkout(false); setCheckInData(null); setWorkoutType(null); }}
+              onComplete={() => { setPartialWorkoutProgress(null); setCheckInData(null); setWorkoutType(null); completeTodayWorkout(); }}
               onSaveProgress={setPartialWorkoutProgress}
               COLORS={COLORS}
               availableTime={workoutTime}
@@ -30900,22 +31829,22 @@ export default function UpRepDemo() {
         const optimizedExercises = optimizeExercisesForTimeAndCount(baseExercises, fullPool, workoutTime, exerciseCount, workoutTypeForCoverage, settings.workout.corePosition, personalWarmup, personalCooldown, !!customizedExercises);
 
         const template = { ...todayWorkoutTemplate, exercises: optimizedExercises };
+
+        // Scheduled workout uses new non-linear UI
         return (
-          <ActiveWorkoutScreen
-            onClose={() => { setShowActiveWorkout(false); setCheckInData(null); }}
-            onComplete={() => { setPartialWorkoutProgress(null); setCheckInData(null); completeTodayWorkout(); }}
-            onSaveProgress={setPartialWorkoutProgress}
+          <NewWorkoutScreen
             COLORS={COLORS}
-            availableTime={workoutTime}
-            userGoal={userData.goal || 'build_muscle'}
-            userExperience={userData.experience || 'beginner'}
+            onClose={() => { setShowActiveWorkout(false); setCheckInData(null); setWorkoutType(null); }}
+            onComplete={() => { setPartialWorkoutProgress(null); setCheckInData(null); setWorkoutType(null); completeTodayWorkout(); }}
+            onSaveProgress={setPartialWorkoutProgress}
             userId={user?.id}
             workoutName={todayWorkout?.name || 'Workout'}
-            workoutTemplate={template}
-            injuries={injuries}
-            includeWarmup={personalWarmup}
-            includeCooldown={personalCooldown}
+            workoutType="scheduled"
+            initialExercises={optimizedExercises}
+            savedProgress={null}
             checkInData={checkInData}
+            userGoal={userData.goal || 'build_muscle'}
+            userExperience={userData.experience || 'beginner'}
           />
         );
       })()}
