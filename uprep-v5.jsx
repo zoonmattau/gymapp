@@ -12431,7 +12431,7 @@ const HomeTab = ({
               </div>
             </div>
 
-            {partialWorkoutProgress ? (
+            {partialWorkoutProgress?.sets?.length > 0 ? (
               <button onClick={handleStartWorkout} className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2" style={{ backgroundColor: COLORS.warning, color: COLORS.text }}>
                 <Play size={18} /> Resume Workout
               </button>
@@ -12678,7 +12678,7 @@ const HomeTab = ({
                   <Tooltip
                     contentStyle={{ backgroundColor: COLORS.surface, border: 'none', borderRadius: 12, padding: '8px 12px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}
                     labelStyle={{ color: COLORS.text, fontSize: 11, fontWeight: 600, marginBottom: 4 }}
-                    formatter={(value) => [value ? `${value} kcal` : '-', 'Calories']}
+                    formatter={(value) => [value ? `${value} kcal (goal: ${calorieGoal})` : '-', 'Calories']}
                     cursor={{ stroke: COLORS.accent, strokeWidth: 1, strokeDasharray: '4 4' }}
                   />
                   <ReferenceLine y={calorieGoal} stroke={COLORS.success} strokeWidth={2} strokeDasharray="8 4" label={{ value: `Goal`, position: 'right', fill: COLORS.success, fontSize: 9 }} />
@@ -12734,7 +12734,7 @@ const HomeTab = ({
                   <Tooltip
                     contentStyle={{ backgroundColor: COLORS.surface, border: 'none', borderRadius: 12, padding: '8px 12px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}
                     labelStyle={{ color: COLORS.text, fontSize: 11, fontWeight: 600, marginBottom: 4 }}
-                    formatter={(value) => [value ? `${value}g` : '-', 'Protein']}
+                    formatter={(value) => [value ? `${value}g (goal: ${proteinGoal}g)` : '-', 'Protein']}
                     cursor={{ stroke: COLORS.protein, strokeWidth: 1, strokeDasharray: '4 4' }}
                   />
                   <ReferenceLine y={proteinGoal} stroke={COLORS.success} strokeWidth={2} strokeDasharray="8 4" label={{ value: `Goal`, position: 'right', fill: COLORS.success, fontSize: 9 }} />
@@ -12790,7 +12790,7 @@ const HomeTab = ({
                   <Tooltip
                     contentStyle={{ backgroundColor: COLORS.surface, border: 'none', borderRadius: 12, padding: '8px 12px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}
                     labelStyle={{ color: COLORS.text, fontSize: 11, fontWeight: 600, marginBottom: 4 }}
-                    formatter={(value) => [value ? `${(value/1000).toFixed(1)}L` : '-', 'Water']}
+                    formatter={(value) => [value ? `${(value/1000).toFixed(1)}L (goal: ${(waterGoal/1000).toFixed(1)}L)` : '-', 'Water']}
                     cursor={{ stroke: COLORS.water, strokeWidth: 1, strokeDasharray: '4 4' }}
                   />
                   <ReferenceLine y={waterGoal} stroke={COLORS.success} strokeWidth={2} strokeDasharray="8 4" label={{ value: `Goal`, position: 'right', fill: COLORS.success, fontSize: 9 }} />
@@ -13596,7 +13596,7 @@ const HomeTab = ({
           onStartScheduled={handleStartScheduledWorkout}
           onStartFreeform={handleStartFreeformWorkout}
           scheduledWorkout={todayWorkoutTemplate || todayWorkout}
-          hasPartialProgress={!!partialWorkoutProgress}
+          hasPartialProgress={partialWorkoutProgress?.sets?.length > 0}
         />
       )}
 
@@ -15014,9 +15014,9 @@ const WorkoutTab = ({
                 <button
                   onClick={handleStartWorkout}
                   className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
-                  style={{ backgroundColor: partialWorkoutProgress ? COLORS.warning : getWorkoutColor(todayWorkout.type, COLORS), color: COLORS.text }}
+                  style={{ backgroundColor: partialWorkoutProgress?.sets?.length > 0 ? COLORS.warning : getWorkoutColor(todayWorkout.type, COLORS), color: COLORS.text }}
                 >
-                  {partialWorkoutProgress ? <><Play size={18} /> Resume Workout</> : <>Start Workout <Play size={18} /></>}
+                  {partialWorkoutProgress?.sets?.length > 0 ? <><Play size={18} /> Resume Workout</> : <>Start Workout <Play size={18} /></>}
                 </button>
               </div>
             )}
@@ -19783,7 +19783,11 @@ export default function UpRepDemo() {
         if (isMounted && userSupplements) {
           // Load today's supplement logs to check which are taken
           const { data: supplementLogs } = await nutritionService.getSupplementLogs(user.id, TODAY_DATE_KEY);
-          const takenIds = new Set(supplementLogs?.map(log => log.supplement_id) || []);
+          // Count how many times each supplement was taken (for multi-dose tracking)
+          const takenCounts = {};
+          supplementLogs?.forEach(log => {
+            takenCounts[log.supplement_id] = (takenCounts[log.supplement_id] || 0) + 1;
+          });
 
           setSupplements(userSupplements.map(supp => ({
             id: supp.id,
@@ -19791,7 +19795,8 @@ export default function UpRepDemo() {
             dosage: supp.dosage,
             time: supp.scheduled_time,
             timesPerDay: supp.times_per_day || 1,
-            taken: takenIds.has(supp.id),
+            taken: (takenCounts[supp.id] || 0) > 0,
+            takenCount: takenCounts[supp.id] || 0,
           })));
 
           // Load supplement history for calendar (last 28 days)
@@ -21332,7 +21337,11 @@ export default function UpRepDemo() {
         setSupplementsLoading(true);
         const { data: userSupplements } = await nutritionService.getSupplements(user.id);
         const { data: supplementLogs } = await nutritionService.getSupplementLogs(user.id, targetDate);
-        const takenIds = new Set(supplementLogs?.map(log => log.supplement_id) || []);
+        // Count how many times each supplement was taken (for multi-dose tracking)
+        const takenCounts = {};
+        supplementLogs?.forEach(log => {
+          takenCounts[log.supplement_id] = (takenCounts[log.supplement_id] || 0) + 1;
+        });
 
         if (isMounted && userSupplements) {
           setSupplements(userSupplements.map(supp => ({
@@ -21341,7 +21350,8 @@ export default function UpRepDemo() {
             dosage: supp.dosage,
             time: supp.scheduled_time,
             timesPerDay: supp.times_per_day || 1,
-            taken: takenIds.has(supp.id),
+            taken: (takenCounts[supp.id] || 0) > 0,
+            takenCount: takenCounts[supp.id] || 0,
           })));
           setSupplementsLoading(false);
         }
@@ -31746,7 +31756,7 @@ export default function UpRepDemo() {
           onStartScheduled={handleStartScheduledWorkout}
           onStartFreeform={handleStartFreeformWorkout}
           scheduledWorkout={todayWorkoutTemplate || todayWorkout}
-          hasPartialProgress={!!partialWorkoutProgress}
+          hasPartialProgress={partialWorkoutProgress?.sets?.length > 0}
         />
       )}
 
