@@ -156,7 +156,11 @@ export const streakService = {
     }
 
     // Count consecutive days meeting goal backwards
-    for (const entry of nutrition) {
+    // Filter to entries on or before checkDate to avoid skipping due to today's incomplete entry
+    const startDateStr = getLocalDateString(checkDate);
+    const relevantEntries = nutrition.filter(e => e.log_date <= startDateStr);
+
+    for (const entry of relevantEntries) {
       const dateStr = entry.log_date;
       const expectedDate = getLocalDateString(checkDate);
 
@@ -215,7 +219,11 @@ export const streakService = {
     }
 
     // Count consecutive days meeting goal backwards
-    for (const entry of sleepLogs) {
+    // Filter to entries on or before checkDate to avoid skipping due to today's incomplete entry
+    const startDateStr = getLocalDateString(checkDate);
+    const relevantEntries = sleepLogs.filter(e => e.log_date <= startDateStr);
+
+    for (const entry of relevantEntries) {
       const dateStr = entry.log_date;
       const expectedDate = getLocalDateString(checkDate);
 
@@ -273,7 +281,11 @@ export const streakService = {
     }
 
     // Count consecutive days meeting goal backwards
-    for (const entry of nutrition) {
+    // Filter to entries on or before checkDate to avoid skipping due to today's incomplete entry
+    const startDateStr = getLocalDateString(checkDate);
+    const relevantEntries = nutrition.filter(e => e.log_date <= startDateStr);
+
+    for (const entry of relevantEntries) {
       const dateStr = entry.log_date;
       const expectedDate = getLocalDateString(checkDate);
 
