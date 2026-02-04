@@ -20638,6 +20638,7 @@ export default function UpRepDemo() {
   const [showWorkoutStartModal, setShowWorkoutStartModal] = useState(false); // New modal for workout type selection
   const [workoutType, setWorkoutType] = useState(null); // 'scheduled' | 'freeform'
   const [isResumingWorkout, setIsResumingWorkout] = useState(false); // Track if resuming vs starting fresh
+  const [workoutSessionKey, setWorkoutSessionKey] = useState(Date.now()); // Key to force remount NewWorkoutScreen
   const [checkInData, setCheckInData] = useState(null); // Stores check-in results for ActiveWorkoutScreen
   const [workoutTime, setWorkoutTime] = useState(60);
   const [showTimeEditor, setShowTimeEditor] = useState(false);
@@ -22940,6 +22941,9 @@ export default function UpRepDemo() {
       return;
     }
 
+    // Generate new session key for fresh workout
+    setWorkoutSessionKey(Date.now());
+
     // Start new scheduled workout - show pre-workout check-in
     setShowPreWorkoutCheckIn(true);
   };
@@ -22951,9 +22955,10 @@ export default function UpRepDemo() {
     setCheckInData(null); // No check-in for freeform
     setIsResumingWorkout(isResume); // Track if resuming
 
-    // Clear old progress when starting fresh (not resuming)
+    // Clear old progress and generate new session key when starting fresh (not resuming)
     if (!isResume) {
       setPartialWorkoutProgress(null);
+      setWorkoutSessionKey(Date.now()); // Force new component instance
       try {
         localStorage.removeItem('uprep_workout_progress');
       } catch (e) {
@@ -31663,6 +31668,7 @@ export default function UpRepDemo() {
         if (workoutType === 'freeform') {
           return (
             <NewWorkoutScreen
+              key={workoutSessionKey}
               COLORS={COLORS}
               onClose={() => { setShowActiveWorkout(false); setCheckInData(null); setWorkoutType(null); setIsResumingWorkout(false); }}
               onComplete={() => { setPartialWorkoutProgress(null); setCheckInData(null); setWorkoutType(null); setIsResumingWorkout(false); }}
@@ -31685,6 +31691,7 @@ export default function UpRepDemo() {
           if (partialWorkoutProgress.workoutType === 'freeform') {
             return (
               <NewWorkoutScreen
+                key={workoutSessionKey}
                 COLORS={COLORS}
                 onClose={() => { setShowActiveWorkout(false); setCheckInData(null); setWorkoutType(null); setIsResumingWorkout(false); }}
                 onComplete={() => { setPartialWorkoutProgress(null); setCheckInData(null); setWorkoutType(null); setIsResumingWorkout(false); }}
@@ -31704,6 +31711,7 @@ export default function UpRepDemo() {
           // Resuming a scheduled workout - use old ActiveWorkoutScreen for now
           return (
             <ActiveWorkoutScreen
+              key={workoutSessionKey}
               onClose={() => { setShowActiveWorkout(false); setCheckInData(null); setWorkoutType(null); setIsResumingWorkout(false); }}
               onComplete={() => { setPartialWorkoutProgress(null); setCheckInData(null); setWorkoutType(null); setIsResumingWorkout(false); completeTodayWorkout(); }}
               onSaveProgress={setPartialWorkoutProgress}
@@ -31740,6 +31748,7 @@ export default function UpRepDemo() {
         // Scheduled workout uses new non-linear UI
         return (
           <NewWorkoutScreen
+            key={workoutSessionKey}
             COLORS={COLORS}
             onClose={() => { setShowActiveWorkout(false); setCheckInData(null); setWorkoutType(null); setIsResumingWorkout(false); }}
             onComplete={() => { setPartialWorkoutProgress(null); setCheckInData(null); setWorkoutType(null); setIsResumingWorkout(false); completeTodayWorkout(); }}
