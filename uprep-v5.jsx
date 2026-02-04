@@ -20637,6 +20637,7 @@ export default function UpRepDemo() {
   const [showPreWorkoutCheckIn, setShowPreWorkoutCheckIn] = useState(false);
   const [showWorkoutStartModal, setShowWorkoutStartModal] = useState(false); // New modal for workout type selection
   const [workoutType, setWorkoutType] = useState(null); // 'scheduled' | 'freeform'
+  const [isResumingWorkout, setIsResumingWorkout] = useState(false); // Track if resuming vs starting fresh
   const [checkInData, setCheckInData] = useState(null); // Stores check-in results for ActiveWorkoutScreen
   const [workoutTime, setWorkoutTime] = useState(60);
   const [showTimeEditor, setShowTimeEditor] = useState(false);
@@ -22931,6 +22932,7 @@ export default function UpRepDemo() {
   const handleStartScheduledWorkout = (isResume) => {
     setShowWorkoutStartModal(false);
     setWorkoutType('scheduled');
+    setIsResumingWorkout(isResume && !!partialWorkoutProgress);
 
     if (isResume && partialWorkoutProgress) {
       // Resume with saved progress
@@ -22947,6 +22949,7 @@ export default function UpRepDemo() {
     setShowWorkoutStartModal(false);
     setWorkoutType('freeform');
     setCheckInData(null); // No check-in for freeform
+    setIsResumingWorkout(isResume); // Track if resuming
 
     // Clear old progress when starting fresh (not resuming)
     if (!isResume) {
@@ -31661,14 +31664,14 @@ export default function UpRepDemo() {
           return (
             <NewWorkoutScreen
               COLORS={COLORS}
-              onClose={() => { setShowActiveWorkout(false); setCheckInData(null); setWorkoutType(null); }}
-              onComplete={() => { setPartialWorkoutProgress(null); setCheckInData(null); setWorkoutType(null); }}
+              onClose={() => { setShowActiveWorkout(false); setCheckInData(null); setWorkoutType(null); setIsResumingWorkout(false); }}
+              onComplete={() => { setPartialWorkoutProgress(null); setCheckInData(null); setWorkoutType(null); setIsResumingWorkout(false); }}
               onSaveProgress={setPartialWorkoutProgress}
               userId={user?.id}
               workoutName="Free-form Workout"
               workoutType="freeform"
               initialExercises={[]}
-              savedProgress={partialWorkoutProgress?.workoutType === 'freeform' ? partialWorkoutProgress : null}
+              savedProgress={isResumingWorkout && partialWorkoutProgress?.workoutType === 'freeform' ? partialWorkoutProgress : null}
               checkInData={null}
               userGoal={userData.goal || 'build_muscle'}
               userExperience={userData.experience || 'beginner'}
@@ -31677,14 +31680,14 @@ export default function UpRepDemo() {
         }
 
         // Check if resuming a partial workout
-        if (partialWorkoutProgress) {
+        if (isResumingWorkout && partialWorkoutProgress) {
           // If resuming a freeform workout
           if (partialWorkoutProgress.workoutType === 'freeform') {
             return (
               <NewWorkoutScreen
                 COLORS={COLORS}
-                onClose={() => { setShowActiveWorkout(false); setCheckInData(null); setWorkoutType(null); }}
-                onComplete={() => { setPartialWorkoutProgress(null); setCheckInData(null); setWorkoutType(null); }}
+                onClose={() => { setShowActiveWorkout(false); setCheckInData(null); setWorkoutType(null); setIsResumingWorkout(false); }}
+                onComplete={() => { setPartialWorkoutProgress(null); setCheckInData(null); setWorkoutType(null); setIsResumingWorkout(false); }}
                 onSaveProgress={setPartialWorkoutProgress}
                 userId={user?.id}
                 workoutName={partialWorkoutProgress.workoutName || 'Free-form Workout'}
@@ -31701,8 +31704,8 @@ export default function UpRepDemo() {
           // Resuming a scheduled workout - use old ActiveWorkoutScreen for now
           return (
             <ActiveWorkoutScreen
-              onClose={() => { setShowActiveWorkout(false); setCheckInData(null); setWorkoutType(null); }}
-              onComplete={() => { setPartialWorkoutProgress(null); setCheckInData(null); setWorkoutType(null); completeTodayWorkout(); }}
+              onClose={() => { setShowActiveWorkout(false); setCheckInData(null); setWorkoutType(null); setIsResumingWorkout(false); }}
+              onComplete={() => { setPartialWorkoutProgress(null); setCheckInData(null); setWorkoutType(null); setIsResumingWorkout(false); completeTodayWorkout(); }}
               onSaveProgress={setPartialWorkoutProgress}
               COLORS={COLORS}
               availableTime={workoutTime}
@@ -31738,8 +31741,8 @@ export default function UpRepDemo() {
         return (
           <NewWorkoutScreen
             COLORS={COLORS}
-            onClose={() => { setShowActiveWorkout(false); setCheckInData(null); setWorkoutType(null); }}
-            onComplete={() => { setPartialWorkoutProgress(null); setCheckInData(null); setWorkoutType(null); completeTodayWorkout(); }}
+            onClose={() => { setShowActiveWorkout(false); setCheckInData(null); setWorkoutType(null); setIsResumingWorkout(false); }}
+            onComplete={() => { setPartialWorkoutProgress(null); setCheckInData(null); setWorkoutType(null); setIsResumingWorkout(false); completeTodayWorkout(); }}
             onSaveProgress={setPartialWorkoutProgress}
             userId={user?.id}
             workoutName={todayWorkout?.name || 'Workout'}
