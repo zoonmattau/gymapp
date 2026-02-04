@@ -9165,19 +9165,22 @@ function NewWorkoutScreen({
   }, [failedSaves, sessionId]);
 
   // Save progress to parent (for localStorage backup)
-  useEffect(() => {
-    if (onSaveProgress) {
-      onSaveProgress({
-        exercises,
-        sets,
-        workoutStartTime,
-        sessionId,
-        workoutName,
-        workoutType,
-        restDuration,
-      });
-    }
-  }, [exercises, sets, workoutStartTime, sessionId, workoutName, workoutType, restDuration, onSaveProgress]);
+  // TEMPORARILY DISABLED to debug infinite loop
+  // const onSaveProgressRef = useRef(onSaveProgress);
+  // onSaveProgressRef.current = onSaveProgress;
+  // useEffect(() => {
+  //   if (onSaveProgressRef.current) {
+  //     onSaveProgressRef.current({
+  //       exercises,
+  //       sets,
+  //       workoutStartTime,
+  //       sessionId,
+  //       workoutName,
+  //       workoutType,
+  //       restDuration,
+  //     });
+  //   }
+  // }, [exercises, sets, workoutStartTime, sessionId, workoutName, workoutType, restDuration]);
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -13587,126 +13590,6 @@ const HomeTab = ({
           </div>
         </div>
       )}
-
-      {/* Workout Start Modal - Choose between scheduled and free-form */}
-      {showWorkoutStartModal && (
-        <WorkoutStartModal
-          COLORS={COLORS}
-          onClose={() => setShowWorkoutStartModal(false)}
-          onStartScheduled={handleStartScheduledWorkout}
-          onStartFreeform={handleStartFreeformWorkout}
-          scheduledWorkout={todayWorkoutTemplate || todayWorkout}
-          hasPartialProgress={partialWorkoutProgress?.sets?.length > 0}
-        />
-      )}
-
-      {/* Pre-Workout Check-In Modal */}
-      {showPreWorkoutCheckIn && (
-        <PreWorkoutCheckIn
-          onComplete={handleCheckInComplete}
-          onSkip={handleCheckInSkip}
-          COLORS={COLORS}
-          sleepLoggedToday={!!monthlyTracking?.sleep?.[TODAY_DATE_KEY]}
-          userId={user?.id}
-        />
-      )}
-
-      {/* Active Workout Screen */}
-      {showActiveWorkout && (() => {
-        // Free-form workout uses new non-linear UI
-        if (workoutType === 'freeform') {
-          return (
-            <NewWorkoutScreen
-              COLORS={COLORS}
-              onClose={() => { setShowActiveWorkout(false); setCheckInData(null); setWorkoutType(null); }}
-              onComplete={() => { setPartialWorkoutProgress(null); setCheckInData(null); setWorkoutType(null); }}
-              onSaveProgress={setPartialWorkoutProgress}
-              userId={user?.id}
-              workoutName="Free-form Workout"
-              workoutType="freeform"
-              initialExercises={[]}
-              savedProgress={partialWorkoutProgress?.workoutType === 'freeform' ? partialWorkoutProgress : null}
-              checkInData={null}
-              userGoal={userData.goal || 'build_muscle'}
-              userExperience={userData.experience || 'beginner'}
-            />
-          );
-        }
-
-        // Check if resuming a partial workout
-        if (partialWorkoutProgress) {
-          // If resuming a freeform workout
-          if (partialWorkoutProgress.workoutType === 'freeform') {
-            return (
-              <NewWorkoutScreen
-                COLORS={COLORS}
-                onClose={() => { setShowActiveWorkout(false); setCheckInData(null); setWorkoutType(null); }}
-                onComplete={() => { setPartialWorkoutProgress(null); setCheckInData(null); setWorkoutType(null); }}
-                onSaveProgress={setPartialWorkoutProgress}
-                userId={user?.id}
-                workoutName={partialWorkoutProgress.workoutName || 'Free-form Workout'}
-                workoutType="freeform"
-                initialExercises={partialWorkoutProgress.exercises || []}
-                savedProgress={partialWorkoutProgress}
-                checkInData={null}
-                userGoal={userData.goal || 'build_muscle'}
-                userExperience={userData.experience || 'beginner'}
-              />
-            );
-          }
-
-          // Resuming a scheduled workout
-          return (
-            <ActiveWorkoutScreen
-              onClose={() => { setShowActiveWorkout(false); setCheckInData(null); setWorkoutType(null); }}
-              onComplete={() => { setPartialWorkoutProgress(null); setCheckInData(null); setWorkoutType(null); completeTodayWorkout(); }}
-              onSaveProgress={setPartialWorkoutProgress}
-              COLORS={COLORS}
-              availableTime={workoutTime}
-              userGoal={userData.goal || 'build_muscle'}
-              userExperience={userData.experience || 'beginner'}
-              userId={user?.id}
-              workoutName={partialWorkoutProgress.workoutName || todayWorkout?.name || 'Workout'}
-              workoutTemplate={{ exercises: partialWorkoutProgress.exercises }}
-              injuries={injuries}
-              includeWarmup={personalWarmup}
-              includeCooldown={personalCooldown}
-              savedProgress={partialWorkoutProgress}
-              checkInData={null}
-            />
-          );
-        }
-
-        // Get exercises exactly as shown in the workout card
-        const filteredExercises = getCurrentExercises();
-        const recoveryExercises = getInjuryRecoveryExercisesToAdd();
-        const baseExercises = [...filteredExercises, ...recoveryExercises];
-        const fullPool = todayWorkoutTemplate?.exercises || baseExercises;
-
-        // Apply same time/count optimization as displayed
-        const defaultExerciseCount = Math.max(2, Math.floor(workoutTime / 12));
-        const exerciseCount = customExerciseCount || defaultExerciseCount;
-        const workoutTypeForCoverage = todayWorkoutTemplate?.workoutType || todayWorkout?.type || null;
-        const optimizedExercises = optimizeExercisesForTimeAndCount(baseExercises, fullPool, workoutTime, exerciseCount, workoutTypeForCoverage, settings.workout.corePosition, personalWarmup, personalCooldown, !!customizedExercises);
-
-        // Scheduled workout uses new non-linear UI
-        return (
-          <NewWorkoutScreen
-            COLORS={COLORS}
-            onClose={() => { setShowActiveWorkout(false); setCheckInData(null); setWorkoutType(null); }}
-            onComplete={() => { setPartialWorkoutProgress(null); setCheckInData(null); setWorkoutType(null); completeTodayWorkout(); }}
-            onSaveProgress={setPartialWorkoutProgress}
-            userId={user?.id}
-            workoutName={todayWorkout?.name || 'Workout'}
-            workoutType="scheduled"
-            initialExercises={optimizedExercises}
-            savedProgress={null}
-            checkInData={checkInData}
-            userGoal={userData.goal || 'build_muscle'}
-            userExperience={userData.experience || 'beginner'}
-          />
-        );
-      })()}
     </div>
   );
   };
@@ -23060,10 +22943,21 @@ export default function UpRepDemo() {
   };
 
   // Handler for starting a free-form workout
-  const handleStartFreeformWorkout = () => {
+  const handleStartFreeformWorkout = (isResume = false) => {
     setShowWorkoutStartModal(false);
     setWorkoutType('freeform');
     setCheckInData(null); // No check-in for freeform
+
+    // Clear old progress when starting fresh (not resuming)
+    if (!isResume) {
+      setPartialWorkoutProgress(null);
+      try {
+        localStorage.removeItem('uprep_workout_progress');
+      } catch (e) {
+        // Ignore localStorage errors
+      }
+    }
+
     setShowActiveWorkout(true);
   };
 
