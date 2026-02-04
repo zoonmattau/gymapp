@@ -9330,11 +9330,16 @@ function NewWorkoutScreen({
   const exercisesWithSets = exercises.filter(ex => getSetsForExercise(ex.id).length > 0).length;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }} onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background, touchAction: 'manipulation' }} onClick={(e) => e.stopPropagation()} onTouchEnd={(e) => e.stopPropagation()}>
       {/* Header */}
       <div className="p-4 border-b flex items-center justify-between" style={{ borderColor: COLORS.surfaceLight }}>
         <div className="flex items-center gap-3">
-          <button onClick={(e) => { e.stopPropagation(); setShowEndConfirm(true); }}>
+          <button
+            onClick={(e) => { e.stopPropagation(); e.preventDefault(); setShowEndConfirm(true); }}
+            onTouchEnd={(e) => e.stopPropagation()}
+            className="p-2 select-none"
+            style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
+          >
             <X size={24} color={COLORS.text} />
           </button>
           <div>
@@ -9351,9 +9356,10 @@ function NewWorkoutScreen({
           </div>
         </div>
         <button
-          onClick={(e) => { e.stopPropagation(); setShowEndConfirm(true); }}
-          className="px-4 py-2 rounded-xl font-semibold"
-          style={{ backgroundColor: COLORS.success, color: COLORS.text }}
+          onClick={(e) => { e.stopPropagation(); e.preventDefault(); setShowEndConfirm(true); }}
+          onTouchEnd={(e) => e.stopPropagation()}
+          className="px-4 py-2 rounded-xl font-semibold select-none"
+          style={{ backgroundColor: COLORS.success, color: COLORS.text, WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
         >
           Done
         </button>
@@ -9414,9 +9420,10 @@ function NewWorkoutScreen({
       <div className="flex-1 overflow-auto p-4">
         {/* Add Exercise Button - Always at top */}
         <button
-          onClick={(e) => { e.stopPropagation(); setShowAddExercise(true); }}
-          className="w-full p-4 rounded-xl flex items-center justify-center gap-2 mb-4"
-          style={{ backgroundColor: COLORS.primary + '20', border: `2px dashed ${COLORS.primary}` }}
+          onClick={(e) => { e.stopPropagation(); e.preventDefault(); setShowAddExercise(true); }}
+          onTouchEnd={(e) => { e.stopPropagation(); }}
+          className="w-full p-4 rounded-xl flex items-center justify-center gap-2 mb-4 select-none"
+          style={{ backgroundColor: COLORS.primary + '20', border: `2px dashed ${COLORS.primary}`, WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
         >
           <Plus size={20} color={COLORS.primary} />
           <span className="font-semibold" style={{ color: COLORS.primary }}>Add Exercise</span>
@@ -9925,9 +9932,13 @@ function ExerciseSearchModal({ COLORS, onClose, onSelect, excludeExercises = [],
   }, {});
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }} onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background, touchAction: 'manipulation' }} onClick={(e) => e.stopPropagation()} onTouchEnd={(e) => e.stopPropagation()}>
       <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
-        <button onClick={(e) => { e.stopPropagation(); onClose(); }}>
+        <button
+          onClick={(e) => { e.stopPropagation(); e.preventDefault(); onClose(); }}
+          onTouchEnd={(e) => e.stopPropagation()}
+          style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
+        >
           <ChevronLeft size={24} color={COLORS.text} />
         </button>
         <h2 className="text-lg font-bold" style={{ color: COLORS.text }}>Add Exercise</h2>
@@ -9944,7 +9955,6 @@ function ExerciseSearchModal({ COLORS, onClose, onSelect, excludeExercises = [],
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-10 pr-4 py-3 rounded-xl"
             style={{ backgroundColor: COLORS.surface, color: COLORS.text, border: `1px solid ${COLORS.surfaceLight}` }}
-            autoFocus
           />
         </div>
       </div>
@@ -9994,9 +10004,10 @@ function ExerciseSearchModal({ COLORS, onClose, onSelect, excludeExercises = [],
                 {exercises.map(ex => (
                   <button
                     key={ex.name}
-                    onClick={(e) => { e.stopPropagation(); onSelect(ex.name); }}
-                    className="w-full p-4 rounded-xl flex items-center justify-between"
-                    style={{ backgroundColor: COLORS.surface }}
+                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); onSelect(ex.name); }}
+                    onTouchEnd={(e) => e.stopPropagation()}
+                    className="w-full p-4 rounded-xl flex items-center justify-between select-none"
+                    style={{ backgroundColor: COLORS.surface, WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
                   >
                     <div className="text-left">
                       <p className="font-medium" style={{ color: COLORS.text }}>{ex.name}</p>
