@@ -13992,6 +13992,182 @@ const WorkoutTab = ({
   setShowEstimate1RM,
   user,
 }) => {
+  // Simplified WorkoutTab - debugging blank page issue
+  return (
+    <div className="p-4 overflow-auto pb-20" style={{ backgroundColor: '#1a1a2e', height: '100%' }}>
+      <p className="text-xs font-semibold mb-3" style={{ color: '#8b8b9e' }}>THIS WEEK</p>
+
+      {/* Week Navigation */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <button
+            onClick={() => setScheduleWeekOffset && setScheduleWeekOffset(prev => prev - 1)}
+            className="p-2 rounded-lg"
+            style={{ backgroundColor: '#252542' }}
+          >
+            <ChevronLeft size={18} color="#ffffff" />
+          </button>
+          <h3 className="font-semibold" style={{ color: '#ffffff' }}>
+            {getWeekHeaderText ? getWeekHeaderText(scheduleWeekOffset || 0) : 'This Week'}
+          </h3>
+          <button
+            onClick={() => setScheduleWeekOffset && setScheduleWeekOffset(prev => prev + 1)}
+            className="p-2 rounded-lg"
+            style={{ backgroundColor: '#252542' }}
+          >
+            <ChevronRight size={18} color="#ffffff" />
+          </button>
+        </div>
+
+        {/* Week Days */}
+        <div className="flex gap-2">
+          {(currentWeekDates || []).map((day, i) => (
+            <div
+              key={day?.dateKey || i}
+              className="flex-1 p-2 rounded-xl text-center"
+              style={{ backgroundColor: '#252542' }}
+            >
+              <p className="text-xs" style={{ color: '#8b8b9e' }}>{day?.day || '-'}</p>
+              <p className="font-bold" style={{ color: '#ffffff' }}>{day?.date || '-'}</p>
+              <p className="text-xs mt-1" style={{ color: day?.workout ? '#6c5ce7' : '#8b8b9e' }}>
+                {day?.workout?.name?.split(' ')[0] || 'Rest'}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Today's Workout */}
+      <p className="text-xs font-semibold mb-3" style={{ color: '#8b8b9e' }}>TODAY'S WORKOUT</p>
+      <div className="p-4 rounded-xl mb-6" style={{ backgroundColor: '#252542' }}>
+        <h4 className="text-xl font-bold" style={{ color: '#ffffff' }}>
+          {todayWorkout?.name || 'Rest Day'}
+        </h4>
+        <p className="text-sm" style={{ color: '#8b8b9e' }}>
+          {todayWorkout?.focus || 'Take a break and recover'}
+        </p>
+        {todayWorkout?.type !== 'Rest' && (
+          <button
+            onClick={() => handleStartWorkout && handleStartWorkout()}
+            className="w-full mt-4 py-3 rounded-xl font-semibold"
+            style={{ backgroundColor: '#6c5ce7', color: '#ffffff' }}
+          >
+            Start Workout
+          </button>
+        )}
+      </div>
+
+      {/* Quick Actions */}
+      <p className="text-xs font-semibold mb-3" style={{ color: '#8b8b9e' }}>QUICK ACTIONS</p>
+      <div className="grid grid-cols-2 gap-3 mb-6">
+        <button
+          onClick={() => setShowExerciseLibrary && setShowExerciseLibrary(true)}
+          className="p-4 rounded-xl text-left"
+          style={{ backgroundColor: '#252542' }}
+        >
+          <Dumbbell size={24} color="#6c5ce7" />
+          <p className="font-semibold mt-2" style={{ color: '#ffffff' }}>Exercise Library</p>
+        </button>
+        <button
+          onClick={() => setShowWorkoutHistory && setShowWorkoutHistory(true)}
+          className="p-4 rounded-xl text-left"
+          style={{ backgroundColor: '#252542' }}
+        >
+          <History size={24} color="#6c5ce7" />
+          <p className="font-semibold mt-2" style={{ color: '#ffffff' }}>History</p>
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// Original complex WorkoutTab code - BACKUP (keeping the props signature for reference)
+const WorkoutTabBackup = ({
+  COLORS,
+  workoutTabScrollRef,
+  handleWorkoutTabScroll,
+  scheduleWeekOffset,
+  setScheduleWeekOffset,
+  getWeekHeaderText,
+  setShowScheduleSettings,
+  draggedDay,
+  setDraggedDay,
+  dragOverDay,
+  setDragOverDay,
+  currentWeekDates,
+  overviewStats,
+  setEditingScheduleDay,
+  swapWorkoutDays,
+  getWorkoutColor,
+  isPaused,
+  pauseReturnDate,
+  setIsPaused,
+  setPauseReturnDate,
+  todayWorkout,
+  setTodayWorkout,
+  todayWorkoutCompleted,
+  todayWorkoutTemplate,
+  isRescheduled,
+  originalWorkout,
+  setIsRescheduled,
+  setOriginalWorkout,
+  workoutStats,
+  setShowPausePlan,
+  setShowReschedule,
+  setShowWorkoutPreview,
+  showWorkoutTimeEditor,
+  setShowWorkoutTimeEditor,
+  workoutTime,
+  customExerciseCount,
+  setCustomExerciseCount,
+  updateWorkoutTimeWithScroll,
+  getCurrentExercises,
+  settings,
+  personalWarmup,
+  personalCooldown,
+  setPersonalWarmup,
+  setPersonalCooldown,
+  customizedExercises,
+  optimizeExercisesForTimeAndCount,
+  getWorkoutTimeBreakdown,
+  updateExerciseCountWithScroll,
+  exerciseListCollapsed,
+  toggleExerciseListWithScroll,
+  resetCustomizations,
+  expandedExerciseId,
+  toggleExpandedExercise,
+  moveExerciseInHome,
+  showExerciseInfoWithScroll,
+  userData,
+  swapExercise,
+  removeExercise,
+  partialWorkoutProgress,
+  setShowActiveWorkout,
+  upcomingWorkouts,
+  setShowExerciseLibrary,
+  setShowWorkoutHistory,
+  setShowPersonalRecords,
+  setShowCustomWorkout,
+  workoutHistory,
+  setShowWorkoutSummary,
+  personalRecords,
+  setShowPRLeaderboard,
+  loadPRLeaderboard,
+  setShowExerciseDetail,
+  currentProgram,
+  programProgress,
+  setShowProgramSelector,
+  suggestedNextPrograms,
+  selectedNextProgram,
+  setSelectedNextProgram,
+  selectedBreakDuration,
+  setSelectedBreakDuration,
+  BREAK_OPTIONS,
+  handleStartWorkout,
+  showEstimate1RM,
+  setShowEstimate1RM,
+  user,
+}) => {
   // Safety check for required data
   if (!currentWeekDates || !Array.isArray(currentWeekDates) || !todayWorkout || !COLORS) {
     return (
