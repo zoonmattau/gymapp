@@ -13992,91 +13992,288 @@ const WorkoutTab = ({
   setShowEstimate1RM,
   user,
 }) => {
-  // Simplified WorkoutTab - debugging blank page issue
+  // Use COLORS if available, fallback to hardcoded values
+  const colors = COLORS || {
+    background: '#1a1a2e',
+    surface: '#252542',
+    surfaceLight: '#2d2d4a',
+    text: '#ffffff',
+    textMuted: '#8b8b9e',
+    textSecondary: '#a0a0b0',
+    primary: '#6c5ce7',
+    success: '#00b894',
+    warning: '#fdcb6e',
+    accent: '#e056fd'
+  };
+
+  // Helper to get workout color
+  const getColor = (workoutName) => {
+    if (!workoutName) return colors.textMuted;
+    if (getWorkoutColor) return getWorkoutColor(workoutName, colors);
+    const name = workoutName.toLowerCase();
+    if (name.includes('push')) return '#e056fd';
+    if (name.includes('pull')) return '#00b894';
+    if (name.includes('leg')) return '#fdcb6e';
+    return colors.primary;
+  };
+
   return (
-    <div className="p-4 overflow-auto pb-20" style={{ backgroundColor: '#1a1a2e', height: '100%' }}>
-      <p className="text-xs font-semibold mb-3" style={{ color: '#8b8b9e' }}>THIS WEEK</p>
+    <div ref={workoutTabScrollRef} onScroll={handleWorkoutTabScroll} className="p-4 overflow-auto pb-20" style={{ backgroundColor: colors.background, height: '100%' }}>
+      <p className="text-xs font-semibold mb-3" style={{ color: colors.textMuted }}>THIS WEEK</p>
 
       {/* Week Navigation */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-3">
-          <button
-            onClick={() => setScheduleWeekOffset && setScheduleWeekOffset(prev => prev - 1)}
-            className="p-2 rounded-lg"
-            style={{ backgroundColor: '#252542' }}
-          >
-            <ChevronLeft size={18} color="#ffffff" />
-          </button>
-          <h3 className="font-semibold" style={{ color: '#ffffff' }}>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setScheduleWeekOffset && setScheduleWeekOffset(prev => prev - 1)}
+              className="p-2 rounded-lg"
+              style={{ backgroundColor: colors.surface }}
+            >
+              <ChevronLeft size={18} color={colors.text} />
+            </button>
+          </div>
+          <h3 className="font-semibold" style={{ color: colors.text }}>
             {getWeekHeaderText ? getWeekHeaderText(scheduleWeekOffset || 0) : 'This Week'}
           </h3>
-          <button
-            onClick={() => setScheduleWeekOffset && setScheduleWeekOffset(prev => prev + 1)}
-            className="p-2 rounded-lg"
-            style={{ backgroundColor: '#252542' }}
-          >
-            <ChevronRight size={18} color="#ffffff" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setScheduleWeekOffset && setScheduleWeekOffset(prev => prev + 1)}
+              className="p-2 rounded-lg"
+              style={{ backgroundColor: colors.surface }}
+            >
+              <ChevronRight size={18} color={colors.text} />
+            </button>
+            <button
+              onClick={() => setShowScheduleSettings && setShowScheduleSettings(true)}
+              className="p-2 rounded-lg"
+              style={{ backgroundColor: colors.surface }}
+            >
+              <Settings size={18} color={colors.textMuted} />
+            </button>
+          </div>
         </div>
 
         {/* Week Days */}
         <div className="flex gap-2">
-          {(currentWeekDates || []).map((day, i) => (
-            <div
-              key={day?.dateKey || i}
-              className="flex-1 p-2 rounded-xl text-center"
-              style={{ backgroundColor: '#252542' }}
-            >
-              <p className="text-xs" style={{ color: '#8b8b9e' }}>{day?.day || '-'}</p>
-              <p className="font-bold" style={{ color: '#ffffff' }}>{day?.date || '-'}</p>
-              <p className="text-xs mt-1" style={{ color: day?.workout ? '#6c5ce7' : '#8b8b9e' }}>
-                {day?.workout?.name?.split(' ')[0] || 'Rest'}
-              </p>
-            </div>
-          ))}
-        </div>
-      </div>
+          {(currentWeekDates || []).map((day, i) => {
+            const isCompleted = day?.completed;
+            const isToday = day?.isToday;
+            const isPastRest = day?.isPast && !day?.workout;
+            const effectivelyDone = isCompleted || isPastRest;
 
-      {/* Today's Workout */}
-      <p className="text-xs font-semibold mb-3" style={{ color: '#8b8b9e' }}>TODAY'S WORKOUT</p>
-      <div className="p-4 rounded-xl mb-6" style={{ backgroundColor: '#252542' }}>
-        <h4 className="text-xl font-bold" style={{ color: '#ffffff' }}>
-          {todayWorkout?.name || 'Rest Day'}
-        </h4>
-        <p className="text-sm" style={{ color: '#8b8b9e' }}>
-          {todayWorkout?.focus || 'Take a break and recover'}
-        </p>
-        {todayWorkout?.type !== 'Rest' && (
+            return (
+              <button
+                key={day?.dateKey || i}
+                onClick={() => setEditingScheduleDay && setEditingScheduleDay(day)}
+                className="flex-1 p-2 rounded-xl text-center"
+                style={{
+                  backgroundColor: effectivelyDone ? colors.success + '15' : isToday ? colors.primary + '20' : colors.surface,
+                  border: effectivelyDone ? `2px solid ${colors.success}` : isToday ? `2px solid ${colors.primary}` : '2px solid transparent'
+                }}
+              >
+                <p className="text-xs" style={{ color: effectivelyDone ? colors.success : colors.textMuted }}>{day?.day || '-'}</p>
+                <p className="font-bold" style={{ color: effectivelyDone ? colors.success : isToday ? colors.primary : colors.text }}>{day?.date || '-'}</p>
+                {isCompleted ? (
+                  <div className="flex items-center justify-center gap-1 mt-1">
+                    <Check size={10} color={colors.success} />
+                    <p className="text-xs" style={{ color: colors.success }}>Done</p>
+                  </div>
+                ) : isPastRest ? (
+                  <div className="flex items-center justify-center gap-1 mt-1">
+                    <Check size={10} color={colors.success} />
+                    <p className="text-xs" style={{ color: colors.success }}>Rest</p>
+                  </div>
+                ) : (
+                  <p className="text-xs mt-1 truncate" style={{ color: day?.workout ? getColor(day.workout.name) : colors.textMuted }}>
+                    {day?.workout?.name?.split(' ')[0] || 'Rest'}
+                  </p>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        {scheduleWeekOffset !== 0 && (
           <button
-            onClick={() => handleStartWorkout && handleStartWorkout()}
-            className="w-full mt-4 py-3 rounded-xl font-semibold"
-            style={{ backgroundColor: '#6c5ce7', color: '#ffffff' }}
+            onClick={() => setScheduleWeekOffset && setScheduleWeekOffset(0)}
+            className="w-full mt-2 py-2 rounded-lg text-sm"
+            style={{ backgroundColor: colors.surfaceLight, color: colors.primary }}
           >
-            Start Workout
+            Back to This Week
           </button>
         )}
+        <p className="text-xs text-center mt-2" style={{ color: colors.textMuted }}>
+          Tap any day to edit
+        </p>
       </div>
 
+      {/* Today's Workout - Only show when viewing current week */}
+      {scheduleWeekOffset === 0 && (
+        <>
+          <p className="text-xs font-semibold mb-3" style={{ color: colors.textMuted }}>TODAY'S WORKOUT</p>
+
+          {/* Completed State */}
+          {todayWorkout?.type !== 'Rest' && todayWorkoutCompleted && (
+            <div className="p-4 rounded-xl mb-6" style={{ backgroundColor: colors.surface, borderLeft: `4px solid ${colors.success}` }}>
+              <div className="flex justify-between items-start mb-3">
+                <div>
+                  <span className="text-xs px-2 py-1 rounded font-semibold flex items-center gap-1" style={{ backgroundColor: colors.success + '20', color: colors.success }}>
+                    <Check size={12} /> COMPLETED
+                  </span>
+                  <h4 className="text-xl font-bold mt-2" style={{ color: colors.text }}>{todayWorkout?.name}</h4>
+                  <p className="text-sm" style={{ color: colors.success }}>Great work today!</p>
+                </div>
+                <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: colors.success + '20' }}>
+                  <Check size={24} color={colors.success} />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Not Completed - Active Workout */}
+          {todayWorkout?.type !== 'Rest' && !todayWorkoutCompleted && (
+            <div className="p-4 rounded-xl mb-6" style={{ backgroundColor: colors.surface, borderLeft: `4px solid ${getColor(todayWorkout?.type)}` }}>
+              <div className="flex justify-between items-start mb-3">
+                <div>
+                  <span className="text-xs px-2 py-1 rounded font-semibold" style={{ backgroundColor: getColor(todayWorkout?.type) + '20', color: getColor(todayWorkout?.type) }}>
+                    TODAY
+                  </span>
+                  <h4 className="text-xl font-bold mt-2" style={{ color: colors.text }}>{todayWorkout?.name || 'Workout'}</h4>
+                  <p className="text-sm" style={{ color: getColor(todayWorkout?.type) }}>{todayWorkout?.focus}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setShowPausePlan && setShowPausePlan(true)} className="p-2 rounded-lg" style={{ backgroundColor: colors.surfaceLight }}>
+                    <Moon size={16} color={colors.textMuted} />
+                  </button>
+                  <button onClick={() => setShowReschedule && setShowReschedule(true)} className="p-2 rounded-lg" style={{ backgroundColor: colors.surfaceLight }}>
+                    <Calendar size={16} color={colors.textMuted} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Start Workout Button */}
+              <button
+                onClick={() => handleStartWorkout && handleStartWorkout()}
+                className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
+                style={{ backgroundColor: getColor(todayWorkout?.type), color: colors.text }}
+              >
+                <Play size={18} /> Start Workout
+              </button>
+            </div>
+          )}
+
+          {/* Rest Day */}
+          {todayWorkout?.type === 'Rest' && (
+            <div className="p-4 rounded-xl mb-6" style={{ backgroundColor: colors.surface }}>
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: colors.primary + '20' }}>
+                  <Coffee size={24} color={colors.primary} />
+                </div>
+                <div>
+                  <h4 className="text-lg font-bold" style={{ color: colors.text }}>Rest Day</h4>
+                  <p className="text-sm" style={{ color: colors.textSecondary }}>Recovery is part of the process</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowCustomWorkout && setShowCustomWorkout(true)}
+                className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
+                style={{ backgroundColor: colors.primary, color: colors.text }}
+              >
+                <Play size={18} /> Start Freeform Workout
+              </button>
+            </div>
+          )}
+        </>
+      )}
+
       {/* Quick Actions */}
-      <p className="text-xs font-semibold mb-3" style={{ color: '#8b8b9e' }}>QUICK ACTIONS</p>
+      <p className="text-xs font-semibold mb-3" style={{ color: colors.textMuted }}>QUICK ACTIONS</p>
       <div className="grid grid-cols-2 gap-3 mb-6">
         <button
           onClick={() => setShowExerciseLibrary && setShowExerciseLibrary(true)}
           className="p-4 rounded-xl text-left"
-          style={{ backgroundColor: '#252542' }}
+          style={{ backgroundColor: colors.surface }}
         >
-          <Dumbbell size={24} color="#6c5ce7" />
-          <p className="font-semibold mt-2" style={{ color: '#ffffff' }}>Exercise Library</p>
+          <Dumbbell size={24} color={colors.primary} />
+          <p className="font-semibold mt-2" style={{ color: colors.text }}>Exercise Library</p>
+          <p className="text-xs" style={{ color: colors.textMuted }}>Browse all exercises</p>
         </button>
         <button
           onClick={() => setShowWorkoutHistory && setShowWorkoutHistory(true)}
           className="p-4 rounded-xl text-left"
-          style={{ backgroundColor: '#252542' }}
+          style={{ backgroundColor: colors.surface }}
         >
-          <History size={24} color="#6c5ce7" />
-          <p className="font-semibold mt-2" style={{ color: '#ffffff' }}>History</p>
+          <History size={24} color={colors.primary} />
+          <p className="font-semibold mt-2" style={{ color: colors.text }}>History</p>
+          <p className="text-xs" style={{ color: colors.textMuted }}>{workoutHistory?.length || 0} workouts</p>
+        </button>
+        <button
+          onClick={() => setShowPersonalRecords && setShowPersonalRecords(true)}
+          className="p-4 rounded-xl text-left"
+          style={{ backgroundColor: colors.surface }}
+        >
+          <Trophy size={24} color={colors.warning} />
+          <p className="font-semibold mt-2" style={{ color: colors.text }}>Personal Records</p>
+          <p className="text-xs" style={{ color: colors.textMuted }}>{personalRecords?.length || 0} PRs</p>
+        </button>
+        <button
+          onClick={() => setShowCustomWorkout && setShowCustomWorkout(true)}
+          className="p-4 rounded-xl text-left"
+          style={{ backgroundColor: colors.surface }}
+        >
+          <Plus size={24} color={colors.accent} />
+          <p className="font-semibold mt-2" style={{ color: colors.text }}>Custom Workout</p>
+          <p className="text-xs" style={{ color: colors.textMuted }}>Build your own</p>
         </button>
       </div>
+
+      {/* Recent Activity */}
+      <p className="text-xs font-semibold mb-3" style={{ color: colors.textMuted }}>RECENT ACTIVITY</p>
+      <div className="mb-6">
+        {(!workoutHistory || workoutHistory.length === 0) ? (
+          <div className="p-6 rounded-xl text-center" style={{ backgroundColor: colors.surface }}>
+            <div className="w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center" style={{ backgroundColor: colors.surfaceLight }}>
+              <Dumbbell size={24} color={colors.textMuted} />
+            </div>
+            <p className="font-semibold mb-1" style={{ color: colors.text }}>No workouts yet</p>
+            <p className="text-xs" style={{ color: colors.textMuted }}>Complete your first workout to see your activity here</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {workoutHistory.slice(0, 3).map((item) => (
+              <button
+                key={item?.id || Math.random()}
+                onClick={() => {
+                  if (setShowWorkoutSummary) setShowWorkoutSummary(item);
+                }}
+                className="w-full p-3 rounded-xl flex items-center gap-3"
+                style={{ backgroundColor: colors.surface }}
+              >
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: getColor(item?.template_name || item?.name) + '20' }}>
+                  <Dumbbell size={18} color={getColor(item?.template_name || item?.name)} />
+                </div>
+                <div className="flex-1 text-left">
+                  <p className="font-semibold text-sm" style={{ color: colors.text }}>{item?.template_name || item?.name || 'Workout'}</p>
+                  <p className="text-xs" style={{ color: colors.textMuted }}>
+                    {item?.completed_at ? new Date(item.completed_at).toLocaleDateString() : 'Recently'}
+                  </p>
+                </div>
+                <ChevronRight size={18} color={colors.textMuted} />
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* 1RM Tracker Modal */}
+      {showEstimate1RM && (
+        <Estimate1RMTracker
+          COLORS={colors}
+          onClose={() => setShowEstimate1RM && setShowEstimate1RM(false)}
+          workoutHistory={workoutHistory}
+          userId={user?.id}
+        />
+      )}
     </div>
   );
 };
