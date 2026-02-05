@@ -14095,12 +14095,12 @@ const WorkoutTab = ({
                 onPointerCancel={handleDragEnd}
                 className="flex-1 p-2 rounded-xl text-center"
                 style={{
-                  backgroundColor: effectivelyDone ? colors.success + '15' : isToday ? colors.primary + '20' : colors.surface,
+                  backgroundColor: isDragging ? colors.primary : effectivelyDone ? colors.success + '15' : isToday ? colors.primary + '20' : colors.surface,
                   border: isDragOver ? `2px solid ${colors.accent}` : effectivelyDone ? `2px solid ${colors.success}` : isToday ? `2px solid ${colors.primary}` : '2px solid transparent',
-                  transform: isDragging ? 'scale(1.08)' : 'scale(1)',
-                  boxShadow: isDragging ? '0 4px 12px rgba(0,0,0,0.3)' : 'none',
+                  transform: isDragging ? 'scale(1.25)' : 'scale(1)',
+                  boxShadow: isDragging ? '0 8px 24px rgba(108, 92, 231, 0.5)' : 'none',
                   cursor: canDrag ? 'grab' : 'default',
-                  transition: 'transform 0.15s, box-shadow 0.15s, border 0.15s',
+                  transition: 'transform 0.15s, box-shadow 0.15s, border 0.15s, background-color 0.15s',
                   touchAction: 'none',
                   zIndex: isDragging ? 10 : 1,
                   opacity: day?.isPast && !effectivelyDone ? 0.5 : 1
