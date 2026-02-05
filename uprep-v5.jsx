@@ -14095,8 +14095,8 @@ const WorkoutTab = ({
                 onPointerCancel={handleDragEnd}
                 className="flex-1 p-2 rounded-xl text-center"
                 style={{
-                  backgroundColor: isDragging ? colors.primary : effectivelyDone ? colors.success + '15' : isToday ? colors.primary + '20' : colors.surface,
-                  border: isDragOver ? `2px solid ${colors.accent}` : effectivelyDone ? `2px solid ${colors.success}` : isToday ? `2px solid ${colors.primary}` : '2px solid transparent',
+                  backgroundColor: isDragging ? colors.primary + '30' : effectivelyDone ? colors.success + '15' : isToday ? colors.primary + '20' : colors.surface,
+                  border: isDragging ? `3px solid ${colors.primary}` : isDragOver ? `2px solid ${colors.accent}` : effectivelyDone ? `2px solid ${colors.success}` : isToday ? `2px solid ${colors.primary}` : '2px solid transparent',
                   transform: isDragging ? 'scale(1.25)' : 'scale(1)',
                   boxShadow: isDragging ? '0 8px 24px rgba(108, 92, 231, 0.5)' : 'none',
                   cursor: canDrag ? 'grab' : 'default',
@@ -14106,20 +14106,20 @@ const WorkoutTab = ({
                   opacity: day?.isPast && !effectivelyDone ? 0.5 : 1
                 }}
               >
-                <p className="text-xs" style={{ color: effectivelyDone ? colors.success : colors.textMuted }}>{day?.day || '-'}</p>
-                <p className="font-bold" style={{ color: effectivelyDone ? colors.success : isToday ? colors.primary : colors.text }}>{day?.date || '-'}</p>
+                <p className="text-xs" style={{ color: isDragging ? colors.text : effectivelyDone ? colors.success : colors.textMuted }}>{day?.day || '-'}</p>
+                <p className="font-bold" style={{ color: isDragging ? colors.text : effectivelyDone ? colors.success : isToday ? colors.primary : colors.text }}>{day?.date || '-'}</p>
                 {isCompleted ? (
                   <div className="flex items-center justify-center gap-1 mt-1">
-                    <Check size={10} color={colors.success} />
-                    <p className="text-xs" style={{ color: colors.success }}>Done</p>
+                    <Check size={10} color={isDragging ? colors.text : colors.success} />
+                    <p className="text-xs" style={{ color: isDragging ? colors.text : colors.success }}>Done</p>
                   </div>
                 ) : isPastRest ? (
                   <div className="flex items-center justify-center gap-1 mt-1">
-                    <Check size={10} color={colors.success} />
-                    <p className="text-xs" style={{ color: colors.success }}>Rest</p>
+                    <Check size={10} color={isDragging ? colors.text : colors.success} />
+                    <p className="text-xs" style={{ color: isDragging ? colors.text : colors.success }}>Rest</p>
                   </div>
                 ) : (
-                  <p className="text-xs mt-1 truncate" style={{ color: day?.workout ? getColor(day.workout.name) : colors.textMuted }}>
+                  <p className="text-xs mt-1 truncate" style={{ color: isDragging ? colors.text : day?.workout ? getColor(day.workout.name) : colors.textMuted }}>
                     {day?.workout?.name?.split(' ')[0] || 'Rest'}
                   </p>
                 )}
