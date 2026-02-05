@@ -14017,6 +14017,25 @@ const WorkoutTab = ({
     return colors.primary;
   };
 
+  // Drag handlers for rescheduling workouts
+  const handleDragStart = (day) => {
+    if (day?.isPast) return; // Can't drag past days
+    if (setDraggedDay) setDraggedDay(day);
+  };
+
+  const handleDragOver = (day) => {
+    if (!draggedDay || day?.dateKey === draggedDay?.dateKey || day?.isPast) return;
+    if (setDragOverDay) setDragOverDay(day);
+  };
+
+  const handleDragEnd = () => {
+    if (draggedDay && dragOverDay && draggedDay.dateKey !== dragOverDay.dateKey) {
+      if (swapWorkoutDays) swapWorkoutDays(draggedDay.dateKey, dragOverDay.dateKey);
+    }
+    if (setDraggedDay) setDraggedDay(null);
+    if (setDragOverDay) setDragOverDay(null);
+  };
+
   return (
     <div ref={workoutTabScrollRef} onScroll={handleWorkoutTabScroll} className="p-4 overflow-auto pb-20" style={{ backgroundColor: colors.background, height: '100%' }}>
       <p className="text-xs font-semibold mb-3" style={{ color: colors.textMuted }}>THIS WEEK</p>
@@ -14054,22 +14073,37 @@ const WorkoutTab = ({
           </div>
         </div>
 
-        {/* Week Days */}
+        {/* Week Days - Drag to reschedule */}
         <div className="flex gap-2">
           {(currentWeekDates || []).map((day, i) => {
             const isCompleted = day?.completed;
             const isToday = day?.isToday;
             const isPastRest = day?.isPast && !day?.workout;
             const effectivelyDone = isCompleted || isPastRest;
+            const isDragging = draggedDay?.dateKey === day?.dateKey;
+            const isDragOver = dragOverDay?.dateKey === day?.dateKey;
+            const canDrag = !day?.isPast;
 
             return (
               <button
                 key={day?.dateKey || i}
-                onClick={() => setEditingScheduleDay && setEditingScheduleDay(day)}
+                onClick={() => !draggedDay && setEditingScheduleDay && setEditingScheduleDay(day)}
+                onPointerDown={() => handleDragStart(day)}
+                onPointerEnter={() => draggedDay && handleDragOver(day)}
+                onPointerUp={handleDragEnd}
+                onPointerLeave={() => setDragOverDay && setDragOverDay(null)}
+                onPointerCancel={handleDragEnd}
                 className="flex-1 p-2 rounded-xl text-center"
                 style={{
                   backgroundColor: effectivelyDone ? colors.success + '15' : isToday ? colors.primary + '20' : colors.surface,
-                  border: effectivelyDone ? `2px solid ${colors.success}` : isToday ? `2px solid ${colors.primary}` : '2px solid transparent'
+                  border: isDragOver ? `2px solid ${colors.accent}` : effectivelyDone ? `2px solid ${colors.success}` : isToday ? `2px solid ${colors.primary}` : '2px solid transparent',
+                  transform: isDragging ? 'scale(1.08)' : 'scale(1)',
+                  boxShadow: isDragging ? '0 4px 12px rgba(0,0,0,0.3)' : 'none',
+                  cursor: canDrag ? 'grab' : 'default',
+                  transition: 'transform 0.15s, box-shadow 0.15s, border 0.15s',
+                  touchAction: 'none',
+                  zIndex: isDragging ? 10 : 1,
+                  opacity: day?.isPast && !effectivelyDone ? 0.5 : 1
                 }}
               >
                 <p className="text-xs" style={{ color: effectivelyDone ? colors.success : colors.textMuted }}>{day?.day || '-'}</p>
@@ -14103,7 +14137,7 @@ const WorkoutTab = ({
           </button>
         )}
         <p className="text-xs text-center mt-2" style={{ color: colors.textMuted }}>
-          Tap any day to edit
+          Tap to edit • Hold and drag to reschedule
         </p>
       </div>
 
