@@ -14005,6 +14005,10 @@ const WorkoutTab = ({
     <div ref={workoutTabScrollRef} onScroll={handleWorkoutTabScroll} className="p-4 overflow-auto pb-20" style={{ backgroundColor: COLORS.background, height: '100%' }}>
       {/* Scrollable Week Schedule */}
       <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>THIS WEEK</p>
+      {/* Debug: Show that component loaded - REMOVE AFTER TESTING */}
+      <div style={{ backgroundColor: '#FF0000', padding: '20px', marginBottom: '20px' }}>
+        <p style={{ color: 'white', fontWeight: 'bold' }}>WORKOUT TAB LOADED - Data: {currentWeekDates?.length || 0} days</p>
+      </div>
       <div className="mb-6">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-1">
