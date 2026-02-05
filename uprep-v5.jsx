@@ -13991,60 +13991,70 @@ const WorkoutTab = ({
   showEstimate1RM,
   setShowEstimate1RM,
   user,
-}) => (
-  <div ref={workoutTabScrollRef} onScroll={handleWorkoutTabScroll} className="p-4 overflow-auto pb-20" style={{ backgroundColor: COLORS.background, height: '100%' }}>
-            {/* Scrollable Week Schedule */}
-            <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>THIS WEEK</p>
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => setScheduleWeekOffset(prev => prev - 1)}
-                    className="p-2 rounded-lg"
-                    style={{ backgroundColor: COLORS.surface }}
-                  >
-                    <ChevronLeft size={18} color={COLORS.text} />
-                  </button>
-                </div>
-                <h3 className="font-semibold" style={{ color: COLORS.text }}>{getWeekHeaderText(scheduleWeekOffset)}</h3>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => setScheduleWeekOffset(prev => prev + 1)}
-                    className="p-2 rounded-lg"
-                    style={{ backgroundColor: COLORS.surface }}
-                  >
-                    <ChevronRight size={18} color={COLORS.text} />
-                  </button>
-                  <button
-                    onClick={() => setShowScheduleSettings(true)}
-                    className="p-2 rounded-lg"
-                    style={{ backgroundColor: COLORS.surface }}
-                  >
-                    <Settings size={18} color={COLORS.textMuted} />
-                  </button>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                {(() => {
-                  // Drag handlers for week schedule (works for both workouts and rest days)
-                  const handleDragStart = (day, isBeforeProgram) => {
-                    if (day.isPast || isBeforeProgram) return;
-                    setDraggedDay(day);
-                  };
-                  const handleDragOver = (day) => {
-                    if (!draggedDay || day.dateKey === draggedDay.dateKey || day.isPast) return;
-                    setDragOverDay(day);
-                  };
-                  const handleDragEnd = () => {
-                    if (draggedDay && dragOverDay && draggedDay.dateKey !== dragOverDay.dateKey) {
-                      swapWorkoutDays(draggedDay.dateKey, dragOverDay.dateKey);
-                    }
-                    setDraggedDay(null);
-                    setDragOverDay(null);
-                  };
+}) => {
+  // Safety check for required data
+  if (!currentWeekDates || !Array.isArray(currentWeekDates)) {
+    return (
+      <div className="p-4 overflow-auto pb-20" style={{ backgroundColor: COLORS.background, height: '100%' }}>
+        <p style={{ color: COLORS.text }}>Loading workouts...</p>
+      </div>
+    );
+  }
 
-                  return currentWeekDates.map((day, i) => {
-                    const isBeforeProgram = overviewStats.programStartDate && day.dateKey < overviewStats.programStartDate;
+  return (
+    <div ref={workoutTabScrollRef} onScroll={handleWorkoutTabScroll} className="p-4 overflow-auto pb-20" style={{ backgroundColor: COLORS.background, height: '100%' }}>
+      {/* Scrollable Week Schedule */}
+      <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>THIS WEEK</p>
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setScheduleWeekOffset(prev => prev - 1)}
+              className="p-2 rounded-lg"
+              style={{ backgroundColor: COLORS.surface }}
+            >
+              <ChevronLeft size={18} color={COLORS.text} />
+            </button>
+          </div>
+          <h3 className="font-semibold" style={{ color: COLORS.text }}>{getWeekHeaderText ? getWeekHeaderText(scheduleWeekOffset) : 'This Week'}</h3>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setScheduleWeekOffset(prev => prev + 1)}
+              className="p-2 rounded-lg"
+              style={{ backgroundColor: COLORS.surface }}
+            >
+              <ChevronRight size={18} color={COLORS.text} />
+            </button>
+            <button
+              onClick={() => setShowScheduleSettings(true)}
+              className="p-2 rounded-lg"
+              style={{ backgroundColor: COLORS.surface }}
+            >
+              <Settings size={18} color={COLORS.textMuted} />
+            </button>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          {(() => {
+            // Drag handlers for week schedule (works for both workouts and rest days)
+            const handleDragStart = (day, isBeforeProgram) => {
+              if (day.isPast || isBeforeProgram) return;
+              setDraggedDay(day);
+            };
+            const handleDragOver = (day) => {
+              if (!draggedDay || day.dateKey === draggedDay.dateKey || day.isPast) return;
+              setDragOverDay(day);
+            };
+            const handleDragEnd = () => {
+              if (draggedDay && dragOverDay && draggedDay.dateKey !== dragOverDay.dateKey) {
+                swapWorkoutDays(draggedDay.dateKey, dragOverDay.dateKey);
+              }
+              setDraggedDay(null);
+              setDragOverDay(null);
+            };
+
+            return currentWeekDates.map((day, i) => {
+              const isBeforeProgram = overviewStats?.programStartDate && day.dateKey < overviewStats.programStartDate;
                     const isMissed = day.isPast && day.workout && !day.completed && !isBeforeProgram;
                     // Past rest days are considered "completed" since there's nothing to do
                     const isPastRestDay = day.isPast && !day.workout && !isBeforeProgram;
@@ -15019,8 +15029,9 @@ const WorkoutTab = ({
               userId={user?.id}
             />
           )}
-          </div>
-);
+    </div>
+  );
+};
 
 // FriendsTab Component - extracted outside UpRepDemo to prevent re-creation on state changes
 const FriendsTab = ({
