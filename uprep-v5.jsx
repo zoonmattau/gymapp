@@ -14037,7 +14037,7 @@ const WorkoutTab = ({
   };
 
   return (
-    <div ref={workoutTabScrollRef} onScroll={handleWorkoutTabScroll} className="p-4 overflow-auto pb-20" style={{ backgroundColor: colors.background, height: '100%' }}>
+    <div ref={workoutTabScrollRef} onScroll={handleWorkoutTabScroll} className="p-4 overflow-y-auto overflow-x-hidden pb-20" style={{ backgroundColor: colors.background, height: '100%', maxWidth: '100%' }}>
       <p className="text-xs font-semibold mb-3" style={{ color: colors.textMuted }}>THIS WEEK</p>
 
       {/* Week Navigation */}
