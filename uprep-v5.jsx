@@ -31639,7 +31639,7 @@ export default function UpRepDemo() {
         />
       )}
 
-      <div className="flex justify-around py-2 border-t" style={{ backgroundColor: COLORS.surface, borderColor: COLORS.surfaceLight }}>
+      <div className="flex justify-around py-2 border-t" style={{ backgroundColor: COLORS.surface, borderColor: COLORS.surfaceLight, paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}>
         {[
           { id: 'home', icon: Home, label: 'Home' },
           { id: 'workouts', icon: Dumbbell, label: 'Workouts' },
@@ -31648,7 +31648,7 @@ export default function UpRepDemo() {
           { id: 'progress', icon: BarChart3, label: 'Progress' },
           { id: 'profile', icon: User, label: 'Profile' },
         ].map(tab => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id)} className="flex flex-col items-center gap-0.5">
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)} className="flex flex-col items-center gap-0.5 min-h-[44px] min-w-[44px] justify-center">
             <tab.icon size={18} color={activeTab === tab.id ? COLORS.primary : COLORS.textMuted} />
             <span style={{ fontSize: 9, color: activeTab === tab.id ? COLORS.primary : COLORS.textMuted }}>{tab.label}</span>
           </button>
@@ -31660,7 +31660,7 @@ export default function UpRepDemo() {
   // Show loading screen while checking auth
   if (authLoading) {
     return (
-      <div className="w-full h-screen flex flex-col items-center justify-center" style={{ backgroundColor: COLORS.background }}>
+      <div className="w-full flex flex-col items-center justify-center" style={{ backgroundColor: COLORS.background, height: '100%', minHeight: '100dvh' }}>
         <Loader2 size={48} color={COLORS.primary} className="animate-spin mb-4" />
         <p style={{ color: COLORS.textSecondary }}>Loading...</p>
       </div>
@@ -31670,7 +31670,7 @@ export default function UpRepDemo() {
   // Show loading while data is being fetched from database
   if (isAuthenticated && dataLoading) {
     return (
-      <div className="w-full h-screen flex flex-col items-center justify-center" style={{ backgroundColor: COLORS.background }}>
+      <div className="w-full flex flex-col items-center justify-center" style={{ backgroundColor: COLORS.background, height: '100%', minHeight: '100dvh' }}>
         <Loader2 size={48} color={COLORS.primary} className="animate-spin mb-4" />
         <p style={{ color: COLORS.textSecondary }}>Loading UpRep...</p>
       </div>
@@ -31678,7 +31678,7 @@ export default function UpRepDemo() {
   }
 
   return (
-    <div className="w-full h-screen flex flex-col" style={{ backgroundColor: COLORS.background }}>
+    <div className="w-full flex flex-col" style={{ backgroundColor: COLORS.background, height: '100%', minHeight: '100dvh' }}>
       <div className="flex-1 overflow-hidden relative">
         {currentScreen === 'welcome' && <WelcomeScreen />}
         {currentScreen === 'login' && <LoginScreen onBack={() => setCurrentScreen('welcome')} onLogin={() => setCurrentScreen('main')} COLORS={COLORS} />}
