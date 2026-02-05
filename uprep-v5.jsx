@@ -12189,9 +12189,6 @@ const HomeTab = ({
       });
     };
 
-    // Chart selection state
-    const [selectedChart, setSelectedChart] = React.useState('weight');
-
     return (
     <div ref={homeScrollRef} onScroll={handleScroll} className="overflow-auto pb-20" style={{ backgroundColor: COLORS.background, height: '100%' }}>
       {/* User Header with Stats */}
@@ -13995,7 +13992,7 @@ const WorkoutTab = ({
   setShowEstimate1RM,
   user,
 }) => (
-          <div ref={workoutTabScrollRef} onScroll={handleWorkoutTabScroll} className="p-4 h-full overflow-auto">
+  <div ref={workoutTabScrollRef} onScroll={handleWorkoutTabScroll} className="p-4 overflow-auto pb-20" style={{ backgroundColor: COLORS.background, height: '100%' }}>
             {/* Scrollable Week Schedule */}
             <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>THIS WEEK</p>
             <div className="mb-6">
@@ -16698,7 +16695,7 @@ const FriendsTab = ({
       )}
 
     </div>
-  );
+    );
 };
 
 const NutritionTab = ({
