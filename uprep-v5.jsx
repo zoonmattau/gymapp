@@ -13993,7 +13993,7 @@ const WorkoutTab = ({
   user,
 }) => {
   // Safety check for required data
-  if (!currentWeekDates || !Array.isArray(currentWeekDates)) {
+  if (!currentWeekDates || !Array.isArray(currentWeekDates) || !todayWorkout) {
     return (
       <div className="p-4 overflow-auto pb-20" style={{ backgroundColor: COLORS.background, height: '100%' }}>
         <p style={{ color: COLORS.text }}>Loading workouts...</p>
@@ -14180,7 +14180,7 @@ const WorkoutTab = ({
                 )}
 
                 {/* Active Workout Card - Completed */}
-                {todayWorkout.type !== 'Rest' && !isPaused && todayWorkoutCompleted && (
+                {todayWorkout?.type !== 'Rest' && !isPaused && todayWorkoutCompleted && (
                   <div className="p-4 rounded-xl mb-6" style={{ backgroundColor: COLORS.surface, borderLeft: `4px solid ${COLORS.success}` }}>
                     <div className="flex justify-between items-start mb-3">
                       <div>
@@ -14204,7 +14204,7 @@ const WorkoutTab = ({
                 )}
 
                 {/* Active Workout Card - Not Completed */}
-                {todayWorkout.type !== 'Rest' && !isPaused && !todayWorkoutCompleted && (
+                {todayWorkout?.type !== 'Rest' && !isPaused && !todayWorkoutCompleted && (
                   <div className="p-4 rounded-xl mb-6" style={{ backgroundColor: COLORS.surface, borderLeft: `4px solid ${getWorkoutColor(todayWorkout.type, COLORS)}` }}>
                     <div className="flex justify-between items-start mb-3">
                       <div>
