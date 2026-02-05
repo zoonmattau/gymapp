@@ -13992,6 +13992,17 @@ const WorkoutTab = ({
   setShowEstimate1RM,
   user,
 }) => {
+  // TEMPORARY: Minimal render to debug blank page issue - REMOVE THIS BLOCK AFTER TESTING
+  return (
+    <div style={{ backgroundColor: '#1a1a2e', height: '100%', padding: '20px' }}>
+      <div style={{ backgroundColor: '#FF0000', padding: '40px', borderRadius: '10px' }}>
+        <h1 style={{ color: 'white', fontSize: '24px', fontWeight: 'bold' }}>WORKOUT TAB TEST</h1>
+        <p style={{ color: 'white', marginTop: '10px' }}>If you can see this, the component is rendering!</p>
+      </div>
+    </div>
+  );
+  // END TEMPORARY CODE
+
   // Safety check for required data
   if (!currentWeekDates || !Array.isArray(currentWeekDates) || !todayWorkout) {
     return (
@@ -14003,12 +14014,7 @@ const WorkoutTab = ({
 
   return (
     <div ref={workoutTabScrollRef} onScroll={handleWorkoutTabScroll} className="p-4 overflow-auto pb-20" style={{ backgroundColor: COLORS.background, height: '100%' }}>
-      {/* Scrollable Week Schedule */}
       <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>THIS WEEK</p>
-      {/* Debug: Show that component loaded - REMOVE AFTER TESTING */}
-      <div style={{ backgroundColor: '#FF0000', padding: '20px', marginBottom: '20px' }}>
-        <p style={{ color: 'white', fontWeight: 'bold' }}>WORKOUT TAB LOADED - Data: {currentWeekDates?.length || 0} days</p>
-      </div>
       <div className="mb-6">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-1">
