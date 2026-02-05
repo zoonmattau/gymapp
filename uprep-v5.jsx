@@ -12930,6 +12930,75 @@ const HomeTab = ({
         </div>
       </div>
 
+      {/* Trending Workouts */}
+      <div className="mx-4 mt-4">
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs font-semibold" style={{ color: COLORS.textMuted }}>TRENDING WORKOUTS</p>
+          {communityWorkouts && communityWorkouts.length > 0 && (
+            <button
+              onClick={() => { setActiveTab('friends'); setFriendsTab('community_workouts'); }}
+              className="text-xs"
+              style={{ color: COLORS.primary }}
+            >
+              See All
+            </button>
+          )}
+        </div>
+        {(() => {
+          // Get trending workouts sorted by saves count
+          const trendingWorkouts = (communityWorkouts || [])
+            .filter(w => w && (w.saves_count > 0 || w.completions_count > 0))
+            .sort((a, b) => (b.saves_count || 0) - (a.saves_count || 0))
+            .slice(0, 3);
+
+          if (trendingWorkouts.length === 0) {
+            return (
+              <div className="p-4 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
+                <div className="w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center" style={{ backgroundColor: COLORS.surfaceLight }}>
+                  <TrendingUp size={24} color={COLORS.textMuted} />
+                </div>
+                <p className="text-sm font-semibold" style={{ color: COLORS.text }}>No workouts currently trending</p>
+                <p className="text-xs mt-1" style={{ color: COLORS.textMuted }}>Check back later or explore the community</p>
+                <button
+                  onClick={() => { setActiveTab('friends'); setFriendsTab('community_workouts'); }}
+                  className="mt-3 px-4 py-2 rounded-lg text-xs font-semibold"
+                  style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+                >
+                  Explore Community
+                </button>
+              </div>
+            );
+          }
+
+          return (
+            <div className="space-y-2">
+              {trendingWorkouts.map((workout, idx) => (
+                <button
+                  key={workout.id || idx}
+                  onClick={() => setExpandedTrendingWorkoutId && setExpandedTrendingWorkoutId(workout.id)}
+                  className="w-full p-3 rounded-xl flex items-center gap-3"
+                  style={{ backgroundColor: COLORS.surface }}
+                >
+                  <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '20' }}>
+                    <Dumbbell size={18} color={COLORS.primary} />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <p className="font-semibold text-sm" style={{ color: COLORS.text }}>{workout.name || 'Workout'}</p>
+                    <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                      {workout.saves_count || 0} saves • {workout.completions_count || 0} completions
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Flame size={14} color={COLORS.warning} />
+                    <span className="text-xs font-semibold" style={{ color: COLORS.warning }}>#{idx + 1}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          );
+        })()}
+      </div>
+
       {/* Weight Tracking */}
       <div className="mx-4 mt-4">
         <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>WEIGHT TRACKING</p>
