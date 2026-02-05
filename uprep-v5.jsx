@@ -12422,16 +12422,25 @@ const HomeTab = ({
             </div>
           </div>
         ) : todayWorkout?.type === 'Rest' ? (
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-xl flex items-center justify-center" style={{ backgroundColor: COLORS.sleep + '20' }}>
-              <Moon size={28} color={COLORS.sleep} />
+          <>
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-14 h-14 rounded-xl flex items-center justify-center" style={{ backgroundColor: COLORS.sleep + '20' }}>
+                <Moon size={28} color={COLORS.sleep} />
+              </div>
+              <div className="flex-1">
+                <p className="text-xs font-semibold mb-1" style={{ color: COLORS.sleep }}>REST DAY</p>
+                <p className="font-semibold" style={{ color: COLORS.text }}>Recovery Time</p>
+                <p className="text-sm" style={{ color: COLORS.textMuted }}>Your muscles grow while you rest</p>
+              </div>
             </div>
-            <div className="flex-1">
-              <p className="text-xs font-semibold mb-1" style={{ color: COLORS.sleep }}>REST DAY</p>
-              <p className="font-semibold" style={{ color: COLORS.text }}>Recovery Time</p>
-              <p className="text-sm" style={{ color: COLORS.textMuted }}>Your muscles grow while you rest</p>
-            </div>
-          </div>
+            <button
+              onClick={handleStartFreeformWorkout}
+              className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
+              style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+            >
+              <Play size={18} /> Start Freeform Workout
+            </button>
+          </>
         ) : (
           <>
             <div className="flex justify-between items-start mb-4">
@@ -12498,389 +12507,73 @@ const HomeTab = ({
         </div>
       </div>
 
-      {/* Streak Section - THIRD */}
-      <div className="mx-4 mt-4">
-        <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>STREAKS</p>
-      </div>
-      <div className="mx-4 flex gap-2">
-        <button onClick={() => setActiveTab('workouts')} className="flex-1 flex flex-col items-center p-3 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
-          <Dumbbell size={20} color={COLORS.warning} className="mb-1" />
-          <span className="text-xs" style={{ color: COLORS.textMuted }}>Workouts</span>
-          <span className="text-lg font-bold" style={{ color: COLORS.warning }}>{streaks?.weeklyWorkouts?.weeksCompleted || 0}</span>
-        </button>
-        <button onClick={() => { setActiveTab('nutrition'); setNutritionTab('overview'); }} className="flex-1 flex flex-col items-center p-3 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
-          <Flame size={20} color={COLORS.accent} className="mb-1" />
-          <span className="text-xs" style={{ color: COLORS.textMuted }}>Calories</span>
-          <span className="text-lg font-bold" style={{ color: COLORS.accent }}>{streaks?.calories?.daysInRow || 0}</span>
-        </button>
-        <button onClick={() => { setActiveTab('nutrition'); setNutritionTab('overview'); }} className="flex-1 flex flex-col items-center p-3 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
-          <Droplets size={20} color={COLORS.water} className="mb-1" />
-          <span className="text-xs" style={{ color: COLORS.textMuted }}>Water</span>
-          <span className="text-lg font-bold" style={{ color: COLORS.water }}>{streaks?.water?.daysInRow || 0}</span>
-        </button>
-        <button onClick={() => { setActiveTab('nutrition'); setNutritionTab('supplements'); }} className="flex-1 flex flex-col items-center p-3 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
-          <Zap size={20} color={COLORS.supplements} className="mb-1" />
-          <span className="text-xs" style={{ color: COLORS.textMuted }}>Supps</span>
-          <span className="text-lg font-bold" style={{ color: COLORS.supplements }}>{streaks?.supplements?.daysInRow || 0}</span>
-        </button>
-        <button onClick={() => { setActiveTab('nutrition'); setNutritionTab('sleep'); }} className="flex-1 flex flex-col items-center p-3 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
-          <Moon size={20} color={COLORS.sleep} className="mb-1" />
-          <span className="text-xs" style={{ color: COLORS.textMuted }}>Sleep</span>
-          <span className="text-lg font-bold" style={{ color: COLORS.sleep }}>{streaks?.sleep?.daysInRow || 0}</span>
-        </button>
-      </div>
+      {/* Log Food Section */}
+      <div className="px-4 mt-4">
+        <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>LOG FOOD</p>
+        <div className="grid grid-cols-2 gap-3">
+          {/* Add Meal */}
+          <button
+            onClick={() => setShowAddMealFull(true)}
+            className="p-4 rounded-xl flex items-center gap-3"
+            style={{ backgroundColor: COLORS.surface }}
+          >
+            <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.accent + '20' }}>
+              <Utensils size={20} color={COLORS.accent} />
+            </div>
+            <div className="text-left">
+              <p className="font-semibold text-sm" style={{ color: COLORS.text }}>Add Meal</p>
+              <p className="text-xs" style={{ color: COLORS.textMuted }}>Log with macros</p>
+            </div>
+          </button>
 
-      {/* Progress Charts with Tabs */}
-      <div className="mx-4 mt-4">
-        <p className="text-xs font-semibold mb-2" style={{ color: COLORS.textMuted }}>TRENDS</p>
-      </div>
-      <div className="mx-4 p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
-        {/* Chart Selector and Time Frame */}
-        <div className="flex items-center justify-between mb-3">
-          {/* Chart Type Dropdown */}
-          <div className="relative">
-            <select
-              value={selectedChart}
-              onChange={(e) => setSelectedChart(e.target.value)}
-              className="appearance-none pl-3 pr-8 py-1.5 rounded-lg text-sm font-semibold cursor-pointer"
-              style={{
-                backgroundColor: COLORS.surfaceLight,
-                color: selectedChart === 'weight' ? COLORS.primary : selectedChart === 'calories' ? COLORS.accent : selectedChart === 'protein' ? COLORS.protein : selectedChart === 'water' ? COLORS.water : COLORS.sleep,
-                border: `1px solid ${selectedChart === 'weight' ? COLORS.primary : selectedChart === 'calories' ? COLORS.accent : selectedChart === 'protein' ? COLORS.protein : selectedChart === 'water' ? COLORS.water : COLORS.sleep}`,
-                outline: 'none',
-              }}
-            >
-              <option value="weight">Weight</option>
-              <option value="calories">Calories</option>
-              <option value="protein">Protein</option>
-              <option value="water">Water</option>
-              <option value="sleep">Sleep</option>
-            </select>
-            <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" color={selectedChart === 'weight' ? COLORS.primary : selectedChart === 'calories' ? COLORS.accent : selectedChart === 'protein' ? COLORS.protein : selectedChart === 'water' ? COLORS.water : COLORS.sleep} />
-          </div>
-          {/* Time Frame Toggle */}
-          <div className="flex gap-1">
-            {[
-              { id: '7d', label: '7D' },
-              { id: '30d', label: '30D' },
-              { id: '90d', label: '90D' },
-              { id: 'all', label: 'All' },
-            ].map(tf => (
-              <button
-                key={tf.id}
-                onClick={() => setChartTimeFrame(tf.id)}
-                className="px-1.5 py-0.5 rounded text-xs"
-                style={{
-                  backgroundColor: chartTimeFrame === tf.id ? COLORS.primary : 'transparent',
-                  color: chartTimeFrame === tf.id ? COLORS.text : COLORS.textMuted
-                }}
-              >
-                {tf.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Helper to filter data by time frame */}
-        {(() => {
-          const getFilteredData = (data, timeFrame) => {
-            if (!data || data.length === 0) return data;
-            const weeksToShow = timeFrame === '7d' ? 1 : timeFrame === '30d' ? 4 : timeFrame === '90d' ? 13 : data.length;
-            return data.slice(-weeksToShow);
-          };
-
-          const filteredWeightData = getFilteredData(chartData?.weight, chartTimeFrame);
-          const filteredNutritionData = getFilteredData(weeklyNutrition, chartTimeFrame);
-          const filteredSleepData = getFilteredData(sleepChartData, chartTimeFrame);
-
-          return null;
-        })()}
-
-        {/* Weight Chart */}
-        {selectedChart === 'weight' && (() => {
-          const weeksToShow = chartTimeFrame === '7d' ? 1 : chartTimeFrame === '30d' ? 4 : chartTimeFrame === '90d' ? 13 : chartData?.weight?.length || 16;
-          const filteredData = chartData?.weight?.slice(-weeksToShow) || [];
-          // Calculate nice round Y-axis bounds and explicit ticks
-          const allValues = filteredData.flatMap(d => [d.value, d.expected]).filter(v => v != null);
-          const dataMin = Math.min(...allValues);
-          const dataMax = Math.max(...allValues);
-          const yMin = Math.floor(dataMin / 5) * 5 - 5;
-          const yMax = Math.ceil(dataMax / 5) * 5 + 5;
-          // Generate explicit tick values (every 5kg)
-          const yTicks = [];
-          for (let t = yMin; t <= yMax; t += 5) yTicks.push(t);
-          // Get goal weight (use last expected value or userData goal)
-          const goalWeight = filteredData[filteredData.length - 1]?.expected || userData?.goalWeight;
-          return (
-          <div style={{ height: 150 }}>
-            {filteredData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={filteredData.map(d => ({ date: `W${d.week}`, actual: d.value }))} margin={{ top: 20, right: 50, left: 0, bottom: 5 }}>
-                  <defs>
-                    <linearGradient id="weightGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={COLORS.primary} stopOpacity={0.25} />
-                      <stop offset="100%" stopColor={COLORS.primary} stopOpacity={0.02} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke={COLORS.surfaceLight} vertical={false} />
-                  <XAxis dataKey="date" tick={{ fill: COLORS.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} interval={Math.ceil(filteredData.length / 6)} />
-                  <YAxis
-                    tick={{ fill: COLORS.textMuted, fontSize: 10 }}
-                    axisLine={false}
-                    tickLine={false}
-                    width={38}
-                    domain={[yMin, yMax]}
-                    ticks={yTicks}
-                    tickFormatter={(v) => `${v}`}
-                  />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: COLORS.surface, border: 'none', borderRadius: 12, padding: '8px 12px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}
-                    labelStyle={{ color: COLORS.text, fontSize: 11, fontWeight: 600, marginBottom: 4 }}
-                    formatter={(value) => [value ? `${value}kg` : '-', 'Weight']}
-                    cursor={{ stroke: COLORS.primary, strokeWidth: 1, strokeDasharray: '4 4' }}
-                  />
-                  {goalWeight && <ReferenceLine y={goalWeight} stroke={COLORS.success} strokeWidth={2} strokeDasharray="8 4" label={{ value: `Goal: ${goalWeight}kg`, position: 'right', fill: COLORS.success, fontSize: 9 }} />}
-                  <Area type="monotone" dataKey="actual" stroke={COLORS.primary} strokeWidth={2.5} fill="url(#weightGradient)" dot={{ fill: COLORS.background, stroke: COLORS.primary, strokeWidth: 2, r: 4 }} activeDot={{ fill: COLORS.primary, stroke: COLORS.background, strokeWidth: 2, r: 6 }} connectNulls animationDuration={800} />
-                </AreaChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-full flex items-center justify-center">
-                <p className="text-xs" style={{ color: COLORS.textMuted }}>Log weight to see progress</p>
+          {/* Quick Water */}
+          <div className="p-3 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-7 h-7 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.water + '20' }}>
+                <Droplets size={14} color={COLORS.water} />
               </div>
-            )}
-          </div>
-          );
-        })()}
+              <p className="font-semibold text-xs" style={{ color: COLORS.text }}>Quick Water</p>
+            </div>
+            <div className="grid grid-cols-3 gap-1">
+              {[
+                { label: '250ml', amount: 250 },
+                { label: '500ml', amount: 500 },
+                { label: '+', amount: null },
+              ].map((opt, idx) => (
+                <button
+                  key={idx}
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    if (opt.amount === null) {
+                      setShowWaterEntry(true);
+                      return;
+                    }
+                    // Optimistic update for today's water
+                    const tempId = `temp-${Date.now()}`;
+                    const tempLog = { id: tempId, amount_ml: opt.amount, logged_at: new Date().toISOString() };
+                    setWaterIntake(prev => Math.min(prev + opt.amount, 10000));
+                    setWaterLogs(prev => [...prev, tempLog]);
 
-        {/* Calories Chart */}
-        {selectedChart === 'calories' && (() => {
-          const weeksToShow = chartTimeFrame === '7d' ? 1 : chartTimeFrame === '30d' ? 4 : chartTimeFrame === '90d' ? 7 : weeklyNutrition?.length || 7;
-          const filteredData = weeklyNutrition?.slice(-weeksToShow) || [];
-          const hasData = filteredData.some(d => d.calories != null);
-          const calorieGoal = adjustedNutritionGoals?.calories || nutritionGoals?.calories || 2200;
-          // Calculate nice round Y-axis bounds
-          const allValues = [...filteredData.map(d => d.calories).filter(v => v != null), calorieGoal];
-          const dataMin = Math.min(...allValues);
-          const dataMax = Math.max(...allValues);
-          const yMin = Math.floor(dataMin / 500) * 500 - 500;
-          const yMax = Math.ceil(dataMax / 500) * 500 + 500;
-          // Generate explicit tick values (every 500 kcal)
-          const yTicks = [];
-          for (let t = yMin; t <= yMax; t += 500) yTicks.push(t);
-          return (
-          <div style={{ height: 150 }}>
-            {filteredData.length > 0 && hasData ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={filteredData.map(d => ({ ...d, actual: d.calories }))} margin={{ top: 20, right: 50, left: 0, bottom: 5 }}>
-                  <defs>
-                    <linearGradient id="caloriesGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={COLORS.accent} stopOpacity={0.25} />
-                      <stop offset="100%" stopColor={COLORS.accent} stopOpacity={0.02} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke={COLORS.surfaceLight} vertical={false} />
-                  <XAxis dataKey="week" tick={{ fill: COLORS.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <YAxis
-                    tick={{ fill: COLORS.textMuted, fontSize: 10 }}
-                    axisLine={false}
-                    tickLine={false}
-                    width={45}
-                    domain={[yMin, yMax]}
-                    ticks={yTicks}
-                    tickFormatter={(v) => `${v}`}
-                  />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: COLORS.surface, border: 'none', borderRadius: 12, padding: '8px 12px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}
-                    labelStyle={{ color: COLORS.text, fontSize: 11, fontWeight: 600, marginBottom: 4 }}
-                    formatter={(value) => [value ? `${value} kcal (goal: ${calorieGoal})` : '-', 'Calories']}
-                    cursor={{ stroke: COLORS.accent, strokeWidth: 1, strokeDasharray: '4 4' }}
-                  />
-                  <ReferenceLine y={calorieGoal} stroke={COLORS.success} strokeWidth={2} strokeDasharray="8 4" label={{ value: `Goal`, position: 'right', fill: COLORS.success, fontSize: 9 }} />
-                  <Area type="monotone" dataKey="actual" stroke={COLORS.accent} strokeWidth={2.5} fill="url(#caloriesGradient)" dot={{ fill: COLORS.background, stroke: COLORS.accent, strokeWidth: 2, r: 4 }} activeDot={{ fill: COLORS.accent, stroke: COLORS.background, strokeWidth: 2, r: 6 }} connectNulls animationDuration={800} />
-                </AreaChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-full flex items-center justify-center">
-                <p className="text-xs" style={{ color: COLORS.textMuted }}>Log meals to see trends</p>
-              </div>
-            )}
-          </div>
-          );
-        })()}
-
-        {/* Protein Chart */}
-        {selectedChart === 'protein' && (() => {
-          const weeksToShow = chartTimeFrame === '7d' ? 1 : chartTimeFrame === '30d' ? 4 : chartTimeFrame === '90d' ? 7 : weeklyNutrition?.length || 7;
-          const filteredData = weeklyNutrition?.slice(-weeksToShow) || [];
-          const hasData = filteredData.some(d => d.protein != null);
-          const proteinGoal = adjustedNutritionGoals?.protein || nutritionGoals?.protein || 150;
-          // Calculate nice round Y-axis bounds
-          const allValues = [...filteredData.map(d => d.protein).filter(v => v != null), proteinGoal];
-          const dataMin = Math.min(...allValues);
-          const dataMax = Math.max(...allValues);
-          const yMin = Math.max(0, Math.floor(dataMin / 50) * 50 - 50);
-          const yMax = Math.ceil(dataMax / 50) * 50 + 50;
-          // Generate explicit tick values (every 50g)
-          const yTicks = [];
-          for (let t = yMin; t <= yMax; t += 50) yTicks.push(t);
-          return (
-          <div style={{ height: 150 }}>
-            {filteredData.length > 0 && hasData ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={filteredData.map(d => ({ ...d, actual: d.protein }))} margin={{ top: 20, right: 50, left: 0, bottom: 5 }}>
-                  <defs>
-                    <linearGradient id="proteinGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={COLORS.protein} stopOpacity={0.25} />
-                      <stop offset="100%" stopColor={COLORS.protein} stopOpacity={0.02} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke={COLORS.surfaceLight} vertical={false} />
-                  <XAxis dataKey="week" tick={{ fill: COLORS.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <YAxis
-                    tick={{ fill: COLORS.textMuted, fontSize: 10 }}
-                    axisLine={false}
-                    tickLine={false}
-                    width={40}
-                    domain={[yMin, yMax]}
-                    ticks={yTicks}
-                    tickFormatter={(v) => `${v}g`}
-                  />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: COLORS.surface, border: 'none', borderRadius: 12, padding: '8px 12px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}
-                    labelStyle={{ color: COLORS.text, fontSize: 11, fontWeight: 600, marginBottom: 4 }}
-                    formatter={(value) => [value ? `${value}g (goal: ${proteinGoal}g)` : '-', 'Protein']}
-                    cursor={{ stroke: COLORS.protein, strokeWidth: 1, strokeDasharray: '4 4' }}
-                  />
-                  <ReferenceLine y={proteinGoal} stroke={COLORS.success} strokeWidth={2} strokeDasharray="8 4" label={{ value: `Goal`, position: 'right', fill: COLORS.success, fontSize: 9 }} />
-                  <Area type="monotone" dataKey="actual" stroke={COLORS.protein} strokeWidth={2.5} fill="url(#proteinGradient)" dot={{ fill: COLORS.background, stroke: COLORS.protein, strokeWidth: 2, r: 4 }} activeDot={{ fill: COLORS.protein, stroke: COLORS.background, strokeWidth: 2, r: 6 }} connectNulls animationDuration={800} />
-                </AreaChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-full flex items-center justify-center">
-                <p className="text-xs" style={{ color: COLORS.textMuted }}>Log meals to see protein trends</p>
-              </div>
-            )}
-          </div>
-          );
-        })()}
-
-        {/* Water Chart */}
-        {selectedChart === 'water' && (() => {
-          const weeksToShow = chartTimeFrame === '7d' ? 1 : chartTimeFrame === '30d' ? 4 : chartTimeFrame === '90d' ? 7 : weeklyNutrition?.length || 7;
-          const filteredData = weeklyNutrition?.slice(-weeksToShow) || [];
-          const hasData = filteredData.some(d => d.water != null);
-          const waterGoal = adjustedNutritionGoals?.water || nutritionGoals?.water || 2500;
-          // Calculate nice round Y-axis bounds (in ml, display as L)
-          const allValues = [...filteredData.map(d => d.water).filter(v => v != null), waterGoal];
-          const dataMin = Math.min(...allValues);
-          const dataMax = Math.max(...allValues);
-          const yMin = Math.max(0, Math.floor(dataMin / 1000) * 1000 - 1000);
-          const yMax = Math.ceil(dataMax / 1000) * 1000 + 1000;
-          // Generate explicit tick values (every 1L = 1000ml)
-          const yTicks = [];
-          for (let t = yMin; t <= yMax; t += 1000) yTicks.push(t);
-          return (
-          <div style={{ height: 150 }}>
-            {filteredData.length > 0 && hasData ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={filteredData.map(d => ({ ...d, actual: d.water }))} margin={{ top: 20, right: 50, left: 0, bottom: 5 }}>
-                  <defs>
-                    <linearGradient id="waterGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={COLORS.water} stopOpacity={0.25} />
-                      <stop offset="100%" stopColor={COLORS.water} stopOpacity={0.02} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke={COLORS.surfaceLight} vertical={false} />
-                  <XAxis dataKey="week" tick={{ fill: COLORS.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <YAxis
-                    tick={{ fill: COLORS.textMuted, fontSize: 10 }}
-                    axisLine={false}
-                    tickLine={false}
-                    width={35}
-                    domain={[yMin, yMax]}
-                    ticks={yTicks}
-                    tickFormatter={(v) => `${v/1000}L`}
-                  />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: COLORS.surface, border: 'none', borderRadius: 12, padding: '8px 12px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}
-                    labelStyle={{ color: COLORS.text, fontSize: 11, fontWeight: 600, marginBottom: 4 }}
-                    formatter={(value) => [value ? `${(value/1000).toFixed(1)}L (goal: ${(waterGoal/1000).toFixed(1)}L)` : '-', 'Water']}
-                    cursor={{ stroke: COLORS.water, strokeWidth: 1, strokeDasharray: '4 4' }}
-                  />
-                  <ReferenceLine y={waterGoal} stroke={COLORS.success} strokeWidth={2} strokeDasharray="8 4" label={{ value: `Goal`, position: 'right', fill: COLORS.success, fontSize: 9 }} />
-                  <Area type="monotone" dataKey="actual" stroke={COLORS.water} strokeWidth={2.5} fill="url(#waterGradient)" dot={{ fill: COLORS.background, stroke: COLORS.water, strokeWidth: 2, r: 4 }} activeDot={{ fill: COLORS.water, stroke: COLORS.background, strokeWidth: 2, r: 6 }} connectNulls animationDuration={800} />
-                </AreaChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-full flex items-center justify-center">
-                <p className="text-xs" style={{ color: COLORS.textMuted }}>Log water to see trends</p>
-              </div>
-            )}
-          </div>
-          );
-        })()}
-
-        {/* Sleep Chart */}
-        {selectedChart === 'sleep' && (
-          <div style={{ height: 110 }}>
-            {sleepChartData?.length > 0 ? (() => {
-              // Group sleep data by week and calculate weekly averages
-              const daysToShow = chartTimeFrame === '7d' ? 7 : chartTimeFrame === '30d' ? 28 : chartTimeFrame === '90d' ? 90 : sleepChartData.length;
-              const weeklySleepData = [];
-              const data = sleepChartData.slice(-daysToShow);
-              for (let i = 0; i < data.length; i += 7) {
-                const weekData = data.slice(i, i + 7);
-                const avgHours = weekData.reduce((sum, d) => sum + (d.hours || 0), 0) / weekData.length;
-                weeklySleepData.push({ week: `W${weeklySleepData.length + 1}`, actual: parseFloat(avgHours.toFixed(1)), goal: 8 });
-              }
-              return (
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={weeklySleepData} margin={{ top: 20, right: 50, left: 0, bottom: 5 }}>
-                    <defs>
-                      <linearGradient id="sleepGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={COLORS.sleep} stopOpacity={0.25} />
-                        <stop offset="100%" stopColor={COLORS.sleep} stopOpacity={0.02} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke={COLORS.surfaceLight} vertical={false} />
-                    <XAxis dataKey="week" tick={{ fill: COLORS.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} interval={Math.ceil(weeklySleepData.length / 6)} />
-                    <YAxis
-                      tick={{ fill: COLORS.textMuted, fontSize: 10 }}
-                      axisLine={false}
-                      tickLine={false}
-                      width={32}
-                      domain={[4, 10]}
-                      ticks={[4, 6, 8, 10]}
-                      tickFormatter={(v) => `${v}h`}
-                    />
-                    <Tooltip
-                      contentStyle={{ backgroundColor: COLORS.surface, border: 'none', borderRadius: 12, padding: '8px 12px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}
-                      labelStyle={{ color: COLORS.text, fontSize: 11, fontWeight: 600, marginBottom: 4 }}
-                      formatter={(value) => [value ? `${value}h` : '-', 'Sleep']}
-                      cursor={{ stroke: COLORS.sleep, strokeWidth: 1, strokeDasharray: '4 4' }}
-                    />
-                    <ReferenceLine y={8} stroke={COLORS.success} strokeWidth={2} strokeDasharray="8 4" label={{ value: `Goal`, position: 'right', fill: COLORS.success, fontSize: 9 }} />
-                    <Area type="monotone" dataKey="actual" stroke={COLORS.sleep} strokeWidth={2.5} fill="url(#sleepGradient)" dot={{ fill: COLORS.background, stroke: COLORS.sleep, strokeWidth: 2, r: 4 }} activeDot={{ fill: COLORS.sleep, stroke: COLORS.background, strokeWidth: 2, r: 6 }} animationDuration={800} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              );
-            })() : (
-              <div className="h-full flex items-center justify-center">
-                <p className="text-xs" style={{ color: COLORS.textMuted }}>Log sleep to see trends</p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Chart Legend */}
-        <div className="flex justify-center gap-4 mt-3 pt-2" style={{ borderTop: `1px solid ${COLORS.surfaceLight}` }}>
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-0.5 rounded" style={{ backgroundColor: selectedChart === 'weight' ? COLORS.primary : selectedChart === 'calories' ? COLORS.accent : selectedChart === 'protein' ? COLORS.protein : selectedChart === 'water' ? COLORS.water : COLORS.sleep }} />
-            <span className="text-xs" style={{ color: COLORS.textMuted }}>Actual</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-0.5 rounded" style={{ backgroundColor: COLORS.success }} />
-            <span className="text-xs" style={{ color: COLORS.textMuted }}>Goal</span>
+                    // Save to database in background
+                    if (user?.id) {
+                      nutritionService.logWater(user.id, opt.amount).then(({ data }) => {
+                        if (data) {
+                          setWaterLogs(prev => prev.map(l => l.id === tempId ? data : l));
+                        }
+                      });
+                    }
+                  }}
+                  className="py-1.5 rounded-lg text-center text-xs font-semibold"
+                  style={{
+                    backgroundColor: opt.amount === null ? COLORS.water + '20' : COLORS.surfaceLight,
+                    color: opt.amount === null ? COLORS.water : COLORS.text,
+                    border: opt.amount === null ? `1px solid ${COLORS.water}40` : 'none'
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -13187,203 +12880,6 @@ const HomeTab = ({
         );
       })()}
 
-      <div className="mx-4 mt-3 space-y-3">
-
-        {/* Friends Activity Feed */}
-        <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
-          <div className="flex justify-between items-center mb-3">
-            <p className="font-semibold text-sm" style={{ color: COLORS.text }}>Friends Activity</p>
-            <button onClick={() => { setActiveTab('friends'); setFriendsTab('feed'); }} className="text-xs" style={{ color: COLORS.primary }}>
-              View All
-            </button>
-          </div>
-
-          {/* Show recent activity from followed users */}
-          {activityFeed.length > 0 ? (
-            <div className="space-y-3">
-              {activityFeed.slice(0, 5).map((activity, i) => {
-                const friendName = activity.friend
-                  ? `${activity.friend.first_name || ''} ${activity.friend.last_name || ''}`.trim() || activity.friend.username || 'User'
-                  : 'User';
-                const friendAvatar = activity.friend?.avatar_url || activity.friend?.first_name?.[0]?.toUpperCase() || 'U';
-                const isExpanded = expandedHomeActivity === activity.id;
-
-                const handleExpandWorkout = async () => {
-                  if (isExpanded) {
-                    setExpandedHomeActivity(null);
-                    return;
-                  }
-                  setExpandedHomeActivity(activity.id);
-                  // Fetch workout sets if not already loaded
-                  if (!expandedActivitySets[activity.id]) {
-                    try {
-                      const { data } = await supabase
-                        .from('workout_sets')
-                        .select('*')
-                        .eq('session_id', activity.id)
-                        .order('exercise_name', { ascending: true })
-                        .order('set_number', { ascending: true });
-                      setExpandedActivitySets(prev => ({ ...prev, [activity.id]: data || [] }));
-                    } catch (err) {
-                      console.warn('Error loading workout sets:', err);
-                    }
-                  }
-                };
-
-                const friendProfile = {
-                  id: activity.friendId,
-                  name: friendName,
-                  username: activity.friend?.username || 'user',
-                  avatar: friendAvatar,
-                  bio: activity.friend?.bio || '',
-                };
-
-                return (
-                  <div key={activity.id || i} className="rounded-lg overflow-hidden" style={{ backgroundColor: COLORS.surfaceLight }}>
-                    {/* Header - clickable to expand */}
-                    <button
-                      onClick={handleExpandWorkout}
-                      className="w-full flex items-center gap-3 p-3"
-                    >
-                      {/* Avatar - clickable to profile */}
-                      <div
-                        onClick={(e) => { e.stopPropagation(); setShowFriendProfile(friendProfile); }}
-                        className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold cursor-pointer hover:opacity-80"
-                        style={{ backgroundColor: COLORS.primary + '30', color: COLORS.primary }}
-                      >
-                        {friendAvatar}
-                      </div>
-                      <div className="flex-1 min-w-0 text-left">
-                        <p className="text-sm" style={{ color: COLORS.text }}>
-                          <span
-                            onClick={(e) => { e.stopPropagation(); setShowFriendProfile(friendProfile); }}
-                            className="font-semibold hover:underline cursor-pointer"
-                          >
-                            {friendName.split(' ')[0]}
-                          </span>
-                          {' '}{activity.type === 'workout' ? 'completed' : activity.type === 'pr' ? 'hit a PR' : 'is active'}
-                        </p>
-                        <p className="text-xs" style={{ color: COLORS.textMuted }}>
-                          @{friendProfile.username} {activity.time && `• ${activity.time}`}
-                        </p>
-                        {(activity.workoutName || activity.exercise) && (
-                          <p className="text-xs font-medium" style={{ color: COLORS.primary }}>
-                            {activity.workoutName || activity.exercise}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {activity.type === 'pr' && <Trophy size={16} color={COLORS.warning} />}
-                        {activity.type === 'workout' && <Check size={16} color={COLORS.success} />}
-                        <ChevronDown
-                          size={16}
-                          color={COLORS.textMuted}
-                          style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}
-                        />
-                      </div>
-                    </button>
-
-                    {/* Expanded workout details */}
-                    {isExpanded && activity.type === 'workout' && (
-                      <div className="px-3 pb-3 border-t" style={{ borderColor: COLORS.surface }}>
-                        {!expandedActivitySets[activity.id] ? (
-                          <div className="py-4 text-center">
-                            <div className="animate-spin w-5 h-5 border-2 rounded-full mx-auto" style={{ borderColor: COLORS.primary, borderTopColor: 'transparent' }} />
-                          </div>
-                        ) : expandedActivitySets[activity.id].length === 0 ? (
-                          <p className="py-3 text-sm text-center" style={{ color: COLORS.textMuted }}>No exercise data recorded</p>
-                        ) : (
-                          <div className="pt-3 space-y-3">
-                            {/* Group sets by exercise */}
-                            {Object.entries(
-                              expandedActivitySets[activity.id].reduce((acc, set) => {
-                                const name = set.exercise_name || 'Unknown';
-                                if (!acc[name]) acc[name] = [];
-                                acc[name].push(set);
-                                return acc;
-                              }, {})
-                            ).map(([exerciseName, sets]) => (
-                              <div key={exerciseName}>
-                                <p className="text-sm font-semibold mb-2" style={{ color: COLORS.text }}>{exerciseName}</p>
-                                <div className="space-y-1">
-                                  {sets.map((set, idx) => (
-                                    <div key={set.id || idx} className="flex items-center justify-between text-xs px-2 py-1 rounded" style={{ backgroundColor: COLORS.surface }}>
-                                      <span style={{ color: COLORS.textMuted }}>
-                                        {set.is_warmup ? 'Warmup' : `Set ${set.set_number}`}
-                                      </span>
-                                      <span style={{ color: COLORS.text }}>
-                                        {set.weight}kg × {set.reps} reps
-                                        {set.rpe && <span style={{ color: COLORS.textMuted }}> @ RPE {set.rpe}</span>}
-                                      </span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            ))}
-                            {activity.duration && (
-                              <div className="flex items-center gap-2 pt-2 text-xs" style={{ color: COLORS.textMuted }}>
-                                <Clock size={12} />
-                                <span>{activity.duration} min workout</span>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Like and Comment buttons */}
-                    <div className="flex items-center gap-4 px-3 pb-3 border-t pt-2" style={{ borderColor: COLORS.surface }}>
-                      <button
-                        onClick={() => handleHomeActivityLike(activity.id, activity.friendId)}
-                        className="flex items-center gap-1.5"
-                      >
-                        <Heart
-                          size={16}
-                          color={userLikes[activity.id] ? COLORS.error : COLORS.textMuted}
-                          fill={userLikes[activity.id] ? COLORS.error : 'none'}
-                        />
-                        <span className="text-xs" style={{ color: COLORS.textMuted }}>
-                          {(activity.likes || 0) + (userLikes[activity.id] ? 1 : 0)}
-                        </span>
-                      </button>
-                      <button
-                        onClick={() => setShowCommentsModal(activity.id)}
-                        className="flex items-center gap-1.5"
-                      >
-                        <MessageCircle size={16} color={COLORS.textMuted} />
-                        <span className="text-xs" style={{ color: COLORS.textMuted }}>
-                          {activityCommentCounts[activity.id] > 0 ? activityCommentCounts[activity.id] : 'Comment'}
-                        </span>
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : friends.length > 0 ? (
-            <div className="text-center py-4">
-              <Activity size={32} color={COLORS.textMuted} className="mx-auto mb-2" style={{ opacity: 0.5 }} />
-              <p className="text-sm" style={{ color: COLORS.textMuted }}>No recent activity from friends</p>
-              <p className="text-xs" style={{ color: COLORS.textMuted }}>Check back later!</p>
-            </div>
-          ) : (
-            <button
-              onClick={() => setActiveTab('friends')}
-              className="w-full flex items-center gap-3 py-2"
-            >
-              <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '20' }}>
-                <UserPlus size={18} color={COLORS.primary} />
-              </div>
-              <div className="flex-1 text-left">
-                <p className="text-sm font-semibold" style={{ color: COLORS.text }}>Find workout buddies</p>
-                <p className="text-xs" style={{ color: COLORS.textMuted }}>Follow friends to see their activity</p>
-              </div>
-              <ChevronRight size={18} color={COLORS.primary} />
-            </button>
-          )}
-        </div>
-      </div>
-
       {/* Rep-ertoire (Saved Workouts) */}
       <div className="mx-4 mt-4">
         <div className="flex items-center justify-between mb-2">
@@ -13629,6 +13125,8 @@ const ProgressTab = ({
   setProgressChartTimeFrame,
   progressTabScrollRef,
   handleProgressTabScroll,
+  weeklyNutrition,
+  sleepChartData,
 }) => (
           <div ref={progressTabScrollRef} onScroll={handleProgressTabScroll} className="p-4 h-full overflow-auto pb-20">
             {/* Progress Overview */}
@@ -13660,6 +13158,36 @@ const ProgressTab = ({
                   })()}%
                 </p>
                 <p className="text-xs" style={{ color: COLORS.textMuted }}>to goal</p>
+              </div>
+            </div>
+
+            {/* Streaks Section */}
+            <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>STREAKS</p>
+            <div className="flex gap-2 mb-6">
+              <div className="flex-1 flex flex-col items-center p-3 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+                <Dumbbell size={20} color={COLORS.warning} className="mb-1" />
+                <span className="text-xs" style={{ color: COLORS.textMuted }}>Workouts</span>
+                <span className="text-lg font-bold" style={{ color: COLORS.warning }}>{streaks?.weeklyWorkouts?.weeksCompleted || 0}</span>
+              </div>
+              <div className="flex-1 flex flex-col items-center p-3 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+                <Flame size={20} color={COLORS.accent} className="mb-1" />
+                <span className="text-xs" style={{ color: COLORS.textMuted }}>Calories</span>
+                <span className="text-lg font-bold" style={{ color: COLORS.accent }}>{streaks?.calories?.daysInRow || 0}</span>
+              </div>
+              <div className="flex-1 flex flex-col items-center p-3 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+                <Droplets size={20} color={COLORS.water} className="mb-1" />
+                <span className="text-xs" style={{ color: COLORS.textMuted }}>Water</span>
+                <span className="text-lg font-bold" style={{ color: COLORS.water }}>{streaks?.water?.daysInRow || 0}</span>
+              </div>
+              <div className="flex-1 flex flex-col items-center p-3 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+                <Zap size={20} color={COLORS.supplements} className="mb-1" />
+                <span className="text-xs" style={{ color: COLORS.textMuted }}>Supps</span>
+                <span className="text-lg font-bold" style={{ color: COLORS.supplements }}>{streaks?.supplements?.daysInRow || 0}</span>
+              </div>
+              <div className="flex-1 flex flex-col items-center p-3 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+                <Moon size={20} color={COLORS.sleep} className="mb-1" />
+                <span className="text-xs" style={{ color: COLORS.textMuted }}>Sleep</span>
+                <span className="text-lg font-bold" style={{ color: COLORS.sleep }}>{streaks?.sleep?.daysInRow || 0}</span>
               </div>
             </div>
 
@@ -13802,6 +13330,203 @@ const ProgressTab = ({
               </div>
               );
             })()}
+
+            {/* Nutrition Trends */}
+            <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>NUTRITION TRENDS</p>
+            <div className="p-4 rounded-xl mb-6" style={{ backgroundColor: COLORS.surface }}>
+              {/* Calories Chart */}
+              {(() => {
+                const weeksToShow = progressChartTimeFrame === '7d' ? 1 : progressChartTimeFrame === '30d' ? 4 : progressChartTimeFrame === '90d' ? 7 : weeklyNutrition?.length || 7;
+                const filteredData = weeklyNutrition?.slice(-weeksToShow) || [];
+                const hasData = filteredData.some(d => d.calories != null);
+                const calorieGoal = adjustedNutritionGoals?.calories || nutritionGoals?.calories || 2200;
+                const allValues = [...filteredData.map(d => d.calories).filter(v => v != null), calorieGoal];
+                const dataMin = allValues.length > 0 ? Math.min(...allValues) : 0;
+                const dataMax = allValues.length > 0 ? Math.max(...allValues) : 3000;
+                const yMin = Math.floor(dataMin / 500) * 500 - 500;
+                const yMax = Math.ceil(dataMax / 500) * 500 + 500;
+                const yTicks = [];
+                for (let t = Math.max(0, yMin); t <= yMax; t += 500) yTicks.push(t);
+                return (
+                <>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-sm font-semibold" style={{ color: COLORS.accent }}>Calories</p>
+                    <div className="flex gap-1">
+                      {[{ id: '7d', label: '7D' }, { id: '30d', label: '30D' }, { id: '90d', label: '90D' }, { id: 'all', label: 'All' }].map(tf => (
+                        <button
+                          key={tf.id}
+                          onClick={() => setProgressChartTimeFrame(tf.id)}
+                          className="px-2 py-1 rounded text-xs"
+                          style={{ backgroundColor: progressChartTimeFrame === tf.id ? COLORS.accent + '20' : 'transparent', color: progressChartTimeFrame === tf.id ? COLORS.accent : COLORS.textMuted }}
+                        >
+                          {tf.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ height: 150 }}>
+                    {filteredData.length > 0 && hasData ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={filteredData.map(d => ({ ...d, actual: d.calories }))} margin={{ top: 10, right: 50, left: 0, bottom: 5 }}>
+                          <defs>
+                            <linearGradient id="progressCaloriesGradient" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor={COLORS.accent} stopOpacity={0.25} />
+                              <stop offset="100%" stopColor={COLORS.accent} stopOpacity={0.02} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke={COLORS.surfaceLight} vertical={false} />
+                          <XAxis dataKey="week" tick={{ fill: COLORS.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} />
+                          <YAxis tick={{ fill: COLORS.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} width={45} domain={[Math.max(0, yMin), yMax]} ticks={yTicks} tickFormatter={(v) => `${v}`} />
+                          <Tooltip contentStyle={{ backgroundColor: COLORS.surface, border: 'none', borderRadius: 12, padding: '8px 12px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }} labelStyle={{ color: COLORS.text, fontSize: 11, fontWeight: 600, marginBottom: 4 }} formatter={(value) => [value ? `${value} kcal` : '-', 'Calories']} cursor={{ stroke: COLORS.accent, strokeWidth: 1, strokeDasharray: '4 4' }} />
+                          <ReferenceLine y={calorieGoal} stroke={COLORS.success} strokeWidth={2} strokeDasharray="8 4" label={{ value: `Goal`, position: 'right', fill: COLORS.success, fontSize: 9 }} />
+                          <Area type="monotone" dataKey="actual" stroke={COLORS.accent} strokeWidth={2.5} fill="url(#progressCaloriesGradient)" dot={{ fill: COLORS.background, stroke: COLORS.accent, strokeWidth: 2, r: 4 }} activeDot={{ fill: COLORS.accent, stroke: COLORS.background, strokeWidth: 2, r: 6 }} connectNulls animationDuration={800} />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="h-full flex items-center justify-center">
+                        <p className="text-xs" style={{ color: COLORS.textMuted }}>Log meals to see calorie trends</p>
+                      </div>
+                    )}
+                  </div>
+                </>
+                );
+              })()}
+
+              {/* Protein Chart */}
+              {(() => {
+                const weeksToShow = progressChartTimeFrame === '7d' ? 1 : progressChartTimeFrame === '30d' ? 4 : progressChartTimeFrame === '90d' ? 7 : weeklyNutrition?.length || 7;
+                const filteredData = weeklyNutrition?.slice(-weeksToShow) || [];
+                const hasData = filteredData.some(d => d.protein != null);
+                const proteinGoal = adjustedNutritionGoals?.protein || nutritionGoals?.protein || 150;
+                const allValues = [...filteredData.map(d => d.protein).filter(v => v != null), proteinGoal];
+                const dataMin = allValues.length > 0 ? Math.min(...allValues) : 0;
+                const dataMax = allValues.length > 0 ? Math.max(...allValues) : 200;
+                const yMin = Math.max(0, Math.floor(dataMin / 50) * 50 - 50);
+                const yMax = Math.ceil(dataMax / 50) * 50 + 50;
+                const yTicks = [];
+                for (let t = yMin; t <= yMax; t += 50) yTicks.push(t);
+                return (
+                <>
+                  <div className="flex items-center justify-between mb-3 mt-4 pt-4" style={{ borderTop: `1px solid ${COLORS.surfaceLight}` }}>
+                    <p className="text-sm font-semibold" style={{ color: COLORS.protein || COLORS.primary }}>Protein</p>
+                  </div>
+                  <div style={{ height: 150 }}>
+                    {filteredData.length > 0 && hasData ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={filteredData.map(d => ({ ...d, actual: d.protein }))} margin={{ top: 10, right: 50, left: 0, bottom: 5 }}>
+                          <defs>
+                            <linearGradient id="progressProteinGradient" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor={COLORS.protein || COLORS.primary} stopOpacity={0.25} />
+                              <stop offset="100%" stopColor={COLORS.protein || COLORS.primary} stopOpacity={0.02} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke={COLORS.surfaceLight} vertical={false} />
+                          <XAxis dataKey="week" tick={{ fill: COLORS.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} />
+                          <YAxis tick={{ fill: COLORS.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} width={40} domain={[yMin, yMax]} ticks={yTicks} tickFormatter={(v) => `${v}g`} />
+                          <Tooltip contentStyle={{ backgroundColor: COLORS.surface, border: 'none', borderRadius: 12, padding: '8px 12px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }} labelStyle={{ color: COLORS.text, fontSize: 11, fontWeight: 600, marginBottom: 4 }} formatter={(value) => [value ? `${value}g` : '-', 'Protein']} cursor={{ stroke: COLORS.protein || COLORS.primary, strokeWidth: 1, strokeDasharray: '4 4' }} />
+                          <ReferenceLine y={proteinGoal} stroke={COLORS.success} strokeWidth={2} strokeDasharray="8 4" label={{ value: `Goal`, position: 'right', fill: COLORS.success, fontSize: 9 }} />
+                          <Area type="monotone" dataKey="actual" stroke={COLORS.protein || COLORS.primary} strokeWidth={2.5} fill="url(#progressProteinGradient)" dot={{ fill: COLORS.background, stroke: COLORS.protein || COLORS.primary, strokeWidth: 2, r: 4 }} activeDot={{ fill: COLORS.protein || COLORS.primary, stroke: COLORS.background, strokeWidth: 2, r: 6 }} connectNulls animationDuration={800} />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="h-full flex items-center justify-center">
+                        <p className="text-xs" style={{ color: COLORS.textMuted }}>Log meals to see protein trends</p>
+                      </div>
+                    )}
+                  </div>
+                </>
+                );
+              })()}
+
+              {/* Water Chart */}
+              {(() => {
+                const weeksToShow = progressChartTimeFrame === '7d' ? 1 : progressChartTimeFrame === '30d' ? 4 : progressChartTimeFrame === '90d' ? 7 : weeklyNutrition?.length || 7;
+                const filteredData = weeklyNutrition?.slice(-weeksToShow) || [];
+                const hasData = filteredData.some(d => d.water != null);
+                const waterGoal = adjustedNutritionGoals?.water || nutritionGoals?.water || 2500;
+                const allValues = [...filteredData.map(d => d.water).filter(v => v != null), waterGoal];
+                const dataMin = allValues.length > 0 ? Math.min(...allValues) : 0;
+                const dataMax = allValues.length > 0 ? Math.max(...allValues) : 3000;
+                const yMin = Math.max(0, Math.floor(dataMin / 1000) * 1000 - 1000);
+                const yMax = Math.ceil(dataMax / 1000) * 1000 + 1000;
+                const yTicks = [];
+                for (let t = yMin; t <= yMax; t += 1000) yTicks.push(t);
+                return (
+                <>
+                  <div className="flex items-center justify-between mb-3 mt-4 pt-4" style={{ borderTop: `1px solid ${COLORS.surfaceLight}` }}>
+                    <p className="text-sm font-semibold" style={{ color: COLORS.water }}>Water</p>
+                  </div>
+                  <div style={{ height: 150 }}>
+                    {filteredData.length > 0 && hasData ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={filteredData.map(d => ({ ...d, actual: d.water }))} margin={{ top: 10, right: 50, left: 0, bottom: 5 }}>
+                          <defs>
+                            <linearGradient id="progressWaterGradient" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor={COLORS.water} stopOpacity={0.25} />
+                              <stop offset="100%" stopColor={COLORS.water} stopOpacity={0.02} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke={COLORS.surfaceLight} vertical={false} />
+                          <XAxis dataKey="week" tick={{ fill: COLORS.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} />
+                          <YAxis tick={{ fill: COLORS.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} width={35} domain={[yMin, yMax]} ticks={yTicks} tickFormatter={(v) => `${v/1000}L`} />
+                          <Tooltip contentStyle={{ backgroundColor: COLORS.surface, border: 'none', borderRadius: 12, padding: '8px 12px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }} labelStyle={{ color: COLORS.text, fontSize: 11, fontWeight: 600, marginBottom: 4 }} formatter={(value) => [value ? `${(value/1000).toFixed(1)}L` : '-', 'Water']} cursor={{ stroke: COLORS.water, strokeWidth: 1, strokeDasharray: '4 4' }} />
+                          <ReferenceLine y={waterGoal} stroke={COLORS.success} strokeWidth={2} strokeDasharray="8 4" label={{ value: `Goal`, position: 'right', fill: COLORS.success, fontSize: 9 }} />
+                          <Area type="monotone" dataKey="actual" stroke={COLORS.water} strokeWidth={2.5} fill="url(#progressWaterGradient)" dot={{ fill: COLORS.background, stroke: COLORS.water, strokeWidth: 2, r: 4 }} activeDot={{ fill: COLORS.water, stroke: COLORS.background, strokeWidth: 2, r: 6 }} connectNulls animationDuration={800} />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="h-full flex items-center justify-center">
+                        <p className="text-xs" style={{ color: COLORS.textMuted }}>Log water to see trends</p>
+                      </div>
+                    )}
+                  </div>
+                </>
+                );
+              })()}
+
+              {/* Sleep Chart */}
+              {(() => {
+                const daysToShow = progressChartTimeFrame === '7d' ? 7 : progressChartTimeFrame === '30d' ? 28 : progressChartTimeFrame === '90d' ? 90 : sleepChartData?.length || 90;
+                const weeklySleepData = [];
+                const data = sleepChartData?.slice(-daysToShow) || [];
+                for (let i = 0; i < data.length; i += 7) {
+                  const weekData = data.slice(i, i + 7);
+                  const avgHours = weekData.reduce((sum, d) => sum + (d.hours || 0), 0) / weekData.length;
+                  weeklySleepData.push({ week: `W${weeklySleepData.length + 1}`, actual: parseFloat(avgHours.toFixed(1)), goal: 8 });
+                }
+                return (
+                <>
+                  <div className="flex items-center justify-between mb-3 mt-4 pt-4" style={{ borderTop: `1px solid ${COLORS.surfaceLight}` }}>
+                    <p className="text-sm font-semibold" style={{ color: COLORS.sleep }}>Sleep</p>
+                  </div>
+                  <div style={{ height: 150 }}>
+                    {weeklySleepData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={weeklySleepData} margin={{ top: 10, right: 50, left: 0, bottom: 5 }}>
+                          <defs>
+                            <linearGradient id="progressSleepGradient" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor={COLORS.sleep} stopOpacity={0.25} />
+                              <stop offset="100%" stopColor={COLORS.sleep} stopOpacity={0.02} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke={COLORS.surfaceLight} vertical={false} />
+                          <XAxis dataKey="week" tick={{ fill: COLORS.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} interval={Math.ceil(weeklySleepData.length / 6)} />
+                          <YAxis tick={{ fill: COLORS.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} width={32} domain={[4, 10]} ticks={[4, 6, 8, 10]} tickFormatter={(v) => `${v}h`} />
+                          <Tooltip contentStyle={{ backgroundColor: COLORS.surface, border: 'none', borderRadius: 12, padding: '8px 12px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }} labelStyle={{ color: COLORS.text, fontSize: 11, fontWeight: 600, marginBottom: 4 }} formatter={(value) => [value ? `${value}h` : '-', 'Sleep']} cursor={{ stroke: COLORS.sleep, strokeWidth: 1, strokeDasharray: '4 4' }} />
+                          <ReferenceLine y={8} stroke={COLORS.success} strokeWidth={2} strokeDasharray="8 4" label={{ value: `Goal`, position: 'right', fill: COLORS.success, fontSize: 9 }} />
+                          <Area type="monotone" dataKey="actual" stroke={COLORS.sleep} strokeWidth={2.5} fill="url(#progressSleepGradient)" dot={{ fill: COLORS.background, stroke: COLORS.sleep, strokeWidth: 2, r: 4 }} activeDot={{ fill: COLORS.sleep, stroke: COLORS.background, strokeWidth: 2, r: 6 }} animationDuration={800} />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="h-full flex items-center justify-center">
+                        <p className="text-xs" style={{ color: COLORS.textMuted }}>Log sleep to see trends</p>
+                      </div>
+                    )}
+                  </div>
+                </>
+                );
+              })()}
+            </div>
 
             {/* Body Composition Chart */}
             <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>BODY COMPOSITION</p>
@@ -29774,6 +29499,8 @@ export default function UpRepDemo() {
             setProgressChartTimeFrame={setProgressChartTimeFrame}
             progressTabScrollRef={progressTabScrollRef}
             handleProgressTabScroll={handleProgressTabScroll}
+            weeklyNutrition={weeklyNutrition}
+            sleepChartData={sleepChartData}
           />
         )}
         {activeTab === 'profile' && (
