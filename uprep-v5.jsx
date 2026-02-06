@@ -12474,6 +12474,7 @@ const HomeTab = ({
         <div className="flex justify-around py-3 px-2 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
           {quickStats.map((stat) => {
             const progress = Math.min((stat.current || 0) / (stat.target || 1), 1);
+            const isComplete = progress >= 1;
             const displayVal = stat.displayValue || Math.round(progress * 100) + '%';
             return (
               <button
@@ -12486,7 +12487,7 @@ const HomeTab = ({
                     <circle cx="22" cy="22" r="18" stroke={COLORS.surfaceLight} strokeWidth="3" fill="none" />
                     <circle
                       cx="22" cy="22" r="18"
-                      stroke={stat.color || COLORS.primary}
+                      stroke={isComplete ? COLORS.success : (stat.color || COLORS.primary)}
                       strokeWidth="3"
                       fill="none"
                       strokeLinecap="round"
@@ -12494,10 +12495,14 @@ const HomeTab = ({
                     />
                   </svg>
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-xs font-bold" style={{ color: stat.color || COLORS.primary, fontSize: 9 }}>{displayVal}</span>
+                    {isComplete ? (
+                      <Check size={16} color={COLORS.success} strokeWidth={3} />
+                    ) : (
+                      <span className="text-xs font-bold" style={{ color: stat.color || COLORS.primary, fontSize: 9 }}>{displayVal}</span>
+                    )}
                   </div>
                 </div>
-                <span className="text-xs" style={{ color: COLORS.textMuted, fontSize: 9 }}>{stat.label}</span>
+                <span className="text-xs" style={{ color: isComplete ? COLORS.success : COLORS.textMuted, fontSize: 9 }}>{stat.label}</span>
               </button>
             );
           })}
