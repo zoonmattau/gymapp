@@ -17612,22 +17612,40 @@ const NutritionTab = ({
                   </div>
                 </div>
                 <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
-                  {!lastNightConfirmed ? (
-                    <>
-                      <div className="flex items-center justify-end mb-3">
-                        <div className="flex items-center gap-1">
-                          <Moon size={16} color={COLORS.sleep} />
-                          <span className="font-bold" style={{ color: COLORS.sleep }}>
-                            {(() => {
-                              const [bedH, bedM] = lastNightBedTime.split(':').map(Number);
-                              const [wakeH, wakeM] = lastNightWakeTime.split(':').map(Number);
-                              let hours = wakeH - bedH + (wakeM - bedM) / 60;
-                              if (hours < 0) hours += 24;
-                              return hours.toFixed(1);
-                            })()} hrs
-                          </span>
-                        </div>
-                      </div>
+                  {(() => {
+                    // Check if selected date has sleep data
+                    const existingSleepData = monthlyTracking?.sleep?.[selectedSleepDate];
+                    const isEditingPastDate = selectedSleepDate !== getLocalDateString(new Date());
+                    const showEntryForm = !existingSleepData || (existingSleepData && !lastNightConfirmed && !isEditingPastDate);
+
+                    // For past dates, always show entry form if no data, or show logged state if data exists
+                    const shouldShowForm = isEditingPastDate ? !existingSleepData : !lastNightConfirmed;
+
+                    if (shouldShowForm) {
+                      return (
+                        <>
+                          {isEditingPastDate && (
+                            <div className="flex items-center gap-2 mb-3 p-2 rounded-lg" style={{ backgroundColor: COLORS.primary + '15' }}>
+                              <Calendar size={14} color={COLORS.primary} />
+                              <p className="text-xs" style={{ color: COLORS.primary }}>
+                                Logging sleep for {new Date(selectedSleepDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                              </p>
+                            </div>
+                          )}
+                          <div className="flex items-center justify-end mb-3">
+                            <div className="flex items-center gap-1">
+                              <Moon size={16} color={COLORS.sleep} />
+                              <span className="font-bold" style={{ color: COLORS.sleep }}>
+                                {(() => {
+                                  const [bedH, bedM] = lastNightBedTime.split(':').map(Number);
+                                  const [wakeH, wakeM] = lastNightWakeTime.split(':').map(Number);
+                                  let hours = wakeH - bedH + (wakeM - bedM) / 60;
+                                  if (hours < 0) hours += 24;
+                                  return hours.toFixed(1);
+                                })()} hrs
+                              </span>
+                            </div>
+                          </div>
                     <div className="space-y-3">
                       <div className="flex items-center gap-3">
                         <div className="flex-1">
@@ -17803,7 +17821,7 @@ const NutritionTab = ({
                             ...prev,
                             sleep: {
                               ...prev.sleep,
-                              [selectedSleepDate]: { hours, goalMet: hours >= sleepHours }
+                              [selectedSleepDate]: { hours, bedTime: lastNightBedTime, wakeTime: lastNightWakeTime, goalMet: hours >= sleepHours }
                             }
                           }));
                           // Refresh streaks to update sleep streak
@@ -17822,45 +17840,67 @@ const NutritionTab = ({
                           } catch (err) {
                             console.warn('Error refreshing streaks:', err?.message || err);
                           }
-                          setLastNightConfirmed(true);
+                          if (!isEditingPastDate) {
+                            setLastNightConfirmed(true);
+                          }
                         }}
                         className="w-full py-3 rounded-xl font-semibold"
                         style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
                       >
-                        Log Sleep
+                        {isEditingPastDate ? 'Log Past Sleep' : 'Log Sleep'}
                       </button>
                     </div>
                     </>
-                  ) : (
-                    <div className="relative flex items-center justify-between py-3">
-                      <button
-                        onClick={() => setLastNightConfirmed(false)}
-                        className="absolute top-1 right-1 p-1.5 rounded-full"
-                        style={{ backgroundColor: COLORS.surfaceLight }}
-                      >
-                        <Settings size={14} color={COLORS.textMuted} />
-                      </button>
-                      <div className="flex items-center gap-3">
-                        <Check size={24} color={COLORS.success} />
-                        <div>
-                          <p className="font-semibold" style={{ color: COLORS.text }}>Sleep Logged</p>
-                          <p className="text-sm" style={{ color: COLORS.textMuted }}>{lastNightBedTime} → {lastNightWakeTime}</p>
+                      );
+                    }
+
+                    // Show logged state
+                    const sleepData = existingSleepData || {};
+                    const displayHours = sleepData.hours || (() => {
+                      const [bedH, bedM] = lastNightBedTime.split(':').map(Number);
+                      const [wakeH, wakeM] = lastNightWakeTime.split(':').map(Number);
+                      let h = wakeH - bedH + (wakeM - bedM) / 60;
+                      if (h < 0) h += 24;
+                      return h;
+                    })();
+                    const displayBedTime = sleepData.bedTime || lastNightBedTime;
+                    const displayWakeTime = sleepData.wakeTime || lastNightWakeTime;
+
+                    return (
+                      <div className="relative flex items-center justify-between py-3">
+                        <button
+                          onClick={() => {
+                            // Allow editing - remove from monthlyTracking for this date
+                            setMonthlyTracking(prev => {
+                              const newSleep = { ...prev.sleep };
+                              delete newSleep[selectedSleepDate];
+                              return { ...prev, sleep: newSleep };
+                            });
+                            if (!isEditingPastDate) {
+                              setLastNightConfirmed(false);
+                            }
+                          }}
+                          className="absolute top-1 right-1 p-1.5 rounded-full"
+                          style={{ backgroundColor: COLORS.surfaceLight }}
+                        >
+                          <Settings size={14} color={COLORS.textMuted} />
+                        </button>
+                        <div className="flex items-center gap-3">
+                          <Check size={24} color={COLORS.success} />
+                          <div>
+                            <p className="font-semibold" style={{ color: COLORS.text }}>Sleep Logged</p>
+                            <p className="text-sm" style={{ color: COLORS.textMuted }}>{displayBedTime} → {displayWakeTime}</p>
+                          </div>
+                        </div>
+                        <div className="text-right pr-8">
+                          <span className="text-2xl font-bold" style={{ color: COLORS.sleep }}>
+                            {typeof displayHours === 'number' ? displayHours.toFixed(1) : displayHours}
+                          </span>
+                          <span className="text-sm ml-1" style={{ color: COLORS.textMuted }}>hrs</span>
                         </div>
                       </div>
-                      <div className="text-right pr-8">
-                        <span className="text-2xl font-bold" style={{ color: COLORS.sleep }}>
-                          {(() => {
-                            const [bedH, bedM] = lastNightBedTime.split(':').map(Number);
-                            const [wakeH, wakeM] = lastNightWakeTime.split(':').map(Number);
-                            let hours = wakeH - bedH + (wakeM - bedM) / 60;
-                            if (hours < 0) hours += 24;
-                            return hours.toFixed(1);
-                          })()}
-                        </span>
-                        <span className="text-sm ml-1" style={{ color: COLORS.textMuted }}>hrs</span>
-                      </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
 
                 {/* Sleep Streak Card */}
