@@ -12967,6 +12967,10 @@ const ProgressTab = ({
   handleProgressTabScroll,
   weeklyNutrition,
   sleepChartData,
+  overviewStats,
+  GOAL_INFO,
+  EXPERIENCE_LEVELS,
+  setShowGoalEditor,
 }) => (
           <div ref={progressTabScrollRef} onScroll={handleProgressTabScroll} className="p-4 h-full overflow-auto pb-20">
             {/* Progress Overview */}
@@ -12999,6 +13003,80 @@ const ProgressTab = ({
                 </p>
                 <p className="text-xs" style={{ color: COLORS.textMuted }}>to goal</p>
               </div>
+            </div>
+
+            {/* Current Goal */}
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-semibold" style={{ color: COLORS.textMuted }}>CURRENT GOAL</p>
+                <button
+                  onClick={() => setShowGoalEditor && setShowGoalEditor(true)}
+                  className="text-xs px-2 py-1 rounded"
+                  style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.textMuted }}
+                >
+                  Change
+                </button>
+              </div>
+              {userData.goal && GOAL_INFO?.[userData.goal] ? (
+                <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '20' }}>
+                      <Target size={24} color={COLORS.primary} />
+                    </div>
+                    <div>
+                      <p className="font-semibold" style={{ color: COLORS.text }}>{GOAL_INFO[userData.goal].title}</p>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                        {EXPERIENCE_LEVELS?.[userData.experience]?.label || 'Unknown'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mb-2">
+                    <div className="flex justify-between text-xs mb-1">
+                      <span style={{ color: COLORS.textMuted }}>Progress to goal</span>
+                      <span style={{ color: COLORS.primary }}>
+                        {(() => {
+                          const start = parseFloat(userData.currentWeight) || overviewStats?.startingWeight || 80;
+                          const goal = parseFloat(userData.goalWeight) || overviewStats?.targetWeight || 75;
+                          const current = overviewStats?.currentWeight || start;
+                          const totalChange = Math.abs(goal - start);
+                          const currentChange = Math.abs(current - start);
+                          return totalChange > 0 ? Math.min(100, Math.round((currentChange / totalChange) * 100)) : 0;
+                        })()}%
+                      </span>
+                    </div>
+                    <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: COLORS.surfaceLight }}>
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          backgroundColor: COLORS.primary,
+                          width: `${(() => {
+                            const start = parseFloat(userData.currentWeight) || overviewStats?.startingWeight || 80;
+                            const goal = parseFloat(userData.goalWeight) || overviewStats?.targetWeight || 75;
+                            const current = overviewStats?.currentWeight || start;
+                            const totalChange = Math.abs(goal - start);
+                            const currentChange = Math.abs(current - start);
+                            return totalChange > 0 ? Math.min(100, Math.round((currentChange / totalChange) * 100)) : 0;
+                          })()}%`
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span style={{ color: COLORS.textMuted }}>Start: {overviewStats?.startingWeight || userData.currentWeight}kg</span>
+                    <span style={{ color: COLORS.text }}>Now: {overviewStats?.currentWeight || userData.currentWeight}kg</span>
+                    <span style={{ color: COLORS.success }}>Goal: {overviewStats?.targetWeight || userData.goalWeight}kg</span>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowGoalEditor && setShowGoalEditor(true)}
+                  className="w-full p-4 rounded-xl text-center"
+                  style={{ backgroundColor: COLORS.surface, border: `2px dashed ${COLORS.surfaceLight}` }}
+                >
+                  <Target size={24} color={COLORS.textMuted} className="mx-auto mb-2" />
+                  <p style={{ color: COLORS.textMuted }}>Set your fitness goal</p>
+                </button>
+              )}
             </div>
 
             {/* Streaks Section */}
@@ -28852,6 +28930,10 @@ export default function UpRepDemo() {
             handleProgressTabScroll={handleProgressTabScroll}
             weeklyNutrition={weeklyNutrition}
             sleepChartData={sleepChartData}
+            overviewStats={overviewStats}
+            GOAL_INFO={GOAL_INFO}
+            EXPERIENCE_LEVELS={EXPERIENCE_LEVELS}
+            setShowGoalEditor={setShowGoalEditor}
           />
         )}
         {activeTab === 'profile' && (
@@ -28936,87 +29018,6 @@ export default function UpRepDemo() {
                 </div>
               </div>
 
-              {/* Current Goal */}
-              <div className="mb-4">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-xs font-semibold" style={{ color: COLORS.textMuted }}>CURRENT GOAL</p>
-                  <button
-                    onClick={() => setShowGoalEditor(true)}
-                    className="text-xs px-2 py-1 rounded"
-                    style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.textMuted }}
-                  >
-                    Change
-                  </button>
-                </div>
-                {userData.goal && GOAL_INFO[userData.goal] ? (
-                  <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '20' }}>
-                        {userData.goal === 'bulk' && <Dumbbell size={24} color={COLORS.primary} />}
-                        {userData.goal === 'build_muscle' && <Target size={24} color={COLORS.primary} />}
-                        {userData.goal === 'strength' && <Dumbbell size={24} color={COLORS.primary} />}
-                        {userData.goal === 'recomp' && <RefreshCw size={24} color={COLORS.primary} />}
-                        {userData.goal === 'fitness' && <Heart size={24} color={COLORS.primary} />}
-                        {userData.goal === 'athletic' && <Zap size={24} color={COLORS.primary} />}
-                        {userData.goal === 'lean' && <TrendingDown size={24} color={COLORS.primary} />}
-                        {userData.goal === 'lose_fat' && <Flame size={24} color={COLORS.primary} />}
-                      </div>
-                      <div>
-                        <p className="font-semibold" style={{ color: COLORS.text }}>{GOAL_INFO[userData.goal].title}</p>
-                        <p className="text-xs" style={{ color: COLORS.textMuted }}>
-                          {EXPERIENCE_LEVELS[userData.experience]?.label || 'Unknown'}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="mb-2">
-                      <div className="flex justify-between text-xs mb-1">
-                        <span style={{ color: COLORS.textMuted }}>Progress to goal</span>
-                        <span style={{ color: COLORS.primary }}>
-                          {(() => {
-                            const start = parseFloat(userData.currentWeight) || overviewStats.startingWeight;
-                            const goal = parseFloat(userData.goalWeight) || overviewStats.targetWeight;
-                            const current = overviewStats.currentWeight;
-                            const totalChange = Math.abs(goal - start);
-                            const currentChange = Math.abs(current - start);
-                            return totalChange > 0 ? Math.min(100, Math.round((currentChange / totalChange) * 100)) : 0;
-                          })()}%
-                        </span>
-                      </div>
-                      <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: COLORS.surfaceLight }}>
-                        <div
-                          className="h-full rounded-full"
-                          style={{
-                            backgroundColor: COLORS.primary,
-                            width: `${(() => {
-                              const start = parseFloat(userData.currentWeight) || overviewStats.startingWeight;
-                              const goal = parseFloat(userData.goalWeight) || overviewStats.targetWeight;
-                              const current = overviewStats.currentWeight;
-                              const totalChange = Math.abs(goal - start);
-                              const currentChange = Math.abs(current - start);
-                              return totalChange > 0 ? Math.min(100, Math.round((currentChange / totalChange) * 100)) : 0;
-                            })()}%`
-                          }}
-                        />
-                      </div>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span style={{ color: COLORS.textMuted }}>Start: {overviewStats.startingWeight}kg</span>
-                      <span style={{ color: COLORS.text }}>Now: {overviewStats.currentWeight}kg</span>
-                      <span style={{ color: COLORS.success }}>Goal: {overviewStats.targetWeight}kg</span>
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setShowGoalEditor(true)}
-                    className="w-full p-4 rounded-xl text-center"
-                    style={{ backgroundColor: COLORS.surface, border: `2px dashed ${COLORS.surfaceLight}` }}
-                  >
-                    <Target size={24} color={COLORS.textMuted} className="mx-auto mb-2" />
-                    <p style={{ color: COLORS.textMuted }}>Set your fitness goal</p>
-                  </button>
-                )}
-              </div>
-
               {/* Experience Level */}
               <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>EXPERIENCE LEVEL</p>
               <button
@@ -29070,107 +29071,6 @@ export default function UpRepDemo() {
                   <ChevronRight size={20} color={COLORS.textMuted} />
                 </div>
               </button>
-
-              {/* Sleep Goal */}
-              <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>SLEEP GOAL</p>
-              <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: COLORS.sleep + '20' }}>
-                      <Moon size={20} color={COLORS.sleep} />
-                    </div>
-                    <div>
-                      <p className="font-semibold" style={{ color: COLORS.text }}>
-                        {sleepHours} hours per night
-                      </p>
-                      <p className="text-xs" style={{ color: COLORS.textMuted }}>
-                        Target sleep duration
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={async () => {
-                        const newHours = Math.max(5, sleepHours - 0.5);
-                        setSleepHours(newHours);
-                        if (user?.id) {
-                          await sleepService.updateSleepGoals(user.id, { target_hours: newHours });
-                        }
-                      }}
-                      className="w-8 h-8 rounded-full flex items-center justify-center"
-                      style={{ backgroundColor: COLORS.surfaceLight }}
-                    >
-                      <Minus size={16} color={COLORS.textMuted} />
-                    </button>
-                    <span className="w-10 text-center font-bold" style={{ color: COLORS.sleep }}>{sleepHours}</span>
-                    <button
-                      onClick={async () => {
-                        const newHours = Math.min(10, sleepHours + 0.5);
-                        setSleepHours(newHours);
-                        if (user?.id) {
-                          await sleepService.updateSleepGoals(user.id, { target_hours: newHours });
-                        }
-                      }}
-                      className="w-8 h-8 rounded-full flex items-center justify-center"
-                      style={{ backgroundColor: COLORS.surfaceLight }}
-                    >
-                      <Plus size={16} color={COLORS.textMuted} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Current Program - opens modal */}
-              <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>TRAINING SPLIT</p>
-              <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: COLORS.surface }}>
-                <button
-                  type="button"
-                  onClick={() => setShowProgramSelector(true)}
-                  className="w-full p-3 rounded-xl flex items-center justify-between mb-3"
-                  style={{ backgroundColor: COLORS.surfaceLight, border: `1px solid ${COLORS.primary}40` }}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '20' }}>
-                      <Dumbbell size={20} color={COLORS.primary} />
-                    </div>
-                    <div className="text-left">
-                      <p className="font-semibold" style={{ color: COLORS.text }}>{currentProgram.name}</p>
-                      <p className="text-xs" style={{ color: COLORS.textMuted }}>{currentProgram.daysPerWeek} days/week • {currentProgram.totalWeeks} weeks</p>
-                    </div>
-                  </div>
-                  <ChevronRight size={20} color={COLORS.primary} />
-                </button>
-                <div className="flex justify-between text-xs mb-1">
-                  <span style={{ color: COLORS.textMuted }}>Week {programProgress.currentWeek} of {programProgress.totalWeeks}</span>
-                  <span style={{ color: COLORS.primary }}>{Math.round((programProgress.currentWeek / programProgress.totalWeeks) * 100)}%</span>
-                </div>
-                <div className="h-2 rounded-full overflow-hidden mb-3" style={{ backgroundColor: COLORS.surfaceLight }}>
-                  <div
-                    className="h-full rounded-full"
-                    style={{ backgroundColor: COLORS.primary, width: `${(programProgress.currentWeek / programProgress.totalWeeks) * 100}%` }}
-                  />
-                </div>
-                <button
-                  onClick={() => {
-                    if (window.confirm('Reset program to Day 1? This will restart your workout rotation from the beginning.')) {
-                      // Reset all completed workouts in masterSchedule
-                      setMasterSchedule(prev => {
-                        const newSchedule = {};
-                        Object.entries(prev).forEach(([dateKey, entry]) => {
-                          newSchedule[dateKey] = { ...entry, completed: false };
-                        });
-                        return newSchedule;
-                      });
-                      // Reset today's workout completed state
-                      setTodayWorkoutCompleted(false);
-                    }
-                  }}
-                  className="w-full py-2 rounded-lg text-sm font-medium"
-                  style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.textMuted }}
-                >
-                  Reset to Day 1
-                </button>
-              </div>
 
               {/* Achievements */}
               <div className="mb-4">
