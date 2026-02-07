@@ -13743,6 +13743,8 @@ const WorkoutTab = ({
   setShowWorkoutHistory,
   setShowPersonalRecords,
   setShowCustomWorkout,
+  showStartWorkoutOptions,
+  setShowStartWorkoutOptions,
   workoutHistory,
   setShowWorkoutSummary,
   personalRecords,
@@ -14021,15 +14023,126 @@ const WorkoutTab = ({
           <p className="text-xs" style={{ color: colors.textMuted }}>{personalRecords?.length || 0} PRs</p>
         </button>
         <button
-          onClick={() => setShowCustomWorkout && setShowCustomWorkout(true)}
+          onClick={() => setShowStartWorkoutOptions && setShowStartWorkoutOptions(true)}
           className="p-4 rounded-xl text-left"
           style={{ backgroundColor: colors.surface }}
         >
-          <Plus size={24} color={colors.accent} />
-          <p className="font-semibold mt-2" style={{ color: colors.text }}>Custom Workout</p>
-          <p className="text-xs" style={{ color: colors.textMuted }}>Build your own</p>
+          <Play size={24} color={colors.accent} />
+          <p className="font-semibold mt-2" style={{ color: colors.text }}>Start Workout</p>
+          <p className="text-xs" style={{ color: colors.textMuted }}>Begin training</p>
         </button>
       </div>
+
+      {/* Start Workout Options Modal */}
+      {showStartWorkoutOptions && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}>
+          <div
+            className="w-full max-w-md rounded-t-2xl p-6 pb-8"
+            style={{ backgroundColor: colors.background }}
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-bold" style={{ color: colors.text }}>Start Workout</h2>
+              <button
+                onClick={() => setShowStartWorkoutOptions(false)}
+                className="p-2 rounded-full"
+                style={{ backgroundColor: colors.surface }}
+              >
+                <X size={20} color={colors.textMuted} />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {/* 1. Today's Plan */}
+              <button
+                onClick={() => {
+                  setShowStartWorkoutOptions(false);
+                  if (todayWorkout && todayWorkout.type !== 'Rest' && handleStartWorkout) {
+                    handleStartWorkout();
+                  }
+                }}
+                disabled={!todayWorkout || todayWorkout.type === 'Rest'}
+                className="w-full p-4 rounded-xl flex items-center gap-4"
+                style={{
+                  backgroundColor: colors.surface,
+                  opacity: (!todayWorkout || todayWorkout.type === 'Rest') ? 0.5 : 1
+                }}
+              >
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: colors.success + '20' }}>
+                  <Calendar size={24} color={colors.success} />
+                </div>
+                <div className="flex-1 text-left">
+                  <p className="font-semibold" style={{ color: colors.text }}>Today's Plan</p>
+                  <p className="text-xs" style={{ color: colors.textMuted }}>
+                    {todayWorkout && todayWorkout.type !== 'Rest' ? todayWorkout.name : 'Rest day - no workout scheduled'}
+                  </p>
+                </div>
+                <ChevronRight size={20} color={colors.textMuted} />
+              </button>
+
+              {/* 2. Freeform Workout */}
+              <button
+                onClick={() => {
+                  setShowStartWorkoutOptions(false);
+                  setShowCustomWorkout && setShowCustomWorkout(true);
+                }}
+                className="w-full p-4 rounded-xl flex items-center gap-4"
+                style={{ backgroundColor: colors.surface }}
+              >
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: colors.accent + '20' }}>
+                  <Edit3 size={24} color={colors.accent} />
+                </div>
+                <div className="flex-1 text-left">
+                  <p className="font-semibold" style={{ color: colors.text }}>Freeform Workout</p>
+                  <p className="text-xs" style={{ color: colors.textMuted }}>Build your own workout from scratch</p>
+                </div>
+                <ChevronRight size={20} color={colors.textMuted} />
+              </button>
+
+              {/* 3. Select from Saved */}
+              <button
+                onClick={() => {
+                  setShowStartWorkoutOptions(false);
+                  setShowExerciseLibrary && setShowExerciseLibrary(true);
+                }}
+                className="w-full p-4 rounded-xl flex items-center gap-4"
+                style={{ backgroundColor: colors.surface }}
+              >
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: colors.warning + '20' }}>
+                  <Bookmark size={24} color={colors.warning} />
+                </div>
+                <div className="flex-1 text-left">
+                  <p className="font-semibold" style={{ color: colors.text }}>Select from Saved</p>
+                  <p className="text-xs" style={{ color: colors.textMuted }}>Choose from your Rep-Ertoire</p>
+                </div>
+                <ChevronRight size={20} color={colors.textMuted} />
+              </button>
+
+              {/* 4. UpRep Suggested */}
+              <button
+                onClick={() => {
+                  setShowStartWorkoutOptions(false);
+                  if (todayWorkout && todayWorkout.type !== 'Rest' && handleStartWorkout) {
+                    handleStartWorkout();
+                  } else if (setShowActiveWorkout) {
+                    setShowActiveWorkout(true);
+                  }
+                }}
+                className="w-full p-4 rounded-xl flex items-center gap-4"
+                style={{ backgroundColor: colors.surface }}
+              >
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: colors.primary + '20' }}>
+                  <Sparkles size={24} color={colors.primary} />
+                </div>
+                <div className="flex-1 text-left">
+                  <p className="font-semibold" style={{ color: colors.text }}>UpRep Suggested</p>
+                  <p className="text-xs" style={{ color: colors.textMuted }}>AI-optimized workout for you</p>
+                </div>
+                <ChevronRight size={20} color={colors.textMuted} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Recent Activity */}
       <p className="text-xs font-semibold mb-3" style={{ color: colors.textMuted }}>RECENT ACTIVITY</p>
@@ -20765,6 +20878,7 @@ export default function UpRepDemo() {
   const [showWorkoutHistory, setShowWorkoutHistory] = useState(false);
   const [showPersonalRecords, setShowPersonalRecords] = useState(false);
   const [showCustomWorkout, setShowCustomWorkout] = useState(false);
+  const [showStartWorkoutOptions, setShowStartWorkoutOptions] = useState(false);
   const [showEstimate1RM, setShowEstimate1RM] = useState(false);
   const [showFullSchedule, setShowFullSchedule] = useState(false);
   const [fullScheduleMonth, setFullScheduleMonth] = useState(currentMonth);
@@ -23354,6 +23468,8 @@ export default function UpRepDemo() {
             setShowWorkoutHistory={setShowWorkoutHistory}
             setShowPersonalRecords={setShowPersonalRecords}
             setShowCustomWorkout={setShowCustomWorkout}
+            showStartWorkoutOptions={showStartWorkoutOptions}
+            setShowStartWorkoutOptions={setShowStartWorkoutOptions}
             workoutHistory={workoutHistory}
             setShowWorkoutSummary={setShowWorkoutSummary}
             personalRecords={personalRecords}
