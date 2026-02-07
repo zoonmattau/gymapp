@@ -19432,7 +19432,7 @@ export default function UpRepDemo() {
     loadSleepData();
 
     return () => { isMounted = false; };
-  }, [user?.id, isAuthenticated, selectedSleepDate, monthlyTracking.sleep]);
+  }, [user?.id, isAuthenticated, selectedSleepDate]);
 
   // Function to refresh sleep chart data (called after saving sleep)
   const refreshSleepChartData = async () => {
