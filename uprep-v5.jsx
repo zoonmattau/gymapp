@@ -1628,6 +1628,156 @@ const EXERCISE_INSTRUCTIONS = {
     setup: ['Stand facing sturdy box or step', 'Hold dumbbells at sides', 'One foot on top of box', 'Core engaged'],
     execution: ['Step up using top leg only', 'Don\'t push off bottom foot', 'Stand fully on box', 'Step down with control'],
     tips: ['Keep all the work in the top leg', 'Higher box = more glute emphasis', 'Great for single leg strength']
+  },
+  // ADDITIONAL SHOULDER EXERCISES
+  'Seated Arnold Press': {
+    setup: ['Sit on bench with back support', 'Hold dumbbells at shoulder height, palms facing you', 'Elbows in front of body', 'Feet flat on floor, core engaged'],
+    execution: ['Press dumbbells up while rotating palms to face forward', 'Full extension overhead', 'Reverse rotation as you lower back to start', 'Palms face you again at the bottom'],
+    tips: ['Same as Arnold Press but seated for stricter form', 'The back support prevents cheating with leg drive', 'Go slightly lighter than standing version']
+  },
+  'Bradford Press': {
+    setup: ['Sit or stand with barbell at shoulder height', 'Grip slightly wider than shoulder width', 'Bar in front of head in front rack', 'Core braced'],
+    execution: ['Press bar just high enough to clear your head', 'Lower bar behind your head to ear level', 'Press back up just clearing head again', 'Lower to front starting position - that\'s one rep'],
+    tips: ['The bar barely clears your head each time - keeps constant tension', 'Great for delt endurance and burn', 'Use light weight - this is about time under tension not load']
+  },
+  'Z Press': {
+    setup: ['Sit on floor with legs extended straight in front', 'Bar in front rack position on front delts', 'No back support - core must work hard', 'Grip just outside shoulder width'],
+    execution: ['Press bar straight overhead', 'Lock out at the top', 'Lower with control to shoulders', 'Maintain upright torso throughout'],
+    tips: ['Named after strongman Zydrunas Savickas', 'No leg drive or back lean possible - pure pressing strength', 'Excellent for building strict overhead press and core stability']
+  },
+  'Behind the Neck Press': {
+    setup: ['Sit or stand with bar on upper traps behind neck', 'Wide grip - wider than regular overhead press', 'Elbows pointing out and down', 'Good shoulder mobility required'],
+    execution: ['Press bar straight up from behind neck', 'Lock out overhead', 'Lower with control back to upper traps', 'Keep head slightly forward as bar passes'],
+    tips: ['Only do this if you have excellent shoulder mobility', 'Hits the lateral and rear delts more than front pressing', 'Start light and ensure no pain - stop if shoulders hurt']
+  },
+  'Bottoms Up Press': {
+    setup: ['Hold kettlebell by handle with bottom facing up', 'Grip tight to balance the kettlebell', 'Elbow bent at 90 degrees, forearm vertical', 'Stand with feet shoulder-width apart'],
+    execution: ['Press kettlebell overhead keeping bottom up', 'Maintain tight grip throughout', 'Lock out at the top', 'Lower with control back to shoulder'],
+    tips: ['Incredible for grip strength and shoulder stability', 'The instability forces rotator cuff activation', 'Start with a light kettlebell - balance is the challenge']
+  },
+  'Javelin Press': {
+    setup: ['Hold barbell at one end with one hand', 'Other end on floor or in landmine', 'Bar at shoulder height', 'Staggered stance for stability'],
+    execution: ['Press the barbell end overhead and slightly forward', 'Lock out arm fully', 'Lower with control', 'Complete all reps then switch sides'],
+    tips: ['Unilateral pressing that builds shoulder stability', 'Core works hard to resist rotation', 'Great for sport-specific shoulder strength']
+  },
+  'Crucifix Hold': {
+    setup: ['Stand with dumbbells at sides', 'Raise arms out to sides until parallel to floor', 'Palms can face down or forward', 'Engage side delts to hold position'],
+    execution: ['Hold arms out straight at shoulder height', 'Maintain position for prescribed time', 'Fight the urge to lower arms', 'Keep slight bend in elbows'],
+    tips: ['Isometric exercise - builds insane side delt endurance', 'Start with very light dumbbells - even 5 lbs is tough', 'Great for building mental toughness alongside muscle']
+  },
+  // ADDITIONAL BICEP EXERCISES
+  '21s (Bicep)': {
+    setup: ['Stand holding barbell or EZ bar', 'Arms extended, bar at thighs', 'Elbows at sides', 'Feet shoulder-width apart'],
+    execution: ['Do 7 reps from bottom to halfway up', 'Then 7 reps from halfway to top', 'Then 7 full range of motion reps', 'That\'s one set of 21 total reps'],
+    tips: ['The partial reps exhaust different portions of the strength curve', 'Classic old-school bicep finisher', 'Use lighter weight than normal curls - it adds up fast']
+  },
+  'Zottman Curls': {
+    setup: ['Stand holding dumbbells at sides', 'Palms facing forward (supinated)', 'Feet shoulder-width apart', 'Elbows close to body'],
+    execution: ['Curl dumbbells up with palms facing you', 'At the top, rotate palms to face down (pronated)', 'Lower dumbbells slowly with overhand grip', 'At the bottom, rotate palms back to facing up and repeat'],
+    tips: ['Combines regular curls (up) with reverse curls (down)', 'Builds both biceps and forearms in one exercise', 'The slow negative with overhand grip is where the forearm magic happens']
+  },
+  'Waiter Curls': {
+    setup: ['Hold one dumbbell with both hands cupping the top end', 'Like a waiter carrying a tray from below', 'Arms extended down in front of body', 'Elbows close to sides'],
+    execution: ['Curl the dumbbell up keeping it level', 'Focus on squeezing biceps at the top', 'Lower with control', 'Keep the dumbbell balanced throughout'],
+    tips: ['Great for building the bicep peak and short head', 'The grip forces more bicep isolation', 'Go lighter than you think - the leverage is tough']
+  },
+  'Cable Hammer Curl': {
+    setup: ['Attach rope to low cable', 'Stand facing machine', 'Grip rope with neutral grip (palms facing each other)', 'Arms extended, elbows at sides'],
+    execution: ['Curl rope up keeping neutral grip', 'Squeeze at the top', 'Lower with control', 'Keep elbows pinned to sides'],
+    tips: ['Constant cable tension makes this harder than dumbbell hammer curls', 'Great for building brachialis and forearms', 'Can pull the rope apart at the top for extra contraction']
+  },
+  'Overhead Cable Curl': {
+    setup: ['Set cables at head height or above', 'Stand between cable stations', 'Grip handles with palms facing up', 'Arms extended out to sides in crucifix position'],
+    execution: ['Curl handles toward your head', 'Squeeze biceps hard at peak contraction', 'Extend arms back to start', 'Maintain tension throughout'],
+    tips: ['Same as high cable curl - incredible peak contraction', 'Great for building the bicep peak', 'This is a finishing exercise - do it last in your arm workout']
+  },
+  // ADDITIONAL TRICEP EXERCISES
+  'California Press': {
+    setup: ['Lie on bench holding barbell or EZ bar', 'Grip slightly narrower than shoulder width', 'Arms extended above chest', 'Feet flat on floor'],
+    execution: ['Lower bar toward upper chest/neck area', 'Elbows flare slightly - hybrid movement', 'Press back up combining bench press and extension', 'Lock out at the top'],
+    tips: ['Hybrid of close grip bench press and skull crusher', 'Hits all three tricep heads in one movement', 'Great for building overall tricep mass']
+  },
+  'Tate Press': {
+    setup: ['Lie on bench holding dumbbells', 'Arms extended above chest, palms facing feet', 'Dumbbells touching each other', 'Elbows pointing outward'],
+    execution: ['Bend elbows to lower dumbbells toward your chest', 'Elbows flare out to sides', 'Dumbbells come to touch your chest', 'Extend arms back to start'],
+    tips: ['Named after powerlifter Dave Tate', 'Unique angle that hits the lateral head hard', 'Keep the movement controlled - feels different from other extensions']
+  },
+  'Bench Dips': {
+    setup: ['Sit on edge of bench, hands gripping edge beside hips', 'Extend legs out in front with heels on floor', 'Slide off bench so arms support your weight', 'Keep back close to the bench'],
+    execution: ['Lower body by bending elbows to about 90 degrees', 'Keep elbows pointing back, not flaring out', 'Push back up to starting position', 'Squeeze triceps at the top'],
+    tips: ['Easier progression than parallel bar dips', 'Bend knees to make it easier, elevate feet to make it harder', 'Don\'t go too deep - can stress shoulders']
+  },
+  'Cross Body Tricep Extension': {
+    setup: ['Set cable at head height or above', 'Stand sideways to machine', 'Grip handle with far hand across body', 'Elbow at side, forearm across chest'],
+    execution: ['Extend arm down and across body', 'Squeeze tricep at full extension', 'Return with control', 'Complete all reps then switch sides'],
+    tips: ['The cross-body angle targets the lateral head uniquely', 'Great for building the outer tricep sweep', 'Keep your elbow stationary throughout']
+  },
+  // ADVANCED BODYWEIGHT EXERCISES
+  'Muscle Up': {
+    setup: ['Grip bar slightly wider than shoulders with false grip', 'Hang with arms fully extended', 'Generate a slight swing or kip for momentum', 'Core engaged throughout'],
+    execution: ['Pull explosively, driving hips toward bar', 'Transition from below bar to above bar', 'Push down to extend arms above bar', 'Lower with control back to hanging'],
+    tips: ['Requires both pulling and pushing strength', 'Master pull ups and straight bar dips separately first', 'The transition is the hardest part - practice it specifically']
+  },
+  'Ring Dips': {
+    setup: ['Grip gymnastics rings and lift to support position', 'Arms locked out, rings turned out slightly', 'Body straight, core tight', 'Rings should be stable before starting'],
+    execution: ['Lower body by bending elbows', 'Go to 90 degrees or until comfortable', 'Press back up to full lockout', 'Stabilize at top before next rep'],
+    tips: ['Much harder than parallel bar dips due to instability', 'The stabilization requirement builds incredible pushing strength', 'Turn rings out at top for extra difficulty and shoulder health']
+  },
+  'Ring Rows': {
+    setup: ['Set rings at appropriate height', 'Grip rings and lean back with arms extended', 'Body straight from head to heels', 'Feet on ground, heels as anchor'],
+    execution: ['Pull chest up to rings', 'Drive elbows back, squeeze shoulder blades', 'Lower with control to full extension', 'Maintain straight body line throughout'],
+    tips: ['Lower the rings to make it harder, raise them to make easier', 'Great progression toward pull ups', 'The rings allow natural wrist rotation - easier on joints']
+  },
+  'Handstand Push Up': {
+    setup: ['Kick up to handstand against wall', 'Hands shoulder-width apart on floor', 'Fingers spread for balance', 'Core very tight, body stacked'],
+    execution: ['Lower head toward floor by bending arms', 'Touch head lightly to floor or pad', 'Press back up to full lockout', 'Maintain wall contact with heels'],
+    tips: ['Start with pike push ups as progression', 'Place a pad under head for safety', 'Builds incredible overhead pressing strength without equipment']
+  },
+  'Archer Push Up': {
+    setup: ['Get in wide push-up position', 'Hands much wider than shoulder width', 'One arm will be the working arm', 'Body straight from head to heels'],
+    execution: ['Lower toward one hand, extending other arm out', 'Working arm does the push up', 'Straight arm slides out for support', 'Push back up and alternate sides'],
+    tips: ['Progression toward one-arm push ups', 'The extended arm provides less help as you get stronger', 'Great for building unilateral chest and tricep strength']
+  },
+  'Pike Push Up': {
+    setup: ['Start in downward dog position', 'Hands shoulder-width apart on floor', 'Hips high in the air forming inverted V', 'Head between arms looking at feet'],
+    execution: ['Lower head toward floor by bending arms', 'Keep hips high throughout', 'Touch head lightly to floor', 'Press back up to start'],
+    tips: ['Great progression toward handstand push ups', 'Elevate feet on bench to increase difficulty', 'Targets shoulders more than regular push ups']
+  },
+  'Decline Push Up': {
+    setup: ['Place feet on elevated surface (bench, box)', 'Hands on floor at shoulder width', 'Body straight from head to heels', 'Core engaged'],
+    execution: ['Lower chest toward floor', 'Keep elbows at 45 degrees', 'Push back up to starting position', 'Maintain straight body line'],
+    tips: ['Higher elevation = more upper chest and shoulder emphasis', 'Harder than regular push ups due to increased load on upper body', 'Great bodyweight progression between regular and handstand push ups']
+  },
+  'Inverted Row': {
+    setup: ['Set bar at waist height in rack or use Smith machine', 'Lie under bar and grip with overhand grip', 'Hang with arms extended, body straight', 'Heels on ground as anchor point'],
+    execution: ['Pull chest up to bar', 'Drive elbows back, squeeze shoulder blades', 'Lower with control', 'Full extension at bottom'],
+    tips: ['Raise bar to make it easier, lower for harder', 'Great progression toward pull ups', 'Underhand grip shifts emphasis to biceps and lats']
+  },
+  'Typewriter Pull Up': {
+    setup: ['Grip bar wider than shoulder width', 'Hang with arms fully extended', 'Core engaged, shoulders active', 'Requires solid pull up strength first'],
+    execution: ['Pull up to one side, chin over that hand', 'Slide across the bar to the other hand', 'Keep chin above bar throughout the slide', 'Lower and repeat to other side'],
+    tips: ['Advanced pull up variation for unilateral development', 'Requires strong base of regular pull ups (10+ reps)', 'Great for building toward one-arm pull up strength']
+  },
+  'Archer Pull Up': {
+    setup: ['Grip bar wide with overhand grip', 'Hang with arms fully extended', 'One arm will be the working arm', 'Core tight, legs straight or crossed'],
+    execution: ['Pull up toward one hand', 'Other arm extends straight along bar', 'Chin clears bar on working side', 'Lower with control and alternate sides'],
+    tips: ['One of the hardest pull up variations', 'The extended arm provides minimal assistance', 'Great progression toward one-arm pull ups']
+  },
+  // ADDITIONAL LUNGE VARIATIONS
+  'Reverse Lunge': {
+    setup: ['Stand with feet hip-width apart', 'Hold dumbbells at sides or barbell on back', 'Core engaged, chest up', 'Weight on front foot'],
+    execution: ['Step one leg backward', 'Lower until both knees at 90 degrees', 'Push through front heel to return to standing', 'Alternate legs or complete all reps on one side'],
+    tips: ['Easier on the knees than forward lunges', 'More glute emphasis than forward variation', 'The backward step makes balance easier to maintain']
+  },
+  'Walking Lunge': {
+    setup: ['Stand with dumbbells at sides or barbell on back', 'Feet together, core engaged', 'Eyes forward', 'Space to walk forward'],
+    execution: ['Step forward into lunge position', 'Lower until both knees at 90 degrees', 'Push through front foot and step into next lunge', 'Continue alternating legs while walking'],
+    tips: ['The continuous walking motion is more metabolically demanding', 'Great for building functional leg strength and balance', 'Shorter steps target quads, longer steps target glutes']
+  },
+  'Step Through Lunge': {
+    setup: ['Stand on one leg', 'Other foot lifted slightly off ground', 'Hold dumbbells at sides or hands on hips', 'Core engaged for balance'],
+    execution: ['Step the free leg forward into a forward lunge', 'Push through front heel to stand', 'Without touching down, swing same leg back into reverse lunge', 'That forward + backward = one rep'],
+    tips: ['The continuous motion challenges balance significantly', 'Great for coordination and single-leg stability', 'Start with bodyweight until you master the balance']
   }
 };
 
@@ -4974,56 +5124,132 @@ const FullMealEntryModal = ({ COLORS, onClose, onSave, foods = [], frequentMeals
     // Proteins
     { name: 'Chicken Breast', category: 'protein', per100g: { cal: 165, p: 31, c: 0, f: 4 }, defaultUnit: 'g', unitOptions: ['g', 'oz'] },
     { name: 'Chicken Thigh', category: 'protein', per100g: { cal: 209, p: 26, c: 0, f: 11 }, defaultUnit: 'g', unitOptions: ['g', 'oz'] },
+    { name: 'Chicken Wings', category: 'protein', per100g: { cal: 203, p: 30, c: 0, f: 8 }, perUnit: { cal: 43, p: 6, c: 0, f: 2 }, defaultUnit: 'wing', unitOptions: ['wing', 'g'] },
+    { name: 'Chicken Drumstick', category: 'protein', per100g: { cal: 172, p: 28, c: 0, f: 6 }, perUnit: { cal: 76, p: 12, c: 0, f: 3 }, defaultUnit: 'unit', unitOptions: ['unit', 'g'] },
+    { name: 'Rotisserie Chicken', category: 'protein', per100g: { cal: 190, p: 27, c: 0, f: 9 }, defaultUnit: 'g', unitOptions: ['g', 'oz'] },
     { name: 'Beef Steak', category: 'protein', per100g: { cal: 250, p: 26, c: 0, f: 15 }, defaultUnit: 'g', unitOptions: ['g', 'oz'] },
     { name: 'Beef Mince', category: 'protein', per100g: { cal: 176, p: 20, c: 0, f: 10 }, defaultUnit: 'g', unitOptions: ['g', 'oz'] },
+    { name: 'Beef Jerky', category: 'protein', per100g: { cal: 410, p: 33, c: 11, f: 25 }, perUnit: { cal: 82, p: 7, c: 2, f: 5 }, defaultUnit: 'piece', unitOptions: ['piece', 'g', 'oz'] },
     { name: 'Salmon', category: 'protein', per100g: { cal: 208, p: 20, c: 0, f: 13 }, defaultUnit: 'g', unitOptions: ['g', 'oz', 'fillet'] },
     { name: 'Tuna', category: 'protein', per100g: { cal: 132, p: 28, c: 0, f: 1 }, defaultUnit: 'g', unitOptions: ['g', 'can'] },
+    { name: 'Tuna (Canned)', category: 'protein', per100g: { cal: 116, p: 26, c: 0, f: 1 }, perUnit: { cal: 191, p: 42, c: 0, f: 1 }, defaultUnit: 'can', unitOptions: ['can', 'g'] },
     { name: 'Prawns', category: 'protein', per100g: { cal: 99, p: 24, c: 0, f: 0 }, defaultUnit: 'g', unitOptions: ['g', 'oz'] },
     { name: 'White Fish', category: 'protein', per100g: { cal: 96, p: 21, c: 0, f: 1 }, defaultUnit: 'g', unitOptions: ['g', 'fillet'] },
+    { name: 'Cod', category: 'protein', per100g: { cal: 82, p: 18, c: 0, f: 1 }, defaultUnit: 'g', unitOptions: ['g', 'fillet'] },
+    { name: 'Sardines', category: 'protein', per100g: { cal: 208, p: 25, c: 0, f: 11 }, perUnit: { cal: 175, p: 21, c: 0, f: 9 }, defaultUnit: 'can', unitOptions: ['can', 'g'] },
     { name: 'Eggs', category: 'protein', per100g: { cal: 155, p: 13, c: 1, f: 11 }, perUnit: { cal: 78, p: 6, c: 0.6, f: 5 }, defaultUnit: 'unit', unitOptions: ['unit', 'g'] },
     { name: 'Egg Whites', category: 'protein', per100g: { cal: 52, p: 11, c: 1, f: 0 }, perUnit: { cal: 17, p: 4, c: 0.2, f: 0 }, defaultUnit: 'unit', unitOptions: ['unit', 'g'] },
     { name: 'Tofu', category: 'protein', per100g: { cal: 76, p: 8, c: 2, f: 4 }, defaultUnit: 'g', unitOptions: ['g', 'block'] },
+    { name: 'Tempeh', category: 'protein', per100g: { cal: 192, p: 20, c: 8, f: 11 }, defaultUnit: 'g', unitOptions: ['g', 'oz'] },
     { name: 'Greek Yogurt', category: 'protein', per100g: { cal: 97, p: 9, c: 4, f: 5 }, defaultUnit: 'g', unitOptions: ['g', 'cup'] },
+    { name: 'Skyr', category: 'protein', per100g: { cal: 63, p: 11, c: 4, f: 0 }, perUnit: { cal: 110, p: 19, c: 7, f: 0 }, defaultUnit: 'cup', unitOptions: ['cup', 'g'] },
     { name: 'Turkey Breast', category: 'protein', per100g: { cal: 135, p: 30, c: 0, f: 1 }, defaultUnit: 'g', unitOptions: ['g', 'oz'] },
+    { name: 'Turkey Mince', category: 'protein', per100g: { cal: 149, p: 20, c: 0, f: 8 }, defaultUnit: 'g', unitOptions: ['g', 'oz'] },
+    { name: 'Deli Turkey', category: 'protein', per100g: { cal: 104, p: 18, c: 2, f: 2 }, perUnit: { cal: 29, p: 5, c: 1, f: 1 }, defaultUnit: 'slice', unitOptions: ['slice', 'g'] },
+    { name: 'Deli Ham', category: 'protein', per100g: { cal: 145, p: 21, c: 2, f: 6 }, perUnit: { cal: 41, p: 6, c: 1, f: 2 }, defaultUnit: 'slice', unitOptions: ['slice', 'g'] },
     { name: 'Lamb', category: 'protein', per100g: { cal: 294, p: 25, c: 0, f: 21 }, defaultUnit: 'g', unitOptions: ['g', 'oz'] },
     { name: 'Pork Loin', category: 'protein', per100g: { cal: 143, p: 26, c: 0, f: 4 }, defaultUnit: 'g', unitOptions: ['g', 'oz'] },
+    { name: 'Pork Chop', category: 'protein', per100g: { cal: 231, p: 25, c: 0, f: 14 }, defaultUnit: 'g', unitOptions: ['g', 'oz'] },
     { name: 'Bacon', category: 'protein', per100g: { cal: 541, p: 37, c: 1, f: 42 }, perUnit: { cal: 43, p: 3, c: 0, f: 3 }, defaultUnit: 'strip', unitOptions: ['strip', 'g'] },
+    { name: 'Sausage', category: 'protein', per100g: { cal: 301, p: 12, c: 2, f: 27 }, perUnit: { cal: 181, p: 7, c: 1, f: 16 }, defaultUnit: 'link', unitOptions: ['link', 'g'] },
+    { name: 'Pepperoni', category: 'protein', per100g: { cal: 494, p: 22, c: 2, f: 44 }, perUnit: { cal: 26, p: 1, c: 0, f: 2 }, defaultUnit: 'slice', unitOptions: ['slice', 'g'] },
     { name: 'Protein Powder', category: 'protein', per100g: { cal: 400, p: 80, c: 10, f: 5 }, perUnit: { cal: 120, p: 24, c: 3, f: 2 }, defaultUnit: 'scoop', unitOptions: ['scoop', 'g'] },
+    { name: 'Protein Bar', category: 'protein', per100g: { cal: 350, p: 33, c: 35, f: 10 }, perUnit: { cal: 210, p: 20, c: 21, f: 6 }, defaultUnit: 'bar', unitOptions: ['bar', 'g'] },
+    { name: 'Edamame', category: 'protein', per100g: { cal: 121, p: 12, c: 9, f: 5 }, perUnit: { cal: 188, p: 18, c: 14, f: 8 }, defaultUnit: 'cup', unitOptions: ['cup', 'g'] },
+    { name: 'Lentils (Cooked)', category: 'protein', per100g: { cal: 116, p: 9, c: 20, f: 0 }, perUnit: { cal: 230, p: 18, c: 40, f: 1 }, defaultUnit: 'cup', unitOptions: ['cup', 'g'] },
+    { name: 'Chickpeas (Cooked)', category: 'protein', per100g: { cal: 164, p: 9, c: 27, f: 3 }, perUnit: { cal: 269, p: 15, c: 45, f: 4 }, defaultUnit: 'cup', unitOptions: ['cup', 'g'] },
+    { name: 'Black Beans (Cooked)', category: 'protein', per100g: { cal: 132, p: 9, c: 24, f: 1 }, perUnit: { cal: 227, p: 15, c: 41, f: 1 }, defaultUnit: 'cup', unitOptions: ['cup', 'g'] },
     // Carbs
     { name: 'White Rice', category: 'carb', per100g: { cal: 130, p: 3, c: 28, f: 0 }, defaultUnit: 'g', unitOptions: ['g', 'cup'] },
     { name: 'Brown Rice', category: 'carb', per100g: { cal: 112, p: 3, c: 24, f: 1 }, defaultUnit: 'g', unitOptions: ['g', 'cup'] },
+    { name: 'Jasmine Rice', category: 'carb', per100g: { cal: 129, p: 3, c: 28, f: 0 }, defaultUnit: 'g', unitOptions: ['g', 'cup'] },
+    { name: 'Basmati Rice', category: 'carb', per100g: { cal: 121, p: 3, c: 25, f: 0 }, defaultUnit: 'g', unitOptions: ['g', 'cup'] },
     { name: 'Pasta', category: 'carb', per100g: { cal: 131, p: 5, c: 25, f: 1 }, defaultUnit: 'g', unitOptions: ['g', 'cup'] },
+    { name: 'Whole Wheat Pasta', category: 'carb', per100g: { cal: 124, p: 5, c: 25, f: 1 }, defaultUnit: 'g', unitOptions: ['g', 'cup'] },
     { name: 'Potato', category: 'carb', per100g: { cal: 77, p: 2, c: 17, f: 0 }, perUnit: { cal: 163, p: 4, c: 37, f: 0 }, defaultUnit: 'medium', unitOptions: ['medium', 'g'] },
     { name: 'Sweet Potato', category: 'carb', per100g: { cal: 86, p: 2, c: 20, f: 0 }, perUnit: { cal: 103, p: 2, c: 24, f: 0 }, defaultUnit: 'medium', unitOptions: ['medium', 'g'] },
-    { name: 'Bread', category: 'carb', per100g: { cal: 265, p: 9, c: 49, f: 3 }, perUnit: { cal: 79, p: 3, c: 15, f: 1 }, defaultUnit: 'slice', unitOptions: ['slice', 'g'] },
+    { name: 'French Fries', category: 'carb', per100g: { cal: 312, p: 3, c: 41, f: 15 }, perUnit: { cal: 365, p: 4, c: 48, f: 17 }, defaultUnit: 'serving', unitOptions: ['serving', 'g'] },
+    { name: 'Bread (White)', category: 'carb', per100g: { cal: 265, p: 9, c: 49, f: 3 }, perUnit: { cal: 79, p: 3, c: 15, f: 1 }, defaultUnit: 'slice', unitOptions: ['slice', 'g'] },
+    { name: 'Bread (Whole Wheat)', category: 'carb', per100g: { cal: 247, p: 13, c: 41, f: 3 }, perUnit: { cal: 81, p: 4, c: 14, f: 1 }, defaultUnit: 'slice', unitOptions: ['slice', 'g'] },
+    { name: 'Sourdough Bread', category: 'carb', per100g: { cal: 274, p: 9, c: 51, f: 3 }, perUnit: { cal: 93, p: 3, c: 17, f: 1 }, defaultUnit: 'slice', unitOptions: ['slice', 'g'] },
     { name: 'Oatmeal', category: 'carb', per100g: { cal: 389, p: 17, c: 66, f: 7 }, perUnit: { cal: 150, p: 5, c: 27, f: 3 }, defaultUnit: 'cup', unitOptions: ['cup', 'g'] },
     { name: 'Quinoa', category: 'carb', per100g: { cal: 120, p: 4, c: 21, f: 2 }, defaultUnit: 'g', unitOptions: ['g', 'cup'] },
+    { name: 'Couscous', category: 'carb', per100g: { cal: 112, p: 4, c: 23, f: 0 }, defaultUnit: 'g', unitOptions: ['g', 'cup'] },
     { name: 'Noodles', category: 'carb', per100g: { cal: 138, p: 5, c: 25, f: 2 }, defaultUnit: 'g', unitOptions: ['g', 'cup'] },
+    { name: 'Rice Noodles', category: 'carb', per100g: { cal: 109, p: 1, c: 25, f: 0 }, defaultUnit: 'g', unitOptions: ['g', 'cup'] },
     { name: 'Tortilla/Wrap', category: 'carb', per100g: { cal: 218, p: 6, c: 36, f: 5 }, perUnit: { cal: 120, p: 3, c: 20, f: 3 }, defaultUnit: 'wrap', unitOptions: ['wrap', 'g'] },
     { name: 'Bagel', category: 'carb', per100g: { cal: 250, p: 10, c: 48, f: 1 }, perUnit: { cal: 245, p: 10, c: 48, f: 1 }, defaultUnit: 'unit', unitOptions: ['unit', 'g'] },
+    { name: 'English Muffin', category: 'carb', per100g: { cal: 227, p: 8, c: 44, f: 2 }, perUnit: { cal: 132, p: 5, c: 26, f: 1 }, defaultUnit: 'unit', unitOptions: ['unit', 'g'] },
+    { name: 'Croissant', category: 'carb', per100g: { cal: 406, p: 8, c: 45, f: 21 }, perUnit: { cal: 231, p: 5, c: 26, f: 12 }, defaultUnit: 'unit', unitOptions: ['unit', 'g'] },
+    { name: 'Pancake', category: 'carb', per100g: { cal: 227, p: 6, c: 28, f: 10 }, perUnit: { cal: 86, p: 2, c: 11, f: 4 }, defaultUnit: 'unit', unitOptions: ['unit', 'g'] },
+    { name: 'Waffle', category: 'carb', per100g: { cal: 291, p: 8, c: 33, f: 14 }, perUnit: { cal: 218, p: 6, c: 25, f: 11 }, defaultUnit: 'unit', unitOptions: ['unit', 'g'] },
+    { name: 'Cereal (General)', category: 'carb', per100g: { cal: 379, p: 7, c: 84, f: 2 }, perUnit: { cal: 114, p: 2, c: 25, f: 1 }, defaultUnit: 'cup', unitOptions: ['cup', 'g'] },
+    { name: 'Granola', category: 'carb', per100g: { cal: 471, p: 10, c: 64, f: 20 }, perUnit: { cal: 299, p: 6, c: 40, f: 13 }, defaultUnit: 'cup', unitOptions: ['cup', 'g'] },
     { name: 'Banana', category: 'carb', per100g: { cal: 89, p: 1, c: 23, f: 0 }, perUnit: { cal: 105, p: 1, c: 27, f: 0 }, defaultUnit: 'unit', unitOptions: ['unit', 'g'] },
     { name: 'Apple', category: 'carb', per100g: { cal: 52, p: 0, c: 14, f: 0 }, perUnit: { cal: 95, p: 0, c: 25, f: 0 }, defaultUnit: 'unit', unitOptions: ['unit', 'g'] },
+    { name: 'Orange', category: 'carb', per100g: { cal: 47, p: 1, c: 12, f: 0 }, perUnit: { cal: 62, p: 1, c: 15, f: 0 }, defaultUnit: 'unit', unitOptions: ['unit', 'g'] },
+    { name: 'Grapes', category: 'carb', per100g: { cal: 69, p: 1, c: 18, f: 0 }, perUnit: { cal: 104, p: 1, c: 27, f: 0 }, defaultUnit: 'cup', unitOptions: ['cup', 'g'] },
+    { name: 'Strawberries', category: 'carb', per100g: { cal: 32, p: 1, c: 8, f: 0 }, perUnit: { cal: 49, p: 1, c: 12, f: 0 }, defaultUnit: 'cup', unitOptions: ['cup', 'g'] },
+    { name: 'Blueberries', category: 'carb', per100g: { cal: 57, p: 1, c: 14, f: 0 }, perUnit: { cal: 84, p: 1, c: 21, f: 0 }, defaultUnit: 'cup', unitOptions: ['cup', 'g'] },
+    { name: 'Mango', category: 'carb', per100g: { cal: 60, p: 1, c: 15, f: 0 }, perUnit: { cal: 202, p: 3, c: 50, f: 1 }, defaultUnit: 'unit', unitOptions: ['unit', 'cup', 'g'] },
+    { name: 'Pineapple', category: 'carb', per100g: { cal: 50, p: 1, c: 13, f: 0 }, perUnit: { cal: 82, p: 1, c: 22, f: 0 }, defaultUnit: 'cup', unitOptions: ['cup', 'g'] },
+    { name: 'Watermelon', category: 'carb', per100g: { cal: 30, p: 1, c: 8, f: 0 }, perUnit: { cal: 46, p: 1, c: 12, f: 0 }, defaultUnit: 'cup', unitOptions: ['cup', 'g'] },
+    { name: 'Peach', category: 'carb', per100g: { cal: 39, p: 1, c: 10, f: 0 }, perUnit: { cal: 59, p: 1, c: 14, f: 0 }, defaultUnit: 'unit', unitOptions: ['unit', 'g'] },
+    { name: 'Pear', category: 'carb', per100g: { cal: 57, p: 0, c: 15, f: 0 }, perUnit: { cal: 101, p: 1, c: 27, f: 0 }, defaultUnit: 'unit', unitOptions: ['unit', 'g'] },
+    { name: 'Dates', category: 'carb', per100g: { cal: 277, p: 2, c: 75, f: 0 }, perUnit: { cal: 66, p: 0, c: 18, f: 0 }, defaultUnit: 'piece', unitOptions: ['piece', 'g'] },
+    { name: 'Raisins', category: 'carb', per100g: { cal: 299, p: 3, c: 79, f: 0 }, perUnit: { cal: 129, p: 1, c: 34, f: 0 }, defaultUnit: 'box', unitOptions: ['box', 'g'] },
+    { name: 'Honey', category: 'carb', per100g: { cal: 304, p: 0, c: 82, f: 0 }, perUnit: { cal: 64, p: 0, c: 17, f: 0 }, defaultUnit: 'tbsp', unitOptions: ['tbsp', 'g'] },
+    { name: 'Maple Syrup', category: 'carb', per100g: { cal: 260, p: 0, c: 67, f: 0 }, perUnit: { cal: 52, p: 0, c: 13, f: 0 }, defaultUnit: 'tbsp', unitOptions: ['tbsp', 'ml'] },
+    { name: 'Jam/Jelly', category: 'carb', per100g: { cal: 250, p: 0, c: 65, f: 0 }, perUnit: { cal: 50, p: 0, c: 13, f: 0 }, defaultUnit: 'tbsp', unitOptions: ['tbsp', 'g'] },
     // Fats
     { name: 'Avocado', category: 'fat', per100g: { cal: 160, p: 2, c: 9, f: 15 }, perUnit: { cal: 234, p: 3, c: 12, f: 21 }, defaultUnit: 'half', unitOptions: ['half', 'whole', 'g'] },
     { name: 'Olive Oil', category: 'fat', per100g: { cal: 884, p: 0, c: 0, f: 100 }, perUnit: { cal: 119, p: 0, c: 0, f: 14 }, defaultUnit: 'tbsp', unitOptions: ['tbsp', 'ml'] },
     { name: 'Butter', category: 'fat', per100g: { cal: 717, p: 1, c: 0, f: 81 }, perUnit: { cal: 36, p: 0, c: 0, f: 4 }, defaultUnit: 'pat', unitOptions: ['pat', 'tbsp', 'g'] },
+    { name: 'Coconut Oil', category: 'fat', per100g: { cal: 862, p: 0, c: 0, f: 100 }, perUnit: { cal: 121, p: 0, c: 0, f: 14 }, defaultUnit: 'tbsp', unitOptions: ['tbsp', 'ml'] },
     { name: 'Almonds', category: 'fat', per100g: { cal: 579, p: 21, c: 22, f: 50 }, perUnit: { cal: 164, p: 6, c: 6, f: 14 }, defaultUnit: 'handful', unitOptions: ['handful', 'g'] },
     { name: 'Peanuts', category: 'fat', per100g: { cal: 567, p: 26, c: 16, f: 49 }, perUnit: { cal: 161, p: 7, c: 5, f: 14 }, defaultUnit: 'handful', unitOptions: ['handful', 'g'] },
-    { name: 'Cheese', category: 'fat', per100g: { cal: 402, p: 25, c: 1, f: 33 }, perUnit: { cal: 113, p: 7, c: 0, f: 9 }, defaultUnit: 'slice', unitOptions: ['slice', 'g', 'oz'] },
+    { name: 'Walnuts', category: 'fat', per100g: { cal: 654, p: 15, c: 14, f: 65 }, perUnit: { cal: 185, p: 4, c: 4, f: 18 }, defaultUnit: 'handful', unitOptions: ['handful', 'g'] },
+    { name: 'Cashews', category: 'fat', per100g: { cal: 553, p: 18, c: 30, f: 44 }, perUnit: { cal: 157, p: 5, c: 9, f: 12 }, defaultUnit: 'handful', unitOptions: ['handful', 'g'] },
+    { name: 'Pistachios', category: 'fat', per100g: { cal: 560, p: 20, c: 28, f: 45 }, perUnit: { cal: 159, p: 6, c: 8, f: 13 }, defaultUnit: 'handful', unitOptions: ['handful', 'g'] },
+    { name: 'Mixed Nuts', category: 'fat', per100g: { cal: 607, p: 20, c: 21, f: 54 }, perUnit: { cal: 172, p: 6, c: 6, f: 15 }, defaultUnit: 'handful', unitOptions: ['handful', 'g'] },
+    { name: 'Chia Seeds', category: 'fat', per100g: { cal: 486, p: 17, c: 42, f: 31 }, perUnit: { cal: 58, p: 2, c: 5, f: 4 }, defaultUnit: 'tbsp', unitOptions: ['tbsp', 'g'] },
+    { name: 'Flax Seeds', category: 'fat', per100g: { cal: 534, p: 18, c: 29, f: 42 }, perUnit: { cal: 37, p: 1, c: 2, f: 3 }, defaultUnit: 'tbsp', unitOptions: ['tbsp', 'g'] },
+    { name: 'Sunflower Seeds', category: 'fat', per100g: { cal: 584, p: 21, c: 20, f: 51 }, perUnit: { cal: 165, p: 6, c: 6, f: 14 }, defaultUnit: 'handful', unitOptions: ['handful', 'g'] },
+    { name: 'Pumpkin Seeds', category: 'fat', per100g: { cal: 559, p: 30, c: 11, f: 49 }, perUnit: { cal: 158, p: 8, c: 3, f: 14 }, defaultUnit: 'handful', unitOptions: ['handful', 'g'] },
+    { name: 'Cheese (Cheddar)', category: 'fat', per100g: { cal: 402, p: 25, c: 1, f: 33 }, perUnit: { cal: 113, p: 7, c: 0, f: 9 }, defaultUnit: 'slice', unitOptions: ['slice', 'g', 'oz'] },
+    { name: 'Mozzarella', category: 'fat', per100g: { cal: 280, p: 28, c: 3, f: 17 }, perUnit: { cal: 79, p: 8, c: 1, f: 5 }, defaultUnit: 'slice', unitOptions: ['slice', 'g', 'oz'] },
+    { name: 'Parmesan', category: 'fat', per100g: { cal: 431, p: 38, c: 4, f: 29 }, perUnit: { cal: 22, p: 2, c: 0, f: 1 }, defaultUnit: 'tbsp', unitOptions: ['tbsp', 'g'] },
+    { name: 'Feta Cheese', category: 'fat', per100g: { cal: 264, p: 14, c: 4, f: 21 }, defaultUnit: 'g', unitOptions: ['g', 'oz'] },
     { name: 'Peanut Butter', category: 'fat', per100g: { cal: 588, p: 25, c: 20, f: 50 }, perUnit: { cal: 94, p: 4, c: 3, f: 8 }, defaultUnit: 'tbsp', unitOptions: ['tbsp', 'g'] },
-    { name: 'Coconut Oil', category: 'fat', per100g: { cal: 862, p: 0, c: 0, f: 100 }, perUnit: { cal: 121, p: 0, c: 0, f: 14 }, defaultUnit: 'tbsp', unitOptions: ['tbsp', 'ml'] },
+    { name: 'Almond Butter', category: 'fat', per100g: { cal: 614, p: 21, c: 19, f: 56 }, perUnit: { cal: 98, p: 3, c: 3, f: 9 }, defaultUnit: 'tbsp', unitOptions: ['tbsp', 'g'] },
+    { name: 'Dark Chocolate', category: 'fat', per100g: { cal: 546, p: 5, c: 60, f: 31 }, perUnit: { cal: 55, p: 1, c: 6, f: 3 }, defaultUnit: 'square', unitOptions: ['square', 'g', 'oz'] },
+    { name: 'Coconut (Shredded)', category: 'fat', per100g: { cal: 660, p: 6, c: 24, f: 65 }, perUnit: { cal: 71, p: 1, c: 3, f: 7 }, defaultUnit: 'tbsp', unitOptions: ['tbsp', 'g'] },
     // Vegetables
     { name: 'Broccoli', category: 'veg', per100g: { cal: 35, p: 2, c: 7, f: 0 }, perUnit: { cal: 55, p: 4, c: 11, f: 0 }, defaultUnit: 'cup', unitOptions: ['cup', 'g'] },
     { name: 'Spinach', category: 'veg', per100g: { cal: 23, p: 3, c: 4, f: 0 }, perUnit: { cal: 7, p: 1, c: 1, f: 0 }, defaultUnit: 'cup', unitOptions: ['cup', 'g'] },
+    { name: 'Kale', category: 'veg', per100g: { cal: 49, p: 4, c: 9, f: 1 }, perUnit: { cal: 33, p: 3, c: 6, f: 1 }, defaultUnit: 'cup', unitOptions: ['cup', 'g'] },
     { name: 'Mixed Salad', category: 'veg', per100g: { cal: 20, p: 1, c: 4, f: 0 }, perUnit: { cal: 10, p: 1, c: 2, f: 0 }, defaultUnit: 'cup', unitOptions: ['cup', 'g'] },
     { name: 'Mushrooms', category: 'veg', per100g: { cal: 22, p: 3, c: 3, f: 0 }, perUnit: { cal: 15, p: 2, c: 2, f: 0 }, defaultUnit: 'cup', unitOptions: ['cup', 'g'] },
-    { name: 'Capsicum/Bell Pepper', category: 'veg', per100g: { cal: 31, p: 1, c: 6, f: 0 }, perUnit: { cal: 37, p: 1, c: 7, f: 0 }, defaultUnit: 'unit', unitOptions: ['unit', 'g'] },
+    { name: 'Bell Pepper', category: 'veg', per100g: { cal: 31, p: 1, c: 6, f: 0 }, perUnit: { cal: 37, p: 1, c: 7, f: 0 }, defaultUnit: 'unit', unitOptions: ['unit', 'g'] },
     { name: 'Asparagus', category: 'veg', per100g: { cal: 20, p: 2, c: 4, f: 0 }, perUnit: { cal: 3, p: 0, c: 1, f: 0 }, defaultUnit: 'spear', unitOptions: ['spear', 'g'] },
     { name: 'Green Beans', category: 'veg', per100g: { cal: 31, p: 2, c: 7, f: 0 }, perUnit: { cal: 44, p: 2, c: 10, f: 0 }, defaultUnit: 'cup', unitOptions: ['cup', 'g'] },
     { name: 'Carrots', category: 'veg', per100g: { cal: 41, p: 1, c: 10, f: 0 }, perUnit: { cal: 25, p: 1, c: 6, f: 0 }, defaultUnit: 'medium', unitOptions: ['medium', 'g'] },
     { name: 'Tomato', category: 'veg', per100g: { cal: 18, p: 1, c: 4, f: 0 }, perUnit: { cal: 22, p: 1, c: 5, f: 0 }, defaultUnit: 'medium', unitOptions: ['medium', 'g'] },
+    { name: 'Cherry Tomatoes', category: 'veg', per100g: { cal: 18, p: 1, c: 4, f: 0 }, perUnit: { cal: 3, p: 0, c: 1, f: 0 }, defaultUnit: 'piece', unitOptions: ['piece', 'cup', 'g'] },
     { name: 'Onion', category: 'veg', per100g: { cal: 40, p: 1, c: 9, f: 0 }, perUnit: { cal: 44, p: 1, c: 10, f: 0 }, defaultUnit: 'medium', unitOptions: ['medium', 'g'] },
+    { name: 'Garlic', category: 'veg', per100g: { cal: 149, p: 6, c: 33, f: 1 }, perUnit: { cal: 4, p: 0, c: 1, f: 0 }, defaultUnit: 'clove', unitOptions: ['clove', 'g'] },
     { name: 'Corn', category: 'veg', per100g: { cal: 86, p: 3, c: 19, f: 1 }, perUnit: { cal: 77, p: 3, c: 17, f: 1 }, defaultUnit: 'ear', unitOptions: ['ear', 'cup', 'g'] },
+    { name: 'Peas', category: 'veg', per100g: { cal: 81, p: 5, c: 14, f: 0 }, perUnit: { cal: 117, p: 8, c: 21, f: 1 }, defaultUnit: 'cup', unitOptions: ['cup', 'g'] },
+    { name: 'Cucumber', category: 'veg', per100g: { cal: 15, p: 1, c: 4, f: 0 }, perUnit: { cal: 45, p: 2, c: 11, f: 0 }, defaultUnit: 'unit', unitOptions: ['unit', 'cup', 'g'] },
+    { name: 'Zucchini', category: 'veg', per100g: { cal: 17, p: 1, c: 3, f: 0 }, perUnit: { cal: 33, p: 2, c: 6, f: 1 }, defaultUnit: 'medium', unitOptions: ['medium', 'g'] },
+    { name: 'Celery', category: 'veg', per100g: { cal: 16, p: 1, c: 3, f: 0 }, perUnit: { cal: 6, p: 0, c: 1, f: 0 }, defaultUnit: 'stalk', unitOptions: ['stalk', 'g'] },
+    { name: 'Cauliflower', category: 'veg', per100g: { cal: 25, p: 2, c: 5, f: 0 }, perUnit: { cal: 25, p: 2, c: 5, f: 0 }, defaultUnit: 'cup', unitOptions: ['cup', 'g'] },
+    { name: 'Brussels Sprouts', category: 'veg', per100g: { cal: 43, p: 3, c: 9, f: 0 }, perUnit: { cal: 56, p: 4, c: 12, f: 1 }, defaultUnit: 'cup', unitOptions: ['cup', 'g'] },
+    { name: 'Cabbage', category: 'veg', per100g: { cal: 25, p: 1, c: 6, f: 0 }, perUnit: { cal: 22, p: 1, c: 5, f: 0 }, defaultUnit: 'cup', unitOptions: ['cup', 'g'] },
+    { name: 'Lettuce', category: 'veg', per100g: { cal: 15, p: 1, c: 3, f: 0 }, perUnit: { cal: 5, p: 0, c: 1, f: 0 }, defaultUnit: 'cup', unitOptions: ['cup', 'g'] },
+    { name: 'Sweet Corn (Canned)', category: 'veg', per100g: { cal: 64, p: 2, c: 14, f: 1 }, perUnit: { cal: 133, p: 4, c: 30, f: 2 }, defaultUnit: 'cup', unitOptions: ['cup', 'g'] },
+    { name: 'Eggplant', category: 'veg', per100g: { cal: 25, p: 1, c: 6, f: 0 }, perUnit: { cal: 137, p: 5, c: 32, f: 1 }, defaultUnit: 'unit', unitOptions: ['unit', 'cup', 'g'] },
+    { name: 'Beets', category: 'veg', per100g: { cal: 43, p: 2, c: 10, f: 0 }, perUnit: { cal: 35, p: 1, c: 8, f: 0 }, defaultUnit: 'medium', unitOptions: ['medium', 'g'] },
     // Sauces & Condiments
     { name: 'Soy Sauce', category: 'sauce', per100g: { cal: 53, p: 8, c: 5, f: 0 }, perUnit: { cal: 8, p: 1, c: 1, f: 0 }, defaultUnit: 'tbsp', unitOptions: ['tbsp', 'ml'] },
     { name: 'Teriyaki Sauce', category: 'sauce', per100g: { cal: 89, p: 6, c: 16, f: 0 }, perUnit: { cal: 16, p: 1, c: 3, f: 0 }, defaultUnit: 'tbsp', unitOptions: ['tbsp', 'ml'] },
@@ -5031,14 +5257,55 @@ const FullMealEntryModal = ({ COLORS, onClose, onSave, foods = [], frequentMeals
     { name: 'Hot Sauce', category: 'sauce', per100g: { cal: 11, p: 1, c: 2, f: 0 }, perUnit: { cal: 1, p: 0, c: 0, f: 0 }, defaultUnit: 'tsp', unitOptions: ['tsp', 'tbsp'] },
     { name: 'Salsa', category: 'sauce', per100g: { cal: 36, p: 2, c: 7, f: 0 }, perUnit: { cal: 10, p: 0, c: 2, f: 0 }, defaultUnit: 'tbsp', unitOptions: ['tbsp', 'g'] },
     { name: 'Hummus', category: 'sauce', per100g: { cal: 166, p: 8, c: 14, f: 10 }, perUnit: { cal: 25, p: 1, c: 2, f: 2 }, defaultUnit: 'tbsp', unitOptions: ['tbsp', 'g'] },
+    { name: 'Guacamole', category: 'sauce', per100g: { cal: 160, p: 2, c: 9, f: 15 }, perUnit: { cal: 24, p: 0, c: 1, f: 2 }, defaultUnit: 'tbsp', unitOptions: ['tbsp', 'g'] },
     { name: 'Mayonnaise', category: 'sauce', per100g: { cal: 680, p: 1, c: 1, f: 75 }, perUnit: { cal: 94, p: 0, c: 0, f: 10 }, defaultUnit: 'tbsp', unitOptions: ['tbsp', 'g'] },
     { name: 'Ketchup', category: 'sauce', per100g: { cal: 112, p: 1, c: 26, f: 0 }, perUnit: { cal: 19, p: 0, c: 5, f: 0 }, defaultUnit: 'tbsp', unitOptions: ['tbsp', 'g'] },
     { name: 'Mustard', category: 'sauce', per100g: { cal: 66, p: 4, c: 6, f: 3 }, perUnit: { cal: 3, p: 0, c: 0, f: 0 }, defaultUnit: 'tsp', unitOptions: ['tsp', 'tbsp'] },
     { name: 'Pesto', category: 'sauce', per100g: { cal: 400, p: 5, c: 5, f: 40 }, perUnit: { cal: 80, p: 1, c: 1, f: 8 }, defaultUnit: 'tbsp', unitOptions: ['tbsp', 'g'] },
-    // Dairy & Other
-    { name: 'Milk', category: 'dairy', per100g: { cal: 42, p: 3, c: 5, f: 1 }, perUnit: { cal: 149, p: 8, c: 12, f: 8 }, defaultUnit: 'cup', unitOptions: ['cup', 'ml'] },
+    { name: 'Ranch Dressing', category: 'sauce', per100g: { cal: 462, p: 1, c: 6, f: 48 }, perUnit: { cal: 63, p: 0, c: 1, f: 7 }, defaultUnit: 'tbsp', unitOptions: ['tbsp', 'ml'] },
+    { name: 'Balsamic Vinegar', category: 'sauce', per100g: { cal: 88, p: 0, c: 17, f: 0 }, perUnit: { cal: 14, p: 0, c: 3, f: 0 }, defaultUnit: 'tbsp', unitOptions: ['tbsp', 'ml'] },
+    { name: 'Sriracha', category: 'sauce', per100g: { cal: 93, p: 2, c: 19, f: 1 }, perUnit: { cal: 5, p: 0, c: 1, f: 0 }, defaultUnit: 'tsp', unitOptions: ['tsp', 'tbsp'] },
+    { name: 'Marinara Sauce', category: 'sauce', per100g: { cal: 37, p: 1, c: 6, f: 1 }, perUnit: { cal: 46, p: 2, c: 8, f: 1 }, defaultUnit: 'half cup', unitOptions: ['half cup', 'g'] },
+    // Dairy & Beverages
+    { name: 'Milk (Whole)', category: 'dairy', per100g: { cal: 61, p: 3, c: 5, f: 3 }, perUnit: { cal: 149, p: 8, c: 12, f: 8 }, defaultUnit: 'cup', unitOptions: ['cup', 'ml'] },
+    { name: 'Milk (2%)', category: 'dairy', per100g: { cal: 50, p: 3, c: 5, f: 2 }, perUnit: { cal: 122, p: 8, c: 12, f: 5 }, defaultUnit: 'cup', unitOptions: ['cup', 'ml'] },
+    { name: 'Milk (Skim)', category: 'dairy', per100g: { cal: 34, p: 3, c: 5, f: 0 }, perUnit: { cal: 83, p: 8, c: 12, f: 0 }, defaultUnit: 'cup', unitOptions: ['cup', 'ml'] },
+    { name: 'Almond Milk', category: 'dairy', per100g: { cal: 15, p: 1, c: 1, f: 1 }, perUnit: { cal: 37, p: 1, c: 1, f: 3 }, defaultUnit: 'cup', unitOptions: ['cup', 'ml'] },
+    { name: 'Oat Milk', category: 'dairy', per100g: { cal: 48, p: 1, c: 7, f: 2 }, perUnit: { cal: 120, p: 3, c: 16, f: 5 }, defaultUnit: 'cup', unitOptions: ['cup', 'ml'] },
+    { name: 'Soy Milk', category: 'dairy', per100g: { cal: 33, p: 3, c: 1, f: 2 }, perUnit: { cal: 80, p: 7, c: 3, f: 4 }, defaultUnit: 'cup', unitOptions: ['cup', 'ml'] },
     { name: 'Cottage Cheese', category: 'dairy', per100g: { cal: 98, p: 11, c: 3, f: 4 }, perUnit: { cal: 222, p: 25, c: 8, f: 10 }, defaultUnit: 'cup', unitOptions: ['cup', 'g'] },
     { name: 'Cream Cheese', category: 'dairy', per100g: { cal: 342, p: 6, c: 4, f: 34 }, perUnit: { cal: 51, p: 1, c: 1, f: 5 }, defaultUnit: 'tbsp', unitOptions: ['tbsp', 'g'] },
+    { name: 'Sour Cream', category: 'dairy', per100g: { cal: 198, p: 2, c: 5, f: 20 }, perUnit: { cal: 23, p: 0, c: 1, f: 2 }, defaultUnit: 'tbsp', unitOptions: ['tbsp', 'g'] },
+    { name: 'Heavy Cream', category: 'dairy', per100g: { cal: 340, p: 2, c: 3, f: 36 }, perUnit: { cal: 51, p: 0, c: 0, f: 5 }, defaultUnit: 'tbsp', unitOptions: ['tbsp', 'ml'] },
+    { name: 'Yogurt (Plain)', category: 'dairy', per100g: { cal: 61, p: 3, c: 5, f: 3 }, perUnit: { cal: 149, p: 9, c: 11, f: 8 }, defaultUnit: 'cup', unitOptions: ['cup', 'g'] },
+    { name: 'Orange Juice', category: 'dairy', per100g: { cal: 45, p: 1, c: 10, f: 0 }, perUnit: { cal: 112, p: 2, c: 26, f: 0 }, defaultUnit: 'cup', unitOptions: ['cup', 'ml'] },
+    { name: 'Apple Juice', category: 'dairy', per100g: { cal: 46, p: 0, c: 11, f: 0 }, perUnit: { cal: 114, p: 0, c: 28, f: 0 }, defaultUnit: 'cup', unitOptions: ['cup', 'ml'] },
+    { name: 'Coconut Water', category: 'dairy', per100g: { cal: 19, p: 0, c: 4, f: 0 }, perUnit: { cal: 46, p: 0, c: 9, f: 0 }, defaultUnit: 'cup', unitOptions: ['cup', 'ml'] },
+    // Snacks & Common Items
+    { name: 'Tortilla Chips', category: 'snack', per100g: { cal: 489, p: 7, c: 63, f: 24 }, perUnit: { cal: 140, p: 2, c: 18, f: 7 }, defaultUnit: 'serving', unitOptions: ['serving', 'g'] },
+    { name: 'Popcorn', category: 'snack', per100g: { cal: 387, p: 13, c: 78, f: 5 }, perUnit: { cal: 31, p: 1, c: 6, f: 0 }, defaultUnit: 'cup', unitOptions: ['cup', 'g'] },
+    { name: 'Rice Cakes', category: 'snack', per100g: { cal: 387, p: 8, c: 81, f: 3 }, perUnit: { cal: 35, p: 1, c: 7, f: 0 }, defaultUnit: 'cake', unitOptions: ['cake', 'g'] },
+    { name: 'Trail Mix', category: 'snack', per100g: { cal: 462, p: 13, c: 45, f: 29 }, perUnit: { cal: 131, p: 4, c: 13, f: 8 }, defaultUnit: 'handful', unitOptions: ['handful', 'g'] },
+    { name: 'Crackers', category: 'snack', per100g: { cal: 421, p: 10, c: 70, f: 11 }, perUnit: { cal: 17, p: 0, c: 3, f: 0 }, defaultUnit: 'cracker', unitOptions: ['cracker', 'serving', 'g'] },
+    { name: 'Pretzels', category: 'snack', per100g: { cal: 380, p: 9, c: 79, f: 3 }, perUnit: { cal: 109, p: 3, c: 23, f: 1 }, defaultUnit: 'serving', unitOptions: ['serving', 'g'] },
+    { name: 'Chips/Crisps', category: 'snack', per100g: { cal: 536, p: 7, c: 53, f: 34 }, perUnit: { cal: 152, p: 2, c: 15, f: 10 }, defaultUnit: 'serving', unitOptions: ['serving', 'g'] },
+    // Prepared/Common Meals
+    { name: 'Pizza Slice', category: 'meal', per100g: { cal: 266, p: 11, c: 33, f: 10 }, perUnit: { cal: 285, p: 12, c: 36, f: 10 }, defaultUnit: 'slice', unitOptions: ['slice', 'g'] },
+    { name: 'Burger Patty (Beef)', category: 'meal', per100g: { cal: 254, p: 17, c: 0, f: 20 }, perUnit: { cal: 287, p: 19, c: 0, f: 23 }, defaultUnit: 'patty', unitOptions: ['patty', 'g'] },
+    { name: 'Hot Dog', category: 'meal', per100g: { cal: 290, p: 10, c: 2, f: 26 }, perUnit: { cal: 151, p: 5, c: 1, f: 14 }, defaultUnit: 'unit', unitOptions: ['unit', 'g'] },
+    { name: 'Burrito', category: 'meal', per100g: { cal: 163, p: 8, c: 19, f: 6 }, perUnit: { cal: 450, p: 22, c: 53, f: 17 }, defaultUnit: 'unit', unitOptions: ['unit', 'g'] },
+    { name: 'Sushi Roll (6 pieces)', category: 'meal', per100g: { cal: 143, p: 6, c: 25, f: 2 }, perUnit: { cal: 250, p: 10, c: 44, f: 3 }, defaultUnit: 'roll', unitOptions: ['roll', 'g'] },
+    { name: 'Sandwich (Turkey)', category: 'meal', per100g: { cal: 179, p: 13, c: 19, f: 6 }, perUnit: { cal: 300, p: 22, c: 32, f: 10 }, defaultUnit: 'unit', unitOptions: ['unit', 'g'] },
+    { name: 'Grilled Cheese', category: 'meal', per100g: { cal: 280, p: 11, c: 25, f: 16 }, perUnit: { cal: 366, p: 14, c: 33, f: 20 }, defaultUnit: 'unit', unitOptions: ['unit', 'g'] },
+    { name: 'Fried Rice', category: 'meal', per100g: { cal: 163, p: 4, c: 22, f: 7 }, perUnit: { cal: 326, p: 8, c: 44, f: 14 }, defaultUnit: 'cup', unitOptions: ['cup', 'g'] },
+    { name: 'Mac and Cheese', category: 'meal', per100g: { cal: 164, p: 7, c: 18, f: 7 }, perUnit: { cal: 350, p: 14, c: 38, f: 15 }, defaultUnit: 'cup', unitOptions: ['cup', 'g'] },
+    { name: 'Chicken Nuggets', category: 'meal', per100g: { cal: 296, p: 15, c: 18, f: 18 }, perUnit: { cal: 48, p: 2, c: 3, f: 3 }, defaultUnit: 'piece', unitOptions: ['piece', 'serving', 'g'] },
+    // Baked Goods & Desserts
+    { name: 'Cookie', category: 'snack', per100g: { cal: 488, p: 5, c: 66, f: 23 }, perUnit: { cal: 78, p: 1, c: 11, f: 4 }, defaultUnit: 'cookie', unitOptions: ['cookie', 'g'] },
+    { name: 'Brownie', category: 'snack', per100g: { cal: 405, p: 5, c: 51, f: 21 }, perUnit: { cal: 243, p: 3, c: 31, f: 13 }, defaultUnit: 'piece', unitOptions: ['piece', 'g'] },
+    { name: 'Muffin', category: 'snack', per100g: { cal: 296, p: 5, c: 42, f: 12 }, perUnit: { cal: 377, p: 6, c: 54, f: 16 }, defaultUnit: 'unit', unitOptions: ['unit', 'g'] },
+    { name: 'Donut', category: 'snack', per100g: { cal: 421, p: 5, c: 53, f: 22 }, perUnit: { cal: 269, p: 3, c: 34, f: 14 }, defaultUnit: 'unit', unitOptions: ['unit', 'g'] },
+    { name: 'Ice Cream', category: 'snack', per100g: { cal: 207, p: 4, c: 24, f: 11 }, perUnit: { cal: 137, p: 2, c: 16, f: 7 }, defaultUnit: 'scoop', unitOptions: ['scoop', 'cup', 'g'] },
   ];
 
   // Search builder foods
@@ -9251,9 +9518,8 @@ function NewWorkoutScreen({
     setSets(prev => [...prev, newSet]);
     setShowAddSet(null);
 
-    // Start rest timer
-    const exerciseRestTime = exercise.restTime || 90;
-    setRestTimeRemaining(exerciseRestTime + restAdjustmentSeconds);
+    // Start rest timer using user-selected duration
+    setRestTimeRemaining(restDuration + restAdjustmentSeconds);
 
     // Auto-save to Supabase
     if (sessionId) {
@@ -14161,7 +14427,7 @@ const WorkoutTab = ({
         >
           <History size={24} color={colors.primary} />
           <p className="font-semibold mt-2" style={{ color: colors.text }}>History</p>
-          <p className="text-xs" style={{ color: colors.textMuted }}>{workoutHistory?.length || 0} workouts</p>
+          <p className="text-xs" style={{ color: colors.textMuted }}>{overviewStats.totalWorkouts} workouts</p>
         </button>
         <button
           onClick={() => setShowPersonalRecords && setShowPersonalRecords(true)}
@@ -19654,11 +19920,11 @@ export default function UpRepDemo() {
         }
 
         if (isMounted) {
-          // Update total workouts count from actual data
-          const totalCompletedWorkouts = workoutData?.length || 0;
+          // Update total workouts count using exact count query (avoids row limit cap)
+          const { count: totalWorkoutCount } = await workoutService.getWorkoutCount(user.id);
           setOverviewStats(prev => ({
             ...prev,
-            totalWorkouts: totalCompletedWorkouts,
+            totalWorkouts: totalWorkoutCount,
           }));
 
           setChartData(prev => ({
@@ -22169,6 +22435,9 @@ export default function UpRepDemo() {
         console.warn('Error incrementing completion:', err?.message);
       }
     }
+
+    // Refresh workout history and stats
+    refreshWorkoutData();
   };
 
   // Handler for starting a workout - shows workout type selection modal
@@ -22470,6 +22739,10 @@ export default function UpRepDemo() {
 
       const { data: prData } = await workoutService.getPersonalRecords(user.id);
       if (prData) setPersonalRecords(prData);
+
+      // Refresh accurate total workout count
+      const { count: totalCount } = await workoutService.getWorkoutCount(user.id);
+      setOverviewStats(prev => ({ ...prev, totalWorkouts: totalCount }));
     } catch (err) {
       console.warn('Error refreshing workout data:', err);
     }
@@ -30751,7 +31024,7 @@ export default function UpRepDemo() {
               key={workoutSessionKey}
               COLORS={COLORS}
               onClose={() => { setShowActiveWorkout(false); setCheckInData(null); setWorkoutType(null); setIsResumingWorkout(false); }}
-              onComplete={() => { setPartialWorkoutProgress(null); setCheckInData(null); setWorkoutType(null); setIsResumingWorkout(false); }}
+              onComplete={() => { setPartialWorkoutProgress(null); setCheckInData(null); setWorkoutType(null); setIsResumingWorkout(false); refreshWorkoutData(); }}
               onSaveProgress={setPartialWorkoutProgress}
               userId={user?.id}
               workoutName="Free-form Workout"
@@ -30774,7 +31047,7 @@ export default function UpRepDemo() {
                 key={workoutSessionKey}
                 COLORS={COLORS}
                 onClose={() => { setShowActiveWorkout(false); setCheckInData(null); setWorkoutType(null); setIsResumingWorkout(false); }}
-                onComplete={() => { setPartialWorkoutProgress(null); setCheckInData(null); setWorkoutType(null); setIsResumingWorkout(false); }}
+                onComplete={() => { setPartialWorkoutProgress(null); setCheckInData(null); setWorkoutType(null); setIsResumingWorkout(false); refreshWorkoutData(); }}
                 onSaveProgress={setPartialWorkoutProgress}
                 userId={user?.id}
                 workoutName={partialWorkoutProgress.workoutName || 'Free-form Workout'}

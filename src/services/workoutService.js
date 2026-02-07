@@ -168,6 +168,27 @@ export const workoutService = {
     return { data, error };
   },
 
+  // Get total completed workout count (uses exact count, no row limit)
+  async getWorkoutCount(userId) {
+    try {
+      const { count, error } = await supabase
+        .from('workout_sessions')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .not('ended_at', 'is', null);
+
+      if (error) {
+        console.warn('getWorkoutCount error:', error?.message);
+        return { count: 0, error };
+      }
+
+      return { count: count || 0, error: null };
+    } catch (err) {
+      console.warn('getWorkoutCount exception:', err?.message);
+      return { count: 0, error: err };
+    }
+  },
+
   // Get workout history
   async getWorkoutHistory(userId, limit = 20, offset = 0) {
     try {
