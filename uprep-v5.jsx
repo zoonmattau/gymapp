@@ -17816,6 +17816,11 @@ const NutritionTab = ({
                             bedTime: lastNightBedTime,
                             wakeTime: lastNightWakeTime,
                           });
+                          // Save to localStorage for future defaults
+                          try {
+                            localStorage.setItem('uprep_last_bedtime', lastNightBedTime);
+                            localStorage.setItem('uprep_last_waketime', lastNightWakeTime);
+                          } catch { /* ignore */ }
                           // Update local tracking state for calendar
                           setMonthlyTracking(prev => ({
                             ...prev,
@@ -19380,28 +19385,9 @@ export default function UpRepDemo() {
             setLastNightWakeTime(stripSeconds(sleepEntry.wake_time) || '06:30');
             setLastNightConfirmed(true);
           } else {
-            // No entry for this date - show edit form with defaults from most recent entry
+            // No entry for this date - show edit form
+            // Keep the current state values (loaded from localStorage) as defaults
             setLastNightConfirmed(false);
-
-            // First try database recent entries
-            if (recentWithTimes) {
-              setLastNightBedTime(stripSeconds(recentWithTimes.bed_time));
-              setLastNightWakeTime(stripSeconds(recentWithTimes.wake_time));
-            } else {
-              // Fallback: check local monthlyTracking.sleep for recent entries
-              const sleepEntries = Object.entries(monthlyTracking.sleep || {})
-                .filter(([date, data]) => data.bedTime && data.wakeTime && date < selectedSleepDate)
-                .sort((a, b) => b[0].localeCompare(a[0])); // Sort by date descending
-
-              if (sleepEntries.length > 0) {
-                const [, mostRecentLocal] = sleepEntries[0];
-                setLastNightBedTime(mostRecentLocal.bedTime);
-                setLastNightWakeTime(mostRecentLocal.wakeTime);
-              } else {
-                setLastNightBedTime('23:00');
-                setLastNightWakeTime('06:30');
-              }
-            }
           }
 
           // Update target sleep times defaults
@@ -19412,18 +19398,8 @@ export default function UpRepDemo() {
         }
       } catch (err) {
         console.warn('Error loading sleep data:', err?.message || err);
-
-        // Even on error, try to use local monthlyTracking.sleep for defaults
+        // On error, just show the form with localStorage defaults
         if (isMounted) {
-          const sleepEntries = Object.entries(monthlyTracking.sleep || {})
-            .filter(([date, data]) => data.bedTime && data.wakeTime && date < selectedSleepDate)
-            .sort((a, b) => b[0].localeCompare(a[0]));
-
-          if (sleepEntries.length > 0) {
-            const [, mostRecentLocal] = sleepEntries[0];
-            setLastNightBedTime(mostRecentLocal.bedTime);
-            setLastNightWakeTime(mostRecentLocal.wakeTime);
-          }
           setLastNightConfirmed(false);
         }
       }
@@ -19864,8 +19840,19 @@ export default function UpRepDemo() {
   const [sleepChartView, setSleepChartView] = useState('7days'); // '7days', 'weekly', 'monthly'
   const [bedTime, setBedTime] = useState('22:30');
   const [wakeTime, setWakeTime] = useState('06:30');
-  const [lastNightBedTime, setLastNightBedTime] = useState('23:00');
-  const [lastNightWakeTime, setLastNightWakeTime] = useState('06:30');
+  // Load last used sleep times from localStorage for defaults
+  const [lastNightBedTime, setLastNightBedTime] = useState(() => {
+    try {
+      const saved = localStorage.getItem('uprep_last_bedtime');
+      return saved || '23:00';
+    } catch { return '23:00'; }
+  });
+  const [lastNightWakeTime, setLastNightWakeTime] = useState(() => {
+    try {
+      const saved = localStorage.getItem('uprep_last_waketime');
+      return saved || '06:30';
+    } catch { return '06:30'; }
+  });
   const [lastNightConfirmed, setLastNightConfirmed] = useState(false);
   
   // Local editing refs for sleep (prevents scroll on each keystroke)
