@@ -13845,7 +13845,7 @@ const WorkoutTab = ({
         </div>
 
         {/* Week Days - Drag to reschedule */}
-        <div className="flex gap-2">
+        <div className="flex gap-1">
           {(currentWeekDates || []).map((day, i) => {
             const isCompleted = day?.completed;
             const isToday = day?.isToday;
@@ -13864,12 +13864,12 @@ const WorkoutTab = ({
                 onPointerUp={handleDragEnd}
                 onPointerLeave={() => setDragOverDay && setDragOverDay(null)}
                 onPointerCancel={handleDragEnd}
-                className="flex-1 p-2 rounded-xl text-center"
+                className="flex-1 p-1.5 rounded-lg text-center"
                 style={{
                   backgroundColor: isDragging ? colors.primary + '30' : effectivelyDone ? colors.success + '15' : isToday ? colors.primary + '20' : colors.surface,
-                  border: isDragging ? `3px solid ${colors.primary}` : isDragOver ? `2px solid ${colors.accent}` : effectivelyDone ? `2px solid ${colors.success}` : isToday ? `2px solid ${colors.primary}` : '2px solid transparent',
-                  transform: isDragging ? 'scale(1.25)' : 'scale(1)',
-                  boxShadow: isDragging ? '0 8px 24px rgba(108, 92, 231, 0.5)' : 'none',
+                  border: isDragging ? `2px solid ${colors.primary}` : isDragOver ? `2px solid ${colors.accent}` : effectivelyDone ? `1px solid ${colors.success}` : isToday ? `2px solid ${colors.primary}` : '1px solid transparent',
+                  transform: isDragging ? 'scale(1.2)' : 'scale(1)',
+                  boxShadow: isDragging ? '0 6px 20px rgba(108, 92, 231, 0.5)' : 'none',
                   cursor: canDrag ? 'grab' : 'default',
                   transition: 'transform 0.15s, box-shadow 0.15s, border 0.15s, background-color 0.15s',
                   touchAction: 'none',
@@ -13877,20 +13877,19 @@ const WorkoutTab = ({
                   opacity: day?.isPast && !effectivelyDone ? 0.5 : 1
                 }}
               >
-                <p className="text-xs" style={{ color: isDragging ? colors.text : effectivelyDone ? colors.success : colors.textMuted }}>{day?.day || '-'}</p>
-                <p className="font-bold" style={{ color: isDragging ? colors.text : effectivelyDone ? colors.success : isToday ? colors.primary : colors.text }}>{day?.date || '-'}</p>
+                <p className="text-[10px]" style={{ color: isDragging ? colors.text : effectivelyDone ? colors.success : colors.textMuted }}>{day?.day || '-'}</p>
+                <p className="text-sm font-bold" style={{ color: isDragging ? colors.text : effectivelyDone ? colors.success : isToday ? colors.primary : colors.text }}>{day?.date || '-'}</p>
                 {isCompleted ? (
-                  <div className="flex items-center justify-center gap-1 mt-1">
-                    <Check size={10} color={isDragging ? colors.text : colors.success} />
-                    <p className="text-xs" style={{ color: isDragging ? colors.text : colors.success }}>Done</p>
+                  <div className="flex items-center justify-center gap-0.5 mt-0.5">
+                    <Check size={8} color={isDragging ? colors.text : colors.success} />
+                    <p className="text-[9px] truncate" style={{ color: isDragging ? colors.text : colors.success }}>
+                      {day?.workout?.name?.split(' ')[0] || 'Done'}
+                    </p>
                   </div>
                 ) : isPastRest ? (
-                  <div className="flex items-center justify-center gap-1 mt-1">
-                    <Check size={10} color={isDragging ? colors.text : colors.success} />
-                    <p className="text-xs" style={{ color: isDragging ? colors.text : colors.success }}>Rest</p>
-                  </div>
+                  <p className="text-[9px] mt-0.5" style={{ color: isDragging ? colors.text : colors.success }}>Rest</p>
                 ) : (
-                  <p className="text-xs mt-1 truncate" style={{ color: isDragging ? colors.text : day?.workout ? getColor(day.workout.name) : colors.textMuted }}>
+                  <p className="text-[9px] mt-0.5 truncate" style={{ color: isDragging ? colors.text : day?.workout ? getColor(day.workout.name) : colors.textMuted }}>
                     {day?.workout?.name?.split(' ')[0] || 'Rest'}
                   </p>
                 )}
