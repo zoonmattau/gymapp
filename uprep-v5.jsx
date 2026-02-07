@@ -12043,6 +12043,10 @@ const HomeTab = ({
   setShowMissedDayPrompt,
   showWeighInReminder,
   setShowWeighInReminder,
+  weighInReminderView,
+  setWeighInReminderView,
+  weighInDismissed,
+  setWeighInDismissed,
   daysSinceWeighIn,
   missedDayData,
   setMissedDayData,
@@ -12826,42 +12830,110 @@ const HomeTab = ({
       {showWeighInReminder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} onClick={(e) => e.target === e.currentTarget && setShowWeighInReminder(false)}>
           <div className="w-full max-w-sm rounded-2xl p-5" style={{ backgroundColor: COLORS.surface }}>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '20' }}>
-                <Scale size={24} color={COLORS.primary} />
-              </div>
-              <div>
-                <p className="font-bold text-lg" style={{ color: COLORS.text }}>Time to Weigh In!</p>
-                <p className="text-sm" style={{ color: COLORS.textMuted }}>
-                  {daysSinceWeighIn !== null
-                    ? `It's been ${daysSinceWeighIn} days since your last weigh-in`
-                    : 'Start tracking your weight for better progress insights'
-                  }
+            {weighInReminderView === 'main' ? (
+              <>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.primary + '20' }}>
+                    <Scale size={24} color={COLORS.primary} />
+                  </div>
+                  <div>
+                    <p className="font-bold text-lg" style={{ color: COLORS.text }}>Time to Weigh In!</p>
+                    <p className="text-sm" style={{ color: COLORS.textMuted }}>
+                      {daysSinceWeighIn !== null
+                        ? `It's been ${daysSinceWeighIn} days since your last weigh-in`
+                        : 'Start tracking your weight for better progress insights'
+                      }
+                    </p>
+                  </div>
+                </div>
+                <p className="text-sm mb-4" style={{ color: COLORS.textSecondary }}>
+                  Regular weigh-ins help you track progress and stay motivated. Aim to weigh in at least once a week, ideally at the same time each day.
                 </p>
-              </div>
-            </div>
-            <p className="text-sm mb-4" style={{ color: COLORS.textSecondary }}>
-              Regular weigh-ins help you track progress and stay motivated. Aim to weigh in at least once a week, ideally at the same time each day.
-            </p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowWeighInReminder(false)}
-                className="flex-1 py-3 rounded-xl font-semibold"
-                style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.textMuted }}
-              >
-                Later
-              </button>
-              <button
-                onClick={() => {
-                  setShowWeighInReminder(false);
-                  setShowWeighIn(true);
-                }}
-                className="flex-1 py-3 rounded-xl font-semibold"
-                style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
-              >
-                Weigh In Now
-              </button>
-            </div>
+                <div className="flex gap-2 mb-3">
+                  <button
+                    onClick={() => setShowWeighInReminder(false)}
+                    className="flex-1 py-3 rounded-xl font-semibold"
+                    style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.textMuted }}
+                  >
+                    Later
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowWeighInReminder(false);
+                      setShowWeighIn(true);
+                    }}
+                    className="flex-1 py-3 rounded-xl font-semibold"
+                    style={{ backgroundColor: COLORS.primary, color: COLORS.text }}
+                  >
+                    Weigh In Now
+                  </button>
+                </div>
+                <button
+                  onClick={() => setWeighInReminderView('dismiss')}
+                  className="w-full py-2 text-sm"
+                  style={{ color: COLORS.textMuted }}
+                >
+                  Don't show me again
+                </button>
+              </>
+            ) : (
+              <>
+                {/* Dismiss options view */}
+                <div className="flex items-center gap-3 mb-4">
+                  <button
+                    onClick={() => setWeighInReminderView('main')}
+                    className="p-2 rounded-full"
+                    style={{ backgroundColor: COLORS.surfaceLight }}
+                  >
+                    <ChevronLeft size={20} color={COLORS.text} />
+                  </button>
+                  <p className="font-bold text-lg" style={{ color: COLORS.text }}>Dismiss Reminder</p>
+                </div>
+                <p className="text-sm mb-4" style={{ color: COLORS.textMuted }}>
+                  How long would you like to hide this reminder?
+                </p>
+                <div className="space-y-3">
+                  <button
+                    onClick={() => {
+                      const dismissData = { type: '48hours', timestamp: new Date().toISOString() };
+                      localStorage.setItem('uprep_weighin_dismissed', JSON.stringify(dismissData));
+                      setWeighInDismissed(dismissData);
+                      setShowWeighInReminder(false);
+                      setWeighInReminderView('main');
+                    }}
+                    className="w-full p-4 rounded-xl flex items-center gap-3"
+                    style={{ backgroundColor: COLORS.surfaceLight }}
+                  >
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.warning + '20' }}>
+                      <Clock size={20} color={COLORS.warning} />
+                    </div>
+                    <div className="flex-1 text-left">
+                      <p className="font-semibold" style={{ color: COLORS.text }}>Don't show for 48 hours</p>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>Reminder will return after 2 days</p>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => {
+                      const dismissData = { type: 'never', timestamp: new Date().toISOString() };
+                      localStorage.setItem('uprep_weighin_dismissed', JSON.stringify(dismissData));
+                      setWeighInDismissed(dismissData);
+                      setShowWeighInReminder(false);
+                      setWeighInReminderView('main');
+                    }}
+                    className="w-full p-4 rounded-xl flex items-center gap-3"
+                    style={{ backgroundColor: COLORS.surfaceLight }}
+                  >
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.error + '20' }}>
+                      <X size={20} color={COLORS.error} />
+                    </div>
+                    <div className="flex-1 text-left">
+                      <p className="font-semibold" style={{ color: COLORS.text }}>Never show again</p>
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>You can re-enable this in settings</p>
+                    </div>
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -19165,13 +19237,17 @@ export default function UpRepDemo() {
           const lastWeighIn = new Date(weightData[0].log_date); // Most recent is first
           const daysSince = Math.floor((new Date() - lastWeighIn) / (24 * 60 * 60 * 1000));
           setDaysSinceWeighIn(daysSince);
-          if (daysSince >= 7) {
+          if (daysSince >= 7 && !weighInDismissed) {
             setShowWeighInReminder(true);
+            setWeighInReminderView('main');
           }
         } else {
           // No weight data at all - prompt them to start tracking
           setDaysSinceWeighIn(null);
-          setShowWeighInReminder(true);
+          if (!weighInDismissed) {
+            setShowWeighInReminder(true);
+            setWeighInReminderView('main');
+          }
         }
 
         // Group weight data by week
@@ -20049,7 +20125,28 @@ export default function UpRepDemo() {
   // Missed day tracking - prompt user if yesterday had 0 or very low values
   const [showMissedDayPrompt, setShowMissedDayPrompt] = useState(false);
   const [showWeighInReminder, setShowWeighInReminder] = useState(false);
+  const [weighInReminderView, setWeighInReminderView] = useState('main'); // 'main' or 'dismiss'
   const [daysSinceWeighIn, setDaysSinceWeighIn] = useState(null);
+  const [weighInDismissed, setWeighInDismissed] = useState(() => {
+    try {
+      const saved = localStorage.getItem('uprep_weighin_dismissed');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Check if it's a timed dismissal that has expired
+        if (parsed.type === '48hours' && parsed.timestamp) {
+          const dismissedAt = new Date(parsed.timestamp);
+          const now = new Date();
+          const hoursDiff = (now - dismissedAt) / (1000 * 60 * 60);
+          if (hoursDiff >= 48) {
+            localStorage.removeItem('uprep_weighin_dismissed');
+            return null;
+          }
+        }
+        return parsed;
+      }
+      return null;
+    } catch { return null; }
+  });
   const [missedDayData, setMissedDayData] = useState(null); // { date, calories, water }
   const [missedDayDismissed, setMissedDayDismissed] = useState(() => {
     try {
@@ -23356,6 +23453,10 @@ export default function UpRepDemo() {
             setShowMissedDayPrompt={setShowMissedDayPrompt}
             showWeighInReminder={showWeighInReminder}
             setShowWeighInReminder={setShowWeighInReminder}
+            weighInReminderView={weighInReminderView}
+            setWeighInReminderView={setWeighInReminderView}
+            weighInDismissed={weighInDismissed}
+            setWeighInDismissed={setWeighInDismissed}
             daysSinceWeighIn={daysSinceWeighIn}
             missedDayData={missedDayData}
             setMissedDayData={setMissedDayData}
