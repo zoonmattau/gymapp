@@ -14332,6 +14332,38 @@ const WorkoutTab = ({
         )}
       </div>
 
+      {/* Training Split */}
+      <p className="text-xs font-semibold mb-3" style={{ color: colors.textMuted }}>TRAINING SPLIT</p>
+      <div className="p-4 rounded-xl mb-6" style={{ backgroundColor: colors.surface }}>
+        <button
+          type="button"
+          onClick={() => setShowProgramSelector && setShowProgramSelector(true)}
+          className="w-full p-3 rounded-xl flex items-center justify-between mb-3"
+          style={{ backgroundColor: colors.surfaceLight, border: `1px solid ${colors.primary}40` }}
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: colors.primary + '20' }}>
+              <Dumbbell size={20} color={colors.primary} />
+            </div>
+            <div className="text-left">
+              <p className="font-semibold" style={{ color: colors.text }}>{currentProgram?.name || 'Select Program'}</p>
+              <p className="text-xs" style={{ color: colors.textMuted }}>{currentProgram?.daysPerWeek || 0} days/week • {currentProgram?.totalWeeks || 0} weeks</p>
+            </div>
+          </div>
+          <ChevronRight size={20} color={colors.primary} />
+        </button>
+        <div className="flex justify-between text-xs mb-1">
+          <span style={{ color: colors.textMuted }}>Week {programProgress?.currentWeek || 1} of {programProgress?.totalWeeks || 12}</span>
+          <span style={{ color: colors.primary }}>{Math.round((programProgress?.currentWeek || 1) / (programProgress?.totalWeeks || 12) * 100)}%</span>
+        </div>
+        <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: colors.surfaceLight }}>
+          <div
+            className="h-full rounded-full"
+            style={{ backgroundColor: colors.primary, width: `${((programProgress?.currentWeek || 1) / (programProgress?.totalWeeks || 12)) * 100}%` }}
+          />
+        </div>
+      </div>
+
       {/* 1RM Tracker Modal */}
       {showEstimate1RM && (
         <Estimate1RMTracker
