@@ -19380,14 +19380,27 @@ export default function UpRepDemo() {
             setLastNightWakeTime(stripSeconds(sleepEntry.wake_time) || '06:30');
             setLastNightConfirmed(true);
           } else {
-            // No entry for this date - show edit form with defaults
+            // No entry for this date - show edit form with defaults from most recent entry
             setLastNightConfirmed(false);
+
+            // First try database recent entries
             if (recentWithTimes) {
               setLastNightBedTime(stripSeconds(recentWithTimes.bed_time));
               setLastNightWakeTime(stripSeconds(recentWithTimes.wake_time));
             } else {
-              setLastNightBedTime('23:00');
-              setLastNightWakeTime('06:30');
+              // Fallback: check local monthlyTracking.sleep for recent entries
+              const sleepEntries = Object.entries(monthlyTracking.sleep || {})
+                .filter(([date, data]) => data.bedTime && data.wakeTime && date < selectedSleepDate)
+                .sort((a, b) => b[0].localeCompare(a[0])); // Sort by date descending
+
+              if (sleepEntries.length > 0) {
+                const [, mostRecentLocal] = sleepEntries[0];
+                setLastNightBedTime(mostRecentLocal.bedTime);
+                setLastNightWakeTime(mostRecentLocal.wakeTime);
+              } else {
+                setLastNightBedTime('23:00');
+                setLastNightWakeTime('06:30');
+              }
             }
           }
 
@@ -19399,13 +19412,27 @@ export default function UpRepDemo() {
         }
       } catch (err) {
         console.warn('Error loading sleep data:', err?.message || err);
+
+        // Even on error, try to use local monthlyTracking.sleep for defaults
+        if (isMounted) {
+          const sleepEntries = Object.entries(monthlyTracking.sleep || {})
+            .filter(([date, data]) => data.bedTime && data.wakeTime && date < selectedSleepDate)
+            .sort((a, b) => b[0].localeCompare(a[0]));
+
+          if (sleepEntries.length > 0) {
+            const [, mostRecentLocal] = sleepEntries[0];
+            setLastNightBedTime(mostRecentLocal.bedTime);
+            setLastNightWakeTime(mostRecentLocal.wakeTime);
+          }
+          setLastNightConfirmed(false);
+        }
       }
     };
 
     loadSleepData();
 
     return () => { isMounted = false; };
-  }, [user?.id, isAuthenticated, selectedSleepDate]);
+  }, [user?.id, isAuthenticated, selectedSleepDate, monthlyTracking.sleep]);
 
   // Function to refresh sleep chart data (called after saving sleep)
   const refreshSleepChartData = async () => {
@@ -19928,11 +19955,30 @@ export default function UpRepDemo() {
   });
 
   // Monthly tracking data for calendar views (last 35 days)
-  const [monthlyTracking, setMonthlyTracking] = useState({
-    nutrition: {}, // { 'YYYY-MM-DD': { calories, protein, water, goalMet } }
-    supplements: {}, // { 'YYYY-MM-DD': { taken, total, allTaken } }
-    sleep: {}, // { 'YYYY-MM-DD': { hours, goalMet } }
+  const [monthlyTracking, setMonthlyTracking] = useState(() => {
+    // Load sleep data from localStorage for defaults
+    let savedSleep = {};
+    try {
+      const saved = localStorage.getItem('uprep_sleep_history');
+      if (saved) {
+        savedSleep = JSON.parse(saved);
+      }
+    } catch { /* ignore */ }
+    return {
+      nutrition: {}, // { 'YYYY-MM-DD': { calories, protein, water, goalMet } }
+      supplements: {}, // { 'YYYY-MM-DD': { taken, total, allTaken } }
+      sleep: savedSleep, // { 'YYYY-MM-DD': { hours, bedTime, wakeTime, goalMet } }
+    };
   });
+
+  // Persist sleep data to localStorage for remembering defaults
+  useEffect(() => {
+    try {
+      if (Object.keys(monthlyTracking.sleep).length > 0) {
+        localStorage.setItem('uprep_sleep_history', JSON.stringify(monthlyTracking.sleep));
+      }
+    } catch { /* ignore */ }
+  }, [monthlyTracking.sleep]);
 
   // Supplement History - loaded from database
   const [supplementHistory, setSupplementHistory] = useState([]);
