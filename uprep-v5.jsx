@@ -16122,6 +16122,7 @@ const NutritionTab = ({
   supplementDosageRef,
   supplementUnitRef,
   supplementTimesPerDayRef,
+  supplementTimesPerWeekRef,
   SUPPLEMENT_UNITS,
   editingSupplement,
   setEditingSupplement,
@@ -16129,6 +16130,7 @@ const NutritionTab = ({
   editSupplementAmountRef,
   editSupplementUnitRef,
   editSupplementTimesRef,
+  editSupplementTimesPerWeekRef,
   nutritionWeeklyChart,
   setNutritionWeeklyChart,
 }) => {
@@ -17337,6 +17339,8 @@ const NutritionTab = ({
                           const isComplete = takenCount >= target;
 
                           // For multi-dose supplements, show segmented progress bar
+                          const timesPerWeek = supp.timesPerWeek || supp.times_per_week || 7;
+
                           if (target > 1) {
                             return (
                               <div className="flex flex-col gap-1 flex-1">
@@ -17346,7 +17350,13 @@ const NutritionTab = ({
                                     {takenCount}/{target}
                                   </span>
                                 </div>
-                                <span className="text-xs" style={{ color: COLORS.textMuted }}>{supp.dosage}</span>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs" style={{ color: COLORS.textMuted }}>{supp.dosage}</span>
+                                  <span className="text-xs" style={{ color: COLORS.textMuted }}>•</span>
+                                  <span className="text-xs" style={{ color: COLORS.textMuted }}>{target}x/day</span>
+                                  <span className="text-xs" style={{ color: COLORS.textMuted }}>•</span>
+                                  <span className="text-xs" style={{ color: COLORS.textMuted }}>{timesPerWeek}x/week</span>
+                                </div>
                                 <div className="flex gap-1 mt-1">
                                   {Array.from({ length: target }).map((_, i) => (
                                     <div
@@ -17378,8 +17388,15 @@ const NutritionTab = ({
                                 <p className="font-semibold" style={{ color: COLORS.text }}>{supp.name}</p>
                                 <div className="flex items-center gap-2">
                                   <span className="text-xs" style={{ color: COLORS.textMuted }}>{supp.dosage}</span>
+                                  <span className="text-xs" style={{ color: COLORS.textMuted }}>•</span>
+                                  <span className="text-xs" style={{ color: COLORS.textMuted }}>{target}x/day</span>
+                                  <span className="text-xs" style={{ color: COLORS.textMuted }}>•</span>
+                                  <span className="text-xs" style={{ color: COLORS.textMuted }}>{timesPerWeek}x/week</span>
                                   {takenCount > 0 && (
-                                    <span className="text-xs font-semibold" style={{ color: COLORS.supplements }}>Taken</span>
+                                    <>
+                                      <span className="text-xs" style={{ color: COLORS.textMuted }}>•</span>
+                                      <span className="text-xs font-semibold" style={{ color: COLORS.supplements }}>Taken</span>
+                                    </>
                                   )}
                                 </div>
                               </div>
@@ -17611,19 +17628,35 @@ const NutritionTab = ({
                           ))}
                         </select>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="number"
-                          placeholder="1"
-                          min="1"
-                          max="10"
-                          ref={supplementTimesPerDayRef}
-                          defaultValue="1"
-                          onMouseDown={e => e.stopPropagation()}
-                          className="w-16 p-3 rounded-xl text-sm text-center"
-                          style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none', outline: 'none' }}
-                        />
-                        <span className="text-sm" style={{ color: COLORS.textMuted }}>times per day</span>
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            placeholder="1"
+                            min="1"
+                            max="10"
+                            ref={supplementTimesPerDayRef}
+                            defaultValue="1"
+                            onMouseDown={e => e.stopPropagation()}
+                            className="w-14 p-3 rounded-xl text-sm text-center"
+                            style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none', outline: 'none' }}
+                          />
+                          <span className="text-sm" style={{ color: COLORS.textMuted }}>x/day</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            placeholder="7"
+                            min="1"
+                            max="7"
+                            ref={supplementTimesPerWeekRef}
+                            defaultValue="7"
+                            onMouseDown={e => e.stopPropagation()}
+                            className="w-14 p-3 rounded-xl text-sm text-center"
+                            style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none', outline: 'none' }}
+                          />
+                          <span className="text-sm" style={{ color: COLORS.textMuted }}>x/week</span>
+                        </div>
                       </div>
                     </div>
                     <div className="flex gap-2">
@@ -17634,6 +17667,7 @@ const NutritionTab = ({
                           if (supplementDosageRef.current) supplementDosageRef.current.value = '';
                           if (supplementUnitRef.current) supplementUnitRef.current.value = 'mg';
                           if (supplementTimesPerDayRef.current) supplementTimesPerDayRef.current.value = '1';
+                          if (supplementTimesPerWeekRef.current) supplementTimesPerWeekRef.current.value = '7';
                         }}
                         className="flex-1 py-3 rounded-xl font-semibold"
                         style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.textMuted }}
@@ -17646,19 +17680,21 @@ const NutritionTab = ({
                           const amount = supplementDosageRef.current?.value?.trim();
                           const unit = supplementUnitRef.current?.value || 'mg';
                           const timesPerDay = parseInt(supplementTimesPerDayRef.current?.value) || 1;
+                          const timesPerWeek = parseInt(supplementTimesPerWeekRef.current?.value) || 7;
                           const dosage = amount ? `${amount} ${unit}` : 'As needed';
                           if (name && user?.id) {
-                            const { data, error } = await nutritionService.addSupplement(user.id, { name, dosage, times_per_day: timesPerDay });
+                            const { data, error } = await nutritionService.addSupplement(user.id, { name, dosage, times_per_day: timesPerDay, times_per_week: timesPerWeek });
                             if (!error && data) {
-                              setSupplements(prev => [...prev, { id: data.id, name: data.name, dosage: data.dosage, timesPerDay: data.times_per_day || timesPerDay, taken: false, takenCount: 0, time: '' }]);
+                              setSupplements(prev => [...prev, { id: data.id, name: data.name, dosage: data.dosage, timesPerDay: data.times_per_day || timesPerDay, timesPerWeek: data.times_per_week || timesPerWeek, taken: false, takenCount: 0, time: '' }]);
                             } else {
-                              setSupplements(prev => [...prev, { id: Date.now().toString(), name, dosage, timesPerDay, taken: false, takenCount: 0, time: '' }]);
+                              setSupplements(prev => [...prev, { id: Date.now().toString(), name, dosage, timesPerDay, timesPerWeek, taken: false, takenCount: 0, time: '' }]);
                             }
                             setShowAddSupplement(false);
                             if (supplementNameRef.current) supplementNameRef.current.value = '';
                             if (supplementDosageRef.current) supplementDosageRef.current.value = '';
                             if (supplementUnitRef.current) supplementUnitRef.current.value = 'mg';
                             if (supplementTimesPerDayRef.current) supplementTimesPerDayRef.current.value = '1';
+                            if (supplementTimesPerWeekRef.current) supplementTimesPerWeekRef.current.value = '7';
                           }
                         }}
                         className="flex-1 py-3 rounded-xl font-semibold"
@@ -17716,19 +17752,35 @@ const NutritionTab = ({
                             ))}
                           </select>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="number"
-                            min="1"
-                            max="10"
-                            ref={editSupplementTimesRef}
-                            defaultValue={editingSupplement.timesPerDay}
-                            onMouseDown={e => e.stopPropagation()}
-                            onFocus={e => e.target.select()}
-                            className="w-16 p-3 rounded-xl text-sm text-center"
-                            style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none', outline: 'none' }}
-                          />
-                          <span className="text-sm" style={{ color: COLORS.textMuted }}>times per day</span>
+                        <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              min="1"
+                              max="10"
+                              ref={editSupplementTimesRef}
+                              defaultValue={editingSupplement.timesPerDay}
+                              onMouseDown={e => e.stopPropagation()}
+                              onFocus={e => e.target.select()}
+                              className="w-14 p-3 rounded-xl text-sm text-center"
+                              style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none', outline: 'none' }}
+                            />
+                            <span className="text-sm" style={{ color: COLORS.textMuted }}>x/day</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              min="1"
+                              max="7"
+                              ref={editSupplementTimesPerWeekRef}
+                              defaultValue={editingSupplement.timesPerWeek || 7}
+                              onMouseDown={e => e.stopPropagation()}
+                              onFocus={e => e.target.select()}
+                              className="w-14 p-3 rounded-xl text-sm text-center"
+                              style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none', outline: 'none' }}
+                            />
+                            <span className="text-sm" style={{ color: COLORS.textMuted }}>x/week</span>
+                          </div>
                         </div>
                       </div>
                       <div className="flex gap-2">
@@ -17746,18 +17798,19 @@ const NutritionTab = ({
                             const amount = editSupplementAmountRef.current?.value?.trim();
                             const unit = editSupplementUnitRef.current?.value || 'mg';
                             const timesPerDay = Math.max(1, parseInt(editSupplementTimesRef.current?.value) || 1);
+                            const timesPerWeek = Math.max(1, Math.min(7, parseInt(editSupplementTimesPerWeekRef.current?.value) || 7));
                             const dosage = amount ? `${amount} ${unit}` : 'As needed';
 
                             // Update locally
                             setSupplements(prev => prev.map(s =>
-                              s.id === id ? { ...s, name, dosage, timesPerDay } : s
+                              s.id === id ? { ...s, name, dosage, timesPerDay, timesPerWeek } : s
                             ));
 
                             // Update in database
                             if (user?.id) {
                               await supabase
                                 .from('user_supplements')
-                                .update({ name, dosage, times_per_day: timesPerDay })
+                                .update({ name, dosage, times_per_day: timesPerDay, times_per_week: timesPerWeek })
                                 .eq('id', id);
                             }
 
@@ -20194,11 +20247,13 @@ export default function UpRepDemo() {
   const supplementDosageRef = useRef(null);
   const supplementUnitRef = useRef(null);
   const supplementTimesPerDayRef = useRef(null);
-  const [editingSupplement, setEditingSupplement] = useState(null); // { id, name, amount, unit, timesPerDay }
+  const supplementTimesPerWeekRef = useRef(null);
+  const [editingSupplement, setEditingSupplement] = useState(null); // { id, name, amount, unit, timesPerDay, timesPerWeek }
   const editSupplementNameRef = useRef(null);
   const editSupplementAmountRef = useRef(null);
   const editSupplementUnitRef = useRef(null);
   const editSupplementTimesRef = useRef(null);
+  const editSupplementTimesPerWeekRef = useRef(null);
   const SUPPLEMENT_UNITS = ['mg', 'g', 'mcg', 'IU', 'ml', 'capsule(s)', 'tablet(s)', 'scoop(s)', 'drop(s)'];
 
   // Extended Nutrition State - start at 0, load from database
@@ -23780,6 +23835,7 @@ export default function UpRepDemo() {
             supplementDosageRef={supplementDosageRef}
             supplementUnitRef={supplementUnitRef}
             supplementTimesPerDayRef={supplementTimesPerDayRef}
+            supplementTimesPerWeekRef={supplementTimesPerWeekRef}
             SUPPLEMENT_UNITS={SUPPLEMENT_UNITS}
             editingSupplement={editingSupplement}
             setEditingSupplement={setEditingSupplement}
@@ -23787,6 +23843,7 @@ export default function UpRepDemo() {
             editSupplementAmountRef={editSupplementAmountRef}
             editSupplementUnitRef={editSupplementUnitRef}
             editSupplementTimesRef={editSupplementTimesRef}
+            editSupplementTimesPerWeekRef={editSupplementTimesPerWeekRef}
             nutritionWeeklyChart={nutritionWeeklyChart}
             setNutritionWeeklyChart={setNutritionWeeklyChart}
           />
@@ -31943,3 +32000,4 @@ export default function UpRepDemo() {
     </div>
   );
 }
+
