@@ -31942,9 +31942,9 @@ export default function UpRepDemo() {
         {[
           { id: 'home', icon: Home, label: 'Home' },
           { id: 'workouts', icon: Dumbbell, label: 'Workouts' },
-          { id: 'friends', icon: Users, label: 'Community' },
           { id: 'nutrition', icon: Heart, label: 'Health' },
           { id: 'progress', icon: BarChart3, label: 'Progress' },
+          { id: 'friends', icon: Users, label: 'Community' },
           { id: 'profile', icon: User, label: 'Profile' },
         ].map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)} className="flex flex-col items-center gap-0.5 min-h-[44px] min-w-[44px] justify-center">
