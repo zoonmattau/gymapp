@@ -16025,6 +16025,11 @@ const NutritionTab = ({
     return chartData;
   }, [sleepChartView, monthlyTracking.sleep, sleepHours, getLocalDateString]);
 
+  // Use base nutrition goals for past days, adjusted goals only for today
+  const displayNutritionGoals = nutritionSelectedDate === TODAY_DATE_KEY
+    ? adjustedNutritionGoals
+    : nutritionGoals;
+
   return (
           <>
           <div
@@ -16224,10 +16229,10 @@ const NutritionTab = ({
                   <div className="flex items-center justify-between p-3 rounded-lg" style={{ backgroundColor: COLORS.background + '50' }}>
                     <div>
                       <p className="text-xs" style={{ color: COLORS.textMuted }}>
-                        Daily Target{adjustedNutritionGoals.adjustments?.calories > 0 ? ' (adjusted)' : ''}
+                        Daily Target{nutritionSelectedDate === TODAY_DATE_KEY && adjustedNutritionGoals.adjustments?.calories > 0 ? ' (adjusted)' : ''}
                       </p>
-                      <p className="text-lg font-bold" style={{ color: COLORS.text }}>{adjustedNutritionGoals.calories} kcal</p>
-                      {adjustedNutritionGoals.adjustments?.calories > 0 && effectiveGoal !== 'lose_fat' && (
+                      <p className="text-lg font-bold" style={{ color: COLORS.text }}>{displayNutritionGoals.calories} kcal</p>
+                      {nutritionSelectedDate === TODAY_DATE_KEY && adjustedNutritionGoals.adjustments?.calories > 0 && effectiveGoal !== 'lose_fat' && (
                         <p className="text-xs" style={{ color: COLORS.primary }}>
                           +{adjustedNutritionGoals.adjustments.calories} catch-up
                         </p>
@@ -16236,26 +16241,26 @@ const NutritionTab = ({
                     <div className="text-right">
                       <p className="text-xs" style={{ color: COLORS.textMuted }}>Remaining</p>
                       <p className="text-lg font-bold" style={{
-                        color: (adjustedNutritionGoals.calories - (nutritionSelectedDate === TODAY_DATE_KEY ? caloriesIntake : (backdateNutrition?.calories || 0))) < 0
+                        color: (displayNutritionGoals.calories - (nutritionSelectedDate === TODAY_DATE_KEY ? caloriesIntake : (backdateNutrition?.calories || 0))) < 0
                           ? (effectiveGoal === 'lose_fat' ? COLORS.error : COLORS.success)
                           : (effectiveGoal === 'lose_fat' ? COLORS.success : COLORS.warning)
                       }}>
-                        {adjustedNutritionGoals.calories - (nutritionSelectedDate === TODAY_DATE_KEY ? caloriesIntake : (backdateNutrition?.calories || 0))} kcal
+                        {displayNutritionGoals.calories - (nutritionSelectedDate === TODAY_DATE_KEY ? caloriesIntake : (backdateNutrition?.calories || 0))} kcal
                       </p>
                     </div>
                     <div className="px-3 py-1 rounded-full" style={{
                       backgroundColor: effectiveGoal === 'lose_fat'
-                        ? ((nutritionSelectedDate === TODAY_DATE_KEY ? caloriesIntake : (backdateNutrition?.calories || 0)) <= adjustedNutritionGoals.calories ? COLORS.success + '30' : COLORS.error + '30')
-                        : ((nutritionSelectedDate === TODAY_DATE_KEY ? caloriesIntake : (backdateNutrition?.calories || 0)) >= adjustedNutritionGoals.calories * 0.9 ? COLORS.success + '30' : COLORS.warning + '30')
+                        ? ((nutritionSelectedDate === TODAY_DATE_KEY ? caloriesIntake : (backdateNutrition?.calories || 0)) <= displayNutritionGoals.calories ? COLORS.success + '30' : COLORS.error + '30')
+                        : ((nutritionSelectedDate === TODAY_DATE_KEY ? caloriesIntake : (backdateNutrition?.calories || 0)) >= displayNutritionGoals.calories * 0.9 ? COLORS.success + '30' : COLORS.warning + '30')
                     }}>
                       <p className="text-xs font-semibold" style={{
                         color: effectiveGoal === 'lose_fat'
-                          ? ((nutritionSelectedDate === TODAY_DATE_KEY ? caloriesIntake : (backdateNutrition?.calories || 0)) <= adjustedNutritionGoals.calories ? COLORS.success : COLORS.error)
-                          : ((nutritionSelectedDate === TODAY_DATE_KEY ? caloriesIntake : (backdateNutrition?.calories || 0)) >= adjustedNutritionGoals.calories * 0.9 ? COLORS.success : COLORS.warning)
+                          ? ((nutritionSelectedDate === TODAY_DATE_KEY ? caloriesIntake : (backdateNutrition?.calories || 0)) <= displayNutritionGoals.calories ? COLORS.success : COLORS.error)
+                          : ((nutritionSelectedDate === TODAY_DATE_KEY ? caloriesIntake : (backdateNutrition?.calories || 0)) >= displayNutritionGoals.calories * 0.9 ? COLORS.success : COLORS.warning)
                       }}>
                         {effectiveGoal === 'lose_fat'
-                          ? ((nutritionSelectedDate === TODAY_DATE_KEY ? caloriesIntake : (backdateNutrition?.calories || 0)) <= adjustedNutritionGoals.calories ? '✓ On Track' : '⚠️ Over')
-                          : ((nutritionSelectedDate === TODAY_DATE_KEY ? caloriesIntake : (backdateNutrition?.calories || 0)) >= adjustedNutritionGoals.calories * 0.9 ? '✓ On Track' : '⚠️ Eat More')}
+                          ? ((nutritionSelectedDate === TODAY_DATE_KEY ? caloriesIntake : (backdateNutrition?.calories || 0)) <= displayNutritionGoals.calories ? '✓ On Track' : '⚠️ Over')
+                          : ((nutritionSelectedDate === TODAY_DATE_KEY ? caloriesIntake : (backdateNutrition?.calories || 0)) >= displayNutritionGoals.calories * 0.9 ? '✓ On Track' : '⚠️ Eat More')}
                       </p>
                     </div>
                   </div>
@@ -16286,7 +16291,7 @@ const NutritionTab = ({
                       {/* Macro Rings */}
                       <div className="flex justify-around gap-2">
                         {[
-                          { name: 'Protein', key: 'P', id: 'protein', current: nutritionSelectedDate === TODAY_DATE_KEY ? proteinIntake : (backdateNutrition?.protein || 0), target: adjustedNutritionGoals.protein, unit: 'g', color: COLORS.primary },
+                          { name: 'Protein', key: 'P', id: 'protein', current: nutritionSelectedDate === TODAY_DATE_KEY ? proteinIntake : (backdateNutrition?.protein || 0), target: displayNutritionGoals.protein, unit: 'g', color: COLORS.primary },
                           { name: 'Carbs', key: 'C', id: 'carbs', current: nutritionSelectedDate === TODAY_DATE_KEY ? carbsIntake : (backdateNutrition?.carbs || 0), target: nutritionGoals.carbs, unit: 'g', color: COLORS.warning },
                         ].map(macro => {
                           const percentage = Math.min(100, (macro.current / macro.target) * 100);
@@ -16417,7 +16422,7 @@ const NutritionTab = ({
                               stroke={COLORS.accent}
                               strokeWidth="8"
                               fill="none"
-                              strokeDasharray={`${((nutritionSelectedDate === TODAY_DATE_KEY ? caloriesIntake : (backdateNutrition?.calories || 0)) / adjustedNutritionGoals.calories) * 251} 251`}
+                              strokeDasharray={`${((nutritionSelectedDate === TODAY_DATE_KEY ? caloriesIntake : (backdateNutrition?.calories || 0)) / displayNutritionGoals.calories) * 251} 251`}
                               strokeLinecap="round"
                             />
                           </svg>
@@ -16428,7 +16433,7 @@ const NutritionTab = ({
                         </div>
                       </div>
                       <p className="text-center text-sm font-semibold" style={{ color: COLORS.text }}>Calories</p>
-                      <p className="text-center text-xs" style={{ color: COLORS.textMuted }}>{adjustedNutritionGoals.calories - (nutritionSelectedDate === TODAY_DATE_KEY ? caloriesIntake : (backdateNutrition?.calories || 0))} remaining</p>
+                      <p className="text-center text-xs" style={{ color: COLORS.textMuted }}>{displayNutritionGoals.calories - (nutritionSelectedDate === TODAY_DATE_KEY ? caloriesIntake : (backdateNutrition?.calories || 0))} remaining</p>
                     </div>
 
                     {/* Water Circle */}
@@ -16457,7 +16462,7 @@ const NutritionTab = ({
                               stroke={COLORS.water}
                               strokeWidth="8"
                               fill="none"
-                              strokeDasharray={`${((nutritionSelectedDate === TODAY_DATE_KEY ? waterIntake : (backdateNutrition?.water || 0)) / adjustedNutritionGoals.water) * 251} 251`}
+                              strokeDasharray={`${((nutritionSelectedDate === TODAY_DATE_KEY ? waterIntake : (backdateNutrition?.water || 0)) / displayNutritionGoals.water) * 251} 251`}
                               strokeLinecap="round"
                             />
                           </svg>
@@ -16468,7 +16473,7 @@ const NutritionTab = ({
                         </div>
                       </div>
                       <p className="text-center text-sm font-semibold" style={{ color: COLORS.text }}>Water</p>
-                      <p className="text-center text-xs" style={{ color: COLORS.textMuted }}>{((adjustedNutritionGoals.water - (nutritionSelectedDate === TODAY_DATE_KEY ? waterIntake : (backdateNutrition?.water || 0))) / 1000).toFixed(1)}L remaining</p>
+                      <p className="text-center text-xs" style={{ color: COLORS.textMuted }}>{((displayNutritionGoals.water - (nutritionSelectedDate === TODAY_DATE_KEY ? waterIntake : (backdateNutrition?.water || 0))) / 1000).toFixed(1)}L remaining</p>
                     </div>
                   </div>
 
@@ -18192,7 +18197,7 @@ const NutritionTab = ({
           {/* Macro Detail Modal */}
           {showMacroDetail && (() => {
             const macros = {
-              protein: { name: 'Protein', key: 'protein', current: nutritionSelectedDate === TODAY_DATE_KEY ? proteinIntake : (backdateNutrition?.protein || 0), target: adjustedNutritionGoals.protein, color: COLORS.primary },
+              protein: { name: 'Protein', key: 'protein', current: nutritionSelectedDate === TODAY_DATE_KEY ? proteinIntake : (backdateNutrition?.protein || 0), target: displayNutritionGoals.protein, color: COLORS.primary },
               carbs: { name: 'Carbs', key: 'carbs', current: nutritionSelectedDate === TODAY_DATE_KEY ? carbsIntake : (backdateNutrition?.carbs || 0), target: nutritionGoals.carbs, color: COLORS.warning },
             };
             const macro = macros[showMacroDetail];
