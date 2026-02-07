@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid, ReferenceLine } from 'recharts';
 import { ChevronRight, ChevronLeft, Check, Plus, Minus, Play, Pause, X, Droplets, Moon, TrendingUp, TrendingDown, User, Home, Dumbbell, Apple, BarChart3, Trophy, Flame, Clock, Target, Info, Calendar, AlertCircle, Zap, Coffee, Utensils, ChevronDown, ChevronUp, Eye, Undo2, Search, Book, History, Award, Edit3, Filter, ArrowLeftRight, GripVertical, Users, Heart, MessageCircle, Share2, Crown, Medal, Loader2, Settings, Sprout, RefreshCw, Scale, Scissors, Wind, Timer, Activity, Star, Sparkles, PartyPopper, Bell, UserPlus, Lock, Bookmark, Upload, Trash2, Camera, RotateCcw } from 'lucide-react';
 
@@ -19795,20 +19795,20 @@ export default function UpRepDemo() {
   const progressTabScrollPos = useRef(0);
   const goalChangeInProgressRef = useRef(false); // Prevent profile sync from overwriting goal during change
 
-  // Track scroll position on workouts tab
-  const handleWorkoutTabScroll = (e) => {
+  // Track scroll position on workouts tab - memoized to prevent re-renders
+  const handleWorkoutTabScroll = useCallback((e) => {
     workoutTabScrollPos.current = e.target.scrollTop;
-  };
+  }, []);
 
-  // Track scroll position on profile tab
-  const handleProfileTabScroll = (e) => {
+  // Track scroll position on profile tab - memoized
+  const handleProfileTabScroll = useCallback((e) => {
     profileTabScrollPos.current = e.target.scrollTop;
-  };
+  }, []);
 
-  // Track scroll position on progress tab
-  const handleProgressTabScroll = (e) => {
+  // Track scroll position on progress tab - memoized
+  const handleProgressTabScroll = useCallback((e) => {
     progressTabScrollPos.current = e.target.scrollTop;
-  };
+  }, []);
 
   // Restore progress tab scroll position after re-renders
   useEffect(() => {
@@ -19891,8 +19891,8 @@ export default function UpRepDemo() {
     });
   };
 
-  // Toggle exercise list with scroll preservation
-  const toggleExerciseListWithScroll = () => {
+  // Toggle exercise list with scroll preservation - memoized
+  const toggleExerciseListWithScroll = useCallback(() => {
     const scrollTop = workoutTabScrollRef.current?.scrollTop;
     setExerciseListCollapsed(prev => !prev);
     requestAnimationFrame(() => {
@@ -19900,10 +19900,10 @@ export default function UpRepDemo() {
         workoutTabScrollRef.current.scrollTop = scrollTop;
       }
     });
-  };
+  }, []);
 
-  // Show/hide exercise info with scroll preservation
-  const showExerciseInfoWithScroll = (exerciseName) => {
+  // Show/hide exercise info with scroll preservation - memoized
+  const showExerciseInfoWithScroll = useCallback((exerciseName) => {
     const scrollTop = workoutTabScrollRef.current?.scrollTop;
     setShowExerciseInfo(exerciseName);
     requestAnimationFrame(() => {
@@ -19911,10 +19911,10 @@ export default function UpRepDemo() {
         workoutTabScrollRef.current.scrollTop = scrollTop;
       }
     });
-  };
+  }, []);
 
-  // Toggle warmup/cooldown with scroll preservation (for friends tab)
-  const toggleWarmupCooldownWithScroll = (workoutId, type) => {
+  // Toggle warmup/cooldown with scroll preservation (for friends tab) - memoized
+  const toggleWarmupCooldownWithScroll = useCallback((workoutId, type) => {
     const scrollTop = friendsTabScrollRef.current?.scrollTop;
     setWorkoutWarmupCooldown(prev => ({
       ...prev,
@@ -19925,10 +19925,10 @@ export default function UpRepDemo() {
         friendsTabScrollRef.current.scrollTop = scrollTop;
       }
     });
-  };
+  }, []);
 
-  // Toggle warmup/cooldown with scroll preservation (for workouts tab)
-  const toggleWarmupCooldownForWorkouts = (workoutId, type) => {
+  // Toggle warmup/cooldown with scroll preservation (for workouts tab) - memoized
+  const toggleWarmupCooldownForWorkouts = useCallback((workoutId, type) => {
     const scrollTop = workoutTabScrollRef.current?.scrollTop;
     setWorkoutWarmupCooldown(prev => ({
       ...prev,
@@ -19939,7 +19939,7 @@ export default function UpRepDemo() {
         workoutTabScrollRef.current.scrollTop = scrollTop;
       }
     });
-  };
+  }, []);
 
   // Show/hide exercise info with friends tab scroll preservation
   const showExerciseInfoFriendsTab = (exerciseName) => {
@@ -20060,8 +20060,8 @@ export default function UpRepDemo() {
     }
   };
 
-  // Expand/collapse exercise with scroll preservation
-  const toggleExpandedExercise = (exerciseId) => {
+  // Expand/collapse exercise with scroll preservation - memoized
+  const toggleExpandedExercise = useCallback((exerciseId) => {
     const scrollTop = workoutTabScrollRef.current?.scrollTop;
     setExpandedExerciseId(prev => prev === exerciseId ? null : exerciseId);
     requestAnimationFrame(() => {
@@ -20069,10 +20069,10 @@ export default function UpRepDemo() {
         workoutTabScrollRef.current.scrollTop = scrollTop;
       }
     });
-  };
+  }, []);
 
-  // Wrapper to preserve scroll when updating workout time/count
-  const updateWorkoutTimeWithScroll = (time) => {
+  // Wrapper to preserve scroll when updating workout time/count - memoized
+  const updateWorkoutTimeWithScroll = useCallback((time) => {
     const scrollTop = workoutTabScrollRef.current?.scrollTop;
     setWorkoutTime(time);
     setCustomExerciseCount(null);
@@ -20081,9 +20081,10 @@ export default function UpRepDemo() {
         workoutTabScrollRef.current.scrollTop = scrollTop;
       }
     });
-  };
+  }, []);
 
-  const updateExerciseCountWithScroll = (countOrUpdater) => {
+  // Update exercise count with scroll preservation - memoized
+  const updateExerciseCountWithScroll = useCallback((countOrUpdater) => {
     const scrollTop = workoutTabScrollRef.current?.scrollTop;
     setCustomExerciseCount(countOrUpdater);
     requestAnimationFrame(() => {
@@ -20091,7 +20092,7 @@ export default function UpRepDemo() {
         workoutTabScrollRef.current.scrollTop = scrollTop;
       }
     });
-  };
+  }, []);
 
   // Restore scroll position when switching back to workouts tab
   useEffect(() => {
@@ -21886,10 +21887,10 @@ export default function UpRepDemo() {
   }, [todayWorkoutType]);
 
   // Get today's dynamically generated workout (cached for consistency within the day)
-  const todayWorkoutTemplate = getWorkoutForDate(TODAY_DATE_KEY);
+  const todayWorkoutTemplate = useMemo(() => getWorkoutForDate(TODAY_DATE_KEY), [masterSchedule, TODAY_DATE_KEY]);
 
-  // Get the current exercises (either customized or from template)
-  const getCurrentExercises = () => {
+  // Get the current exercises (either customized or from template) - memoized
+  const getCurrentExercises = useCallback(() => {
     let exercises = customizedExercises || todayWorkoutTemplate?.exercises || [];
 
     // Filter out exercises targeting injured muscles
@@ -21914,7 +21915,7 @@ export default function UpRepDemo() {
     }
 
     return exercises;
-  };
+  }, [customizedExercises, todayWorkoutTemplate, injuries]);
 
   // Get recovery exercises to add based on current injuries
   const getInjuryRecoveryExercisesToAdd = () => {
@@ -22208,7 +22209,8 @@ export default function UpRepDemo() {
     return days;
   };
 
-  const currentWeekDates = getWeekDates(scheduleWeekOffset);
+  // Memoize currentWeekDates to prevent unnecessary re-renders
+  const currentWeekDates = useMemo(() => getWeekDates(scheduleWeekOffset), [scheduleWeekOffset, masterSchedule]);
 
   // Swap workout types between two days
   const swapWorkoutDays = (fromDateKey, toDateKey) => {
@@ -22254,8 +22256,8 @@ export default function UpRepDemo() {
     return `${monthNames[firstDay.month]} ${firstDay.date} - ${monthNames[lastDay.month]} ${lastDay.date}`;
   };
   
-  // Upcoming workouts (next 3)
-  const upcomingWorkouts = (() => {
+  // Upcoming workouts (next 3) - memoized to prevent unnecessary re-renders
+  const upcomingWorkouts = useMemo(() => {
     const upcoming = [];
     for (let i = 1; i <= 14 && upcoming.length < 3; i++) {
       const date = new Date(today);
@@ -22277,7 +22279,7 @@ export default function UpRepDemo() {
       }
     }
     return upcoming;
-  })();
+  }, [masterSchedule]);
   
   // Completed workouts history - loaded from database
   const [workoutHistory, setWorkoutHistory] = useState([]);
