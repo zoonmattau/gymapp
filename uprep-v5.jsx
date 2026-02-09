@@ -12361,6 +12361,7 @@ const HomeTab = ({
   setWorkoutType,
   handleStartScheduledWorkout,
   handleStartFreeformWorkout,
+  setShowWaterHistory,
 }) => {
     const handleScroll = (e) => {
       homeScrollPos.current = e.target.scrollTop;
@@ -12800,11 +12801,20 @@ const HomeTab = ({
 
           {/* Quick Water */}
           <div className="p-3 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-7 h-7 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.water + '20' }}>
-                <Droplets size={14} color={COLORS.water} />
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.water + '20' }}>
+                  <Droplets size={14} color={COLORS.water} />
+                </div>
+                <p className="font-semibold text-xs" style={{ color: COLORS.text }}>Quick Water</p>
               </div>
-              <p className="font-semibold text-xs" style={{ color: COLORS.text }}>Quick Water</p>
+              <button
+                onClick={() => setShowWaterHistory(true)}
+                className="text-xs px-2 py-1 rounded-lg"
+                style={{ backgroundColor: COLORS.water + '20', color: COLORS.water }}
+              >
+                {(waterIntake / 1000).toFixed(1)}L
+              </button>
             </div>
             <div className="grid grid-cols-3 gap-1">
               {[
@@ -21738,6 +21748,19 @@ export default function UpRepDemo() {
         workoutIndex++;
       }
     }
+
+    // Apply any saved schedule overrides from localStorage
+    try {
+      const overrides = JSON.parse(localStorage.getItem('uprep_schedule_overrides') || '{}');
+      Object.keys(overrides).forEach(dateKey => {
+        if (schedule[dateKey]) {
+          schedule[dateKey].workoutType = overrides[dateKey];
+        }
+      });
+    } catch (e) {
+      console.warn('Failed to load schedule overrides:', e);
+    }
+
     return schedule;
   });
 
@@ -22536,7 +22559,7 @@ export default function UpRepDemo() {
   // Memoize currentWeekDates to prevent unnecessary re-renders
   const currentWeekDates = useMemo(() => getWeekDates(scheduleWeekOffset), [scheduleWeekOffset, masterSchedule]);
 
-  // Swap workout types between two days
+  // Swap workout types between two days - persist to localStorage
   const swapWorkoutDays = (fromDateKey, toDateKey) => {
     setMasterSchedule(prev => {
       const newSchedule = { ...prev };
@@ -22546,6 +22569,16 @@ export default function UpRepDemo() {
       newSchedule[fromDateKey] = { ...newSchedule[fromDateKey], workoutType: toType };
       newSchedule[toDateKey] = { ...newSchedule[toDateKey], workoutType: fromType };
 
+      // Save overrides to localStorage
+      try {
+        const overrides = JSON.parse(localStorage.getItem('uprep_schedule_overrides') || '{}');
+        overrides[fromDateKey] = toType;
+        overrides[toDateKey] = fromType;
+        localStorage.setItem('uprep_schedule_overrides', JSON.stringify(overrides));
+      } catch (e) {
+        console.warn('Failed to save schedule overrides:', e);
+      }
+
       return newSchedule;
     });
     // Clear cache for swapped days to regenerate workouts
@@ -22553,12 +22586,22 @@ export default function UpRepDemo() {
     delete workoutCacheRef.current[toDateKey];
   };
 
-  // Change workout type for a specific day
+  // Change workout type for a specific day - persist to localStorage
   const setWorkoutForDay = (dateKey, workoutType) => {
     setMasterSchedule(prev => ({
       ...prev,
       [dateKey]: { ...prev[dateKey], workoutType }
     }));
+
+    // Save override to localStorage
+    try {
+      const overrides = JSON.parse(localStorage.getItem('uprep_schedule_overrides') || '{}');
+      overrides[dateKey] = workoutType;
+      localStorage.setItem('uprep_schedule_overrides', JSON.stringify(overrides));
+    } catch (e) {
+      console.warn('Failed to save schedule override:', e);
+    }
+
     // Clear cache for this day to regenerate workout
     delete workoutCacheRef.current[dateKey];
   };
@@ -23945,6 +23988,7 @@ export default function UpRepDemo() {
             setWorkoutType={setWorkoutType}
             handleStartScheduledWorkout={handleStartScheduledWorkout}
             handleStartFreeformWorkout={handleStartFreeformWorkout}
+            setShowWaterHistory={setShowWaterHistory}
           />
         )}
         {activeTab === 'workouts' && (
