@@ -664,6 +664,11 @@ const EXERCISE_INSTRUCTIONS = {
     execution: ['Press dumbbells up and slightly together', 'Lower with control to upper chest', 'Keep elbows at 45 degrees throughout', 'Full range of motion - stretch at bottom'],
     tips: ['Angle dumbbells slightly inward to maximize upper chest contraction', 'Go lighter than flat bench - upper chest is a smaller muscle', 'This is arguably the best upper chest builder - prioritize it if lagging']
   },
+  'Smith Machine Incline Press': {
+    setup: ['Set bench to 30-45 degree incline under Smith machine', 'Position yourself so bar lowers to upper chest', 'Grip bar slightly wider than shoulder width', 'Unrack by twisting safety hooks'],
+    execution: ['Lower bar to upper chest with control', 'Keep elbows at 45 degrees from body', 'Press back up explosively', 'Lock out at the top'],
+    tips: ['The fixed bar path allows you to focus purely on pushing', 'Great for safely going heavier without a spotter', 'Can adjust bench angle to target different parts of upper chest']
+  },
   'Cable Fly': {
     setup: ['Set pulleys to shoulder height or slightly above', 'Grab handles and step forward into a staggered stance', 'Start with arms out wide, slight bend in elbows', 'Lean slightly forward from the hips'],
     execution: ['Bring hands together in a hugging motion', 'Squeeze your chest at the center', 'Slowly return to the starting position', 'Maintain the slight bend in elbows throughout'],
@@ -6102,6 +6107,7 @@ const DEFAULT_ALL_EXERCISES = [
   { name: 'Dumbbell Bench Press', muscleGroup: 'Chest', equipment: 'Dumbbells', type: 'compound' },
   { name: 'Incline Barbell Press', muscleGroup: 'Upper Chest', equipment: 'Barbell', type: 'compound' },
   { name: 'Incline Dumbbell Press', muscleGroup: 'Upper Chest', equipment: 'Dumbbells', type: 'compound' },
+  { name: 'Smith Machine Incline Press', muscleGroup: 'Upper Chest', equipment: 'Machine', type: 'compound' },
   { name: 'Decline Bench Press', muscleGroup: 'Lower Chest', equipment: 'Barbell', type: 'compound' },
   { name: 'Machine Chest Press', muscleGroup: 'Chest', equipment: 'Machine', type: 'compound' },
   { name: 'Cable Fly', muscleGroup: 'Chest', equipment: 'Cable', type: 'isolation' },
@@ -9652,7 +9658,7 @@ function NewWorkoutScreen({
       )}
 
       {/* Rest Timer Banner (non-blocking) */}
-      {restTimeRemaining > 0 && (
+      {showRestTimer && restTimeRemaining > 0 && (
         <div className="px-4 py-3 flex items-center justify-between" style={{ backgroundColor: COLORS.accent + '15' }}>
           <div className="flex items-center gap-3">
             <div
@@ -10299,7 +10305,7 @@ function ExerciseSearchModal({ COLORS, onClose, onSelect, excludeExercises = [],
 }
 
 // ActiveWorkoutScreen as separate component
-function ActiveWorkoutScreen({ onClose, onComplete, onSaveProgress, COLORS, availableTime = 60, userGoal = 'build_muscle', userExperience = 'beginner', userId = null, workoutName = 'Workout', workoutTemplate = null, injuries = [], includeWarmup = true, includeCooldown = true, savedProgress = null, checkInData = null }) {
+function ActiveWorkoutScreen({ onClose, onComplete, onSaveProgress, COLORS, availableTime = 60, userGoal = 'build_muscle', userExperience = 'beginner', userId = null, workoutName = 'Workout', workoutTemplate = null, injuries = [], includeWarmup = true, includeCooldown = true, savedProgress = null, checkInData = null, showRestTimer = true }) {
   // Use passed workout template (workoutTemplate prop is now required)
   const activeWorkout = workoutTemplate;
   const isAdvancedUser = ['experienced', 'expert'].includes(userExperience);
@@ -14383,13 +14389,13 @@ const WorkoutTab = ({
                 </div>
               </div>
 
-              {/* Start Workout Button */}
+              {/* Start/Resume Workout Button */}
               <button
-                onClick={() => handleStartWorkout && handleStartWorkout()}
+                onClick={() => handleStartWorkout && handleStartWorkout(partialWorkoutProgress?.sets?.length > 0)}
                 className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
-                style={{ backgroundColor: getColor(todayWorkout?.type), color: colors.text }}
+                style={{ backgroundColor: partialWorkoutProgress?.sets?.length > 0 ? colors.warning : getColor(todayWorkout?.type), color: colors.text }}
               >
-                <Play size={18} /> Start Workout
+                <Play size={18} /> {partialWorkoutProgress?.sets?.length > 0 ? 'Resume Workout' : 'Start Workout'}
               </button>
             </div>
           )}
@@ -21211,6 +21217,7 @@ export default function UpRepDemo() {
     },
     workout: {
       corePosition: 'last', // 'first' or 'last' - where to place core exercises
+      showRestTimer: true, // Show suggested rest timer between sets
     },
   });
   const [showUnitsModal, setShowUnitsModal] = useState(false);
@@ -29674,6 +29681,29 @@ export default function UpRepDemo() {
                     </div>
                   </div>
 
+                  {/* Rest Timer Toggle */}
+                  <div className="p-4 flex items-center justify-between border-b" style={{ borderColor: COLORS.surfaceLight }}>
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: COLORS.warning + '20' }}>
+                        <Timer size={16} color={COLORS.warning} />
+                      </div>
+                      <div>
+                        <span style={{ color: COLORS.text }}>Suggested Rest Timer</span>
+                        <p className="text-xs" style={{ color: COLORS.textMuted }}>Show rest timer between sets</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setSettings(prev => ({ ...prev, workout: { ...prev.workout, showRestTimer: !prev.workout.showRestTimer } }))}
+                      className="w-12 h-6 rounded-full transition-colors"
+                      style={{ backgroundColor: settings.workout.showRestTimer ? COLORS.success : COLORS.surfaceLight }}
+                    >
+                      <div
+                        className="w-5 h-5 rounded-full bg-white shadow transition-transform"
+                        style={{ transform: settings.workout.showRestTimer ? 'translateX(26px)' : 'translateX(2px)' }}
+                      />
+                    </button>
+                  </div>
+
                   {/* Base Lifts Setting */}
                   <button
                     onClick={() => setShowBaseLiftsModal(true)}
@@ -31161,6 +31191,7 @@ export default function UpRepDemo() {
               includeCooldown={personalCooldown}
               savedProgress={partialWorkoutProgress}
               checkInData={null}
+              showRestTimer={settings.workout.showRestTimer}
             />
           );
         }
