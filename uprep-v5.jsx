@@ -9335,7 +9335,8 @@ function NewWorkoutScreen({
   savedProgress = null,
   checkInData = null,
   userGoal = 'build_muscle',
-  userExperience = 'beginner'
+  userExperience = 'beginner',
+  showRestTimer = true // Option to show/hide rest timer between sets
 }) {
   const isAdvancedUser = ['experienced', 'expert'].includes(userExperience);
 
@@ -9356,8 +9357,18 @@ function NewWorkoutScreen({
   const [sets, setSets] = useState(savedProgress?.sets || []); // All logged sets
   const [failedSaves, setFailedSaves] = useState([]); // Retry queue for failed network saves
 
-  // Time tracking
-  const [workoutStartTime] = useState(() => savedProgress?.workoutStartTime || Date.now());
+  // Time tracking - validate saved start time (max 4 hours old to prevent 3000+ min glitch)
+  const [workoutStartTime] = useState(() => {
+    const saved = savedProgress?.workoutStartTime;
+    if (saved) {
+      const fourHoursAgo = Date.now() - (4 * 60 * 60 * 1000);
+      // If saved time is reasonable (within last 4 hours), use it; otherwise reset
+      if (saved > fourHoursAgo && saved <= Date.now()) {
+        return saved;
+      }
+    }
+    return Date.now();
+  });
   const [elapsedTime, setElapsedTime] = useState(0);
 
   // Rest timer state
@@ -9437,23 +9448,38 @@ function NewWorkoutScreen({
     }
   }, [failedSaves, sessionId]);
 
-  // Save progress to parent (for localStorage backup)
-  // TEMPORARILY DISABLED to debug infinite loop
-  // const onSaveProgressRef = useRef(onSaveProgress);
-  // onSaveProgressRef.current = onSaveProgress;
-  // useEffect(() => {
-  //   if (onSaveProgressRef.current) {
-  //     onSaveProgressRef.current({
-  //       exercises,
-  //       sets,
-  //       workoutStartTime,
-  //       sessionId,
-  //       workoutName,
-  //       workoutType,
-  //       restDuration,
-  //     });
-  //   }
-  // }, [exercises, sets, workoutStartTime, sessionId, workoutName, workoutType, restDuration]);
+  // Save progress to parent (for localStorage backup) - debounced to prevent infinite loops
+  const saveTimeoutRef = useRef(null);
+  const onSaveProgressRef = useRef(onSaveProgress);
+  onSaveProgressRef.current = onSaveProgress;
+
+  useEffect(() => {
+    // Clear any existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    // Debounce save by 500ms to avoid too frequent updates
+    saveTimeoutRef.current = setTimeout(() => {
+      if (onSaveProgressRef.current && (exercises.length > 0 || sets.length > 0)) {
+        onSaveProgressRef.current({
+          exercises,
+          sets,
+          workoutStartTime,
+          sessionId,
+          workoutName,
+          workoutType,
+          restDuration,
+        });
+      }
+    }, 500);
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [exercises, sets, workoutStartTime, sessionId, workoutName, workoutType, restDuration]);
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -9517,6 +9543,7 @@ function NewWorkoutScreen({
       weight: setData.weight,
       reps: setData.reps,
       rpe: setData.rpe,
+      setType: setData.setType || 'normal',
       timestamp: Date.now(),
       saved: false,
     };
@@ -9524,8 +9551,10 @@ function NewWorkoutScreen({
     setSets(prev => [...prev, newSet]);
     setShowAddSet(null);
 
-    // Start rest timer using user-selected duration
-    setRestTimeRemaining(restDuration + restAdjustmentSeconds);
+    // Start rest timer only for normal sets (skip for supersets and dropsets)
+    if (setData.setType === 'normal' || !setData.setType) {
+      setRestTimeRemaining(restDuration + restAdjustmentSeconds);
+    }
 
     // Auto-save to Supabase
     if (sessionId) {
@@ -9785,6 +9814,14 @@ function NewWorkoutScreen({
                                 <span className="font-semibold" style={{ color: COLORS.text }}>
                                   {set.weight}kg × {set.reps}
                                 </span>
+                                {set.setType && set.setType !== 'normal' && (
+                                  <span className="text-xs px-2 py-1 rounded" style={{
+                                    backgroundColor: set.setType === 'superset' ? COLORS.warning + '20' : COLORS.error + '20',
+                                    color: set.setType === 'superset' ? COLORS.warning : COLORS.error
+                                  }}>
+                                    {set.setType === 'superset' ? 'SS' : 'DS'}
+                                  </span>
+                                )}
                                 {set.rpe && (
                                   <span className="text-xs px-2 py-1 rounded" style={{ backgroundColor: COLORS.accent + '20', color: COLORS.accent }}>
                                     RPE {set.rpe}
@@ -10049,6 +10086,7 @@ function AddSetModal({ COLORS, exercise, setNumber, initialData, isEdit = false,
   const [weight, setWeight] = useState(initialData?.weight || 0);
   const [reps, setReps] = useState(initialData?.reps || 10);
   const [rpe, setRpe] = useState(initialData?.rpe || 7);
+  const [setType, setSetType] = useState(initialData?.setType || 'normal'); // 'normal' | 'superset' | 'dropset'
 
   return (
     <div
@@ -10129,7 +10167,7 @@ function AddSetModal({ COLORS, exercise, setNumber, initialData, isEdit = false,
         </div>
 
         {/* RPE Selector */}
-        <div className="mb-6">
+        <div className="mb-4">
           <label className="text-xs mb-2 block" style={{ color: COLORS.textMuted }}>RPE (Rate of Perceived Exertion)</label>
           <div className="flex gap-1">
             {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(r => (
@@ -10157,6 +10195,48 @@ function AddSetModal({ COLORS, exercise, setNumber, initialData, isEdit = false,
           </p>
         </div>
 
+        {/* Set Type Selector */}
+        <div className="mb-6">
+          <label className="text-xs mb-2 block" style={{ color: COLORS.textMuted }}>Set Type</label>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setSetType('normal')}
+              className="flex-1 py-3 rounded-lg text-xs font-semibold"
+              style={{
+                backgroundColor: setType === 'normal' ? COLORS.primary : COLORS.surfaceLight,
+                color: setType === 'normal' ? COLORS.text : COLORS.textMuted
+              }}
+            >
+              Normal
+            </button>
+            <button
+              onClick={() => setSetType('superset')}
+              className="flex-1 py-3 rounded-lg text-xs font-semibold"
+              style={{
+                backgroundColor: setType === 'superset' ? COLORS.warning : COLORS.surfaceLight,
+                color: setType === 'superset' ? COLORS.text : COLORS.textMuted
+              }}
+            >
+              Superset
+            </button>
+            <button
+              onClick={() => setSetType('dropset')}
+              className="flex-1 py-3 rounded-lg text-xs font-semibold"
+              style={{
+                backgroundColor: setType === 'dropset' ? COLORS.error : COLORS.surfaceLight,
+                color: setType === 'dropset' ? COLORS.text : COLORS.textMuted
+              }}
+            >
+              Dropset
+            </button>
+          </div>
+          <p className="text-xs mt-2 text-center" style={{ color: COLORS.textMuted }}>
+            {setType === 'normal' && 'Regular set with rest after'}
+            {setType === 'superset' && 'No rest - go straight to next exercise'}
+            {setType === 'dropset' && 'Reduce weight immediately, no rest'}
+          </p>
+        </div>
+
         {/* Action Buttons */}
         <div className="flex gap-3">
           {isEdit && onDelete && (
@@ -10169,7 +10249,7 @@ function AddSetModal({ COLORS, exercise, setNumber, initialData, isEdit = false,
             </button>
           )}
           <button
-            onClick={() => onSave({ weight, reps, rpe })}
+            onClick={() => onSave({ weight, reps, rpe, setType })}
             className="flex-1 py-4 rounded-xl font-semibold flex items-center justify-center gap-2"
             style={{ backgroundColor: COLORS.success, color: COLORS.text }}
           >
@@ -10374,7 +10454,18 @@ function ActiveWorkoutScreen({ onClose, onComplete, onSaveProgress, COLORS, avai
   const [isPublishing, setIsPublishing] = useState(false);
   
   // Time tracking - initialize start time immediately since we start in workout phase
-  const [workoutStartTime, setWorkoutStartTime] = useState(() => savedProgress?.workoutStartTime || Date.now());
+  // Validate saved start time (max 4 hours old to prevent 3000+ min glitch)
+  const [workoutStartTime, setWorkoutStartTime] = useState(() => {
+    const saved = savedProgress?.workoutStartTime;
+    if (saved) {
+      const fourHoursAgo = Date.now() - (4 * 60 * 60 * 1000);
+      // If saved time is reasonable (within last 4 hours), use it; otherwise reset
+      if (saved > fourHoursAgo && saved <= Date.now()) {
+        return saved;
+      }
+    }
+    return Date.now();
+  });
   const [workoutEndTime, setWorkoutEndTime] = useState(null);
   const [setStartTime, setSetStartTime] = useState(() => Date.now());
   const [totalWorkingTime, setTotalWorkingTime] = useState(savedProgress?.totalWorkingTime || 0); // Time actually doing sets (in seconds)
@@ -10483,6 +10574,42 @@ function ActiveWorkoutScreen({ onClose, onComplete, onSaveProgress, COLORS, avai
     };
     startSession();
   }, [userId, workoutName]);
+
+  // Auto-save progress to parent (for localStorage backup) - debounced to prevent too frequent updates
+  const saveTimeoutRef = React.useRef(null);
+  const onSaveProgressRef = React.useRef(onSaveProgress);
+  onSaveProgressRef.current = onSaveProgress;
+
+  useEffect(() => {
+    // Clear any existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    // Debounce save by 500ms to avoid too frequent updates
+    saveTimeoutRef.current = setTimeout(() => {
+      if (onSaveProgressRef.current && (exercises.length > 0 || completedSets.length > 0)) {
+        onSaveProgressRef.current({
+          phase,
+          currentExerciseIndex,
+          currentSetIndex,
+          completedSets,
+          exercises,
+          workoutStartTime,
+          totalWorkingTime,
+          totalRestTime,
+          sessionId,
+          workoutName,
+        });
+      }
+    }, 500);
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [phase, currentExerciseIndex, currentSetIndex, completedSets, exercises, workoutStartTime, totalWorkingTime, totalRestTime, sessionId, workoutName]);
 
   const formatTime = (seconds) => `${Math.floor(seconds / 60)}:${(seconds % 60).toString().padStart(2, '0')}`;
 
@@ -11797,7 +11924,7 @@ function ActiveWorkoutScreen({ onClose, onComplete, onSaveProgress, COLORS, avai
       )}
 
       {/* Inline Rest Timer Banner */}
-      {isResting && (
+      {showRestTimer && isResting && (
         <div className="p-4" style={{ backgroundColor: COLORS.accent + '15' }}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -31145,6 +31272,7 @@ export default function UpRepDemo() {
               checkInData={null}
               userGoal={userData.goal || 'build_muscle'}
               userExperience={userData.experience || 'beginner'}
+              showRestTimer={settings.workout.showRestTimer}
             />
           );
         }
@@ -31168,6 +31296,7 @@ export default function UpRepDemo() {
                 checkInData={null}
                 userGoal={userData.goal || 'build_muscle'}
                 userExperience={userData.experience || 'beginner'}
+                showRestTimer={settings.workout.showRestTimer}
               />
             );
           }
@@ -31226,6 +31355,7 @@ export default function UpRepDemo() {
             checkInData={checkInData}
             userGoal={userData.goal || 'build_muscle'}
             userExperience={userData.experience || 'beginner'}
+            showRestTimer={settings.workout.showRestTimer}
           />
         );
       })()}
