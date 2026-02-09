@@ -21542,6 +21542,19 @@ export default function UpRepDemo() {
           workoutIndex++;
         }
       }
+
+      // Apply any saved schedule overrides from localStorage
+      try {
+        const overrides = JSON.parse(localStorage.getItem('uprep_schedule_overrides') || '{}');
+        Object.keys(overrides).forEach(dateKey => {
+          if (newSchedule[dateKey]) {
+            newSchedule[dateKey].workoutType = overrides[dateKey];
+          }
+        });
+      } catch (e) {
+        console.warn('Failed to load schedule overrides:', e);
+      }
+
       return newSchedule;
     });
 
@@ -21841,6 +21854,18 @@ export default function UpRepDemo() {
         };
         workoutIndex++;
       }
+    }
+
+    // Apply any saved schedule overrides from localStorage
+    try {
+      const overrides = JSON.parse(localStorage.getItem('uprep_schedule_overrides') || '{}');
+      Object.keys(overrides).forEach(dateKey => {
+        if (newSchedule[dateKey]) {
+          newSchedule[dateKey].workoutType = overrides[dateKey];
+        }
+      });
+    } catch (e) {
+      console.warn('Failed to load schedule overrides:', e);
     }
 
     setMasterSchedule(newSchedule);
@@ -22164,6 +22189,18 @@ export default function UpRepDemo() {
         };
         workoutIndex++;
       }
+    }
+
+    // Apply any saved schedule overrides from localStorage
+    try {
+      const overrides = JSON.parse(localStorage.getItem('uprep_schedule_overrides') || '{}');
+      Object.keys(overrides).forEach(dateKey => {
+        if (newSchedule[dateKey]) {
+          newSchedule[dateKey].workoutType = overrides[dateKey];
+        }
+      });
+    } catch (e) {
+      console.warn('Failed to load schedule overrides:', e);
     }
 
     setMasterSchedule(newSchedule);
