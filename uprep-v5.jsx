@@ -13579,6 +13579,12 @@ const HomeTab = ({
             const progress = Math.min((stat.current || 0) / (stat.target || 1), 1);
             const isComplete = progress >= 1;
             const displayVal = stat.displayValue || Math.round(progress * 100) + '%';
+            // Format value for display when complete
+            const completeVal = stat.id === 'water'
+              ? `${(stat.current / 1000).toFixed(1)}L`
+              : stat.id === 'supplements'
+              ? stat.displayValue
+              : stat.current;
             return (
               <button
                 key={stat.id}
@@ -13597,9 +13603,12 @@ const HomeTab = ({
                       strokeDasharray={`${progress * 113} 113`}
                     />
                   </svg>
-                  <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
                     {isComplete ? (
-                      <Check size={16} color={COLORS.success} strokeWidth={3} />
+                      <>
+                        <Check size={12} color={COLORS.success} strokeWidth={3} />
+                        <span className="font-bold" style={{ color: COLORS.success, fontSize: 8, lineHeight: 1 }}>{completeVal}</span>
+                      </>
                     ) : (
                       <span className="text-xs font-bold" style={{ color: stat.color || COLORS.primary, fontSize: 9 }}>{displayVal}</span>
                     )}
