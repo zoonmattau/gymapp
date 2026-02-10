@@ -10410,59 +10410,59 @@ function AddSetModal({ COLORS, exercise, setNumber, initialData, isEdit = false,
                   )}
                 </div>
 
-                <div className="flex gap-3">
+                <div className="space-y-3">
                   {/* Drop Weight */}
-                  <div className="flex-1">
-                    <label className="text-xs mb-1 block" style={{ color: COLORS.textMuted }}>Weight</label>
-                    <div className="flex items-center gap-1">
+                  <div>
+                    <label className="text-xs mb-1 block" style={{ color: COLORS.textMuted }}>Weight (kg)</label>
+                    <div className="flex items-center gap-2">
                       <button
                         onClick={() => updateDropset(index, 'weight', Math.max(0, drop.weight - 2.5))}
-                        className="w-10 h-10 rounded-lg flex items-center justify-center"
+                        className="w-12 h-12 rounded-xl flex items-center justify-center"
                         style={{ backgroundColor: COLORS.surfaceLight }}
                       >
-                        <Minus size={16} color={COLORS.text} />
+                        <Minus size={20} color={COLORS.text} />
                       </button>
                       <input
                         type="number"
                         value={drop.weight || ''}
                         onChange={(e) => updateDropset(index, 'weight', parseFloat(e.target.value) || 0)}
-                        className="flex-1 p-2 rounded-lg text-center text-lg font-bold"
+                        className="flex-1 p-3 rounded-xl text-center text-2xl font-bold"
                         style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
                       />
                       <button
                         onClick={() => updateDropset(index, 'weight', drop.weight + 2.5)}
-                        className="w-10 h-10 rounded-lg flex items-center justify-center"
+                        className="w-12 h-12 rounded-xl flex items-center justify-center"
                         style={{ backgroundColor: COLORS.surfaceLight }}
                       >
-                        <Plus size={16} color={COLORS.text} />
+                        <Plus size={20} color={COLORS.text} />
                       </button>
                     </div>
                   </div>
 
                   {/* Drop Reps */}
-                  <div className="flex-1">
+                  <div>
                     <label className="text-xs mb-1 block" style={{ color: COLORS.textMuted }}>Reps</label>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-2">
                       <button
                         onClick={() => updateDropset(index, 'reps', Math.max(1, drop.reps - 1))}
-                        className="w-10 h-10 rounded-lg flex items-center justify-center"
+                        className="w-12 h-12 rounded-xl flex items-center justify-center"
                         style={{ backgroundColor: COLORS.surfaceLight }}
                       >
-                        <Minus size={16} color={COLORS.text} />
+                        <Minus size={20} color={COLORS.text} />
                       </button>
                       <input
                         type="number"
                         value={drop.reps || ''}
                         onChange={(e) => updateDropset(index, 'reps', parseInt(e.target.value) || 0)}
-                        className="flex-1 p-2 rounded-lg text-center text-lg font-bold"
+                        className="flex-1 p-3 rounded-xl text-center text-2xl font-bold"
                         style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
                       />
                       <button
                         onClick={() => updateDropset(index, 'reps', drop.reps + 1)}
-                        className="w-10 h-10 rounded-lg flex items-center justify-center"
+                        className="w-12 h-12 rounded-xl flex items-center justify-center"
                         style={{ backgroundColor: COLORS.surfaceLight }}
                       >
-                        <Plus size={16} color={COLORS.text} />
+                        <Plus size={20} color={COLORS.text} />
                       </button>
                     </div>
                   </div>
