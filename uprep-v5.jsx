@@ -9382,6 +9382,7 @@ function NewWorkoutScreen({
   const [showEditSet, setShowEditSet] = useState(null); // { exerciseId, setId }
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [showExerciseInfo, setShowExerciseInfo] = useState(null);
+  const [showSummary, setShowSummary] = useState(false);
 
   // Current set data for AddSetModal
   const [currentSetData, setCurrentSetData] = useState({ weight: 0, reps: 10, rpe: 7 });
@@ -9590,14 +9591,13 @@ function NewWorkoutScreen({
     if (userId && sessionId) {
       try {
         // Calculate stats
-        const totalVolume = sets.reduce((acc, set) => acc + (set.weight * set.reps), 0);
-        const totalReps = sets.reduce((acc, set) => acc + set.reps, 0);
+        const totalVolumeCalc = sets.reduce((acc, set) => acc + (set.weight * set.reps), 0);
         const durationMins = Math.round(elapsedTime / 60);
 
         // Complete the session
         await workoutService.completeWorkout(sessionId, {
           durationMinutes: durationMins,
-          totalVolume,
+          totalVolume: totalVolumeCalc,
         });
       } catch (err) {
         console.error('Error completing workout:', err);
@@ -9605,6 +9605,12 @@ function NewWorkoutScreen({
     }
 
     setIsSaving(false);
+    setShowEndConfirm(false);
+    setShowSummary(true);
+  };
+
+  // Close after summary
+  const handleSummaryClose = () => {
     if (onComplete) onComplete();
     onClose();
   };
@@ -10097,6 +10103,371 @@ function NewWorkoutScreen({
           onClose={() => setShowExerciseInfo(null)}
         />
       )}
+
+      {/* Workout Summary Screen */}
+      {showSummary && (
+        <WorkoutSummaryScreen
+          COLORS={COLORS}
+          workoutData={{
+            exercises,
+            sets,
+            elapsedTime,
+            workoutName,
+            sessionId,
+          }}
+          onClose={handleSummaryClose}
+          userId={userId}
+        />
+      )}
+    </div>
+  );
+}
+
+// WorkoutSummaryScreen - Post-workout analysis and feedback
+function WorkoutSummaryScreen({ COLORS, workoutData, onClose, userId }) {
+  const { exercises, sets, elapsedTime, workoutName, sessionId } = workoutData;
+  const [feeling, setFeeling] = useState(null); // 1-5 scale
+  const [energyLevel, setEnergyLevel] = useState(null); // 1-5
+  const [musclesSore, setMusclesSore] = useState([]);
+  const [notes, setNotes] = useState('');
+  const [showNotes, setShowNotes] = useState(false);
+  const [personalBests, setPersonalBests] = useState([]);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Calculate stats
+  const totalSets = sets.length;
+  const totalReps = sets.reduce((acc, set) => acc + (set.reps || 0), 0);
+  const totalVolume = sets.reduce((acc, set) => acc + ((set.weight || 0) * (set.reps || 0)), 0);
+  const durationMins = Math.round(elapsedTime / 60);
+  const exercisesCompleted = exercises.filter(ex => sets.some(s => s.exerciseId === ex.id)).length;
+
+  // Calculate average RPE
+  const setsWithRpe = sets.filter(s => s.rpe);
+  const avgRpe = setsWithRpe.length > 0
+    ? (setsWithRpe.reduce((acc, s) => acc + s.rpe, 0) / setsWithRpe.length).toFixed(1)
+    : null;
+
+  // Group sets by exercise for detailed breakdown
+  const exerciseBreakdown = exercises.map(ex => {
+    const exSets = sets.filter(s => s.exerciseId === ex.id);
+    if (exSets.length === 0) return null;
+    const maxWeight = Math.max(...exSets.map(s => s.weight || 0));
+    const totalExVolume = exSets.reduce((acc, s) => acc + ((s.weight || 0) * (s.reps || 0)), 0);
+    return {
+      name: ex.name,
+      muscleGroup: ex.muscleGroup,
+      sets: exSets.length,
+      maxWeight,
+      totalVolume: totalExVolume,
+      reps: exSets.map(s => s.reps),
+    };
+  }).filter(Boolean);
+
+  // Check for personal bests (simplified - in real app would compare to DB)
+  useEffect(() => {
+    const checkPBs = async () => {
+      const pbs = [];
+      for (const ex of exerciseBreakdown) {
+        // For now, mark any lift over 100kg as a potential PB highlight
+        if (ex.maxWeight >= 100) {
+          pbs.push({ exercise: ex.name, weight: ex.maxWeight, type: 'weight' });
+        }
+      }
+      setPersonalBests(pbs);
+    };
+    checkPBs();
+  }, []);
+
+  // Muscle groups worked
+  const muscleGroups = [...new Set(exerciseBreakdown.map(ex => ex.muscleGroup))];
+
+  // Feeling emojis
+  const feelingOptions = [
+    { value: 1, emoji: '😫', label: 'Exhausted' },
+    { value: 2, emoji: '😓', label: 'Tired' },
+    { value: 3, emoji: '😊', label: 'Good' },
+    { value: 4, emoji: '💪', label: 'Strong' },
+    { value: 5, emoji: '🔥', label: 'Amazing' },
+  ];
+
+  const energyOptions = [
+    { value: 1, emoji: '🪫', label: 'Depleted' },
+    { value: 2, emoji: '😴', label: 'Low' },
+    { value: 3, emoji: '⚡', label: 'Normal' },
+    { value: 4, emoji: '🚀', label: 'High' },
+    { value: 5, emoji: '💥', label: 'Explosive' },
+  ];
+
+  // Generate workout analysis
+  const getAnalysis = () => {
+    const insights = [];
+
+    // Volume analysis
+    if (totalVolume > 10000) {
+      insights.push({ type: 'success', text: 'High volume session! Great for muscle growth.' });
+    } else if (totalVolume < 3000 && totalSets > 5) {
+      insights.push({ type: 'info', text: 'Consider increasing weights for better progressive overload.' });
+    }
+
+    // RPE analysis
+    if (avgRpe) {
+      if (parseFloat(avgRpe) >= 9) {
+        insights.push({ type: 'warning', text: 'Very high intensity! Make sure to recover well.' });
+      } else if (parseFloat(avgRpe) <= 6) {
+        insights.push({ type: 'info', text: 'Moderate intensity. You could push harder next time.' });
+      } else {
+        insights.push({ type: 'success', text: 'Good intensity level for sustainable progress.' });
+      }
+    }
+
+    // Duration analysis
+    if (durationMins > 90) {
+      insights.push({ type: 'info', text: 'Long session! Consider shorter rest periods or splitting workouts.' });
+    } else if (durationMins < 30 && totalSets > 10) {
+      insights.push({ type: 'success', text: 'Efficient workout! Great pace.' });
+    }
+
+    // Feeling-based analysis
+    if (feeling === 1 || feeling === 2) {
+      insights.push({ type: 'warning', text: 'Feeling tired? Consider extra rest or a deload week.' });
+    } else if (feeling === 5) {
+      insights.push({ type: 'success', text: 'Feeling amazing! You\'re in peak form.' });
+    }
+
+    // Energy-based analysis
+    if (energyLevel === 1 || energyLevel === 2) {
+      insights.push({ type: 'info', text: 'Low energy could indicate need for better nutrition or sleep.' });
+    }
+
+    return insights;
+  };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    // In a real app, save the feedback to Supabase
+    // await workoutService.saveWorkoutFeedback(sessionId, { feeling, energyLevel, musclesSore, notes });
+    setTimeout(() => {
+      setIsSaving(false);
+      onClose();
+    }, 500);
+  };
+
+  const insights = getAnalysis();
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
+      {/* Header */}
+      <div className="p-4 border-b text-center" style={{ borderColor: COLORS.surfaceLight }}>
+        <div className="text-4xl mb-2">🎉</div>
+        <h2 className="text-xl font-bold" style={{ color: COLORS.text }}>Workout Complete!</h2>
+        <p className="text-sm" style={{ color: COLORS.textMuted }}>{workoutName}</p>
+      </div>
+
+      {/* Scrollable Content */}
+      <div className="flex-1 overflow-auto p-4 space-y-4">
+        {/* Main Stats */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="p-4 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
+            <p className="text-3xl font-bold" style={{ color: COLORS.primary }}>{durationMins}</p>
+            <p className="text-xs" style={{ color: COLORS.textMuted }}>Minutes</p>
+          </div>
+          <div className="p-4 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
+            <p className="text-3xl font-bold" style={{ color: COLORS.accent }}>{totalSets}</p>
+            <p className="text-xs" style={{ color: COLORS.textMuted }}>Sets</p>
+          </div>
+          <div className="p-4 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
+            <p className="text-3xl font-bold" style={{ color: COLORS.success }}>{totalReps}</p>
+            <p className="text-xs" style={{ color: COLORS.textMuted }}>Reps</p>
+          </div>
+          <div className="p-4 rounded-xl text-center" style={{ backgroundColor: COLORS.surface }}>
+            <p className="text-3xl font-bold" style={{ color: COLORS.warning }}>{(totalVolume / 1000).toFixed(1)}k</p>
+            <p className="text-xs" style={{ color: COLORS.textMuted }}>kg Volume</p>
+          </div>
+        </div>
+
+        {/* Exercises Completed */}
+        <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+          <div className="flex items-center justify-between mb-3">
+            <p className="font-semibold" style={{ color: COLORS.text }}>Exercises ({exercisesCompleted})</p>
+            {avgRpe && (
+              <span className="text-xs px-2 py-1 rounded-full" style={{ backgroundColor: COLORS.accent + '20', color: COLORS.accent }}>
+                Avg RPE: {avgRpe}
+              </span>
+            )}
+          </div>
+          <div className="space-y-2">
+            {exerciseBreakdown.slice(0, 5).map((ex, idx) => (
+              <div key={idx} className="flex items-center justify-between py-2 border-b" style={{ borderColor: COLORS.surfaceLight }}>
+                <div>
+                  <p className="text-sm font-medium" style={{ color: COLORS.text }}>{ex.name}</p>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>{ex.muscleGroup}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-semibold" style={{ color: COLORS.text }}>{ex.sets} sets</p>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>Max: {ex.maxWeight}kg</p>
+                </div>
+              </div>
+            ))}
+            {exerciseBreakdown.length > 5 && (
+              <p className="text-xs text-center pt-2" style={{ color: COLORS.textMuted }}>
+                +{exerciseBreakdown.length - 5} more exercises
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Muscle Groups */}
+        <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+          <p className="font-semibold mb-3" style={{ color: COLORS.text }}>Muscles Worked</p>
+          <div className="flex flex-wrap gap-2">
+            {muscleGroups.map((muscle, idx) => (
+              <span
+                key={idx}
+                className="px-3 py-1 rounded-full text-xs font-medium"
+                style={{ backgroundColor: COLORS.primary + '20', color: COLORS.primary }}
+              >
+                {muscle}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Personal Bests */}
+        {personalBests.length > 0 && (
+          <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.warning + '15', border: `1px solid ${COLORS.warning}30` }}>
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-xl">🏆</span>
+              <p className="font-semibold" style={{ color: COLORS.warning }}>Personal Bests!</p>
+            </div>
+            <div className="space-y-2">
+              {personalBests.map((pb, idx) => (
+                <div key={idx} className="flex items-center justify-between">
+                  <p className="text-sm" style={{ color: COLORS.text }}>{pb.exercise}</p>
+                  <p className="font-bold" style={{ color: COLORS.warning }}>{pb.weight}kg</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* How did you feel? */}
+        <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+          <p className="font-semibold mb-3" style={{ color: COLORS.text }}>How did you feel?</p>
+          <div className="flex justify-between">
+            {feelingOptions.map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => setFeeling(opt.value)}
+                className="flex flex-col items-center p-2 rounded-xl transition-all"
+                style={{
+                  backgroundColor: feeling === opt.value ? COLORS.primary + '20' : 'transparent',
+                  transform: feeling === opt.value ? 'scale(1.1)' : 'scale(1)',
+                }}
+              >
+                <span className="text-2xl">{opt.emoji}</span>
+                <span className="text-xs mt-1" style={{ color: feeling === opt.value ? COLORS.primary : COLORS.textMuted }}>
+                  {opt.label}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Energy Level */}
+        <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+          <p className="font-semibold mb-3" style={{ color: COLORS.text }}>Energy after workout?</p>
+          <div className="flex justify-between">
+            {energyOptions.map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => setEnergyLevel(opt.value)}
+                className="flex flex-col items-center p-2 rounded-xl transition-all"
+                style={{
+                  backgroundColor: energyLevel === opt.value ? COLORS.accent + '20' : 'transparent',
+                  transform: energyLevel === opt.value ? 'scale(1.1)' : 'scale(1)',
+                }}
+              >
+                <span className="text-2xl">{opt.emoji}</span>
+                <span className="text-xs mt-1" style={{ color: energyLevel === opt.value ? COLORS.accent : COLORS.textMuted }}>
+                  {opt.label}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Workout Analysis */}
+        {(feeling || energyLevel) && insights.length > 0 && (
+          <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+            <p className="font-semibold mb-3" style={{ color: COLORS.text }}>Workout Analysis</p>
+            <div className="space-y-2">
+              {insights.map((insight, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-start gap-2 p-2 rounded-lg"
+                  style={{
+                    backgroundColor: insight.type === 'success' ? COLORS.success + '15' :
+                                    insight.type === 'warning' ? COLORS.warning + '15' :
+                                    COLORS.primary + '15'
+                  }}
+                >
+                  <span>
+                    {insight.type === 'success' ? '✅' : insight.type === 'warning' ? '⚠️' : '💡'}
+                  </span>
+                  <p className="text-sm" style={{ color: COLORS.text }}>{insight.text}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Notes */}
+        <div className="p-4 rounded-xl" style={{ backgroundColor: COLORS.surface }}>
+          <button
+            onClick={() => setShowNotes(!showNotes)}
+            className="w-full flex items-center justify-between"
+          >
+            <p className="font-semibold" style={{ color: COLORS.text }}>Add Notes</p>
+            <ChevronDown
+              size={20}
+              color={COLORS.textMuted}
+              style={{ transform: showNotes ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}
+            />
+          </button>
+          {showNotes && (
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="How was the workout? Any notes for next time..."
+              className="w-full mt-3 p-3 rounded-xl resize-none"
+              rows={3}
+              style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+            />
+          )}
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="p-4 border-t" style={{ borderColor: COLORS.surfaceLight }}>
+        <button
+          onClick={handleSave}
+          disabled={isSaving}
+          className="w-full py-4 rounded-xl font-semibold flex items-center justify-center gap-2"
+          style={{ backgroundColor: COLORS.primary, color: COLORS.text, opacity: isSaving ? 0.7 : 1 }}
+        >
+          {isSaving ? (
+            <>
+              <Loader2 size={20} className="animate-spin" />
+              Saving...
+            </>
+          ) : (
+            <>
+              <Check size={20} />
+              Done
+            </>
+          )}
+        </button>
+      </div>
     </div>
   );
 }
