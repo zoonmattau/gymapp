@@ -10206,37 +10206,10 @@ function AddSetModal({ COLORS, exercise, setNumber, initialData, isEdit = false,
           </button>
         </div>
 
-        {/* Set Type Selector - at the top */}
-        <div className="mb-4">
-          <label className="text-xs mb-2 block" style={{ color: COLORS.textMuted }}>Set Type (optional)</label>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setSetType(setType === 'superset' ? null : 'superset')}
-              className="flex-1 py-3 rounded-lg text-xs font-semibold"
-              style={{
-                backgroundColor: setType === 'superset' ? COLORS.warning : COLORS.surfaceLight,
-                color: setType === 'superset' ? COLORS.text : COLORS.textMuted
-              }}
-            >
-              Superset
-            </button>
-            <button
-              onClick={() => setSetType(setType === 'dropset' ? null : 'dropset')}
-              className="flex-1 py-3 rounded-lg text-xs font-semibold"
-              style={{
-                backgroundColor: setType === 'dropset' ? COLORS.error : COLORS.surfaceLight,
-                color: setType === 'dropset' ? COLORS.text : COLORS.textMuted
-              }}
-            >
-              Dropset
-            </button>
-          </div>
-        </div>
-
         {/* Main Set - Weight & Reps */}
         <div className="p-3 rounded-xl mb-4" style={{ backgroundColor: COLORS.surfaceLight + '50' }}>
           <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>
-            {setType === 'dropset' ? 'FIRST SET' : 'SET DETAILS'}
+            SET DETAILS
           </p>
 
           {/* Weight Input */}
@@ -10293,6 +10266,53 @@ function AddSetModal({ COLORS, exercise, setNumber, initialData, isEdit = false,
                 <Plus size={20} color={COLORS.text} />
               </button>
             </div>
+          </div>
+        </div>
+
+        {/* RPE Selector */}
+        <div className="mb-4">
+          <label className="text-xs mb-2 block" style={{ color: COLORS.textMuted }}>RPE (Rate of Perceived Exertion)</label>
+          <div className="flex gap-1">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(r => (
+              <button
+                key={r}
+                onClick={() => setRpe(r)}
+                className="flex-1 py-2 rounded-lg text-xs font-semibold"
+                style={{
+                  backgroundColor: rpe === r ? COLORS.accent : COLORS.surfaceLight,
+                  color: rpe === r ? COLORS.text : COLORS.textMuted
+                }}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Set Type Selector */}
+        <div className="mb-4">
+          <label className="text-xs mb-2 block" style={{ color: COLORS.textMuted }}>Set Type (optional)</label>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setSetType(setType === 'superset' ? null : 'superset')}
+              className="flex-1 py-3 rounded-lg text-xs font-semibold"
+              style={{
+                backgroundColor: setType === 'superset' ? COLORS.warning : COLORS.surfaceLight,
+                color: setType === 'superset' ? COLORS.text : COLORS.textMuted
+              }}
+            >
+              Superset
+            </button>
+            <button
+              onClick={() => setSetType(setType === 'dropset' ? null : 'dropset')}
+              className="flex-1 py-3 rounded-lg text-xs font-semibold"
+              style={{
+                backgroundColor: setType === 'dropset' ? COLORS.error : COLORS.surfaceLight,
+                color: setType === 'dropset' ? COLORS.text : COLORS.textMuted
+              }}
+            >
+              Dropset
+            </button>
           </div>
         </div>
 
@@ -10460,26 +10480,6 @@ function AddSetModal({ COLORS, exercise, setNumber, initialData, isEdit = false,
             </button>
           </div>
         )}
-
-        {/* RPE Selector */}
-        <div className="mb-4">
-          <label className="text-xs mb-2 block" style={{ color: COLORS.textMuted }}>RPE (Rate of Perceived Exertion)</label>
-          <div className="flex gap-1">
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(r => (
-              <button
-                key={r}
-                onClick={() => setRpe(r)}
-                className="flex-1 py-2 rounded-lg text-xs font-semibold"
-                style={{
-                  backgroundColor: rpe === r ? COLORS.accent : COLORS.surfaceLight,
-                  color: rpe === r ? COLORS.text : COLORS.textMuted
-                }}
-              >
-                {r}
-              </button>
-            ))}
-          </div>
-        </div>
 
         {/* Action Buttons */}
         <div className="flex gap-3">
