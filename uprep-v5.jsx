@@ -9420,6 +9420,7 @@ function NewWorkoutScreen({
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [showExerciseInfo, setShowExerciseInfo] = useState(null);
   const [showSummary, setShowSummary] = useState(false);
+  const addExerciseClickedRef = useRef(false); // Prevent double-tap issues
 
   // Current set data for AddSetModal
   const [currentSetData, setCurrentSetData] = useState({ weight: 0, reps: 10, rpe: 7 });
@@ -9768,7 +9769,12 @@ function NewWorkoutScreen({
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
+            // Prevent double-tap
+            if (addExerciseClickedRef.current) return;
+            addExerciseClickedRef.current = true;
             setShowAddExercise(true);
+            // Reset after a delay
+            setTimeout(() => { addExerciseClickedRef.current = false; }, 1000);
           }}
           onTouchEnd={(e) => {
             e.stopPropagation();
@@ -10962,17 +10968,22 @@ function ExerciseSearchModal({ COLORS, onClose, onSelect, excludeExercises = [],
   const [selectedMuscle, setSelectedMuscle] = useState(null);
   const [isReady, setIsReady] = useState(false);
   const mountTimeRef = useRef(Date.now());
+  const closeAttemptedRef = useRef(false);
 
-  // Prevent accidental close on mount - wait for modal to be fully rendered
+  // Prevent accidental close on mount - wait 800ms
   useEffect(() => {
-    const timer = setTimeout(() => setIsReady(true), 300);
+    const timer = setTimeout(() => setIsReady(true), 800);
     return () => clearTimeout(timer);
   }, []);
 
   const handleClose = () => {
-    // Only allow close if modal has been open for at least 300ms
+    // Prevent multiple close attempts
+    if (closeAttemptedRef.current) return;
+
+    // Only allow close if modal has been open for at least 800ms
     const timeSinceMount = Date.now() - mountTimeRef.current;
-    if (isReady && timeSinceMount > 300) {
+    if (isReady && timeSinceMount > 800) {
+      closeAttemptedRef.current = true;
       onClose();
     }
   };
@@ -10993,16 +11004,6 @@ function ExerciseSearchModal({ COLORS, onClose, onSelect, excludeExercises = [],
     return acc;
   }, {});
 
-  // Prevent any close during initial render
-  if (!isReady) {
-    return (
-      <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
-        <div className="flex-1 flex items-center justify-center">
-          <Loader2 size={32} color={COLORS.primary} className="animate-spin" />
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background, touchAction: 'manipulation' }} onClick={(e) => e.stopPropagation()} onTouchEnd={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
