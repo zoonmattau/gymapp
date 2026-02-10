@@ -9772,12 +9772,12 @@ function NewWorkoutScreen({
             // Prevent double-tap
             if (addExerciseClickedRef.current) return;
             addExerciseClickedRef.current = true;
-            setShowAddExercise(true);
+            // Use setTimeout to decouple from click event cycle
+            setTimeout(() => {
+              setShowAddExercise(true);
+            }, 50);
             // Reset after a delay
-            setTimeout(() => { addExerciseClickedRef.current = false; }, 1000);
-          }}
-          onTouchEnd={(e) => {
-            e.stopPropagation();
+            setTimeout(() => { addExerciseClickedRef.current = false; }, 2000);
           }}
           className="w-full p-4 rounded-xl flex items-center justify-center gap-2 mb-4 select-none"
           style={{ backgroundColor: COLORS.primary + '20', border: `2px dashed ${COLORS.primary}`, WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
@@ -11006,12 +11006,17 @@ function ExerciseSearchModal({ COLORS, onClose, onSelect, excludeExercises = [],
 
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background, touchAction: 'manipulation' }} onClick={(e) => e.stopPropagation()} onTouchEnd={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
+    <div
+      className="fixed inset-0 z-50 flex flex-col"
+      style={{ backgroundColor: COLORS.background }}
+      onMouseDown={(e) => e.stopPropagation()}
+      onTouchStart={(e) => e.stopPropagation()}
+    >
       <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
         <button
-          onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleClose(); }}
-          onTouchEnd={(e) => e.stopPropagation()}
-          style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
+          onClick={handleClose}
+          className="p-2 -ml-2"
+          style={{ WebkitTapHighlightColor: 'transparent' }}
         >
           <ChevronLeft size={24} color={COLORS.text} />
         </button>
