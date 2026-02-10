@@ -9776,11 +9776,11 @@ function NewWorkoutScreen({
             addExerciseClickedRef.current = true;
             modalLockedRef.current = true;
             setShowAddExercise(true);
-            // Unlock after 3 seconds
+            // Unlock after 1.5 seconds
             setTimeout(() => {
               modalLockedRef.current = false;
               addExerciseClickedRef.current = false;
-            }, 3000);
+            }, 1500);
           }}
           onClick={(e) => {
             e.preventDefault();
@@ -9789,11 +9789,11 @@ function NewWorkoutScreen({
             addExerciseClickedRef.current = true;
             modalLockedRef.current = true;
             setShowAddExercise(true);
-            // Unlock after 3 seconds
+            // Unlock after 1.5 seconds
             setTimeout(() => {
               modalLockedRef.current = false;
               addExerciseClickedRef.current = false;
-            }, 3000);
+            }, 1500);
           }}
           className="w-full p-4 rounded-xl flex items-center justify-center gap-2 mb-4 select-none cursor-pointer"
           style={{ backgroundColor: COLORS.primary + '20', border: `2px dashed ${COLORS.primary}`, WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation', userSelect: 'none' }}
@@ -10991,19 +10991,9 @@ function AddSetModal({ COLORS, exercise, setNumber, initialData, isEdit = false,
 function ExerciseSearchModal({ COLORS, onClose, onSelect, excludeExercises = [], userGoal }) {
   const [search, setSearch] = useState('');
   const [selectedMuscle, setSelectedMuscle] = useState(null);
-  const mountTimeRef = useRef(Date.now());
-  const closeAttemptedRef = useRef(false);
 
   const handleClose = () => {
-    // Prevent multiple close attempts
-    if (closeAttemptedRef.current) return;
-
-    // Only allow close if modal has been open for at least 1.5 seconds
-    const timeSinceMount = Date.now() - mountTimeRef.current;
-    if (timeSinceMount > 1500) {
-      closeAttemptedRef.current = true;
-      onClose();
-    }
+    onClose();
   };
 
   const muscleGroups = [...new Set(DEFAULT_ALL_EXERCISES.map(ex => ex.muscleGroup))];
