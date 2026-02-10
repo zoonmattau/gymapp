@@ -9448,37 +9448,22 @@ function NewWorkoutScreen({
     }
   }, [failedSaves, sessionId]);
 
-  // Save progress to parent (for localStorage backup) - debounced to prevent infinite loops
-  const saveTimeoutRef = useRef(null);
+  // Save progress function - called manually when meaningful actions happen
   const onSaveProgressRef = useRef(onSaveProgress);
   onSaveProgressRef.current = onSaveProgress;
 
-  useEffect(() => {
-    // Clear any existing timeout
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
+  const saveProgress = useCallback(() => {
+    if (onSaveProgressRef.current && (exercises.length > 0 || sets.length > 0)) {
+      onSaveProgressRef.current({
+        exercises,
+        sets,
+        workoutStartTime,
+        sessionId,
+        workoutName,
+        workoutType,
+        restDuration,
+      });
     }
-
-    // Debounce save by 500ms to avoid too frequent updates
-    saveTimeoutRef.current = setTimeout(() => {
-      if (onSaveProgressRef.current && (exercises.length > 0 || sets.length > 0)) {
-        onSaveProgressRef.current({
-          exercises,
-          sets,
-          workoutStartTime,
-          sessionId,
-          workoutName,
-          workoutType,
-          restDuration,
-        });
-      }
-    }, 500);
-
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-    };
   }, [exercises, sets, workoutStartTime, sessionId, workoutName, workoutType, restDuration]);
 
   const formatTime = (seconds) => {
@@ -9512,12 +9497,15 @@ function NewWorkoutScreen({
 
     setExercises(prev => [...prev, newEx]);
     setShowAddExercise(false);
+    // Save progress after adding exercise (with slight delay to ensure state is updated)
+    setTimeout(() => saveProgress(), 100);
   };
 
   // Remove exercise from workout
   const removeExercise = (exerciseId) => {
     setExercises(prev => prev.filter(ex => ex.id !== exerciseId));
-    // Keep sets in case user wants to restore
+    // Save progress after removing exercise
+    setTimeout(() => saveProgress(), 100);
   };
 
   // Toggle exercise expanded/collapsed
@@ -9580,6 +9568,9 @@ function NewWorkoutScreen({
       // No session yet - queue for retry when session is available
       setFailedSaves(prev => [...prev, { ...newSet, exerciseName: exercise.name }]);
     }
+
+    // Save progress after logging set
+    setTimeout(() => saveProgress(), 100);
   };
 
   // Edit an existing set
@@ -9588,14 +9579,16 @@ function NewWorkoutScreen({
       s.id === setId ? { ...s, ...newData, saved: false } : s
     ));
     setShowEditSet(null);
-
-    // TODO: Update in Supabase if needed
+    // Save progress after updating set
+    setTimeout(() => saveProgress(), 100);
   };
 
   // Delete a set
   const deleteSet = (setId) => {
     setSets(prev => prev.filter(s => s.id !== setId));
     setShowEditSet(null);
+    // Save progress after deleting set
+    setTimeout(() => saveProgress(), 100);
   };
 
   // End workout
@@ -10575,40 +10568,25 @@ function ActiveWorkoutScreen({ onClose, onComplete, onSaveProgress, COLORS, avai
     startSession();
   }, [userId, workoutName]);
 
-  // Auto-save progress to parent (for localStorage backup) - debounced to prevent too frequent updates
-  const saveTimeoutRef = React.useRef(null);
+  // Save progress function - called manually when meaningful actions happen
   const onSaveProgressRef = React.useRef(onSaveProgress);
   onSaveProgressRef.current = onSaveProgress;
 
-  useEffect(() => {
-    // Clear any existing timeout
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
+  const saveProgress = React.useCallback(() => {
+    if (onSaveProgressRef.current && (exercises.length > 0 || completedSets.length > 0)) {
+      onSaveProgressRef.current({
+        phase,
+        currentExerciseIndex,
+        currentSetIndex,
+        completedSets,
+        exercises,
+        workoutStartTime,
+        totalWorkingTime,
+        totalRestTime,
+        sessionId,
+        workoutName,
+      });
     }
-
-    // Debounce save by 500ms to avoid too frequent updates
-    saveTimeoutRef.current = setTimeout(() => {
-      if (onSaveProgressRef.current && (exercises.length > 0 || completedSets.length > 0)) {
-        onSaveProgressRef.current({
-          phase,
-          currentExerciseIndex,
-          currentSetIndex,
-          completedSets,
-          exercises,
-          workoutStartTime,
-          totalWorkingTime,
-          totalRestTime,
-          sessionId,
-          workoutName,
-        });
-      }
-    }, 500);
-
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-    };
   }, [phase, currentExerciseIndex, currentSetIndex, completedSets, exercises, workoutStartTime, totalWorkingTime, totalRestTime, sessionId, workoutName]);
 
   const formatTime = (seconds) => `${Math.floor(seconds / 60)}:${(seconds % 60).toString().padStart(2, '0')}`;
@@ -10652,15 +10630,19 @@ function ActiveWorkoutScreen({ onClose, onComplete, onSaveProgress, COLORS, avai
       setWorkoutEndTime(Date.now());
       setPhase(includeCooldown ? 'cooldown' : 'complete');
     }
+    // Save progress after completing set
+    setTimeout(() => saveProgress(), 100);
   };
 
   const updateCompletedSet = (exerciseId, setIndex, newData) => {
-    setCompletedSets(prev => prev.map(s => 
-      s.exerciseId === exerciseId && s.setIndex === setIndex 
+    setCompletedSets(prev => prev.map(s =>
+      s.exerciseId === exerciseId && s.setIndex === setIndex
         ? { ...s, ...newData }
         : s
     ));
     setEditingSet(null);
+    // Save progress after updating set
+    setTimeout(() => saveProgress(), 100);
   };
   
   const skipToExercise = (exerciseIndex, setIndex = 0) => {
@@ -10737,25 +10719,29 @@ function ActiveWorkoutScreen({ onClose, onComplete, onSaveProgress, COLORS, avai
     });
     setShowAddExercise(false);
     setAddExerciseSearch('');
+    // Save progress after adding exercise
+    setTimeout(() => saveProgress(), 100);
   };
-  
+
   const removeExercise = (exerciseIndex) => {
     // Don't remove if it's the only exercise
     if (exercises.length <= 1) return;
-    
+
     // Check if any sets completed for this exercise
     const exerciseId = exercises[exerciseIndex].id;
     const hasCompletedSets = completedSets.some(s => s.exerciseId === exerciseId);
-    
+
     setExercises(prev => {
       const updated = prev.filter((_, i) => i !== exerciseIndex);
       return optimizeExerciseOrder(updated);
     });
-    
+
     // Adjust current index if needed
     if (currentExerciseIndex >= exerciseIndex && currentExerciseIndex > 0) {
       setCurrentExerciseIndex(prev => prev - 1);
     }
+    // Save progress after removing exercise
+    setTimeout(() => saveProgress(), 100);
   };
 
   const addSetToExercise = (exerciseIndex) => {
