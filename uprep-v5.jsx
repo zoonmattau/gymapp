@@ -9448,13 +9448,13 @@ function NewWorkoutScreen({
     }
   }, [failedSaves, sessionId]);
 
-  // Save progress function - called manually when meaningful actions happen
-  const onSaveProgressRef = useRef(onSaveProgress);
-  onSaveProgressRef.current = onSaveProgress;
+  // Ref to store the save function - avoids stale closures
+  const saveProgressRef = useRef(null);
 
-  const saveProgress = useCallback(() => {
-    if (onSaveProgressRef.current && (exercises.length > 0 || sets.length > 0)) {
-      onSaveProgressRef.current({
+  // Update the ref whenever dependencies change
+  saveProgressRef.current = () => {
+    if (onSaveProgress && (exercises.length > 0 || sets.length > 0)) {
+      onSaveProgress({
         exercises,
         sets,
         workoutStartTime,
@@ -9464,7 +9464,7 @@ function NewWorkoutScreen({
         restDuration,
       });
     }
-  }, [exercises, sets, workoutStartTime, sessionId, workoutName, workoutType, restDuration]);
+  };
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -9497,15 +9497,15 @@ function NewWorkoutScreen({
 
     setExercises(prev => [...prev, newEx]);
     setShowAddExercise(false);
-    // Save progress after adding exercise (with slight delay to ensure state is updated)
-    setTimeout(() => saveProgress(), 100);
+    // Save progress after state update
+    setTimeout(() => saveProgressRef.current?.(), 200);
   };
 
   // Remove exercise from workout
   const removeExercise = (exerciseId) => {
     setExercises(prev => prev.filter(ex => ex.id !== exerciseId));
-    // Save progress after removing exercise
-    setTimeout(() => saveProgress(), 100);
+    // Save progress after state update
+    setTimeout(() => saveProgressRef.current?.(), 200);
   };
 
   // Toggle exercise expanded/collapsed
@@ -9570,7 +9570,7 @@ function NewWorkoutScreen({
     }
 
     // Save progress after logging set
-    setTimeout(() => saveProgress(), 100);
+    setTimeout(() => saveProgressRef.current?.(), 200);
   };
 
   // Edit an existing set
@@ -9580,7 +9580,7 @@ function NewWorkoutScreen({
     ));
     setShowEditSet(null);
     // Save progress after updating set
-    setTimeout(() => saveProgress(), 100);
+    setTimeout(() => saveProgressRef.current?.(), 200);
   };
 
   // Delete a set
@@ -9588,7 +9588,7 @@ function NewWorkoutScreen({
     setSets(prev => prev.filter(s => s.id !== setId));
     setShowEditSet(null);
     // Save progress after deleting set
-    setTimeout(() => saveProgress(), 100);
+    setTimeout(() => saveProgressRef.current?.(), 200);
   };
 
   // End workout
@@ -9714,10 +9714,9 @@ function NewWorkoutScreen({
       <div className="flex-1 overflow-auto p-4">
         {/* Add Exercise Button - Always at top */}
         <button
-          onClick={(e) => { e.stopPropagation(); e.preventDefault(); setShowAddExercise(true); }}
-          onTouchEnd={(e) => { e.stopPropagation(); }}
+          onClick={() => setShowAddExercise(true)}
           className="w-full p-4 rounded-xl flex items-center justify-center gap-2 mb-4 select-none"
-          style={{ backgroundColor: COLORS.primary + '20', border: `2px dashed ${COLORS.primary}`, WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
+          style={{ backgroundColor: COLORS.primary + '20', border: `2px dashed ${COLORS.primary}`, WebkitTapHighlightColor: 'transparent' }}
         >
           <Plus size={20} color={COLORS.primary} />
           <span className="font-semibold" style={{ color: COLORS.primary }}>Add Exercise</span>
@@ -10568,13 +10567,13 @@ function ActiveWorkoutScreen({ onClose, onComplete, onSaveProgress, COLORS, avai
     startSession();
   }, [userId, workoutName]);
 
-  // Save progress function - called manually when meaningful actions happen
-  const onSaveProgressRef = React.useRef(onSaveProgress);
-  onSaveProgressRef.current = onSaveProgress;
+  // Ref to store the save function - avoids stale closures
+  const saveProgressRef = React.useRef(null);
 
-  const saveProgress = React.useCallback(() => {
-    if (onSaveProgressRef.current && (exercises.length > 0 || completedSets.length > 0)) {
-      onSaveProgressRef.current({
+  // Update the ref whenever dependencies change
+  saveProgressRef.current = () => {
+    if (onSaveProgress && (exercises.length > 0 || completedSets.length > 0)) {
+      onSaveProgress({
         phase,
         currentExerciseIndex,
         currentSetIndex,
@@ -10587,7 +10586,7 @@ function ActiveWorkoutScreen({ onClose, onComplete, onSaveProgress, COLORS, avai
         workoutName,
       });
     }
-  }, [phase, currentExerciseIndex, currentSetIndex, completedSets, exercises, workoutStartTime, totalWorkingTime, totalRestTime, sessionId, workoutName]);
+  };
 
   const formatTime = (seconds) => `${Math.floor(seconds / 60)}:${(seconds % 60).toString().padStart(2, '0')}`;
 
@@ -10631,7 +10630,7 @@ function ActiveWorkoutScreen({ onClose, onComplete, onSaveProgress, COLORS, avai
       setPhase(includeCooldown ? 'cooldown' : 'complete');
     }
     // Save progress after completing set
-    setTimeout(() => saveProgress(), 100);
+    setTimeout(() => saveProgressRef.current?.(), 200);
   };
 
   const updateCompletedSet = (exerciseId, setIndex, newData) => {
@@ -10642,7 +10641,7 @@ function ActiveWorkoutScreen({ onClose, onComplete, onSaveProgress, COLORS, avai
     ));
     setEditingSet(null);
     // Save progress after updating set
-    setTimeout(() => saveProgress(), 100);
+    setTimeout(() => saveProgressRef.current?.(), 200);
   };
   
   const skipToExercise = (exerciseIndex, setIndex = 0) => {
@@ -10720,7 +10719,7 @@ function ActiveWorkoutScreen({ onClose, onComplete, onSaveProgress, COLORS, avai
     setShowAddExercise(false);
     setAddExerciseSearch('');
     // Save progress after adding exercise
-    setTimeout(() => saveProgress(), 100);
+    setTimeout(() => saveProgressRef.current?.(), 200);
   };
 
   const removeExercise = (exerciseIndex) => {
@@ -10741,7 +10740,7 @@ function ActiveWorkoutScreen({ onClose, onComplete, onSaveProgress, COLORS, avai
       setCurrentExerciseIndex(prev => prev - 1);
     }
     // Save progress after removing exercise
-    setTimeout(() => saveProgress(), 100);
+    setTimeout(() => saveProgressRef.current?.(), 200);
   };
 
   const addSetToExercise = (exerciseIndex) => {
