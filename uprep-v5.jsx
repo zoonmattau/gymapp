@@ -9448,23 +9448,8 @@ function NewWorkoutScreen({
     }
   }, [failedSaves, sessionId]);
 
-  // Ref to store the save function - avoids stale closures
-  const saveProgressRef = useRef(null);
-
-  // Update the ref whenever dependencies change
-  saveProgressRef.current = () => {
-    if (onSaveProgress && (exercises.length > 0 || sets.length > 0)) {
-      onSaveProgress({
-        exercises,
-        sets,
-        workoutStartTime,
-        sessionId,
-        workoutName,
-        workoutType,
-        restDuration,
-      });
-    }
-  };
+  // Save progress ref - temporarily disabled for debugging
+  const saveProgressRef = useRef(() => {});
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
