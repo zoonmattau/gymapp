@@ -10529,6 +10529,19 @@ function AddSetModal({ COLORS, exercise, setNumber, initialData, isEdit = false,
 function ExerciseSearchModal({ COLORS, onClose, onSelect, excludeExercises = [], userGoal }) {
   const [search, setSearch] = useState('');
   const [selectedMuscle, setSelectedMuscle] = useState(null);
+  const [isReady, setIsReady] = useState(false);
+
+  // Prevent accidental close on mount - wait for modal to be fully rendered
+  useEffect(() => {
+    const timer = setTimeout(() => setIsReady(true), 100);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const handleClose = () => {
+    if (isReady) {
+      onClose();
+    }
+  };
 
   const muscleGroups = [...new Set(DEFAULT_ALL_EXERCISES.map(ex => ex.muscleGroup))];
 
@@ -10550,7 +10563,7 @@ function ExerciseSearchModal({ COLORS, onClose, onSelect, excludeExercises = [],
     <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background, touchAction: 'manipulation' }} onClick={(e) => e.stopPropagation()} onTouchEnd={(e) => e.stopPropagation()}>
       <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
         <button
-          onClick={(e) => { e.stopPropagation(); e.preventDefault(); onClose(); }}
+          onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleClose(); }}
           onTouchEnd={(e) => e.stopPropagation()}
           style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
         >
