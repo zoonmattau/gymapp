@@ -9344,9 +9344,27 @@ function NewWorkoutScreen({
   const [sessionId, setSessionId] = useState(savedProgress?.sessionId || null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Workout data state
+  // Workout data state - check localStorage first, then savedProgress prop, then initialExercises
   const [exercises, setExercises] = useState(() => {
+    // First try savedProgress prop
     if (savedProgress?.exercises) return savedProgress.exercises;
+
+    // Then try localStorage
+    try {
+      const saved = localStorage.getItem('uprep_workout_progress');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Only use if saved within last 4 hours and matches workout type
+        const fourHoursAgo = Date.now() - (4 * 60 * 60 * 1000);
+        if (parsed.savedAt > fourHoursAgo && parsed.workoutType === workoutType && parsed.exercises?.length > 0) {
+          return parsed.exercises;
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to load saved exercises:', e);
+    }
+
+    // Fall back to initial exercises
     return initialExercises.map(ex => ({
       ...ex,
       id: ex.id || `${ex.name.toLowerCase().replace(/\s/g, '_')}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -9354,7 +9372,26 @@ function NewWorkoutScreen({
     }));
   });
 
-  const [sets, setSets] = useState(savedProgress?.sets || []); // All logged sets
+  const [sets, setSets] = useState(() => {
+    // First try savedProgress prop
+    if (savedProgress?.sets) return savedProgress.sets;
+
+    // Then try localStorage
+    try {
+      const saved = localStorage.getItem('uprep_workout_progress');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const fourHoursAgo = Date.now() - (4 * 60 * 60 * 1000);
+        if (parsed.savedAt > fourHoursAgo && parsed.workoutType === workoutType && parsed.sets?.length > 0) {
+          return parsed.sets;
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to load saved sets:', e);
+    }
+
+    return [];
+  }); // All logged sets
   const [failedSaves, setFailedSaves] = useState([]); // Retry queue for failed network saves
 
   // Time tracking - validate saved start time (max 4 hours old to prevent 3000+ min glitch)
@@ -9449,23 +9486,39 @@ function NewWorkoutScreen({
     }
   }, [failedSaves, sessionId]);
 
-  // Save progress to parent (for localStorage backup)
-  // TEMPORARILY DISABLED to debug infinite loop
-  // const onSaveProgressRef = useRef(onSaveProgress);
-  // onSaveProgressRef.current = onSaveProgress;
-  // useEffect(() => {
-  //   if (onSaveProgressRef.current) {
-  //     onSaveProgressRef.current({
-  //       exercises,
-  //       sets,
-  //       workoutStartTime,
-  //       sessionId,
-  //       workoutName,
-  //       workoutType,
-  //       restDuration,
-  //     });
-  //   }
-  // }, [exercises, sets, workoutStartTime, sessionId, workoutName, workoutType, restDuration]);
+  // Save progress directly to localStorage (debounced to prevent performance issues)
+  const saveTimeoutRef = useRef(null);
+  useEffect(() => {
+    // Clear any pending save
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    // Debounce save by 500ms to avoid too frequent writes
+    saveTimeoutRef.current = setTimeout(() => {
+      try {
+        const progressData = {
+          exercises,
+          sets,
+          workoutStartTime,
+          sessionId,
+          workoutName,
+          workoutType,
+          restDuration,
+          savedAt: Date.now(),
+        };
+        localStorage.setItem('uprep_workout_progress', JSON.stringify(progressData));
+      } catch (e) {
+        console.warn('Failed to save workout progress:', e);
+      }
+    }, 500);
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [exercises, sets, sessionId, workoutName, workoutType, restDuration]);
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
