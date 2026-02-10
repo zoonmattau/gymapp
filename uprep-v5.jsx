@@ -9765,9 +9765,16 @@ function NewWorkoutScreen({
       <div className="flex-1 overflow-auto p-4">
         {/* Add Exercise Button - Always at top */}
         <button
-          onClick={() => setShowAddExercise(true)}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setShowAddExercise(true);
+          }}
+          onTouchEnd={(e) => {
+            e.stopPropagation();
+          }}
           className="w-full p-4 rounded-xl flex items-center justify-center gap-2 mb-4 select-none"
-          style={{ backgroundColor: COLORS.primary + '20', border: `2px dashed ${COLORS.primary}`, WebkitTapHighlightColor: 'transparent' }}
+          style={{ backgroundColor: COLORS.primary + '20', border: `2px dashed ${COLORS.primary}`, WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
         >
           <Plus size={20} color={COLORS.primary} />
           <span className="font-semibold" style={{ color: COLORS.primary }}>Add Exercise</span>
@@ -10954,15 +10961,18 @@ function ExerciseSearchModal({ COLORS, onClose, onSelect, excludeExercises = [],
   const [search, setSearch] = useState('');
   const [selectedMuscle, setSelectedMuscle] = useState(null);
   const [isReady, setIsReady] = useState(false);
+  const mountTimeRef = useRef(Date.now());
 
   // Prevent accidental close on mount - wait for modal to be fully rendered
   useEffect(() => {
-    const timer = setTimeout(() => setIsReady(true), 100);
+    const timer = setTimeout(() => setIsReady(true), 300);
     return () => clearTimeout(timer);
   }, []);
 
   const handleClose = () => {
-    if (isReady) {
+    // Only allow close if modal has been open for at least 300ms
+    const timeSinceMount = Date.now() - mountTimeRef.current;
+    if (isReady && timeSinceMount > 300) {
       onClose();
     }
   };
@@ -10983,8 +10993,19 @@ function ExerciseSearchModal({ COLORS, onClose, onSelect, excludeExercises = [],
     return acc;
   }, {});
 
+  // Prevent any close during initial render
+  if (!isReady) {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background }}>
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 size={32} color={COLORS.primary} className="animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background, touchAction: 'manipulation' }} onClick={(e) => e.stopPropagation()} onTouchEnd={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: COLORS.background, touchAction: 'manipulation' }} onClick={(e) => e.stopPropagation()} onTouchEnd={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
       <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: COLORS.surfaceLight }}>
         <button
           onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleClose(); }}
