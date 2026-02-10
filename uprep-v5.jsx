@@ -9417,7 +9417,7 @@ function NewWorkoutScreen({
   const [showAddExercise, setShowAddExercise] = useState(false);
   const [showAddSet, setShowAddSet] = useState(null); // exercise id to add set to
   const [showEditSet, setShowEditSet] = useState(null); // { exerciseId, setId }
-  const modalOpenTimeRef = useRef(0); // Track when modal was opened
+  const modalLockedRef = useRef(false); // Lock modal open until explicitly unlocked
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [showExerciseInfo, setShowExerciseInfo] = useState(null);
   const [showSummary, setShowSummary] = useState(false);
@@ -9772,21 +9772,28 @@ function NewWorkoutScreen({
           onTouchEnd={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            if (addExerciseClickedRef.current) return;
+            if (addExerciseClickedRef.current || showAddExercise) return;
             addExerciseClickedRef.current = true;
-            modalOpenTimeRef.current = Date.now();
+            modalLockedRef.current = true;
             setShowAddExercise(true);
-            setTimeout(() => { addExerciseClickedRef.current = false; }, 3000);
+            // Unlock after 3 seconds
+            setTimeout(() => {
+              modalLockedRef.current = false;
+              addExerciseClickedRef.current = false;
+            }, 3000);
           }}
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            // Only for non-touch devices (mouse)
-            if (addExerciseClickedRef.current) return;
+            if (addExerciseClickedRef.current || showAddExercise) return;
             addExerciseClickedRef.current = true;
-            modalOpenTimeRef.current = Date.now();
+            modalLockedRef.current = true;
             setShowAddExercise(true);
-            setTimeout(() => { addExerciseClickedRef.current = false; }, 3000);
+            // Unlock after 3 seconds
+            setTimeout(() => {
+              modalLockedRef.current = false;
+              addExerciseClickedRef.current = false;
+            }, 3000);
           }}
           className="w-full p-4 rounded-xl flex items-center justify-center gap-2 mb-4 select-none cursor-pointer"
           style={{ backgroundColor: COLORS.primary + '20', border: `2px dashed ${COLORS.primary}`, WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation', userSelect: 'none' }}
@@ -9988,13 +9995,16 @@ function NewWorkoutScreen({
         <ExerciseSearchModal
           COLORS={COLORS}
           onClose={() => {
-            // Only allow close if modal has been open for at least 2 seconds
-            const timeSinceOpen = Date.now() - modalOpenTimeRef.current;
-            if (timeSinceOpen > 2000) {
+            // Only allow close if modal is unlocked
+            if (!modalLockedRef.current) {
               setShowAddExercise(false);
             }
           }}
-          onSelect={addExercise}
+          onSelect={(exerciseName) => {
+            // Unlock before adding exercise (which will close modal)
+            modalLockedRef.current = false;
+            addExercise(exerciseName);
+          }}
           excludeExercises={exercises.map(ex => ex.name)}
           userGoal={userGoal}
         />
