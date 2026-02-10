@@ -9765,26 +9765,32 @@ function NewWorkoutScreen({
       {/* Main Content */}
       <div className="flex-1 overflow-auto p-4">
         {/* Add Exercise Button - Always at top */}
-        <button
+        <div
+          role="button"
+          tabIndex={0}
+          onTouchEnd={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (addExerciseClickedRef.current) return;
+            addExerciseClickedRef.current = true;
+            setShowAddExercise(true);
+            setTimeout(() => { addExerciseClickedRef.current = false; }, 3000);
+          }}
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            // Prevent double-tap
+            // Only for non-touch devices (mouse)
             if (addExerciseClickedRef.current) return;
             addExerciseClickedRef.current = true;
-            // Use setTimeout to decouple from click event cycle
-            setTimeout(() => {
-              setShowAddExercise(true);
-            }, 50);
-            // Reset after a delay
-            setTimeout(() => { addExerciseClickedRef.current = false; }, 2000);
+            setShowAddExercise(true);
+            setTimeout(() => { addExerciseClickedRef.current = false; }, 3000);
           }}
-          className="w-full p-4 rounded-xl flex items-center justify-center gap-2 mb-4 select-none"
-          style={{ backgroundColor: COLORS.primary + '20', border: `2px dashed ${COLORS.primary}`, WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
+          className="w-full p-4 rounded-xl flex items-center justify-center gap-2 mb-4 select-none cursor-pointer"
+          style={{ backgroundColor: COLORS.primary + '20', border: `2px dashed ${COLORS.primary}`, WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation', userSelect: 'none' }}
         >
           <Plus size={20} color={COLORS.primary} />
           <span className="font-semibold" style={{ color: COLORS.primary }}>Add Exercise</span>
-        </button>
+        </div>
 
         {/* Exercise List */}
         {exercises.length === 0 ? (
@@ -10966,23 +10972,16 @@ function AddSetModal({ COLORS, exercise, setNumber, initialData, isEdit = false,
 function ExerciseSearchModal({ COLORS, onClose, onSelect, excludeExercises = [], userGoal }) {
   const [search, setSearch] = useState('');
   const [selectedMuscle, setSelectedMuscle] = useState(null);
-  const [isReady, setIsReady] = useState(false);
   const mountTimeRef = useRef(Date.now());
   const closeAttemptedRef = useRef(false);
-
-  // Prevent accidental close on mount - wait 800ms
-  useEffect(() => {
-    const timer = setTimeout(() => setIsReady(true), 800);
-    return () => clearTimeout(timer);
-  }, []);
 
   const handleClose = () => {
     // Prevent multiple close attempts
     if (closeAttemptedRef.current) return;
 
-    // Only allow close if modal has been open for at least 800ms
+    // Only allow close if modal has been open for at least 1.5 seconds
     const timeSinceMount = Date.now() - mountTimeRef.current;
-    if (isReady && timeSinceMount > 800) {
+    if (timeSinceMount > 1500) {
       closeAttemptedRef.current = true;
       onClose();
     }
