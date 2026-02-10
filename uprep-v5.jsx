@@ -17572,6 +17572,115 @@ const NutritionTab = ({
                   {nutritionSelectedDate === TODAY_DATE_KEY ? "TODAY'S NUTRITION" : `NUTRITION - ${new Date(nutritionSelectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase()}`}
                 </p>
                 <div className="mb-6">
+                  {/* Calories & Water Circles - FIRST */}
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    {/* Calories Circle */}
+                    {(() => {
+                      const currentCalories = nutritionSelectedDate === TODAY_DATE_KEY ? caloriesIntake : (backdateNutrition?.calories || 0);
+                      const caloriesComplete = currentCalories >= displayNutritionGoals.calories;
+                      return (
+                        <div className="p-4 rounded-xl relative" style={{ backgroundColor: COLORS.surface }}>
+                          <button
+                            onClick={() => setShowMealHistory(true)}
+                            className="absolute top-2 right-2 p-1.5 rounded-full"
+                            style={{ backgroundColor: COLORS.surfaceLight }}
+                          >
+                            <Settings size={14} color={COLORS.textMuted} />
+                          </button>
+                          <div className="flex items-center justify-center mb-2">
+                            <div className="relative w-24 h-24">
+                              <svg className="w-full h-full transform -rotate-90">
+                                <circle cx="48" cy="48" r="40" stroke={COLORS.surfaceLight} strokeWidth="8" fill="none" />
+                                <circle
+                                  cx="48" cy="48" r="40"
+                                  stroke={caloriesComplete ? COLORS.success : COLORS.accent}
+                                  strokeWidth="8"
+                                  fill="none"
+                                  strokeDasharray={`${(currentCalories / displayNutritionGoals.calories) * 251} 251`}
+                                  strokeLinecap="round"
+                                />
+                              </svg>
+                              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                {!caloriesComplete && (
+                                  <Flame size={16} color={COLORS.accent} className="mb-1" />
+                                )}
+                                <div className="flex items-center gap-1">
+                                  {caloriesComplete && (
+                                    <Check size={14} color={COLORS.success} strokeWidth={3} />
+                                  )}
+                                  <span className="text-lg font-bold" style={{ color: caloriesComplete ? COLORS.success : COLORS.text }}>{currentCalories}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          <p className="text-center text-sm font-semibold" style={{ color: caloriesComplete ? COLORS.success : COLORS.text }}>
+                            {caloriesComplete ? '✓ Calories' : 'Calories'}
+                          </p>
+                          <p className="text-center text-xs" style={{ color: caloriesComplete ? COLORS.success : COLORS.textMuted }}>
+                            {caloriesComplete ? 'Goal reached!' : `${displayNutritionGoals.calories - currentCalories} remaining`}
+                          </p>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Water Circle */}
+                    {(() => {
+                      const currentWater = nutritionSelectedDate === TODAY_DATE_KEY ? waterIntake : (backdateNutrition?.water || 0);
+                      const waterComplete = currentWater >= displayNutritionGoals.water;
+                      return (
+                        <div className="p-4 rounded-xl relative" style={{ backgroundColor: COLORS.surface }}>
+                          <button
+                            onClick={async () => {
+                              // Load water logs before showing modal
+                              if (user?.id) {
+                                const targetDate = nutritionSelectedDate !== TODAY_DATE_KEY ? nutritionSelectedDate : TODAY_DATE_KEY;
+                                const { data } = await nutritionService.getWaterLogs(user.id, targetDate);
+                                setWaterLogs(data || []);
+                              }
+                              setShowWaterHistory(true);
+                            }}
+                            className="absolute top-2 right-2 p-1.5 rounded-full"
+                            style={{ backgroundColor: COLORS.surfaceLight }}
+                          >
+                            <Settings size={14} color={COLORS.textMuted} />
+                          </button>
+                          <div className="flex items-center justify-center mb-2">
+                            <div className="relative w-24 h-24">
+                              <svg className="w-full h-full transform -rotate-90">
+                                <circle cx="48" cy="48" r="40" stroke={COLORS.surfaceLight} strokeWidth="8" fill="none" />
+                                <circle
+                                  cx="48" cy="48" r="40"
+                                  stroke={waterComplete ? COLORS.success : COLORS.water}
+                                  strokeWidth="8"
+                                  fill="none"
+                                  strokeDasharray={`${(currentWater / displayNutritionGoals.water) * 251} 251`}
+                                  strokeLinecap="round"
+                                />
+                              </svg>
+                              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                {!waterComplete && (
+                                  <Droplets size={16} color={COLORS.water} className="mb-1" />
+                                )}
+                                <div className="flex items-center gap-1">
+                                  {waterComplete && (
+                                    <Check size={14} color={COLORS.success} strokeWidth={3} />
+                                  )}
+                                  <span className="text-lg font-bold" style={{ color: waterComplete ? COLORS.success : COLORS.text }}>{(currentWater / 1000).toFixed(1)}L</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          <p className="text-center text-sm font-semibold" style={{ color: waterComplete ? COLORS.success : COLORS.text }}>
+                            {waterComplete ? '✓ Water' : 'Water'}
+                          </p>
+                          <p className="text-center text-xs" style={{ color: waterComplete ? COLORS.success : COLORS.textMuted }}>
+                            {waterComplete ? 'Goal reached!' : `${((displayNutritionGoals.water - currentWater) / 1000).toFixed(1)}L remaining`}
+                          </p>
+                        </div>
+                      );
+                    })()}
+                  </div>
+
                   {/* Quick Add Section - Side by Side */}
                   <div className="grid grid-cols-2 gap-3 mb-4">
                     {/* Left: Add Meal */}
@@ -17702,114 +17811,6 @@ const NutritionTab = ({
                         ))}
                       </div>
                     </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    {/* Calories Circle */}
-                    {(() => {
-                      const currentCalories = nutritionSelectedDate === TODAY_DATE_KEY ? caloriesIntake : (backdateNutrition?.calories || 0);
-                      const caloriesComplete = currentCalories >= displayNutritionGoals.calories;
-                      return (
-                        <div className="p-4 rounded-xl relative" style={{ backgroundColor: COLORS.surface }}>
-                          <button
-                            onClick={() => setShowMealHistory(true)}
-                            className="absolute top-2 right-2 p-1.5 rounded-full"
-                            style={{ backgroundColor: COLORS.surfaceLight }}
-                          >
-                            <Settings size={14} color={COLORS.textMuted} />
-                          </button>
-                          <div className="flex items-center justify-center mb-2">
-                            <div className="relative w-24 h-24">
-                              <svg className="w-full h-full transform -rotate-90">
-                                <circle cx="48" cy="48" r="40" stroke={COLORS.surfaceLight} strokeWidth="8" fill="none" />
-                                <circle
-                                  cx="48" cy="48" r="40"
-                                  stroke={caloriesComplete ? COLORS.success : COLORS.accent}
-                                  strokeWidth="8"
-                                  fill="none"
-                                  strokeDasharray={`${(currentCalories / displayNutritionGoals.calories) * 251} 251`}
-                                  strokeLinecap="round"
-                                />
-                              </svg>
-                              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                {!caloriesComplete && (
-                                  <Flame size={16} color={COLORS.accent} className="mb-1" />
-                                )}
-                                <div className="flex items-center gap-1">
-                                  {caloriesComplete && (
-                                    <Check size={14} color={COLORS.success} strokeWidth={3} />
-                                  )}
-                                  <span className="text-lg font-bold" style={{ color: caloriesComplete ? COLORS.success : COLORS.text }}>{currentCalories}</span>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                          <p className="text-center text-sm font-semibold" style={{ color: caloriesComplete ? COLORS.success : COLORS.text }}>
-                            {caloriesComplete ? '✓ Calories' : 'Calories'}
-                          </p>
-                          <p className="text-center text-xs" style={{ color: caloriesComplete ? COLORS.success : COLORS.textMuted }}>
-                            {caloriesComplete ? 'Goal reached!' : `${displayNutritionGoals.calories - currentCalories} remaining`}
-                          </p>
-                        </div>
-                      );
-                    })()}
-
-                    {/* Water Circle */}
-                    {(() => {
-                      const currentWater = nutritionSelectedDate === TODAY_DATE_KEY ? waterIntake : (backdateNutrition?.water || 0);
-                      const waterComplete = currentWater >= displayNutritionGoals.water;
-                      return (
-                        <div className="p-4 rounded-xl relative" style={{ backgroundColor: COLORS.surface }}>
-                          <button
-                            onClick={async () => {
-                              // Load water logs before showing modal
-                              if (user?.id) {
-                                const targetDate = nutritionSelectedDate !== TODAY_DATE_KEY ? nutritionSelectedDate : TODAY_DATE_KEY;
-                                const { data } = await nutritionService.getWaterLogs(user.id, targetDate);
-                                setWaterLogs(data || []);
-                              }
-                              setShowWaterHistory(true);
-                            }}
-                            className="absolute top-2 right-2 p-1.5 rounded-full"
-                            style={{ backgroundColor: COLORS.surfaceLight }}
-                          >
-                            <Settings size={14} color={COLORS.textMuted} />
-                          </button>
-                          <div className="flex items-center justify-center mb-2">
-                            <div className="relative w-24 h-24">
-                              <svg className="w-full h-full transform -rotate-90">
-                                <circle cx="48" cy="48" r="40" stroke={COLORS.surfaceLight} strokeWidth="8" fill="none" />
-                                <circle
-                                  cx="48" cy="48" r="40"
-                                  stroke={waterComplete ? COLORS.success : COLORS.water}
-                                  strokeWidth="8"
-                                  fill="none"
-                                  strokeDasharray={`${(currentWater / displayNutritionGoals.water) * 251} 251`}
-                                  strokeLinecap="round"
-                                />
-                              </svg>
-                              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                {!waterComplete && (
-                                  <Droplets size={16} color={COLORS.water} className="mb-1" />
-                                )}
-                                <div className="flex items-center gap-1">
-                                  {waterComplete && (
-                                    <Check size={14} color={COLORS.success} strokeWidth={3} />
-                                  )}
-                                  <span className="text-lg font-bold" style={{ color: waterComplete ? COLORS.success : COLORS.text }}>{(currentWater / 1000).toFixed(1)}L</span>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                          <p className="text-center text-sm font-semibold" style={{ color: waterComplete ? COLORS.success : COLORS.text }}>
-                            {waterComplete ? '✓ Water' : 'Water'}
-                          </p>
-                          <p className="text-center text-xs" style={{ color: waterComplete ? COLORS.success : COLORS.textMuted }}>
-                            {waterComplete ? 'Goal reached!' : `${((displayNutritionGoals.water - currentWater) / 1000).toFixed(1)}L remaining`}
-                          </p>
-                        </div>
-                      );
-                    })()}
                   </div>
 
                   {/* Recent Entries Section */}
