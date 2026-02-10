@@ -13579,6 +13579,14 @@ const HomeTab = ({
             const progress = Math.min((stat.current || 0) / (stat.target || 1), 1);
             const isComplete = progress >= 1;
             const displayVal = stat.displayValue || Math.round(progress * 100) + '%';
+            // Format the actual value for display
+            const actualValue = stat.id === 'water'
+              ? `${(stat.current / 1000).toFixed(1)}L`
+              : stat.id === 'calories'
+              ? `${stat.current}`
+              : stat.id === 'protein'
+              ? `${stat.current}g`
+              : stat.displayValue || `${stat.current}`;
             return (
               <button
                 key={stat.id}
@@ -13605,7 +13613,14 @@ const HomeTab = ({
                     )}
                   </div>
                 </div>
-                <span className="text-xs" style={{ color: isComplete ? COLORS.success : COLORS.textMuted, fontSize: 9 }}>{stat.label}</span>
+                {isComplete ? (
+                  <div className="flex items-center gap-0.5">
+                    <Check size={10} color={COLORS.success} strokeWidth={3} />
+                    <span className="text-xs font-semibold" style={{ color: COLORS.success, fontSize: 9 }}>{actualValue}</span>
+                  </div>
+                ) : (
+                  <span className="text-xs" style={{ color: COLORS.textMuted, fontSize: 9 }}>{stat.label}</span>
+                )}
               </button>
             );
           })}
