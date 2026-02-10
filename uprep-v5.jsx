@@ -9777,42 +9777,76 @@ function NewWorkoutScreen({
                           {exerciseSets.map((set, idx) => (
                             <button
                               key={set.id}
-                              onClick={() => { setShowEditSet({ exerciseId: exercise.id, setId: set.id }); setCurrentSetData({ weight: set.weight, reps: set.reps, rpe: set.rpe }); }}
-                              className="w-full p-3 rounded-lg flex items-center justify-between"
+                              onClick={() => { setShowEditSet({ exerciseId: exercise.id, setId: set.id }); setCurrentSetData({ weight: set.weight, reps: set.reps, rpe: set.rpe, setType: set.setType, supersetExercise: set.supersetExercise, supersetWeight: set.supersetWeight, supersetReps: set.supersetReps, dropsets: set.dropsets }); }}
+                              className="w-full p-3 rounded-lg"
                               style={{ backgroundColor: COLORS.surfaceLight }}
                             >
-                              <div className="flex items-center gap-3">
-                                <div
-                                  className="w-8 h-8 rounded-full flex items-center justify-center"
-                                  style={{ backgroundColor: set.saved ? COLORS.success + '20' : COLORS.warning + '20' }}
-                                >
-                                  {set.saved ? (
-                                    <Check size={14} color={COLORS.success} />
-                                  ) : (
-                                    <Loader2 size={14} color={COLORS.warning} className="animate-spin" />
-                                  )}
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <div
+                                    className="w-8 h-8 rounded-full flex items-center justify-center"
+                                    style={{ backgroundColor: set.saved ? COLORS.success + '20' : COLORS.warning + '20' }}
+                                  >
+                                    {set.saved ? (
+                                      <Check size={14} color={COLORS.success} />
+                                    ) : (
+                                      <Loader2 size={14} color={COLORS.warning} className="animate-spin" />
+                                    )}
+                                  </div>
+                                  <span className="text-sm" style={{ color: COLORS.textMuted }}>Set {idx + 1}</span>
                                 </div>
-                                <span className="text-sm" style={{ color: COLORS.textMuted }}>Set {idx + 1}</span>
-                              </div>
-                              <div className="flex items-center gap-3">
-                                <span className="font-semibold" style={{ color: COLORS.text }}>
-                                  {set.weight}kg × {set.reps}
-                                </span>
-                                {set.setType && set.setType !== 'normal' && (
-                                  <span className="text-xs px-2 py-1 rounded" style={{
-                                    backgroundColor: set.setType === 'superset' ? COLORS.warning + '20' : COLORS.error + '20',
-                                    color: set.setType === 'superset' ? COLORS.warning : COLORS.error
-                                  }}>
-                                    {set.setType === 'superset' ? 'SS' : 'DS'}
+                                <div className="flex items-center gap-3">
+                                  <span className="font-semibold" style={{ color: COLORS.text }}>
+                                    {set.weight}kg × {set.reps}
                                   </span>
-                                )}
-                                {set.rpe && (
-                                  <span className="text-xs px-2 py-1 rounded" style={{ backgroundColor: COLORS.accent + '20', color: COLORS.accent }}>
-                                    RPE {set.rpe}
-                                  </span>
-                                )}
-                                <Edit3 size={14} color={COLORS.textMuted} />
+                                  {set.setType === 'superset' && (
+                                    <span className="text-xs px-2 py-1 rounded" style={{
+                                      backgroundColor: COLORS.warning + '20',
+                                      color: COLORS.warning
+                                    }}>
+                                      Superset
+                                    </span>
+                                  )}
+                                  {set.setType === 'dropset' && (
+                                    <span className="text-xs px-2 py-1 rounded" style={{
+                                      backgroundColor: COLORS.error + '20',
+                                      color: COLORS.error
+                                    }}>
+                                      Dropset
+                                    </span>
+                                  )}
+                                  {set.rpe && (
+                                    <span className="text-xs px-2 py-1 rounded" style={{ backgroundColor: COLORS.accent + '20', color: COLORS.accent }}>
+                                      RPE {set.rpe}
+                                    </span>
+                                  )}
+                                  <Edit3 size={14} color={COLORS.textMuted} />
+                                </div>
                               </div>
+                              {/* Superset details */}
+                              {set.setType === 'superset' && set.supersetExercise && (
+                                <div className="mt-2 pt-2 border-t" style={{ borderColor: COLORS.surface }}>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs" style={{ color: COLORS.warning }}>+ {set.supersetExercise.name || set.supersetExercise}</span>
+                                    <span className="text-sm" style={{ color: COLORS.text }}>
+                                      {set.supersetWeight}kg × {set.supersetReps}
+                                    </span>
+                                  </div>
+                                </div>
+                              )}
+                              {/* Dropset details */}
+                              {set.setType === 'dropset' && set.dropsets && set.dropsets.length > 0 && (
+                                <div className="mt-2 pt-2 border-t" style={{ borderColor: COLORS.surface }}>
+                                  {set.dropsets.map((drop, dropIdx) => (
+                                    <div key={dropIdx} className="flex items-center justify-between py-1">
+                                      <span className="text-xs" style={{ color: COLORS.error }}>Drop {dropIdx + 1}</span>
+                                      <span className="text-sm" style={{ color: COLORS.text }}>
+                                        {drop.weight}kg × {drop.reps}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                             </button>
                           ))}
                         </div>
@@ -9888,6 +9922,7 @@ function NewWorkoutScreen({
           initialData={currentSetData}
           onClose={() => setShowAddSet(null)}
           onSave={(data) => logSet(showAddSet, data)}
+          allExercises={DEFAULT_ALL_EXERCISES}
         />
       )}
 
@@ -9902,6 +9937,7 @@ function NewWorkoutScreen({
           onClose={() => setShowEditSet(null)}
           onSave={(data) => updateSet(showEditSet.setId, data)}
           onDelete={() => deleteSet(showEditSet.setId)}
+          allExercises={DEFAULT_ALL_EXERCISES}
         />
       )}
 
@@ -10066,11 +10102,87 @@ function NewWorkoutScreen({
 }
 
 // AddSetModal - Modal for logging a set
-function AddSetModal({ COLORS, exercise, setNumber, initialData, isEdit = false, onClose, onSave, onDelete }) {
+function AddSetModal({ COLORS, exercise, setNumber, initialData, isEdit = false, onClose, onSave, onDelete, allExercises = [] }) {
   const [weight, setWeight] = useState(initialData?.weight || 0);
   const [reps, setReps] = useState(initialData?.reps || 10);
   const [rpe, setRpe] = useState(initialData?.rpe || 7);
-  const [setType, setSetType] = useState(initialData?.setType || 'normal'); // 'normal' | 'superset' | 'dropset'
+  const [setType, setSetType] = useState(initialData?.setType || null); // null | 'superset' | 'dropset'
+
+  // Superset: second exercise data
+  const [supersetExercise, setSupersetExercise] = useState(initialData?.supersetExercise || null);
+  const [supersetWeight, setSupersetWeight] = useState(initialData?.supersetWeight || 0);
+  const [supersetReps, setSupersetReps] = useState(initialData?.supersetReps || 10);
+  const [showExercisePicker, setShowExercisePicker] = useState(false);
+  const [exerciseSearch, setExerciseSearch] = useState('');
+
+  // Dropset: additional drops
+  const [dropsets, setDropsets] = useState(initialData?.dropsets || [{ weight: 0, reps: 8 }]);
+
+  const addDropset = () => {
+    const lastDrop = dropsets[dropsets.length - 1];
+    setDropsets([...dropsets, { weight: Math.max(0, (lastDrop?.weight || weight) - 5), reps: lastDrop?.reps || 8 }]);
+  };
+
+  const updateDropset = (index, field, value) => {
+    setDropsets(prev => prev.map((d, i) => i === index ? { ...d, [field]: value } : d));
+  };
+
+  const removeDropset = (index) => {
+    if (dropsets.length > 1) {
+      setDropsets(prev => prev.filter((_, i) => i !== index));
+    }
+  };
+
+  const filteredExercises = DEFAULT_ALL_EXERCISES.filter(ex =>
+    ex.name.toLowerCase().includes(exerciseSearch.toLowerCase()) && ex.name !== exercise?.name
+  ).slice(0, 10);
+
+  // Exercise picker for superset
+  if (showExercisePicker) {
+    return (
+      <div
+        className="fixed inset-0 z-50 flex items-end justify-center"
+        style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+      >
+        <div
+          className="w-full max-w-md rounded-t-3xl p-6 max-h-[80vh] flex flex-col"
+          style={{ backgroundColor: COLORS.surface }}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold" style={{ color: COLORS.text }}>Select Superset Exercise</h3>
+            <button onClick={() => setShowExercisePicker(false)} className="p-2 rounded-full" style={{ backgroundColor: COLORS.surfaceLight }}>
+              <X size={20} color={COLORS.textMuted} />
+            </button>
+          </div>
+          <input
+            type="text"
+            placeholder="Search exercises..."
+            value={exerciseSearch}
+            onChange={(e) => setExerciseSearch(e.target.value)}
+            className="w-full p-3 rounded-xl mb-4"
+            style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+          />
+          <div className="flex-1 overflow-auto space-y-2">
+            {filteredExercises.map(ex => (
+              <button
+                key={ex.name}
+                onClick={() => {
+                  setSupersetExercise({ name: ex.name, muscleGroup: ex.muscleGroup });
+                  setShowExercisePicker(false);
+                  setExerciseSearch('');
+                }}
+                className="w-full p-3 rounded-xl text-left"
+                style={{ backgroundColor: COLORS.surfaceLight }}
+              >
+                <p className="font-semibold" style={{ color: COLORS.text }}>{ex.name}</p>
+                <p className="text-xs" style={{ color: COLORS.textMuted }}>{ex.muscleGroup}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -10079,7 +10191,7 @@ function AddSetModal({ COLORS, exercise, setNumber, initialData, isEdit = false,
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
-        className="w-full max-w-md rounded-t-3xl p-6"
+        className="w-full max-w-md rounded-t-3xl p-6 max-h-[90vh] overflow-auto"
         style={{ backgroundColor: COLORS.surface }}
       >
         <div className="flex items-center justify-between mb-4">
@@ -10094,107 +10206,12 @@ function AddSetModal({ COLORS, exercise, setNumber, initialData, isEdit = false,
           </button>
         </div>
 
-        {/* Weight Input */}
+        {/* Set Type Selector - at the top */}
         <div className="mb-4">
-          <label className="text-xs mb-2 block" style={{ color: COLORS.textMuted }}>Weight (kg)</label>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setWeight(prev => Math.max(0, prev - 2.5))}
-              className="w-14 h-14 rounded-xl flex items-center justify-center"
-              style={{ backgroundColor: COLORS.surfaceLight }}
-            >
-              <Minus size={24} color={COLORS.text} />
-            </button>
-            <input
-              type="number"
-              value={weight || ''}
-              onChange={(e) => setWeight(parseFloat(e.target.value) || 0)}
-              className="flex-1 p-4 rounded-xl text-center text-3xl font-bold"
-              style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
-            />
-            <button
-              onClick={() => setWeight(prev => prev + 2.5)}
-              className="w-14 h-14 rounded-xl flex items-center justify-center"
-              style={{ backgroundColor: COLORS.surfaceLight }}
-            >
-              <Plus size={24} color={COLORS.text} />
-            </button>
-          </div>
-        </div>
-
-        {/* Reps Input */}
-        <div className="mb-4">
-          <label className="text-xs mb-2 block" style={{ color: COLORS.textMuted }}>Reps</label>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setReps(prev => Math.max(1, prev - 1))}
-              className="w-14 h-14 rounded-xl flex items-center justify-center"
-              style={{ backgroundColor: COLORS.surfaceLight }}
-            >
-              <Minus size={24} color={COLORS.text} />
-            </button>
-            <input
-              type="number"
-              value={reps || ''}
-              onChange={(e) => setReps(parseInt(e.target.value) || 0)}
-              className="flex-1 p-4 rounded-xl text-center text-3xl font-bold"
-              style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
-            />
-            <button
-              onClick={() => setReps(prev => prev + 1)}
-              className="w-14 h-14 rounded-xl flex items-center justify-center"
-              style={{ backgroundColor: COLORS.surfaceLight }}
-            >
-              <Plus size={24} color={COLORS.text} />
-            </button>
-          </div>
-        </div>
-
-        {/* RPE Selector */}
-        <div className="mb-4">
-          <label className="text-xs mb-2 block" style={{ color: COLORS.textMuted }}>RPE (Rate of Perceived Exertion)</label>
-          <div className="flex gap-1">
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(r => (
-              <button
-                key={r}
-                onClick={() => setRpe(r)}
-                className="flex-1 py-3 rounded-lg text-xs font-semibold"
-                style={{
-                  backgroundColor: rpe === r ? COLORS.accent : COLORS.surfaceLight,
-                  color: rpe === r ? COLORS.text : COLORS.textMuted
-                }}
-              >
-                {r}
-              </button>
-            ))}
-          </div>
-          <p className="text-xs mt-2 text-center" style={{ color: COLORS.textMuted }}>
-            {rpe <= 3 && 'Light - could do many more'}
-            {rpe >= 4 && rpe <= 5 && 'Moderate - starting to work'}
-            {rpe === 6 && 'Moderate-hard - 4+ reps left'}
-            {rpe === 7 && 'Hard - 3 reps left'}
-            {rpe === 8 && 'Very hard - 2 reps left'}
-            {rpe === 9 && 'Near max - 1 rep left'}
-            {rpe === 10 && 'Failure - no more reps possible'}
-          </p>
-        </div>
-
-        {/* Set Type Selector */}
-        <div className="mb-6">
-          <label className="text-xs mb-2 block" style={{ color: COLORS.textMuted }}>Set Type</label>
+          <label className="text-xs mb-2 block" style={{ color: COLORS.textMuted }}>Set Type (optional)</label>
           <div className="flex gap-2">
             <button
-              onClick={() => setSetType('normal')}
-              className="flex-1 py-3 rounded-lg text-xs font-semibold"
-              style={{
-                backgroundColor: setType === 'normal' ? COLORS.primary : COLORS.surfaceLight,
-                color: setType === 'normal' ? COLORS.text : COLORS.textMuted
-              }}
-            >
-              Normal
-            </button>
-            <button
-              onClick={() => setSetType('superset')}
+              onClick={() => setSetType(setType === 'superset' ? null : 'superset')}
               className="flex-1 py-3 rounded-lg text-xs font-semibold"
               style={{
                 backgroundColor: setType === 'superset' ? COLORS.warning : COLORS.surfaceLight,
@@ -10204,7 +10221,7 @@ function AddSetModal({ COLORS, exercise, setNumber, initialData, isEdit = false,
               Superset
             </button>
             <button
-              onClick={() => setSetType('dropset')}
+              onClick={() => setSetType(setType === 'dropset' ? null : 'dropset')}
               className="flex-1 py-3 rounded-lg text-xs font-semibold"
               style={{
                 backgroundColor: setType === 'dropset' ? COLORS.error : COLORS.surfaceLight,
@@ -10214,11 +10231,254 @@ function AddSetModal({ COLORS, exercise, setNumber, initialData, isEdit = false,
               Dropset
             </button>
           </div>
-          <p className="text-xs mt-2 text-center" style={{ color: COLORS.textMuted }}>
-            {setType === 'normal' && 'Regular set with rest after'}
-            {setType === 'superset' && 'No rest - go straight to next exercise'}
-            {setType === 'dropset' && 'Reduce weight immediately, no rest'}
+        </div>
+
+        {/* Main Set - Weight & Reps */}
+        <div className="p-3 rounded-xl mb-4" style={{ backgroundColor: COLORS.surfaceLight + '50' }}>
+          <p className="text-xs font-semibold mb-3" style={{ color: COLORS.textMuted }}>
+            {setType === 'dropset' ? 'FIRST SET' : 'SET DETAILS'}
           </p>
+
+          {/* Weight Input */}
+          <div className="mb-3">
+            <label className="text-xs mb-1 block" style={{ color: COLORS.textMuted }}>Weight (kg)</label>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setWeight(prev => Math.max(0, prev - 2.5))}
+                className="w-12 h-12 rounded-xl flex items-center justify-center"
+                style={{ backgroundColor: COLORS.surfaceLight }}
+              >
+                <Minus size={20} color={COLORS.text} />
+              </button>
+              <input
+                type="number"
+                value={weight || ''}
+                onChange={(e) => setWeight(parseFloat(e.target.value) || 0)}
+                className="flex-1 p-3 rounded-xl text-center text-2xl font-bold"
+                style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+              />
+              <button
+                onClick={() => setWeight(prev => prev + 2.5)}
+                className="w-12 h-12 rounded-xl flex items-center justify-center"
+                style={{ backgroundColor: COLORS.surfaceLight }}
+              >
+                <Plus size={20} color={COLORS.text} />
+              </button>
+            </div>
+          </div>
+
+          {/* Reps Input */}
+          <div>
+            <label className="text-xs mb-1 block" style={{ color: COLORS.textMuted }}>Reps</label>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setReps(prev => Math.max(1, prev - 1))}
+                className="w-12 h-12 rounded-xl flex items-center justify-center"
+                style={{ backgroundColor: COLORS.surfaceLight }}
+              >
+                <Minus size={20} color={COLORS.text} />
+              </button>
+              <input
+                type="number"
+                value={reps || ''}
+                onChange={(e) => setReps(parseInt(e.target.value) || 0)}
+                className="flex-1 p-3 rounded-xl text-center text-2xl font-bold"
+                style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+              />
+              <button
+                onClick={() => setReps(prev => prev + 1)}
+                className="w-12 h-12 rounded-xl flex items-center justify-center"
+                style={{ backgroundColor: COLORS.surfaceLight }}
+              >
+                <Plus size={20} color={COLORS.text} />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Superset Section */}
+        {setType === 'superset' && (
+          <div className="p-3 rounded-xl mb-4" style={{ backgroundColor: COLORS.warning + '15', border: `1px solid ${COLORS.warning}30` }}>
+            <p className="text-xs font-semibold mb-3" style={{ color: COLORS.warning }}>SUPERSET WITH</p>
+
+            {/* Exercise Picker */}
+            <button
+              onClick={() => setShowExercisePicker(true)}
+              className="w-full p-3 rounded-xl mb-3 text-left"
+              style={{ backgroundColor: COLORS.surfaceLight }}
+            >
+              {supersetExercise ? (
+                <p className="font-semibold" style={{ color: COLORS.text }}>{supersetExercise.name || supersetExercise}</p>
+              ) : (
+                <p style={{ color: COLORS.textMuted }}>Tap to select exercise...</p>
+              )}
+            </button>
+
+            {supersetExercise && (
+              <>
+                {/* Superset Weight */}
+                <div className="mb-3">
+                  <label className="text-xs mb-1 block" style={{ color: COLORS.textMuted }}>Weight (kg)</label>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setSupersetWeight(prev => Math.max(0, prev - 2.5))}
+                      className="w-12 h-12 rounded-xl flex items-center justify-center"
+                      style={{ backgroundColor: COLORS.surfaceLight }}
+                    >
+                      <Minus size={20} color={COLORS.text} />
+                    </button>
+                    <input
+                      type="number"
+                      value={supersetWeight || ''}
+                      onChange={(e) => setSupersetWeight(parseFloat(e.target.value) || 0)}
+                      className="flex-1 p-3 rounded-xl text-center text-2xl font-bold"
+                      style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+                    />
+                    <button
+                      onClick={() => setSupersetWeight(prev => prev + 2.5)}
+                      className="w-12 h-12 rounded-xl flex items-center justify-center"
+                      style={{ backgroundColor: COLORS.surfaceLight }}
+                    >
+                      <Plus size={20} color={COLORS.text} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Superset Reps */}
+                <div>
+                  <label className="text-xs mb-1 block" style={{ color: COLORS.textMuted }}>Reps</label>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setSupersetReps(prev => Math.max(1, prev - 1))}
+                      className="w-12 h-12 rounded-xl flex items-center justify-center"
+                      style={{ backgroundColor: COLORS.surfaceLight }}
+                    >
+                      <Minus size={20} color={COLORS.text} />
+                    </button>
+                    <input
+                      type="number"
+                      value={supersetReps || ''}
+                      onChange={(e) => setSupersetReps(parseInt(e.target.value) || 0)}
+                      className="flex-1 p-3 rounded-xl text-center text-2xl font-bold"
+                      style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+                    />
+                    <button
+                      onClick={() => setSupersetReps(prev => prev + 1)}
+                      className="w-12 h-12 rounded-xl flex items-center justify-center"
+                      style={{ backgroundColor: COLORS.surfaceLight }}
+                    >
+                      <Plus size={20} color={COLORS.text} />
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Dropset Section */}
+        {setType === 'dropset' && (
+          <div className="space-y-3 mb-4">
+            {dropsets.map((drop, index) => (
+              <div key={index} className="p-3 rounded-xl" style={{ backgroundColor: COLORS.error + '15', border: `1px solid ${COLORS.error}30` }}>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-semibold" style={{ color: COLORS.error }}>DROP {index + 1}</p>
+                  {dropsets.length > 1 && (
+                    <button onClick={() => removeDropset(index)} className="p-1">
+                      <X size={16} color={COLORS.error} />
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex gap-3">
+                  {/* Drop Weight */}
+                  <div className="flex-1">
+                    <label className="text-xs mb-1 block" style={{ color: COLORS.textMuted }}>Weight</label>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => updateDropset(index, 'weight', Math.max(0, drop.weight - 2.5))}
+                        className="w-10 h-10 rounded-lg flex items-center justify-center"
+                        style={{ backgroundColor: COLORS.surfaceLight }}
+                      >
+                        <Minus size={16} color={COLORS.text} />
+                      </button>
+                      <input
+                        type="number"
+                        value={drop.weight || ''}
+                        onChange={(e) => updateDropset(index, 'weight', parseFloat(e.target.value) || 0)}
+                        className="flex-1 p-2 rounded-lg text-center text-lg font-bold"
+                        style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+                      />
+                      <button
+                        onClick={() => updateDropset(index, 'weight', drop.weight + 2.5)}
+                        className="w-10 h-10 rounded-lg flex items-center justify-center"
+                        style={{ backgroundColor: COLORS.surfaceLight }}
+                      >
+                        <Plus size={16} color={COLORS.text} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Drop Reps */}
+                  <div className="flex-1">
+                    <label className="text-xs mb-1 block" style={{ color: COLORS.textMuted }}>Reps</label>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => updateDropset(index, 'reps', Math.max(1, drop.reps - 1))}
+                        className="w-10 h-10 rounded-lg flex items-center justify-center"
+                        style={{ backgroundColor: COLORS.surfaceLight }}
+                      >
+                        <Minus size={16} color={COLORS.text} />
+                      </button>
+                      <input
+                        type="number"
+                        value={drop.reps || ''}
+                        onChange={(e) => updateDropset(index, 'reps', parseInt(e.target.value) || 0)}
+                        className="flex-1 p-2 rounded-lg text-center text-lg font-bold"
+                        style={{ backgroundColor: COLORS.surfaceLight, color: COLORS.text, border: 'none' }}
+                      />
+                      <button
+                        onClick={() => updateDropset(index, 'reps', drop.reps + 1)}
+                        className="w-10 h-10 rounded-lg flex items-center justify-center"
+                        style={{ backgroundColor: COLORS.surfaceLight }}
+                      >
+                        <Plus size={16} color={COLORS.text} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            <button
+              onClick={addDropset}
+              className="w-full p-3 rounded-xl flex items-center justify-center gap-2"
+              style={{ backgroundColor: COLORS.error + '20', border: `1px dashed ${COLORS.error}` }}
+            >
+              <Plus size={18} color={COLORS.error} />
+              <span className="text-sm font-semibold" style={{ color: COLORS.error }}>Add Another Drop</span>
+            </button>
+          </div>
+        )}
+
+        {/* RPE Selector */}
+        <div className="mb-4">
+          <label className="text-xs mb-2 block" style={{ color: COLORS.textMuted }}>RPE (Rate of Perceived Exertion)</label>
+          <div className="flex gap-1">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(r => (
+              <button
+                key={r}
+                onClick={() => setRpe(r)}
+                className="flex-1 py-2 rounded-lg text-xs font-semibold"
+                style={{
+                  backgroundColor: rpe === r ? COLORS.accent : COLORS.surfaceLight,
+                  color: rpe === r ? COLORS.text : COLORS.textMuted
+                }}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Action Buttons */}
@@ -10233,7 +10493,20 @@ function AddSetModal({ COLORS, exercise, setNumber, initialData, isEdit = false,
             </button>
           )}
           <button
-            onClick={() => onSave({ weight, reps, rpe, setType })}
+            onClick={() => onSave({
+              weight,
+              reps,
+              rpe,
+              setType: setType || null,
+              // Superset data
+              ...(setType === 'superset' && supersetExercise ? {
+                supersetExercise,
+                supersetWeight,
+                supersetReps,
+              } : {}),
+              // Dropset data
+              ...(setType === 'dropset' ? { dropsets } : {}),
+            })}
             className="flex-1 py-4 rounded-xl font-semibold flex items-center justify-center gap-2"
             style={{ backgroundColor: COLORS.success, color: COLORS.text }}
           >
