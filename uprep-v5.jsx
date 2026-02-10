@@ -17723,12 +17723,15 @@ const NutritionTab = ({
                                 />
                               </svg>
                               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                {caloriesComplete ? (
-                                  <Check size={20} color={COLORS.success} strokeWidth={3} />
-                                ) : (
-                                  <Flame size={16} color={COLORS.accent} />
+                                {!caloriesComplete && (
+                                  <Flame size={16} color={COLORS.accent} className="mb-1" />
                                 )}
-                                <span className="text-lg font-bold" style={{ color: caloriesComplete ? COLORS.success : COLORS.text }}>{currentCalories}</span>
+                                <div className="flex items-center gap-1">
+                                  {caloriesComplete && (
+                                    <Check size={14} color={COLORS.success} strokeWidth={3} />
+                                  )}
+                                  <span className="text-lg font-bold" style={{ color: caloriesComplete ? COLORS.success : COLORS.text }}>{currentCalories}</span>
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -17777,12 +17780,15 @@ const NutritionTab = ({
                                 />
                               </svg>
                               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                {waterComplete ? (
-                                  <Check size={20} color={COLORS.success} strokeWidth={3} />
-                                ) : (
-                                  <Droplets size={16} color={COLORS.water} />
+                                {!waterComplete && (
+                                  <Droplets size={16} color={COLORS.water} className="mb-1" />
                                 )}
-                                <span className="text-lg font-bold" style={{ color: waterComplete ? COLORS.success : COLORS.text }}>{(currentWater / 1000).toFixed(1)}L</span>
+                                <div className="flex items-center gap-1">
+                                  {waterComplete && (
+                                    <Check size={14} color={COLORS.success} strokeWidth={3} />
+                                  )}
+                                  <span className="text-lg font-bold" style={{ color: waterComplete ? COLORS.success : COLORS.text }}>{(currentWater / 1000).toFixed(1)}L</span>
+                                </div>
                               </div>
                             </div>
                           </div>
