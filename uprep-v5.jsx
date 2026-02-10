@@ -9417,6 +9417,7 @@ function NewWorkoutScreen({
   const [showAddExercise, setShowAddExercise] = useState(false);
   const [showAddSet, setShowAddSet] = useState(null); // exercise id to add set to
   const [showEditSet, setShowEditSet] = useState(null); // { exerciseId, setId }
+  const modalOpenTimeRef = useRef(0); // Track when modal was opened
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [showExerciseInfo, setShowExerciseInfo] = useState(null);
   const [showSummary, setShowSummary] = useState(false);
@@ -9773,6 +9774,7 @@ function NewWorkoutScreen({
             e.stopPropagation();
             if (addExerciseClickedRef.current) return;
             addExerciseClickedRef.current = true;
+            modalOpenTimeRef.current = Date.now();
             setShowAddExercise(true);
             setTimeout(() => { addExerciseClickedRef.current = false; }, 3000);
           }}
@@ -9782,6 +9784,7 @@ function NewWorkoutScreen({
             // Only for non-touch devices (mouse)
             if (addExerciseClickedRef.current) return;
             addExerciseClickedRef.current = true;
+            modalOpenTimeRef.current = Date.now();
             setShowAddExercise(true);
             setTimeout(() => { addExerciseClickedRef.current = false; }, 3000);
           }}
@@ -9984,7 +9987,13 @@ function NewWorkoutScreen({
       {showAddExercise && (
         <ExerciseSearchModal
           COLORS={COLORS}
-          onClose={() => setShowAddExercise(false)}
+          onClose={() => {
+            // Only allow close if modal has been open for at least 2 seconds
+            const timeSinceOpen = Date.now() - modalOpenTimeRef.current;
+            if (timeSinceOpen > 2000) {
+              setShowAddExercise(false);
+            }
+          }}
           onSelect={addExercise}
           excludeExercises={exercises.map(ex => ex.name)}
           userGoal={userGoal}
