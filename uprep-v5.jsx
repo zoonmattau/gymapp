@@ -10143,10 +10143,12 @@ function AddSetModal({ COLORS, exercise, setNumber, initialData, isEdit = false,
       <div
         className="fixed inset-0 z-50 flex items-end justify-center"
         style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+        onClick={(e) => e.target === e.currentTarget && setShowExercisePicker(false)}
       >
         <div
           className="w-full max-w-md rounded-t-3xl p-6 max-h-[80vh] flex flex-col"
           style={{ backgroundColor: COLORS.surface }}
+          onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-bold" style={{ color: COLORS.text }}>Select Superset Exercise</h3>
@@ -10166,13 +10168,16 @@ function AddSetModal({ COLORS, exercise, setNumber, initialData, isEdit = false,
             {filteredExercises.map(ex => (
               <button
                 key={ex.name}
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
                   setSupersetExercise({ name: ex.name, muscleGroup: ex.muscleGroup });
                   setShowExercisePicker(false);
                   setExerciseSearch('');
                 }}
-                className="w-full p-3 rounded-xl text-left"
-                style={{ backgroundColor: COLORS.surfaceLight }}
+                onTouchEnd={(e) => e.stopPropagation()}
+                className="w-full p-3 rounded-xl text-left select-none"
+                style={{ backgroundColor: COLORS.surfaceLight, WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
               >
                 <p className="font-semibold" style={{ color: COLORS.text }}>{ex.name}</p>
                 <p className="text-xs" style={{ color: COLORS.textMuted }}>{ex.muscleGroup}</p>
@@ -10193,6 +10198,7 @@ function AddSetModal({ COLORS, exercise, setNumber, initialData, isEdit = false,
       <div
         className="w-full max-w-md rounded-t-3xl p-6 max-h-[90vh] overflow-auto"
         style={{ backgroundColor: COLORS.surface }}
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
           <div>
