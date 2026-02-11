@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
-  Modal,
 } from 'react-native';
 import {
   ArrowLeft,
@@ -19,10 +18,9 @@ import {
   Dumbbell,
   ChevronDown,
   ChevronUp,
-  Play,
-  Pause,
 } from 'lucide-react-native';
 import { COLORS } from '../constants/colors';
+import ExerciseSearchModal from '../components/ExerciseSearchModal';
 
 const ActiveWorkoutScreen = ({ route, navigation }) => {
   const { workout, workoutName: initialName } = route?.params || {};
@@ -34,6 +32,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
   const [isTimerRunning, setIsTimerRunning] = useState(true);
   const [restTimer, setRestTimer] = useState(0);
   const [isResting, setIsResting] = useState(false);
+  const [showExerciseModal, setShowExerciseModal] = useState(false);
   const timerRef = useRef(null);
   const restTimerRef = useRef(null);
 
@@ -87,10 +86,10 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const addExercise = () => {
+  const addExercise = (exerciseName) => {
     const newExercise = {
       id: Date.now(),
-      name: 'New Exercise',
+      name: exerciseName,
       sets: [{ id: 1, weight: '', reps: '', completed: false }],
     };
     setExercises([...exercises, newExercise]);
@@ -327,13 +326,21 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
         ))}
 
         {/* Add Exercise Button */}
-        <TouchableOpacity style={styles.addExerciseButton} onPress={addExercise}>
+        <TouchableOpacity style={styles.addExerciseButton} onPress={() => setShowExerciseModal(true)}>
           <Plus size={20} color={COLORS.primary} />
           <Text style={styles.addExerciseText}>Add Exercise</Text>
         </TouchableOpacity>
 
         <View style={{ height: 100 }} />
       </ScrollView>
+
+      {/* Exercise Search Modal */}
+      <ExerciseSearchModal
+        visible={showExerciseModal}
+        onClose={() => setShowExerciseModal(false)}
+        onSelect={addExercise}
+        excludeExercises={exercises.map(ex => ex.name)}
+      />
     </SafeAreaView>
   );
 };
