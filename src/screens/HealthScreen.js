@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,21 +6,124 @@ import {
   SafeAreaView,
   ScrollView,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
-import { Flame, Droplets, Utensils, Check } from 'lucide-react-native';
+import { Flame, Droplets, Utensils, Check, Trash2, Scale } from 'lucide-react-native';
 import { COLORS } from '../constants/colors';
+import { useAuth } from '../contexts/AuthContext';
+import { nutritionService } from '../services/nutritionService';
+import AddMealModal from '../components/AddMealModal';
+import WaterEntryModal from '../components/WaterEntryModal';
 
 const HealthScreen = () => {
-  const [caloriesIntake, setCaloriesIntake] = useState(1850);
-  const [waterIntake, setWaterIntake] = useState(2500);
-  const [proteinIntake, setProteinIntake] = useState(120);
-  const [carbsIntake, setCarbsIntake] = useState(200);
+  const { user } = useAuth();
 
+  // Nutrition state
+  const [caloriesIntake, setCaloriesIntake] = useState(0);
+  const [proteinIntake, setProteinIntake] = useState(0);
+  const [carbsIntake, setCarbsIntake] = useState(0);
+  const [fatsIntake, setFatsIntake] = useState(0);
+  const [waterIntake, setWaterIntake] = useState(0);
+  const [meals, setMeals] = useState([]);
+
+  // Modals
+  const [showAddMeal, setShowAddMeal] = useState(false);
+  const [showWaterEntry, setShowWaterEntry] = useState(false);
+
+  // Goals
   const nutritionGoals = {
     calories: 2200,
-    water: 3000,
     protein: 150,
     carbs: 280,
+    fats: 70,
+    water: 3000,
+  };
+
+  useEffect(() => {
+    if (user?.id) {
+      loadTodayNutrition();
+    }
+  }, [user]);
+
+  const loadTodayNutrition = async () => {
+    try {
+      const { data } = await nutritionService.getTodaySummary(user.id);
+      if (data) {
+        setCaloriesIntake(data.calories || 0);
+        setProteinIntake(data.protein || 0);
+        setCarbsIntake(data.carbs || 0);
+        setFatsIntake(data.fats || 0);
+        setWaterIntake(data.water || 0);
+      }
+
+      const { data: mealsData } = await nutritionService.getTodayMeals(user.id);
+      if (mealsData) {
+        setMeals(mealsData);
+      }
+    } catch (error) {
+      console.log('Error loading nutrition:', error);
+    }
+  };
+
+  const handleAddMeal = async (meal) => {
+    // Optimistic update
+    setCaloriesIntake(prev => prev + meal.calories);
+    setProteinIntake(prev => prev + meal.protein);
+    setCarbsIntake(prev => prev + meal.carbs);
+    setFatsIntake(prev => prev + meal.fats);
+
+    const newMeal = {
+      id: Date.now().toString(),
+      ...meal,
+      logged_at: new Date().toISOString(),
+    };
+    setMeals(prev => [...prev, newMeal]);
+
+    // Save to database
+    if (user?.id) {
+      try {
+        await nutritionService.logMeal(user.id, meal);
+      } catch (error) {
+        console.log('Error saving meal:', error);
+      }
+    }
+  };
+
+  const handleDeleteMeal = (meal) => {
+    Alert.alert('Delete Meal', `Remove ${meal.name}?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          setCaloriesIntake(prev => prev - meal.calories);
+          setProteinIntake(prev => prev - meal.protein);
+          setCarbsIntake(prev => prev - meal.carbs);
+          setFatsIntake(prev => prev - meal.fats);
+          setMeals(prev => prev.filter(m => m.id !== meal.id));
+
+          if (user?.id && meal.id) {
+            await nutritionService.deleteMeal(meal.id, user.id);
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleAddWater = async (amount) => {
+    setWaterIntake(prev => Math.min(prev + amount, 10000));
+
+    if (user?.id) {
+      try {
+        await nutritionService.logWater(user.id, amount);
+      } catch (error) {
+        console.log('Error saving water:', error);
+      }
+    }
+  };
+
+  const quickAddWater = (amount) => {
+    handleAddWater(amount);
   };
 
   const caloriesComplete = caloriesIntake >= nutritionGoals.calories;
@@ -34,12 +137,6 @@ const HealthScreen = () => {
     { label: '1L', amount: 1000 },
     { label: '+', amount: null },
   ];
-
-  const addWater = (amount) => {
-    if (amount) {
-      setWaterIntake(prev => Math.min(prev + amount, 10000));
-    }
-  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -112,18 +209,31 @@ const HealthScreen = () => {
               </View>
               <Text style={styles.quickAddTitle}>Add Meal</Text>
             </View>
-            <TouchableOpacity style={[styles.logButton, { backgroundColor: COLORS.accent + '20', borderColor: COLORS.accent + '40' }]}>
+            <TouchableOpacity
+              style={[styles.logButton, { backgroundColor: COLORS.accent + '20', borderColor: COLORS.accent + '40' }]}
+              onPress={() => setShowAddMeal(true)}
+            >
               <Text style={[styles.logButtonText, { color: COLORS.accent }]}>Log Meal</Text>
             </TouchableOpacity>
             {/* Macro rings */}
             <View style={styles.macroRow}>
               <View style={styles.macroItem}>
                 <Text style={styles.macroLabel}>Protein</Text>
-                <Text style={styles.macroValue}>{Math.round((proteinIntake / nutritionGoals.protein) * 100)}%</Text>
+                <Text style={[styles.macroValue, { color: COLORS.primary }]}>
+                  {Math.round((proteinIntake / nutritionGoals.protein) * 100)}%
+                </Text>
               </View>
               <View style={styles.macroItem}>
                 <Text style={styles.macroLabel}>Carbs</Text>
-                <Text style={styles.macroValue}>{Math.round((carbsIntake / nutritionGoals.carbs) * 100)}%</Text>
+                <Text style={[styles.macroValue, { color: COLORS.warning }]}>
+                  {Math.round((carbsIntake / nutritionGoals.carbs) * 100)}%
+                </Text>
+              </View>
+              <View style={styles.macroItem}>
+                <Text style={styles.macroLabel}>Fats</Text>
+                <Text style={[styles.macroValue, { color: COLORS.fats }]}>
+                  {Math.round((fatsIntake / nutritionGoals.fats) * 100)}%
+                </Text>
               </View>
             </View>
           </View>
@@ -144,7 +254,7 @@ const HealthScreen = () => {
                     styles.waterButton,
                     { backgroundColor: opt.amount ? COLORS.water + '15' : COLORS.surfaceLight }
                   ]}
-                  onPress={() => addWater(opt.amount)}
+                  onPress={() => opt.amount ? quickAddWater(opt.amount) : setShowWaterEntry(true)}
                 >
                   <Text style={[styles.waterButtonText, { color: opt.amount ? COLORS.water : COLORS.textMuted }]}>
                     {opt.label}
@@ -155,7 +265,48 @@ const HealthScreen = () => {
           </View>
         </View>
 
+        {/* Recent Meals */}
+        {meals.length > 0 && (
+          <View style={styles.mealsSection}>
+            <Text style={styles.sectionLabel}>TODAY'S MEALS</Text>
+            {meals.slice().reverse().map((meal) => (
+              <View key={meal.id} style={styles.mealCard}>
+                <View style={styles.mealIcon}>
+                  <Utensils size={16} color={COLORS.accent} />
+                </View>
+                <View style={styles.mealInfo}>
+                  <Text style={styles.mealName}>{meal.name}</Text>
+                  <Text style={styles.mealMacros}>
+                    P: {meal.protein}g • C: {meal.carbs}g • F: {meal.fats}g
+                  </Text>
+                </View>
+                <Text style={styles.mealCalories}>{meal.calories} cal</Text>
+                <TouchableOpacity
+                  style={styles.deleteMealBtn}
+                  onPress={() => handleDeleteMeal(meal)}
+                >
+                  <Trash2 size={16} color={COLORS.error} />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        )}
+
+        <View style={{ height: 100 }} />
       </ScrollView>
+
+      {/* Modals */}
+      <AddMealModal
+        visible={showAddMeal}
+        onClose={() => setShowAddMeal(false)}
+        onAdd={handleAddMeal}
+      />
+      <WaterEntryModal
+        visible={showWaterEntry}
+        onClose={() => setShowWaterEntry(false)}
+        onAdd={handleAddWater}
+        currentIntake={waterIntake}
+      />
     </SafeAreaView>
   );
 };
@@ -182,6 +333,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     marginBottom: 12,
+    marginTop: 8,
     letterSpacing: 0.5,
   },
   circlesRow: {
@@ -270,14 +422,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   macroLabel: {
-    color: COLORS.text,
-    fontSize: 11,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  macroValue: {
     color: COLORS.textMuted,
     fontSize: 10,
+    marginBottom: 2,
+  },
+  macroValue: {
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   waterGrid: {
     flexDirection: 'row',
@@ -293,6 +444,48 @@ const styles = StyleSheet.create({
   waterButtonText: {
     fontSize: 11,
     fontWeight: 'bold',
+  },
+  mealsSection: {
+    marginTop: 20,
+  },
+  mealCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+  },
+  mealIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: COLORS.accent + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  mealInfo: {
+    flex: 1,
+  },
+  mealName: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  mealMacros: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  mealCalories: {
+    color: COLORS.accent,
+    fontSize: 14,
+    fontWeight: '600',
+    marginRight: 8,
+  },
+  deleteMealBtn: {
+    padding: 6,
   },
 });
 
