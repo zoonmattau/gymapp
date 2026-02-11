@@ -1,0 +1,76 @@
+import React from 'react';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { View } from 'react-native';
+import { Home, Dumbbell, Apple, Users, TrendingUp } from 'lucide-react-native';
+import { COLORS } from '../constants/colors';
+
+// Screens
+import HomeScreen from '../screens/HomeScreen';
+import WorkoutsScreen from '../screens/WorkoutsScreen';
+import HealthScreen from '../screens/HealthScreen';
+import CommunityScreen from '../screens/CommunityScreen';
+import ProgressScreen from '../screens/ProgressScreen';
+
+const Tab = createBottomTabNavigator();
+
+const TabNavigator = () => {
+  return (
+    <Tab.Navigator
+      screenOptions={{
+        headerShown: false,
+        tabBarStyle: {
+          backgroundColor: COLORS.surface,
+          borderTopColor: COLORS.border,
+          borderTopWidth: 1,
+          height: 60,
+          paddingBottom: 8,
+          paddingTop: 8,
+        },
+        tabBarActiveTintColor: COLORS.primary,
+        tabBarInactiveTintColor: COLORS.textMuted,
+        tabBarLabelStyle: {
+          fontSize: 10,
+          fontWeight: '600',
+        },
+      }}
+    >
+      <Tab.Screen
+        name="Home"
+        component={HomeScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
+        }}
+      />
+      <Tab.Screen
+        name="Workouts"
+        component={WorkoutsScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => <Dumbbell size={size} color={color} />,
+        }}
+      />
+      <Tab.Screen
+        name="Health"
+        component={HealthScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => <Apple size={size} color={color} />,
+        }}
+      />
+      <Tab.Screen
+        name="Community"
+        component={CommunityScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => <Users size={size} color={color} />,
+        }}
+      />
+      <Tab.Screen
+        name="Progress"
+        component={ProgressScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => <TrendingUp size={size} color={color} />,
+        }}
+      />
+    </Tab.Navigator>
+  );
+};
+
+export default TabNavigator;
