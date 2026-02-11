@@ -11,6 +11,7 @@ import RegisterScreen from '../screens/RegisterScreen';
 // Main App
 import TabNavigator from './TabNavigator';
 import ActiveWorkoutScreen from '../screens/ActiveWorkoutScreen';
+import WorkoutSummaryScreen from '../screens/WorkoutSummaryScreen';
 
 const Stack = createStackNavigator();
 
@@ -27,6 +28,11 @@ const MainStack = () => (
     <Stack.Screen
       name="ActiveWorkout"
       component={ActiveWorkoutScreen}
+      options={{ gestureEnabled: false }}
+    />
+    <Stack.Screen
+      name="WorkoutSummary"
+      component={WorkoutSummaryScreen}
       options={{ gestureEnabled: false }}
     />
   </Stack.Navigator>

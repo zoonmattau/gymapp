@@ -21,11 +21,15 @@ import {
 } from 'lucide-react-native';
 import { COLORS } from '../constants/colors';
 import ExerciseSearchModal from '../components/ExerciseSearchModal';
+import { useAuth } from '../contexts/AuthContext';
+import { workoutService } from '../services/workoutService';
 
 const ActiveWorkoutScreen = ({ route, navigation }) => {
+  const { user } = useAuth();
   const { workout, workoutName: initialName } = route?.params || {};
 
   const [workoutName, setWorkoutName] = useState(initialName || 'Workout');
+  const [sessionId, setSessionId] = useState(null);
   const [exercises, setExercises] = useState([]);
   const [expandedExercise, setExpandedExercise] = useState(null);
   const [workoutTime, setWorkoutTime] = useState(0);
@@ -164,12 +168,22 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
     );
   };
 
-  const finishWorkout = () => {
+  const finishWorkout = async () => {
     const completedSets = exercises.reduce(
       (acc, ex) => acc + ex.sets.filter(s => s.completed).length,
       0
     );
     const totalSets = exercises.reduce((acc, ex) => acc + ex.sets.length, 0);
+
+    // Calculate total volume
+    let totalVolume = 0;
+    exercises.forEach(ex => {
+      ex.sets.forEach(set => {
+        if (set.completed && set.weight && set.reps) {
+          totalVolume += parseFloat(set.weight) * parseInt(set.reps);
+        }
+      });
+    });
 
     Alert.alert(
       'Finish Workout',
@@ -178,9 +192,78 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Save & Finish',
-          onPress: () => {
-            // TODO: Save to Supabase
-            navigation.goBack();
+          onPress: async () => {
+            try {
+              // Start workout session in Supabase
+              if (user?.id) {
+                const { data: session } = await workoutService.startWorkout(
+                  user.id,
+                  null, // templateId
+                  null, // scheduleId
+                  workoutName
+                );
+
+                if (session) {
+                  // Log all completed sets
+                  for (const exercise of exercises) {
+                    for (const set of exercise.sets) {
+                      if (set.completed && set.weight && set.reps) {
+                        await workoutService.logSet(session.id, null, exercise.name, {
+                          setNumber: set.id,
+                          weight: parseFloat(set.weight),
+                          reps: parseInt(set.reps),
+                        });
+
+                        // Check for PR
+                        await workoutService.checkAndCreatePR(
+                          user.id,
+                          null,
+                          exercise.name,
+                          parseFloat(set.weight),
+                          parseInt(set.reps),
+                          session.id
+                        );
+                      }
+                    }
+                  }
+
+                  // Complete the workout session
+                  await workoutService.completeWorkout(session.id, {
+                    durationMinutes: Math.floor(workoutTime / 60),
+                    totalVolume,
+                    workingTime: workoutTime,
+                    restTime: 0,
+                  });
+                }
+              }
+
+              // Navigate to summary screen
+              navigation.replace('WorkoutSummary', {
+                summary: {
+                  workoutName,
+                  duration: workoutTime,
+                  totalSets,
+                  completedSets,
+                  exercises,
+                  totalVolume,
+                  newPRs: [], // Would need to track PRs during workout
+                },
+              });
+            } catch (error) {
+              console.log('Error saving workout:', error);
+              // Still navigate to summary even if save fails
+              navigation.replace('WorkoutSummary', {
+                summary: {
+                  workoutName,
+                  duration: workoutTime,
+                  totalSets,
+                  completedSets,
+                  exercises,
+                  totalVolume,
+                  newPRs: [],
+                },
+              });
+            }
           },
         },
       ]
