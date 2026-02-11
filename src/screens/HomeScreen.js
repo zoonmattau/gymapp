@@ -7,12 +7,16 @@ import {
   StyleSheet,
   SafeAreaView,
 } from 'react-native';
-import { Bell, Play, Flame, Droplets, Check } from 'lucide-react-native';
+import { useNavigation } from '@react-navigation/native';
+import { Bell, Play, Flame, Droplets, Check, LogOut } from 'lucide-react-native';
 import { COLORS } from '../constants/colors';
 import { supabase } from '../lib/supabase';
+import { profileService } from '../services/profileService';
 
 const HomeScreen = () => {
+  const navigation = useNavigation();
   const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
   // Quick stats data
@@ -34,11 +38,39 @@ const HomeScreen = () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
+
+      if (user) {
+        // Load profile
+        const { data: profileData } = await profileService.getProfile(user.id);
+        if (profileData) {
+          setProfile(profileData);
+        }
+      }
     } catch (error) {
       console.log('Error checking user:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
+
+  const startWorkout = () => {
+    navigation.navigate('ActiveWorkout', {
+      workoutName: 'Push Day A',
+      workout: {
+        name: 'Push Day A',
+        exercises: [
+          { name: 'Bench Press', sets: 4 },
+          { name: 'Incline Dumbbell Press', sets: 3 },
+          { name: 'Shoulder Press', sets: 3 },
+          { name: 'Lateral Raises', sets: 3 },
+          { name: 'Tricep Pushdowns', sets: 3 },
+        ],
+      },
+    });
   };
 
   const getGreeting = () => {
@@ -118,16 +150,23 @@ const HomeScreen = () => {
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <TouchableOpacity style={styles.avatar}>
-              <Text style={styles.avatarText}>U</Text>
+              <Text style={styles.avatarText}>
+                {profile?.username?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'}
+              </Text>
             </TouchableOpacity>
             <View>
               <Text style={styles.greeting}>{getGreeting()}</Text>
-              <Text style={styles.username}>@username</Text>
+              <Text style={styles.username}>@{profile?.username || 'user'}</Text>
             </View>
           </View>
-          <TouchableOpacity style={styles.notificationBtn}>
-            <Bell size={20} color={COLORS.textMuted} />
-          </TouchableOpacity>
+          <View style={styles.headerRight}>
+            <TouchableOpacity style={styles.notificationBtn}>
+              <Bell size={20} color={COLORS.textMuted} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+              <LogOut size={20} color={COLORS.error} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Today's Workout Card */}
@@ -141,7 +180,7 @@ const HomeScreen = () => {
               <Text style={styles.workoutName}>Push Day A</Text>
               <Text style={styles.workoutFocus}>Chest, Shoulders, Triceps</Text>
             </View>
-            <TouchableOpacity style={styles.startButton}>
+            <TouchableOpacity style={styles.startButton} onPress={startWorkout}>
               <Play size={18} color={COLORS.text} />
               <Text style={styles.startButtonText}>Start Workout</Text>
             </TouchableOpacity>
@@ -218,7 +257,16 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
+  headerRight: {
+    flexDirection: 'row',
+    gap: 8,
+  },
   notificationBtn: {
+    padding: 8,
+    backgroundColor: COLORS.surface,
+    borderRadius: 8,
+  },
+  logoutBtn: {
     padding: 8,
     backgroundColor: COLORS.surface,
     borderRadius: 8,
