@@ -23,7 +23,11 @@
       "edgeToEdgeEnabled": true
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "name": "UpRep",
+      "shortName": "UpRep",
+      "backgroundColor": "#0F0F1A",
+      "themeColor": "#0F0F1A"
     }
   }
 }

@@ -17,7 +17,14 @@ const Tab = createBottomTabNavigator();
 
 const TabNavigator = () => {
   const insets = useSafeAreaInsets();
-  const bottomPadding = Math.max(insets.bottom, 8);
+
+  // Detect iOS Safari for proper safe area handling
+  const isIOSWeb = Platform.OS === 'web' &&
+    typeof navigator !== 'undefined' &&
+    /iPhone|iPad|iPod/.test(navigator.userAgent);
+
+  // Use larger padding for iOS web devices (home indicator area)
+  const bottomPadding = isIOSWeb ? 34 : Math.max(insets.bottom, 8);
 
   return (
     <Tab.Navigator
