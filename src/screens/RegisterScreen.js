@@ -10,9 +10,8 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
-  ScrollView,
 } from 'react-native';
-import { Mail, Lock, Eye, EyeOff, User, ArrowLeft } from 'lucide-react-native';
+import { Mail, Lock, Eye, EyeOff, ArrowLeft } from 'lucide-react-native';
 import { COLORS } from '../constants/colors';
 import { supabase } from '../lib/supabase';
 
@@ -20,23 +19,37 @@ const RegisterScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [username, setUsername] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState({});
+
+  const validateForm = () => {
+    const newErrors = {};
+
+    if (!email.trim()) {
+      newErrors.email = 'Email is required';
+    } else if (!/\S+@\S+\.\S+/.test(email)) {
+      newErrors.email = 'Please enter a valid email';
+    }
+
+    if (!password) {
+      newErrors.password = 'Password is required';
+    } else if (password.length < 6) {
+      newErrors.password = 'Password must be at least 6 characters';
+    }
+
+    if (!confirmPassword) {
+      newErrors.confirmPassword = 'Please confirm your password';
+    } else if (password !== confirmPassword) {
+      newErrors.confirmPassword = 'Passwords do not match';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleRegister = async () => {
-    if (!email || !password || !username) {
-      Alert.alert('Error', 'Please fill in all fields');
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
-      return;
-    }
-
-    if (password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters');
+    if (!validateForm()) {
       return;
     }
 
@@ -46,25 +59,24 @@ const RegisterScreen = ({ navigation }) => {
       const { data, error } = await supabase.auth.signUp({
         email: email.trim().toLowerCase(),
         password,
-        options: {
-          data: {
-            username: username.trim(),
-          },
-        },
       });
 
       if (error) {
-        Alert.alert('Registration Failed', error.message);
+        if (Platform.OS === 'web') {
+          window.alert('Registration Failed: ' + error.message);
+        } else {
+          Alert.alert('Registration Failed', error.message);
+        }
+        setLoading(false);
         return;
       }
 
-      // Create profile in profiles table
+      // Create minimal profile in profiles table
       if (data.user) {
         const { error: profileError } = await supabase
           .from('profiles')
           .insert({
             id: data.user.id,
-            username: username.trim(),
             email: email.trim().toLowerCase(),
           });
 
@@ -73,14 +85,17 @@ const RegisterScreen = ({ navigation }) => {
         }
       }
 
-      Alert.alert(
-        'Success',
-        'Account created! Please check your email to verify your account.',
-        [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
-      );
+      // Auth state listener will handle navigation to onboarding
+      // User will complete their profile during onboarding
+      console.log('Registration successful, auth state will redirect to onboarding');
+
     } catch (error) {
-      Alert.alert('Error', 'Something went wrong. Please try again.');
-    } finally {
+      console.log('Registration error:', error);
+      if (Platform.OS === 'web') {
+        window.alert('Something went wrong. Please try again.');
+      } else {
+        Alert.alert('Error', 'Something went wrong. Please try again.');
+      }
       setLoading(false);
     }
   };
@@ -91,10 +106,7 @@ const RegisterScreen = ({ navigation }) => {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
+        <View style={styles.content}>
           {/* Back Button */}
           <TouchableOpacity
             style={styles.backButton}
@@ -107,75 +119,74 @@ const RegisterScreen = ({ navigation }) => {
           <View style={styles.header}>
             <Text style={styles.logo}>UpRep</Text>
             <Text style={styles.subtitle}>Create your account</Text>
+            <Text style={styles.description}>
+              Enter your email and password to get started.{'\n'}
+              You'll set up your profile next.
+            </Text>
           </View>
 
           {/* Form */}
           <View style={styles.form}>
-            {/* Username Input */}
-            <View style={styles.inputContainer}>
-              <User size={20} color={COLORS.textMuted} style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Username"
-                placeholderTextColor={COLORS.textMuted}
-                value={username}
-                onChangeText={setUsername}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
+            {/* Email */}
+            <View style={styles.inputWrapper}>
+              <View style={[styles.inputContainer, errors.email && styles.inputContainerError]}>
+                <Mail size={20} color={errors.email ? COLORS.error : COLORS.textMuted} style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Email"
+                  placeholderTextColor={COLORS.textMuted}
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </View>
+              {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
             </View>
 
-            {/* Email Input */}
-            <View style={styles.inputContainer}>
-              <Mail size={20} color={COLORS.textMuted} style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Email"
-                placeholderTextColor={COLORS.textMuted}
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
+            {/* Password */}
+            <View style={styles.inputWrapper}>
+              <View style={[styles.inputContainer, errors.password && styles.inputContainerError]}>
+                <Lock size={20} color={errors.password ? COLORS.error : COLORS.textMuted} style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Password"
+                  placeholderTextColor={COLORS.textMuted}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                />
+                <TouchableOpacity
+                  onPress={() => setShowPassword(!showPassword)}
+                  style={styles.eyeIcon}
+                >
+                  {showPassword ? (
+                    <EyeOff size={20} color={COLORS.textMuted} />
+                  ) : (
+                    <Eye size={20} color={COLORS.textMuted} />
+                  )}
+                </TouchableOpacity>
+              </View>
+              {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
             </View>
 
-            {/* Password Input */}
-            <View style={styles.inputContainer}>
-              <Lock size={20} color={COLORS.textMuted} style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Password"
-                placeholderTextColor={COLORS.textMuted}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-              />
-              <TouchableOpacity
-                onPress={() => setShowPassword(!showPassword)}
-                style={styles.eyeIcon}
-              >
-                {showPassword ? (
-                  <EyeOff size={20} color={COLORS.textMuted} />
-                ) : (
-                  <Eye size={20} color={COLORS.textMuted} />
-                )}
-              </TouchableOpacity>
-            </View>
-
-            {/* Confirm Password Input */}
-            <View style={styles.inputContainer}>
-              <Lock size={20} color={COLORS.textMuted} style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Confirm Password"
-                placeholderTextColor={COLORS.textMuted}
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-              />
+            {/* Confirm Password */}
+            <View style={styles.inputWrapper}>
+              <View style={[styles.inputContainer, errors.confirmPassword && styles.inputContainerError]}>
+                <Lock size={20} color={errors.confirmPassword ? COLORS.error : COLORS.textMuted} style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Confirm Password"
+                  placeholderTextColor={COLORS.textMuted}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                />
+              </View>
+              {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
             </View>
 
             {/* Register Button */}
@@ -187,9 +198,16 @@ const RegisterScreen = ({ navigation }) => {
               {loading ? (
                 <ActivityIndicator color={COLORS.text} />
               ) : (
-                <Text style={styles.registerButtonText}>Create Account</Text>
+                <Text style={styles.registerButtonText}>Continue</Text>
               )}
             </TouchableOpacity>
+
+            {/* Terms */}
+            <Text style={styles.termsText}>
+              By creating an account, you agree to our{' '}
+              <Text style={styles.termsLink}>Terms of Service</Text> and{' '}
+              <Text style={styles.termsLink}>Privacy Policy</Text>
+            </Text>
           </View>
 
           {/* Login Link */}
@@ -199,7 +217,7 @@ const RegisterScreen = ({ navigation }) => {
               <Text style={styles.loginLink}>Sign In</Text>
             </TouchableOpacity>
           </View>
-        </ScrollView>
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -213,22 +231,19 @@ const styles = StyleSheet.create({
   keyboardView: {
     flex: 1,
   },
-  scrollContent: {
-    flexGrow: 1,
+  content: {
+    flex: 1,
     paddingHorizontal: 24,
     paddingVertical: 16,
-    justifyContent: 'center',
   },
   backButton: {
-    position: 'absolute',
-    top: 16,
-    left: 0,
     padding: 8,
+    marginBottom: 16,
+    alignSelf: 'flex-start',
   },
   header: {
     alignItems: 'center',
     marginBottom: 40,
-    marginTop: 40,
   },
   logo: {
     fontSize: 42,
@@ -237,11 +252,22 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 20,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: 8,
+  },
+  description: {
+    fontSize: 14,
     color: COLORS.textMuted,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   form: {
     gap: 16,
+  },
+  inputWrapper: {
+    marginBottom: 4,
   },
   inputContainer: {
     flexDirection: 'row',
@@ -250,6 +276,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 56,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  inputContainerError: {
+    borderColor: COLORS.error,
   },
   inputIcon: {
     marginRight: 12,
@@ -261,6 +292,12 @@ const styles = StyleSheet.create({
   },
   eyeIcon: {
     padding: 4,
+  },
+  errorText: {
+    color: COLORS.error,
+    fontSize: 12,
+    marginTop: 4,
+    marginLeft: 4,
   },
   registerButton: {
     backgroundColor: COLORS.primary,
@@ -277,6 +314,16 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontSize: 18,
     fontWeight: '600',
+  },
+  termsText: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 8,
+    lineHeight: 18,
+  },
+  termsLink: {
+    color: COLORS.primary,
   },
   loginContainer: {
     flexDirection: 'row',

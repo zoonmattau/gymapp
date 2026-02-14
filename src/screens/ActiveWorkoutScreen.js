@@ -8,7 +8,9 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
+  Platform,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   ArrowLeft,
   Plus,
@@ -21,28 +23,56 @@ import {
 } from 'lucide-react-native';
 import { COLORS } from '../constants/colors';
 import ExerciseSearchModal from '../components/ExerciseSearchModal';
+import LogSetModal from '../components/LogSetModal';
 import { useAuth } from '../contexts/AuthContext';
 import { workoutService } from '../services/workoutService';
+import { setPausedWorkout } from '../utils/workoutStore';
 
 const ActiveWorkoutScreen = ({ route, navigation }) => {
   const { user } = useAuth();
-  const { workout, workoutName: initialName } = route?.params || {};
+  const {
+    workout,
+    workoutName: initialName,
+    sessionId: initialSessionId,
+    resumedExercises,
+    resumedTime,
+  } = route?.params || {};
 
   const [workoutName, setWorkoutName] = useState(initialName || 'Workout');
-  const [sessionId, setSessionId] = useState(null);
-  const [exercises, setExercises] = useState([]);
-  const [expandedExercise, setExpandedExercise] = useState(null);
-  const [workoutTime, setWorkoutTime] = useState(0);
+  const [sessionId, setSessionId] = useState(initialSessionId || null);
+  const [exercises, setExercises] = useState(resumedExercises || []);
+  const [expandedExercise, setExpandedExercise] = useState(resumedExercises?.length > 0 ? resumedExercises[0]?.id : null);
+  const [workoutTime, setWorkoutTime] = useState(resumedTime || 0);
   const [isTimerRunning, setIsTimerRunning] = useState(true);
   const [restTimer, setRestTimer] = useState(0);
   const [isResting, setIsResting] = useState(false);
+  const [restTimerEnabled, setRestTimerEnabled] = useState(true);
   const [showExerciseModal, setShowExerciseModal] = useState(false);
+  const [showLogSetModal, setShowLogSetModal] = useState(false);
+  const [selectedSetToLog, setSelectedSetToLog] = useState(null); // { exerciseId, exerciseName, setId, setNumber, weight, reps }
+  const [pendingSupersetExercise, setPendingSupersetExercise] = useState(null);
+  const [isReturningFromSuperset, setIsReturningFromSuperset] = useState(false);
   const timerRef = useRef(null);
   const restTimerRef = useRef(null);
 
-  // Initialize with workout exercises or empty
+  // Load rest timer setting from storage
   useEffect(() => {
-    if (workout?.exercises) {
+    const loadRestTimerSetting = async () => {
+      try {
+        const stored = await AsyncStorage.getItem('@rest_timer_enabled');
+        if (stored !== null) {
+          setRestTimerEnabled(stored === 'true');
+        }
+      } catch (error) {
+        console.log('Error loading rest timer setting:', error);
+      }
+    };
+    loadRestTimerSetting();
+  }, []);
+
+  // Initialize with workout exercises or empty (only if not resuming)
+  useEffect(() => {
+    if (!resumedExercises && workout?.exercises) {
       const initialExercises = workout.exercises.map((ex, idx) => ({
         id: idx + 1,
         name: ex.name,
@@ -56,7 +86,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
       setExercises(initialExercises);
       setExpandedExercise(1);
     }
-  }, [workout]);
+  }, [workout, resumedExercises]);
 
   // Workout timer
   useEffect(() => {
@@ -94,7 +124,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
     const newExercise = {
       id: Date.now(),
       name: exerciseName,
-      sets: [{ id: 1, weight: '', reps: '', completed: false }],
+      sets: [], // Start with no sets - user adds via modal
     };
     setExercises([...exercises, newExercise]);
     setExpandedExercise(newExercise.id);
@@ -146,9 +176,79 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
       return ex;
     }));
 
-    // Start rest timer after completing a set
-    setRestTimer(90);
-    setIsResting(true);
+    // Start rest timer after completing a set (only if enabled in profile)
+    if (restTimerEnabled) {
+      setRestTimer(90);
+      setIsResting(true);
+    }
+  };
+
+  // Open modal to add a new set
+  const openAddSetModal = (exerciseId, exerciseName) => {
+    const exercise = exercises.find(ex => ex.id === exerciseId);
+    const nextSetNumber = exercise ? exercise.sets.length + 1 : 1;
+
+    setSelectedSetToLog({
+      exerciseId,
+      exerciseName,
+      setNumber: nextSetNumber,
+      isNewSet: true,
+    });
+    setShowLogSetModal(true);
+  };
+
+  const handleLogSet = (setData) => {
+    if (!selectedSetToLog) return;
+
+    const { exerciseId, setNumber } = selectedSetToLog;
+
+    // Add a new set with the logged data
+    setExercises(exercises.map(ex => {
+      if (ex.id === exerciseId) {
+        const newSet = {
+          id: setNumber,
+          weight: setData.weight.toString(),
+          reps: setData.reps.toString(),
+          rpe: setData.rpe,
+          setType: setData.setType,
+          supersetExercise: setData.supersetExercise,
+          supersetWeight: setData.supersetWeight,
+          supersetReps: setData.supersetReps,
+          drops: setData.drops,
+          completed: true,
+        };
+        return {
+          ...ex,
+          sets: [...ex.sets, newSet],
+        };
+      }
+      return ex;
+    }));
+
+    // Start rest timer after logging a set (only if enabled in profile)
+    if (restTimerEnabled) {
+      setRestTimer(90);
+      setIsResting(true);
+    }
+    setSelectedSetToLog(null);
+  };
+
+  const handleSelectSupersetExercise = () => {
+    setShowLogSetModal(false);
+    setShowExerciseModal(true);
+  };
+
+  const handleExerciseSelect = (exerciseName) => {
+    if (selectedSetToLog) {
+      // Selecting for superset
+      setPendingSupersetExercise(exerciseName);
+      setIsReturningFromSuperset(true);
+      setShowExerciseModal(false);
+      setShowLogSetModal(true);
+    } else {
+      // Adding a new exercise
+      addExercise(exerciseName);
+    }
   };
 
   const deleteExercise = (exerciseId) => {
@@ -168,6 +268,85 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
     );
   };
 
+  const saveAndFinishWorkout = async (completedSets, totalSets, totalVolume) => {
+    try {
+      if (user?.id) {
+        // Use existing session or create a new one
+        let currentSessionId = sessionId;
+
+        if (!currentSessionId) {
+          const { data: session } = await workoutService.startWorkout(
+            user.id,
+            workout?.id || null,
+            null,
+            workoutName
+          );
+          currentSessionId = session?.id;
+        }
+
+        if (currentSessionId) {
+          // Log all completed sets
+          for (const exercise of exercises) {
+            for (const set of exercise.sets) {
+              if (set.completed && set.weight && set.reps) {
+                await workoutService.logSet(currentSessionId, null, exercise.name, {
+                  setNumber: set.id,
+                  weight: parseFloat(set.weight),
+                  reps: parseInt(set.reps),
+                });
+
+                // Check for PR
+                await workoutService.checkAndCreatePR(
+                  user.id,
+                  null,
+                  exercise.name,
+                  parseFloat(set.weight),
+                  parseInt(set.reps),
+                  currentSessionId
+                );
+              }
+            }
+          }
+
+          // Complete the workout session
+          await workoutService.completeWorkout(currentSessionId, {
+            durationMinutes: Math.floor(workoutTime / 60),
+            totalVolume,
+            workingTime: workoutTime,
+            restTime: 0,
+          });
+        }
+      }
+
+      // Navigate to summary screen
+      navigation.replace('WorkoutSummary', {
+        summary: {
+          workoutName,
+          duration: workoutTime,
+          totalSets,
+          completedSets,
+          exercises,
+          totalVolume,
+          newPRs: [], // Would need to track PRs during workout
+        },
+      });
+    } catch (error) {
+      console.log('Error saving workout:', error);
+      // Still navigate to summary even if save fails
+      navigation.replace('WorkoutSummary', {
+        summary: {
+          workoutName,
+          duration: workoutTime,
+          totalSets,
+          completedSets,
+          exercises,
+          totalVolume,
+          newPRs: [],
+        },
+      });
+    }
+  };
+
   const finishWorkout = async () => {
     const completedSets = exercises.reduce(
       (acc, ex) => acc + ex.sets.filter(s => s.completed).length,
@@ -185,111 +364,90 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
       });
     });
 
-    Alert.alert(
-      'Finish Workout',
-      `You completed ${completedSets}/${totalSets} sets in ${formatTime(workoutTime)}. Save workout?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Save & Finish',
-          onPress: async () => {
-            try {
-              // Start workout session in Supabase
-              if (user?.id) {
-                const { data: session } = await workoutService.startWorkout(
-                  user.id,
-                  null, // templateId
-                  null, // scheduleId
-                  workoutName
-                );
+    const message = `You completed ${completedSets}/${totalSets} sets in ${formatTime(workoutTime)}. Save workout?`;
 
-                if (session) {
-                  // Log all completed sets
-                  for (const exercise of exercises) {
-                    for (const set of exercise.sets) {
-                      if (set.completed && set.weight && set.reps) {
-                        await workoutService.logSet(session.id, null, exercise.name, {
-                          setNumber: set.id,
-                          weight: parseFloat(set.weight),
-                          reps: parseInt(set.reps),
-                        });
-
-                        // Check for PR
-                        await workoutService.checkAndCreatePR(
-                          user.id,
-                          null,
-                          exercise.name,
-                          parseFloat(set.weight),
-                          parseInt(set.reps),
-                          session.id
-                        );
-                      }
-                    }
-                  }
-
-                  // Complete the workout session
-                  await workoutService.completeWorkout(session.id, {
-                    durationMinutes: Math.floor(workoutTime / 60),
-                    totalVolume,
-                    workingTime: workoutTime,
-                    restTime: 0,
-                  });
-                }
-              }
-
-              // Navigate to summary screen
-              navigation.replace('WorkoutSummary', {
-                summary: {
-                  workoutName,
-                  duration: workoutTime,
-                  totalSets,
-                  completedSets,
-                  exercises,
-                  totalVolume,
-                  newPRs: [], // Would need to track PRs during workout
-                },
-              });
-            } catch (error) {
-              console.log('Error saving workout:', error);
-              // Still navigate to summary even if save fails
-              navigation.replace('WorkoutSummary', {
-                summary: {
-                  workoutName,
-                  duration: workoutTime,
-                  totalSets,
-                  completedSets,
-                  exercises,
-                  totalVolume,
-                  newPRs: [],
-                },
-              });
-            }
+    if (Platform.OS === 'web') {
+      if (window.confirm(message)) {
+        await saveAndFinishWorkout(completedSets, totalSets, totalVolume);
+      }
+    } else {
+      Alert.alert(
+        'Finish Workout',
+        message,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Save & Finish',
+            onPress: () => saveAndFinishWorkout(completedSets, totalSets, totalVolume),
           },
-        },
-      ]
-    );
+        ]
+      );
+    }
   };
 
   const cancelWorkout = () => {
-    Alert.alert(
-      'Cancel Workout',
-      'Are you sure you want to cancel? Your progress will be lost.',
-      [
-        { text: 'Keep Going', style: 'cancel' },
-        {
-          text: 'Cancel Workout',
-          style: 'destructive',
-          onPress: () => navigation.goBack(),
-        },
-      ]
-    );
+    const message = 'Are you sure you want to cancel? Your progress will be lost.';
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(message)) {
+        navigation.goBack();
+      }
+    } else {
+      Alert.alert(
+        'Cancel Workout',
+        message,
+        [
+          { text: 'Keep Going', style: 'cancel' },
+          {
+            text: 'Cancel Workout',
+            style: 'destructive',
+            onPress: () => navigation.goBack(),
+          },
+        ]
+      );
+    }
+  };
+
+  const saveAndContinueLater = () => {
+    // Store paused workout data in global store
+    const pausedWorkoutData = {
+      workoutName,
+      workout,
+      sessionId: sessionId,
+      exercises,
+      elapsedTime: workoutTime,
+    };
+
+    setPausedWorkout(pausedWorkoutData);
+
+    const message = 'Your workout has been saved. You can continue it later from the Workouts tab.';
+
+    if (Platform.OS === 'web') {
+      window.alert(message);
+      navigation.goBack();
+    } else {
+      Alert.alert(
+        'Workout Saved',
+        message,
+        [
+          {
+            text: 'OK',
+            onPress: () => navigation.goBack(),
+          },
+        ]
+      );
+    }
   };
 
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={cancelWorkout} style={styles.backButton}>
+        <TouchableOpacity
+          onPress={cancelWorkout}
+          onClick={cancelWorkout}
+          style={styles.backButton}
+        >
           <ArrowLeft size={24} color={COLORS.text} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
@@ -299,9 +457,22 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
             <Text style={styles.timerText}>{formatTime(workoutTime)}</Text>
           </View>
         </View>
-        <TouchableOpacity onPress={finishWorkout} style={styles.finishButton}>
-          <Text style={styles.finishButtonText}>Finish</Text>
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity
+            style={styles.resumeLaterButton}
+            onPress={saveAndContinueLater}
+            onClick={saveAndContinueLater}
+          >
+            <Text style={styles.resumeLaterText}>Resume Later</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.finishButton}
+            onPress={finishWorkout}
+            onClick={finishWorkout}
+          >
+            <Text style={styles.finishButtonText}>Finish</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Rest Timer Banner */}
@@ -350,55 +521,83 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
             {/* Sets (expanded) */}
             {expandedExercise === exercise.id && (
               <View style={styles.setsContainer}>
-                {/* Header Row */}
-                <View style={styles.setHeaderRow}>
-                  <Text style={[styles.setHeaderText, { width: 40 }]}>SET</Text>
-                  <Text style={[styles.setHeaderText, { flex: 1 }]}>KG</Text>
-                  <Text style={[styles.setHeaderText, { flex: 1 }]}>REPS</Text>
-                  <View style={{ width: 44 }} />
-                </View>
-
                 {/* Set Rows */}
-                {exercise.sets.map((set) => (
-                  <View key={set.id} style={styles.setRow}>
-                    <Text style={styles.setNumber}>{set.id}</Text>
-                    <TextInput
-                      style={[styles.setInput, set.completed && styles.setInputCompleted]}
-                      placeholder="0"
-                      placeholderTextColor={COLORS.textMuted}
-                      keyboardType="numeric"
-                      value={set.weight}
-                      onChangeText={(val) => updateSet(exercise.id, set.id, 'weight', val)}
-                      editable={!set.completed}
-                    />
-                    <TextInput
-                      style={[styles.setInput, set.completed && styles.setInputCompleted]}
-                      placeholder="0"
-                      placeholderTextColor={COLORS.textMuted}
-                      keyboardType="numeric"
-                      value={set.reps}
-                      onChangeText={(val) => updateSet(exercise.id, set.id, 'reps', val)}
-                      editable={!set.completed}
-                    />
-                    <TouchableOpacity
-                      style={[
-                        styles.completeButton,
-                        set.completed && styles.completeButtonDone,
-                      ]}
-                      onPress={() => completeSet(exercise.id, set.id)}
-                    >
-                      <Check
-                        size={18}
-                        color={set.completed ? COLORS.text : COLORS.textMuted}
-                      />
-                    </TouchableOpacity>
-                  </View>
-                ))}
+                {exercise.sets.length > 0 && (
+                  <>
+                    {exercise.sets.map((set) => (
+                      <View key={set.id} style={styles.setRowWrapper}>
+                        <View style={styles.setRowCompact}>
+                          {/* Left side: Checkmark + Set number */}
+                          <View style={styles.setRowLeft}>
+                            <View style={[styles.setCheckmark, set.completed && styles.setCheckmarkDone]}>
+                              <Check size={14} color={set.completed ? COLORS.text : COLORS.textMuted} />
+                            </View>
+                            <Text style={styles.setLabel}>Set {set.id}</Text>
+                          </View>
+
+                          {/* Right side: Weight x Reps + Badges + Edit */}
+                          <View style={styles.setRowRight}>
+                            <Text style={styles.setWeightReps}>
+                              {set.weight || 0}kg × {set.reps || 0}
+                            </Text>
+
+                            {/* Dropset Badge */}
+                            {set.setType === 'dropset' && (
+                              <View style={[styles.setBadge, styles.dropsetBadge]}>
+                                <Text style={styles.setBadgeText}>Dropset</Text>
+                              </View>
+                            )}
+
+                            {/* Superset Badge */}
+                            {set.setType === 'superset' && (
+                              <View style={[styles.setBadge, styles.supersetBadge]}>
+                                <Text style={styles.setBadgeText}>Superset</Text>
+                              </View>
+                            )}
+
+                            {/* RPE Badge */}
+                            {set.rpe && (
+                              <View style={[styles.setBadge, styles.rpeBadge]}>
+                                <Text style={styles.setBadgeText}>RPE {set.rpe}</Text>
+                              </View>
+                            )}
+
+                            {/* Edit Button */}
+                            <TouchableOpacity style={styles.setEditButton}>
+                              <Dumbbell size={16} color={COLORS.textMuted} />
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+
+                        {/* Superset Details */}
+                        {set.setType === 'superset' && set.supersetExercise && (
+                          <View style={styles.setDetailsContainer}>
+                            <Text style={styles.setDetailsLabel}>Superset with: {set.supersetExercise}</Text>
+                            <Text style={styles.setDetailsText}>
+                              {set.supersetWeight || 0}kg × {set.supersetReps || 0}
+                            </Text>
+                          </View>
+                        )}
+
+                        {/* Dropset Details */}
+                        {set.setType === 'dropset' && set.drops && set.drops.length > 0 && (
+                          <View style={styles.setDetailsContainer}>
+                            {set.drops.map((drop, idx) => (
+                              <Text key={idx} style={styles.setDetailsText}>
+                                Drop {idx + 1}: {drop.weight || 0}kg × {drop.reps || 0}
+                              </Text>
+                            ))}
+                          </View>
+                        )}
+                      </View>
+                    ))}
+                  </>
+                )}
 
                 {/* Add Set Button */}
                 <TouchableOpacity
                   style={styles.addSetButton}
-                  onPress={() => addSet(exercise.id)}
+                  onPress={() => openAddSetModal(exercise.id, exercise.name)}
                 >
                   <Plus size={16} color={COLORS.primary} />
                   <Text style={styles.addSetText}>Add Set</Text>
@@ -409,7 +608,11 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
         ))}
 
         {/* Add Exercise Button */}
-        <TouchableOpacity style={styles.addExerciseButton} onPress={() => setShowExerciseModal(true)}>
+        <TouchableOpacity
+          style={styles.addExerciseButton}
+          onPress={() => setShowExerciseModal(true)}
+          onClick={() => setShowExerciseModal(true)}
+        >
           <Plus size={20} color={COLORS.primary} />
           <Text style={styles.addExerciseText}>Add Exercise</Text>
         </TouchableOpacity>
@@ -420,10 +623,42 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
       {/* Exercise Search Modal */}
       <ExerciseSearchModal
         visible={showExerciseModal}
-        onClose={() => setShowExerciseModal(false)}
-        onSelect={addExercise}
+        onClose={() => {
+          setShowExerciseModal(false);
+          // If we were selecting for superset, reopen the log modal
+          if (selectedSetToLog) {
+            setIsReturningFromSuperset(true);
+            setShowLogSetModal(true);
+          }
+        }}
+        onSelect={handleExerciseSelect}
         excludeExercises={exercises.map(ex => ex.name)}
       />
+
+      {/* Log Set Modal */}
+      <LogSetModal
+        visible={showLogSetModal}
+        onClose={() => {
+          setShowLogSetModal(false);
+          setSelectedSetToLog(null);
+          setPendingSupersetExercise(null);
+          setIsReturningFromSuperset(false);
+        }}
+        onSave={(setData) => {
+          handleLogSet(setData);
+          setPendingSupersetExercise(null);
+          setIsReturningFromSuperset(false);
+        }}
+        exerciseName={selectedSetToLog?.exerciseName || ''}
+        setNumber={selectedSetToLog?.setNumber || 1}
+        initialWeight={selectedSetToLog?.weight || ''}
+        initialReps={selectedSetToLog?.reps || ''}
+        weightUnit="kg"
+        onSelectSupersetExercise={handleSelectSupersetExercise}
+        pendingSupersetExercise={pendingSupersetExercise}
+        isReturningFromSuperset={isReturningFromSuperset}
+      />
+
     </SafeAreaView>
   );
 };
@@ -462,16 +697,6 @@ const styles = StyleSheet.create({
   timerText: {
     color: COLORS.textMuted,
     fontSize: 14,
-  },
-  finishButton: {
-    backgroundColor: COLORS.success,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  finishButtonText: {
-    color: COLORS.text,
-    fontWeight: '600',
   },
   restBanner: {
     backgroundColor: COLORS.primary,
@@ -547,6 +772,87 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
   },
+  // Compact Set Row
+  setRowWrapper: {
+    marginBottom: 8,
+  },
+  setRowCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  setRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  setCheckmark: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: COLORS.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  setCheckmarkDone: {
+    backgroundColor: COLORS.success,
+  },
+  setLabel: {
+    color: COLORS.text,
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  setRowRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  setWeightReps: {
+    color: COLORS.text,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  setBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  setBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  dropsetBadge: {
+    backgroundColor: COLORS.error,
+  },
+  supersetBadge: {
+    backgroundColor: '#D97706', // Darker amber/yellow
+  },
+  rpeBadge: {
+    backgroundColor: COLORS.primary,
+  },
+  setEditButton: {
+    padding: 4,
+  },
+  setDetailsContainer: {
+    paddingLeft: 48,
+    paddingTop: 6,
+    paddingBottom: 4,
+  },
+  setDetailsLabel: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    marginBottom: 2,
+  },
+  setDetailsText: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
+  },
+  // Keep old styles for header row
   setRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -566,12 +872,18 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 12,
     marginHorizontal: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  setInputText: {
     color: COLORS.text,
     fontSize: 16,
     textAlign: 'center',
   },
   setInputCompleted: {
     backgroundColor: COLORS.success + '20',
+  },
+  setInputTextCompleted: {
     color: COLORS.success,
   },
   completeButton: {
@@ -611,6 +923,33 @@ const styles = StyleSheet.create({
   addExerciseText: {
     color: COLORS.primary,
     fontSize: 16,
+    fontWeight: '600',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  resumeLaterButton: {
+    backgroundColor: '#D97706',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  resumeLaterText: {
+    color: COLORS.text,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  finishButton: {
+    backgroundColor: COLORS.success,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  finishButtonText: {
+    color: COLORS.text,
+    fontSize: 13,
     fontWeight: '600',
   },
 });

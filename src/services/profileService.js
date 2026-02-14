@@ -37,10 +37,9 @@ export const profileService = {
     }
   },
 
-  // Get user profile with related data
+  // Get user profile (simplified - just basic profile for fast loading)
   async getProfile(userId) {
     try {
-      // Get profile separately to avoid join issues
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
@@ -52,24 +51,7 @@ export const profileService = {
         return { data: null, error: profileError };
       }
 
-      // Try to get related data separately (they may not exist)
-      const [goalsResult, settingsResult, nutritionResult, sleepResult] = await Promise.all([
-        supabase.from('user_goals').select('*').eq('user_id', userId).maybeSingle(),
-        supabase.from('user_settings').select('*').eq('user_id', userId).maybeSingle(),
-        supabase.from('nutrition_goals').select('*').eq('user_id', userId).maybeSingle(),
-        supabase.from('sleep_goals').select('*').eq('user_id', userId).maybeSingle(),
-      ]);
-
-      return {
-        data: {
-          ...profile,
-          user_goals: goalsResult.data,
-          user_settings: settingsResult.data,
-          nutrition_goals: nutritionResult.data,
-          sleep_goals: sleepResult.data,
-        },
-        error: null
-      };
+      return { data: profile, error: null };
     } catch (err) {
       console.warn('getProfile error:', err?.message);
       return { data: null, error: err };

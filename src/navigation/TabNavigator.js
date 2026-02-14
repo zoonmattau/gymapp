@@ -1,15 +1,16 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View } from 'react-native';
-import { Home, Dumbbell, Apple, Users, TrendingUp } from 'lucide-react-native';
+import { Home, Dumbbell, Apple, User, TrendingUp, Users } from 'lucide-react-native';
 import { COLORS } from '../constants/colors';
 
 // Screens
 import HomeScreen from '../screens/HomeScreen';
 import WorkoutsScreen from '../screens/WorkoutsScreen';
 import HealthScreen from '../screens/HealthScreen';
-import CommunityScreen from '../screens/CommunityScreen';
 import ProgressScreen from '../screens/ProgressScreen';
+import ProfileScreen from '../screens/ProfileScreen';
+import CommunityScreen from '../screens/CommunityScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -56,6 +57,13 @@ const TabNavigator = () => {
         }}
       />
       <Tab.Screen
+        name="Progress"
+        component={ProgressScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => <TrendingUp size={size} color={color} />,
+        }}
+      />
+      <Tab.Screen
         name="Community"
         component={CommunityScreen}
         options={{
@@ -63,10 +71,10 @@ const TabNavigator = () => {
         }}
       />
       <Tab.Screen
-        name="Progress"
-        component={ProgressScreen}
+        name="Profile"
+        component={ProfileScreen}
         options={{
-          tabBarIcon: ({ color, size }) => <TrendingUp size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <User size={size} color={color} />,
         }}
       />
     </Tab.Navigator>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,70 +6,233 @@ import {
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
+  RefreshControl,
+  Platform,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { Bell, Play, Flame, Droplets, Check, LogOut } from 'lucide-react-native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import {
+  Bell,
+  Play,
+  Droplets,
+  Check,
+  Scale,
+  Calendar,
+  Moon,
+  Pause,
+  Plus,
+  Bookmark,
+  TrendingUp,
+  Utensils,
+} from 'lucide-react-native';
 import { COLORS } from '../constants/colors';
-import { supabase } from '../lib/supabase';
-import { profileService } from '../services/profileService';
+import { nutritionService } from '../services/nutritionService';
+import { workoutService } from '../services/workoutService';
+import { streakService } from '../services/streakService';
+import { useAuth } from '../contexts/AuthContext';
+import AddMealModal from '../components/AddMealModal';
+import WaterEntryModal from '../components/WaterEntryModal';
+import WeighInModal from '../components/WeighInModal';
 
 const HomeScreen = () => {
   const navigation = useNavigation();
-  const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState(null);
+  const { user, profile } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Today's workout
+  const [todayWorkout, setTodayWorkout] = useState(null);
+  const [isRestDay, setIsRestDay] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
 
   // Quick stats data
-  const [caloriesIntake, setCaloriesIntake] = useState(1850);
-  const [proteinIntake, setProteinIntake] = useState(120);
-  const [waterIntake, setWaterIntake] = useState(2500);
+  const [caloriesIntake, setCaloriesIntake] = useState(0);
+  const [proteinIntake, setProteinIntake] = useState(0);
+  const [waterIntake, setWaterIntake] = useState(0);
+  const [supplementsTaken, setSupplementsTaken] = useState(0);
+  const [supplementsTotal, setSupplementsTotal] = useState(0);
+
+  // Streaks
+  const [currentStreak, setCurrentStreak] = useState(0);
+
+  // Modal states
+  const [showMealModal, setShowMealModal] = useState(false);
+  const [showWaterModal, setShowWaterModal] = useState(false);
+  const [showWeighInModal, setShowWeighInModal] = useState(false);
+
+  // Social stats
+  const [followersCount, setFollowersCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
 
   const nutritionGoals = {
-    calories: 2200,
-    protein: 150,
-    water: 3000,
+    calories: profile?.calorie_goal || 2200,
+    protein: profile?.protein_goal || 150,
+    water: profile?.water_goal || 2500,
   };
 
-  useEffect(() => {
-    checkUser();
-  }, []);
-
-  const checkUser = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-
-      if (user) {
-        // Load profile
-        const { data: profileData } = await profileService.getProfile(user.id);
-        if (profileData) {
-          setProfile(profileData);
-        }
+  // Reload data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      if (user?.id) {
+        loadHomeData();
       }
+    }, [user])
+  );
+
+  const loadHomeData = async () => {
+    try {
+      await Promise.all([
+        loadTodayNutrition(),
+        loadTodayWorkout(),
+        loadStreaks(),
+      ]);
     } catch (error) {
-      console.log('Error checking user:', error);
+      console.log('Error loading home data:', error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
+  const loadTodayNutrition = async () => {
+    try {
+      const { data: dailyData } = await nutritionService.getDailyNutrition(user.id);
+
+      if (dailyData) {
+        setCaloriesIntake(dailyData.total_calories || 0);
+        setProteinIntake(dailyData.total_protein || 0);
+        setWaterIntake(dailyData.water_intake || 0);
+      }
+    } catch (error) {
+      console.log('Error loading nutrition:', error);
+    }
   };
 
-  const startWorkout = () => {
+  const loadTodayWorkout = async () => {
+    try {
+      const { data: schedule } = await workoutService.getTodaySchedule(user.id);
+
+      if (schedule) {
+        if (schedule.is_rest_day) {
+          setIsRestDay(true);
+          setTodayWorkout(null);
+        } else if (schedule.workout_templates) {
+          setIsRestDay(false);
+          setTodayWorkout({
+            id: schedule.workout_templates.id,
+            name: schedule.workout_templates.name,
+            focus: schedule.workout_templates.focus,
+            scheduleId: schedule.id,
+            isCompleted: schedule.is_completed,
+            exercises: schedule.workout_templates.workout_template_exercises?.map(te => ({
+              id: te.exercises?.id,
+              name: te.exercises?.name,
+              sets: te.sets || 3,
+            })) || [],
+          });
+        }
+      } else {
+        setIsRestDay(false);
+        setTodayWorkout(null);
+      }
+    } catch (error) {
+      console.log('Error loading workout:', error);
+    }
+  };
+
+  const loadStreaks = async () => {
+    try {
+      const { streak } = await streakService.calculateWorkoutStreak(user.id);
+      setCurrentStreak(streak || 0);
+    } catch (error) {
+      console.log('Error loading streaks:', error);
+    }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadHomeData();
+  };
+
+  const handleAddMeal = async (meal) => {
+    try {
+      await nutritionService.logMeal(user.id, {
+        name: meal.name,
+        calories: meal.calories,
+        protein: meal.protein,
+        carbs: meal.carbs,
+        fats: meal.fats,
+      });
+
+      setCaloriesIntake(prev => prev + (meal.calories || 0));
+      setProteinIntake(prev => prev + (meal.protein || 0));
+      setShowMealModal(false);
+    } catch (error) {
+      console.log('Error adding meal:', error);
+    }
+  };
+
+  const handleAddWater = async (amount) => {
+    try {
+      await nutritionService.logWater(user.id, amount);
+      setWaterIntake(prev => prev + amount);
+      setShowWaterModal(false);
+    } catch (error) {
+      console.log('Error adding water:', error);
+    }
+  };
+
+  const handleSaveWeight = async (weight, unit) => {
+    try {
+      // TODO: Save to weight tracking service
+      console.log('Weight logged:', weight, unit);
+      // For now just log it - can integrate with a weight tracking service later
+    } catch (error) {
+      console.log('Error saving weight:', error);
+    }
+  };
+
+  const startWorkout = async () => {
+    if (!todayWorkout) {
+      navigation.navigate('Workouts');
+      return;
+    }
+
+    try {
+      const { data: session } = await workoutService.startWorkout(
+        user.id,
+        todayWorkout.id,
+        todayWorkout.scheduleId,
+        todayWorkout.name
+      );
+
+      navigation.navigate('ActiveWorkout', {
+        workoutName: todayWorkout.name,
+        sessionId: session?.id,
+        workout: {
+          id: todayWorkout.id,
+          name: todayWorkout.name,
+          focus: todayWorkout.focus,
+          exercises: todayWorkout.exercises,
+        },
+      });
+    } catch (error) {
+      console.log('Error starting workout:', error);
+      navigation.navigate('ActiveWorkout', {
+        workoutName: todayWorkout.name,
+        workout: {
+          id: todayWorkout.id,
+          name: todayWorkout.name,
+          focus: todayWorkout.focus,
+          exercises: todayWorkout.exercises,
+        },
+      });
+    }
+  };
+
+  const startFreeformWorkout = () => {
     navigation.navigate('ActiveWorkout', {
-      workoutName: 'Push Day A',
-      workout: {
-        name: 'Push Day A',
-        exercises: [
-          { name: 'Bench Press', sets: 4 },
-          { name: 'Incline Dumbbell Press', sets: 3 },
-          { name: 'Shoulder Press', sets: 3 },
-          { name: 'Lateral Raises', sets: 3 },
-          { name: 'Tricep Pushdowns', sets: 3 },
-        ],
-      },
+      workoutName: 'Freeform Workout',
+      workout: null, // No template - user adds exercises as they go
     });
   };
 
@@ -80,7 +243,7 @@ const HomeScreen = () => {
     return 'Good evening';
   };
 
-  // Quick stats configuration
+  // Quick stats for the compact circles
   const quickStats = [
     {
       id: 'calories',
@@ -94,7 +257,7 @@ const HomeScreen = () => {
       label: 'Protein',
       current: proteinIntake,
       target: nutritionGoals.protein,
-      color: COLORS.primary,
+      color: COLORS.protein,
     },
     {
       id: 'water',
@@ -103,29 +266,56 @@ const HomeScreen = () => {
       target: nutritionGoals.water,
       color: COLORS.water,
     },
+    {
+      id: 'supplements',
+      label: 'Supps',
+      current: supplementsTaken,
+      target: Math.max(supplementsTotal, 1),
+      displayValue: `${supplementsTaken}/${supplementsTotal}`,
+      color: COLORS.supplements,
+    },
   ];
+
+  const handleStatTap = (statId) => {
+    if (statId === 'calories' || statId === 'protein') {
+      setShowMealModal(true);
+    } else if (statId === 'water') {
+      setShowWaterModal(true);
+    } else if (statId === 'supplements') {
+      navigation.navigate('Health');
+    }
+  };
 
   const renderProgressCircle = (stat) => {
     const progress = Math.min((stat.current || 0) / (stat.target || 1), 1);
     const isComplete = progress >= 1;
     const percentage = Math.round(progress * 100);
+    const progressColor = isComplete ? COLORS.success : stat.color;
 
-    // Format value for display when complete
     const completeVal = stat.id === 'water'
       ? `${(stat.current / 1000).toFixed(1)}L`
-      : stat.current;
+      : stat.displayValue || stat.current;
+
+    // Calculate degrees for conic gradient (starts from top, so -90deg offset)
+    const progressDegrees = progress * 360;
+
+    // Web uses conic-gradient for smooth circular progress
+    const webProgressStyle = Platform.OS === 'web' ? {
+      background: `conic-gradient(from -90deg, ${progressColor} ${progressDegrees}deg, ${COLORS.surfaceLight} ${progressDegrees}deg)`,
+    } : {};
 
     return (
-      <TouchableOpacity key={stat.id} style={styles.statItem}>
-        <View style={styles.progressCircle}>
-          {/* Background circle */}
-          <View style={[styles.circleBackground, { borderColor: COLORS.surfaceLight }]} />
-          {/* Progress indicator - simplified for now */}
-          <View style={styles.circleContent}>
+      <TouchableOpacity
+        key={stat.id}
+        style={styles.statItem}
+        onPress={() => handleStatTap(stat.id)}
+      >
+        <View style={[styles.progressRing, webProgressStyle]}>
+          <View style={styles.progressRingInner}>
             {isComplete ? (
               <>
-                <Check size={12} color={COLORS.success} strokeWidth={3} />
-                <Text style={[styles.circleValue, { color: COLORS.success, fontSize: 8 }]}>
+                <Check size={14} color={COLORS.success} strokeWidth={3} />
+                <Text style={[styles.circleValue, { color: COLORS.success, fontSize: 9 }]}>
                   {completeVal}
                 </Text>
               </>
@@ -143,48 +333,168 @@ const HomeScreen = () => {
     );
   };
 
+  const renderTodayWorkout = () => {
+    if (isPaused) {
+      return (
+        <View style={[styles.workoutCard, { borderLeftColor: COLORS.warning }]}>
+          <View style={styles.workoutRow}>
+            <View style={[styles.workoutIconBox, { backgroundColor: COLORS.warning + '20' }]}>
+              <Pause size={28} color={COLORS.warning} />
+            </View>
+            <View style={styles.workoutInfo}>
+              <Text style={[styles.workoutBadge, { color: COLORS.warning }]}>PAUSED</Text>
+              <Text style={styles.workoutName}>Enjoying your break</Text>
+            </View>
+          </View>
+          <TouchableOpacity
+            style={[styles.workoutButton, { backgroundColor: COLORS.warning }]}
+            onPress={() => setIsPaused(false)}
+          >
+            <Text style={[styles.workoutButtonText, { color: COLORS.background }]}>Resume Plan</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    if (todayWorkout?.isCompleted) {
+      return (
+        <View style={[styles.workoutCard, { borderLeftColor: COLORS.success }]}>
+          <View style={styles.workoutRow}>
+            <View style={[styles.workoutIconBox, { backgroundColor: COLORS.success + '20' }]}>
+              <Check size={28} color={COLORS.success} />
+            </View>
+            <View style={styles.workoutInfo}>
+              <Text style={[styles.workoutBadge, { color: COLORS.success }]}>COMPLETED ✓</Text>
+              <Text style={styles.workoutName}>{todayWorkout?.name || 'Workout'}</Text>
+              <Text style={styles.workoutFocus}>Great work today! 💪</Text>
+            </View>
+          </View>
+        </View>
+      );
+    }
+
+    if (isRestDay) {
+      return (
+        <View style={[styles.workoutCard, { borderLeftColor: COLORS.sleep }]}>
+          <View style={styles.workoutRow}>
+            <View style={[styles.workoutIconBox, { backgroundColor: COLORS.sleep + '20' }]}>
+              <Moon size={28} color={COLORS.sleep} />
+            </View>
+            <View style={styles.workoutInfo}>
+              <Text style={[styles.workoutBadge, { color: COLORS.sleep }]}>REST DAY 😴</Text>
+              <Text style={styles.workoutName}>Recovery Time</Text>
+              <Text style={styles.workoutFocus}>Your muscles grow while you rest</Text>
+            </View>
+          </View>
+          <TouchableOpacity
+            style={[styles.workoutButton, { backgroundColor: COLORS.primary }]}
+            onPress={startFreeformWorkout}
+          >
+            <Play size={18} color={COLORS.text} />
+            <Text style={styles.workoutButtonText}>Start Freeform Workout</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    if (!todayWorkout) {
+      return (
+        <View style={[styles.workoutCard, { borderLeftColor: COLORS.primary }]}>
+          <View style={styles.workoutRow}>
+            <View style={[styles.workoutIconBox, { backgroundColor: COLORS.primary + '20' }]}>
+              <Calendar size={28} color={COLORS.primary} />
+            </View>
+            <View style={styles.workoutInfo}>
+              <Text style={[styles.workoutBadge, { color: COLORS.textMuted }]}>NO WORKOUT SCHEDULED</Text>
+              <Text style={styles.workoutName}>Plan your workout</Text>
+              <Text style={styles.workoutFocus}>Set up your training schedule</Text>
+            </View>
+          </View>
+          <TouchableOpacity
+            style={[styles.workoutButton, { backgroundColor: COLORS.primary }]}
+            onPress={() => navigation.navigate('WorkoutSchedule')}
+          >
+            <Calendar size={18} color={COLORS.text} />
+            <Text style={styles.workoutButtonText}>Schedule Workout</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    return (
+      <View style={[styles.workoutCard, { borderLeftColor: COLORS.primary }]}>
+        <View style={styles.workoutHeader}>
+          <View style={styles.todayBadgeContainer}>
+            <Text style={styles.todayBadgeText}>TODAY</Text>
+          </View>
+          <Text style={styles.workoutName}>{todayWorkout.name}</Text>
+          <Text style={styles.workoutFocus}>{todayWorkout.focus}</Text>
+        </View>
+        <TouchableOpacity
+          style={[styles.workoutButton, { backgroundColor: COLORS.primary }]}
+          onPress={startWorkout}
+        >
+          <Play size={18} color={COLORS.text} />
+          <Text style={styles.workoutButtonText}>Start Workout</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Header */}
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={COLORS.primary}
+          />
+        }
+      >
+        {/* User Header with Stats */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <TouchableOpacity style={styles.avatar}>
+            <TouchableOpacity
+              style={styles.avatar}
+              onPress={() => navigation.navigate('Profile')}
+            >
               <Text style={styles.avatarText}>
                 {profile?.username?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'}
               </Text>
             </TouchableOpacity>
-            <View>
-              <Text style={styles.greeting}>{getGreeting()}</Text>
-              <Text style={styles.username}>@{profile?.username || 'user'}</Text>
+            <View style={styles.userInfo}>
+              <Text style={styles.username}>@{profile?.username || 'username'}</Text>
+              {profile?.bio && (
+                <Text style={styles.userBio} numberOfLines={1}>{profile.bio}</Text>
+              )}
+              <View style={styles.followStats}>
+                <TouchableOpacity onPress={() => navigation.navigate('Community')}>
+                  <Text style={styles.followText}>
+                    <Text style={styles.followCount}>{followersCount}</Text> followers
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => navigation.navigate('Community')}>
+                  <Text style={styles.followText}>
+                    <Text style={styles.followCount}>{followingCount}</Text> following
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
           <View style={styles.headerRight}>
-            <TouchableOpacity style={styles.notificationBtn}>
-              <Bell size={20} color={COLORS.textMuted} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-              <LogOut size={20} color={COLORS.error} />
+            <TouchableOpacity style={styles.iconButton}>
+              <Bell size={18} color={COLORS.textMuted} />
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Today's Workout Card */}
+        {/* Today's Workout Section */}
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>TODAY'S WORKOUT</Text>
-          <View style={styles.workoutCard}>
-            <View style={styles.workoutHeader}>
-              <View style={styles.todayBadge}>
-                <Text style={styles.todayBadgeText}>TODAY</Text>
-              </View>
-              <Text style={styles.workoutName}>Push Day A</Text>
-              <Text style={styles.workoutFocus}>Chest, Shoulders, Triceps</Text>
-            </View>
-            <TouchableOpacity style={styles.startButton} onPress={startWorkout}>
-              <Play size={18} color={COLORS.text} />
-              <Text style={styles.startButtonText}>Start Workout</Text>
-            </TouchableOpacity>
-          </View>
+          {renderTodayWorkout()}
         </View>
 
         {/* Quick Stats */}
@@ -198,19 +508,128 @@ const HomeScreen = () => {
         {/* Log Food Section */}
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>LOG FOOD</Text>
-          <View style={styles.logFoodGrid}>
-            <TouchableOpacity style={styles.logFoodCard}>
-              <Flame size={24} color={COLORS.accent} />
-              <Text style={styles.logFoodText}>Add Meal</Text>
+          <View style={styles.logFoodRow}>
+            {/* Add Meal Card */}
+            <TouchableOpacity
+              style={styles.addMealCard}
+              onPress={() => setShowMealModal(true)}
+            >
+              <View style={styles.mealIconBox}>
+                <Utensils size={24} color={COLORS.primary} />
+              </View>
+              <View style={styles.mealInfo}>
+                <Text style={styles.mealTitle}>Add Meal</Text>
+                <Text style={styles.mealSubtitle}>Log with macros</Text>
+              </View>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.logFoodCard}>
-              <Droplets size={24} color={COLORS.water} />
-              <Text style={styles.logFoodText}>Log Water</Text>
+
+            {/* Quick Water Card */}
+            <View style={styles.quickWaterCard}>
+              <View style={styles.waterHeader}>
+                <Droplets size={18} color={COLORS.water} />
+                <Text style={styles.waterLabel}>Quick Water</Text>
+                <View style={styles.waterTotalBadge}>
+                  <Text style={styles.waterTotalText}>{(waterIntake / 1000).toFixed(1)}L</Text>
+                </View>
+              </View>
+              <View style={styles.waterButtons}>
+                <TouchableOpacity
+                  style={styles.waterQuickBtn}
+                  onPress={() => handleAddWater(250)}
+                >
+                  <Text style={styles.waterQuickBtnText}>250ml</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.waterQuickBtn}
+                  onPress={() => handleAddWater(500)}
+                >
+                  <Text style={styles.waterQuickBtnText}>500ml</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.waterAddBtn}
+                  onPress={() => setShowWaterModal(true)}
+                >
+                  <Plus size={18} color={COLORS.text} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        {/* My Rep-Ertoire Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>MY REP-ERTOIRE</Text>
+          <View style={styles.repertoireCard}>
+            <View style={styles.repertoireIconBox}>
+              <Bookmark size={24} color={COLORS.textMuted} />
+            </View>
+            <View style={styles.repertoireInfo}>
+              <Text style={styles.repertoireTitle}>No saved workouts yet</Text>
+              <Text style={styles.repertoireSubtitle}>Save workouts from the community</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.discoverButton}
+              onPress={() => navigation.navigate('Community')}
+            >
+              <Text style={styles.discoverButtonText}>Discover</Text>
             </TouchableOpacity>
           </View>
         </View>
 
+        {/* Trending Workouts Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>TRENDING WORKOUTS</Text>
+          <View style={styles.trendingCard}>
+            <View style={styles.trendingIconBox}>
+              <TrendingUp size={32} color={COLORS.textMuted} />
+            </View>
+            <Text style={styles.trendingTitle}>No workouts currently trending</Text>
+            <Text style={styles.trendingSubtitle}>Check back later or explore the community</Text>
+            <TouchableOpacity
+              style={styles.exploreCommunityButton}
+              onPress={() => navigation.navigate('Community')}
+            >
+              <Text style={styles.exploreCommunityText}>Explore Community</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Weight Tracking Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>WEIGHT TRACKING</Text>
+          <TouchableOpacity
+            style={styles.weighInButton}
+            onPress={() => setShowWeighInModal(true)}
+          >
+            <Plus size={20} color={COLORS.text} />
+            <Text style={styles.weighInButtonText}>Log Weigh-In</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={{ height: 100 }} />
       </ScrollView>
+
+      {/* Modals */}
+      <AddMealModal
+        visible={showMealModal}
+        onClose={() => setShowMealModal(false)}
+        onAdd={handleAddMeal}
+      />
+
+      <WaterEntryModal
+        visible={showWaterModal}
+        onClose={() => setShowWaterModal(false)}
+        onAdd={handleAddWater}
+        currentIntake={waterIntake}
+      />
+
+      <WeighInModal
+        visible={showWeighInModal}
+        onClose={() => setShowWeighInModal(false)}
+        onSave={handleSaveWeight}
+        unit={profile?.weight_unit || 'kg'}
+        currentWeight={profile?.current_weight || profile?.weight || 0}
+      />
     </SafeAreaView>
   );
 };
@@ -222,17 +641,19 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    paddingHorizontal: 16,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 16,
+    alignItems: 'flex-start',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 12,
   },
   headerLeft: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    flex: 1,
     gap: 12,
   },
   avatar: {
@@ -248,31 +669,44 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-  greeting: {
-    color: COLORS.textMuted,
-    fontSize: 12,
+  userInfo: {
+    flex: 1,
   },
   username: {
     color: COLORS.text,
     fontSize: 18,
     fontWeight: 'bold',
   },
+  userBio: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  followStats: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 4,
+  },
+  followText: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+  },
+  followCount: {
+    color: COLORS.text,
+    fontWeight: '600',
+  },
   headerRight: {
     flexDirection: 'row',
     gap: 8,
   },
-  notificationBtn: {
-    padding: 8,
-    backgroundColor: COLORS.surface,
-    borderRadius: 8,
-  },
-  logoutBtn: {
+  iconButton: {
     padding: 8,
     backgroundColor: COLORS.surface,
     borderRadius: 8,
   },
   section: {
-    marginTop: 20,
+    paddingHorizontal: 16,
+    marginTop: 16,
   },
   sectionLabel: {
     color: COLORS.textMuted,
@@ -283,13 +717,35 @@ const styles = StyleSheet.create({
   },
   workoutCard: {
     backgroundColor: COLORS.surface,
-    borderRadius: 16,
+    borderRadius: 12,
     padding: 16,
+    borderLeftWidth: 4,
+  },
+  workoutRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginBottom: 16,
+  },
+  workoutIconBox: {
+    width: 56,
+    height: 56,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  workoutInfo: {
+    flex: 1,
+  },
+  workoutBadge: {
+    fontSize: 10,
+    fontWeight: '600',
+    marginBottom: 4,
   },
   workoutHeader: {
     marginBottom: 16,
   },
-  todayBadge: {
+  todayBadgeContainer: {
     backgroundColor: COLORS.primary + '20',
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -312,16 +768,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 4,
   },
-  startButton: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 12,
-    paddingVertical: 14,
+  workoutButton: {
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
   },
-  startButtonText: {
+  workoutButtonText: {
     color: COLORS.text,
     fontSize: 16,
     fontWeight: '600',
@@ -330,53 +785,221 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     backgroundColor: COLORS.surface,
-    borderRadius: 16,
+    borderRadius: 12,
     paddingVertical: 16,
     paddingHorizontal: 8,
   },
   statItem: {
     alignItems: 'center',
   },
-  progressCircle: {
-    width: 44,
-    height: 44,
-    marginBottom: 4,
+  progressRing: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: COLORS.surfaceLight,
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 6,
   },
-  circleBackground: {
-    position: 'absolute',
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 3,
-  },
-  circleContent: {
-    alignItems: 'center',
+  progressRingInner: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.surface,
     justifyContent: 'center',
+    alignItems: 'center',
   },
   circleValue: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: 'bold',
   },
   statLabel: {
-    fontSize: 10,
+    fontSize: 11,
   },
-  logFoodGrid: {
+  // Log Food Section
+  logFoodRow: {
     flexDirection: 'row',
     gap: 12,
   },
-  logFoodCard: {
+  addMealCard: {
     flex: 1,
     backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 12,
   },
-  logFoodText: {
+  mealIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: COLORS.primary + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mealInfo: {
+    flex: 1,
+  },
+  mealTitle: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  mealSubtitle: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  quickWaterCard: {
+    flex: 1,
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 12,
+  },
+  waterHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 10,
+  },
+  waterLabel: {
     color: COLORS.text,
     fontSize: 14,
+    fontWeight: '500',
+    flex: 1,
+  },
+  waterTotalBadge: {
+    backgroundColor: COLORS.surfaceLight,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  waterTotalText: {
+    color: COLORS.text,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  waterButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  waterQuickBtn: {
+    flex: 1,
+    backgroundColor: COLORS.surfaceLight,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  waterQuickBtnText: {
+    color: COLORS.text,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  waterAddBtn: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // My Rep-Ertoire Section
+  repertoireCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  repertoireIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: COLORS.surfaceLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  repertoireInfo: {
+    flex: 1,
+  },
+  repertoireTitle: {
+    color: COLORS.text,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  repertoireSubtitle: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  discoverButton: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  discoverButtonText: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+
+  // Trending Workouts Section
+  trendingCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 24,
+    alignItems: 'center',
+  },
+  trendingIconBox: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: COLORS.surfaceLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  trendingTitle: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  trendingSubtitle: {
+    color: COLORS.textMuted,
+    fontSize: 13,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  exploreCommunityButton: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 10,
+  },
+  exploreCommunityText: {
+    color: COLORS.text,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+
+  // Weight Tracking Section
+  weighInButton: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 12,
+    paddingVertical: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  weighInButtonText: {
+    color: COLORS.text,
+    fontSize: 16,
     fontWeight: '600',
   },
 });

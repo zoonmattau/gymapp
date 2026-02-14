@@ -7,6 +7,7 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
+  Platform,
 } from 'react-native';
 import {
   Trophy,
@@ -18,6 +19,8 @@ import {
   ThumbsDown,
   Meh,
   Check,
+  Frown,
+  Smile,
 } from 'lucide-react-native';
 import { COLORS } from '../constants/colors';
 
@@ -54,9 +57,11 @@ const WorkoutSummaryScreen = ({ route, navigation }) => {
   };
 
   const feedbackOptions = [
-    { id: 'great', icon: ThumbsUp, label: 'Great', color: COLORS.success },
-    { id: 'okay', icon: Meh, label: 'Okay', color: COLORS.warning },
-    { id: 'tough', icon: ThumbsDown, label: 'Tough', color: COLORS.error },
+    { id: 'tough', label: 'Tough', color: COLORS.error, emoji: '😵' },
+    { id: 'tired', label: 'Tired', color: '#F97316', emoji: '😓' },
+    { id: 'okay', label: 'Okay', color: COLORS.warning, emoji: '😐' },
+    { id: 'great', label: 'Great', color: '#22C55E', emoji: '💪' },
+    { id: 'amazing', label: 'Amazing', color: COLORS.success, emoji: '🔥' },
   ];
 
   const handleFinish = () => {
@@ -64,152 +69,194 @@ const WorkoutSummaryScreen = ({ route, navigation }) => {
     navigation.popToTop();
   };
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.checkCircle}>
-            <Check size={40} color={COLORS.success} strokeWidth={3} />
-          </View>
-          <Text style={styles.title}>Workout Complete!</Text>
-          <Text style={styles.workoutName}>{workoutName}</Text>
+  // Render content (shared between web and native)
+  const renderContent = () => (
+    <>
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.checkCircle}>
+          <Check size={40} color={COLORS.success} strokeWidth={3} />
         </View>
+        <Text style={styles.title}>Workout Complete!</Text>
+        <Text style={styles.workoutName}>{workoutName}</Text>
+      </View>
 
-        {/* Stats Grid */}
-        <View style={styles.statsGrid}>
-          <View style={styles.statCard}>
-            <Clock size={24} color={COLORS.primary} />
-            <Text style={styles.statValue}>{formatDuration(duration)}</Text>
-            <Text style={styles.statLabel}>Duration</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Dumbbell size={24} color={COLORS.accent} />
-            <Text style={styles.statValue}>{completedSets}/{totalSets}</Text>
-            <Text style={styles.statLabel}>Sets</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Flame size={24} color={COLORS.warning} />
-            <Text style={styles.statValue}>{formatVolume(totalVolume)}</Text>
-            <Text style={styles.statLabel}>Volume</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Star size={24} color={COLORS.success} />
-            <Text style={styles.statValue}>{exercises.length}</Text>
-            <Text style={styles.statLabel}>Exercises</Text>
-          </View>
+      {/* Stats Grid */}
+      <View style={styles.statsGrid}>
+        <View style={styles.statCard}>
+          <Clock size={24} color={COLORS.primary} />
+          <Text style={styles.statValue}>{formatDuration(duration)}</Text>
+          <Text style={styles.statLabel}>Duration</Text>
         </View>
+        <View style={styles.statCard}>
+          <Dumbbell size={24} color={COLORS.accent} />
+          <Text style={styles.statValue}>{completedSets}/{totalSets}</Text>
+          <Text style={styles.statLabel}>Sets</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Flame size={24} color={COLORS.warning} />
+          <Text style={styles.statValue}>{formatVolume(totalVolume)}</Text>
+          <Text style={styles.statLabel}>Volume</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Star size={24} color={COLORS.success} />
+          <Text style={styles.statValue}>{exercises.length}</Text>
+          <Text style={styles.statLabel}>Exercises</Text>
+        </View>
+      </View>
 
-        {/* New PRs */}
-        {newPRs.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>New Personal Records!</Text>
-            {newPRs.map((pr, index) => (
-              <View key={index} style={styles.prCard}>
-                <Trophy size={24} color={COLORS.warning} />
-                <View style={styles.prInfo}>
-                  <Text style={styles.prExercise}>{pr.exercise}</Text>
-                  <Text style={styles.prValue}>
-                    {pr.weight}kg x {pr.reps} reps
-                  </Text>
-                </View>
+      {/* New PRs */}
+      {newPRs.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>New Personal Records!</Text>
+          {newPRs.map((pr, index) => (
+            <View key={index} style={styles.prCard}>
+              <Trophy size={24} color={COLORS.warning} />
+              <View style={styles.prInfo}>
+                <Text style={styles.prExercise}>{pr.exercise}</Text>
+                <Text style={styles.prValue}>
+                  {pr.weight}kg x {pr.reps} reps
+                </Text>
               </View>
-            ))}
-          </View>
-        )}
-
-        {/* How did it feel */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>How did you feel?</Text>
-          <View style={styles.feedbackRow}>
-            {feedbackOptions.map((option) => {
-              const Icon = option.icon;
-              const isSelected = feedback === option.id;
-              return (
-                <TouchableOpacity
-                  key={option.id}
-                  style={[
-                    styles.feedbackButton,
-                    isSelected && { backgroundColor: option.color + '20', borderColor: option.color },
-                  ]}
-                  onPress={() => setFeedback(option.id)}
-                >
-                  <Icon size={28} color={isSelected ? option.color : COLORS.textMuted} />
-                  <Text
-                    style={[
-                      styles.feedbackLabel,
-                      isSelected && { color: option.color },
-                    ]}
-                  >
-                    {option.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+            </View>
+          ))}
         </View>
+      )}
 
-        {/* Rating */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Rate your workout</Text>
-          <View style={styles.ratingRow}>
-            {[1, 2, 3, 4, 5].map((star) => (
-              <TouchableOpacity key={star} onPress={() => setRating(star)}>
-                <Star
-                  size={36}
-                  color={star <= (rating || 0) ? COLORS.warning : COLORS.surfaceLight}
-                  fill={star <= (rating || 0) ? COLORS.warning : 'transparent'}
-                />
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* Notes */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Notes (optional)</Text>
-          <TextInput
-            style={styles.notesInput}
-            placeholder="How was your workout? Any observations..."
-            placeholderTextColor={COLORS.textMuted}
-            value={notes}
-            onChangeText={setNotes}
-            multiline
-            numberOfLines={4}
-            textAlignVertical="top"
-          />
-        </View>
-
-        {/* Exercise Summary */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Exercise Summary</Text>
-          {exercises.map((exercise, index) => {
-            const completedSetsCount = exercise.sets?.filter(s => s.completed).length || 0;
+      {/* How did it feel */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>How did you feel?</Text>
+        <View style={styles.feedbackRow}>
+          {feedbackOptions.map((option) => {
+            const isSelected = feedback === option.id;
             return (
-              <View key={index} style={styles.exerciseSummary}>
-                <View style={styles.exerciseIcon}>
-                  <Dumbbell size={16} color={COLORS.primary} />
-                </View>
-                <View style={styles.exerciseInfo}>
-                  <Text style={styles.exerciseName}>{exercise.name}</Text>
-                  <Text style={styles.exerciseSets}>
-                    {completedSetsCount} sets completed
-                  </Text>
-                </View>
-                {completedSetsCount === exercise.sets?.length && (
-                  <Check size={20} color={COLORS.success} />
-                )}
-              </View>
+              <TouchableOpacity
+                key={option.id}
+                style={[
+                  styles.feedbackButton,
+                  isSelected && { backgroundColor: option.color + '20', borderColor: option.color },
+                ]}
+                onPress={() => setFeedback(option.id)}
+                onClick={() => setFeedback(option.id)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.feedbackEmoji}>{option.emoji}</Text>
+                <Text
+                  style={[
+                    styles.feedbackLabel,
+                    isSelected && { color: option.color },
+                  ]}
+                >
+                  {option.label}
+                </Text>
+              </TouchableOpacity>
             );
           })}
         </View>
+      </View>
 
-        {/* Done Button */}
-        <TouchableOpacity style={styles.doneButton} onPress={handleFinish}>
-          <Text style={styles.doneButtonText}>Done</Text>
-        </TouchableOpacity>
+      {/* Rating */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Rate your workout</Text>
+        <View style={styles.ratingRow}>
+          {[1, 2, 3, 4, 5].map((star) => (
+            <TouchableOpacity
+              key={star}
+              onPress={() => setRating(star)}
+              onClick={() => setRating(star)}
+            >
+              <Star
+                size={36}
+                color={star <= (rating || 0) ? COLORS.warning : COLORS.surfaceLight}
+                fill={star <= (rating || 0) ? COLORS.warning : 'transparent'}
+              />
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
 
-        <View style={{ height: 40 }} />
+      {/* Notes */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Notes (optional)</Text>
+        <TextInput
+          style={styles.notesInput}
+          placeholder="How was your workout? Any observations..."
+          placeholderTextColor={COLORS.textMuted}
+          value={notes}
+          onChangeText={setNotes}
+          multiline
+          numberOfLines={4}
+          textAlignVertical="top"
+        />
+      </View>
+
+      {/* Exercise Summary */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Exercise Summary</Text>
+        {exercises.map((exercise, index) => {
+          const completedSetsCount = exercise.sets?.filter(s => s.completed).length || 0;
+          return (
+            <View key={index} style={styles.exerciseSummary}>
+              <View style={styles.exerciseIcon}>
+                <Dumbbell size={16} color={COLORS.primary} />
+              </View>
+              <View style={styles.exerciseInfo}>
+                <Text style={styles.exerciseName}>{exercise.name}</Text>
+                <Text style={styles.exerciseSets}>
+                  {completedSetsCount} sets completed
+                </Text>
+              </View>
+              {completedSetsCount === exercise.sets?.length && (
+                <Check size={20} color={COLORS.success} />
+              )}
+            </View>
+          );
+        })}
+      </View>
+
+      {/* Done Button */}
+      <TouchableOpacity
+        style={styles.doneButton}
+        onPress={handleFinish}
+        onClick={handleFinish}
+      >
+        <Text style={styles.doneButtonText}>Done</Text>
+      </TouchableOpacity>
+
+      <View style={{ height: 100 }} />
+    </>
+  );
+
+  // For web, we need to use native div elements for proper scrolling
+  if (Platform.OS === 'web') {
+    return (
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100vh',
+        backgroundColor: COLORS.background,
+      }}>
+        <div style={{
+          flex: 1,
+          overflowY: 'auto',
+          paddingLeft: 16,
+          paddingRight: 16,
+        }}>
+          {renderContent()}
+        </div>
+      </div>
+    );
+  }
+
+  // Native iOS/Android rendering
+  return (
+    <SafeAreaView style={styles.container}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {renderContent()}
       </ScrollView>
     </SafeAreaView>
   );
@@ -222,7 +269,10 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  scrollContent: {
     paddingHorizontal: 16,
+    paddingBottom: 100,
   },
   header: {
     alignItems: 'center',
@@ -303,21 +353,25 @@ const styles = StyleSheet.create({
   },
   feedbackRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 8,
   },
   feedbackButton: {
     flex: 1,
     alignItems: 'center',
     backgroundColor: COLORS.surface,
     borderRadius: 12,
-    padding: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
     borderWidth: 2,
     borderColor: COLORS.surface,
   },
+  feedbackEmoji: {
+    fontSize: 24,
+  },
   feedbackLabel: {
     color: COLORS.textMuted,
-    fontSize: 12,
-    marginTop: 8,
+    fontSize: 10,
+    marginTop: 6,
     fontWeight: '600',
   },
   ratingRow: {

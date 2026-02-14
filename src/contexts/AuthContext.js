@@ -34,26 +34,44 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const checkUser = async () => {
+    console.log('checkUser starting...');
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      console.log('Getting session...');
+      const { data: { session }, error } = await supabase.auth.getSession();
+      console.log('Session result:', session ? 'logged in' : 'no session', error);
+
       setUser(session?.user ?? null);
 
       if (session?.user) {
+        console.log('Loading profile for user:', session.user.id);
         await loadProfile(session.user.id);
+        console.log('Profile loaded');
       }
     } catch (error) {
       console.log('Error checking auth:', error);
     } finally {
+      console.log('Setting loading to false');
       setLoading(false);
     }
   };
 
   const loadProfile = async (userId) => {
+    console.log('loadProfile starting for:', userId);
     try {
-      const { data } = await profileService.getProfile(userId);
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Profile load timeout')), 3000)
+      );
+
+      const profilePromise = profileService.getProfile(userId);
+      const { data, error } = await Promise.race([profilePromise, timeoutPromise]);
+
+      console.log('loadProfile result:', data ? 'got profile' : 'no profile', error);
       setProfile(data);
     } catch (error) {
       console.log('Error loading profile:', error);
+      // Set empty profile so app doesn't hang
+      setProfile({ onboarding_completed: false });
     }
   };
 

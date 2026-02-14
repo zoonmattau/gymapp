@@ -1,38 +1,39 @@
-// UpRep Color Theme - Dark Mode
+// UpRep Color Theme - Dark Mode (Matching Web App)
 export const COLORS = {
-  // Base
-  background: '#0D0F12',
-  surface: '#1A1D24',
-  surfaceLight: '#252A33',
-
-  // Primary
-  primary: '#6366F1',
-  primaryLight: '#818CF8',
-  primaryDark: '#4F46E5',
+  // Primary - Cyan theme
+  primary: '#06B6D4',        // Cyan - fresh, energetic, modern
+  primaryDark: '#0891B2',    // Darker cyan for hover/pressed
+  primaryLight: '#22D3EE',   // Lighter cyan
 
   // Accent
-  accent: '#F97316',
-  accentLight: '#FB923C',
+  accent: '#22D3EE',         // Lighter cyan accent
+  accentLight: '#67E8F9',
+
+  // Background
+  background: '#0D0F12',     // Dark background
+  surface: '#121417',        // Card surface
+  surfaceLight: '#1E2024',   // Slightly lighter surface
 
   // Text
-  text: '#FFFFFF',
-  textSecondary: '#A1A1AA',
-  textMuted: '#71717A',
+  text: '#F3F4F6',           // Primary text (slightly brighter)
+  textSecondary: '#D1D5DB',  // Secondary text
+  textMuted: '#9CA3AF',      // Muted text
 
   // Status
-  success: '#22C55E',
-  warning: '#EAB308',
-  error: '#EF4444',
+  success: '#22C55E',        // Green - ONLY for success, wins, completed
+  warning: '#FBBF24',        // Yellow warning
+  error: '#EF4444',          // Red error
 
-  // Specific
-  water: '#3B82F6',
-  protein: '#8B5CF6',
-  carbs: '#F59E0B',
-  fats: '#EC4899',
-  supplements: '#14B8A6',
+  // Category colors (all visually distinct)
+  water: '#60A5FA',          // Blue - water
+  sleep: '#C4B5FD',          // Soft lavender - sleep
+  fats: '#F59E0B',           // Amber - fats
+  protein: '#F472B6',        // Pink - protein
+  carbs: '#FB923C',          // Orange - carbs
+  supplements: '#FBBF24',    // Yellow - supplements (electric/zap)
 
   // Borders
-  border: '#2D3748',
+  border: '#2A2D32',         // Subtle borders
   borderLight: '#3D4A5C',
 };
 
