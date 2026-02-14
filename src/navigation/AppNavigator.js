@@ -80,7 +80,13 @@ const AppNavigator = () => {
       return;
     }
 
-    // Check local storage for onboarding completion (keyed by user id)
+    // First check Supabase profile (syncs across devices)
+    if (profile?.onboarding_completed) {
+      setOnboardingCompleted(true);
+      return;
+    }
+
+    // Fall back to local storage for onboarding completion (keyed by user id)
     const storageKey = Platform.OS === 'web'
       ? `onboarding_completed_${user.id}`
       : `@onboarding_completed_${user.id}`;

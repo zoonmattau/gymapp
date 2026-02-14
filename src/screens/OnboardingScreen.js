@@ -258,7 +258,14 @@ const OnboardingScreen = ({ navigation }) => {
         console.log('Profile update error (ignored):', e);
       }
 
-      // Mark onboarding as complete in local storage (keyed by user id)
+      // Mark onboarding as complete in Supabase (syncs across devices)
+      try {
+        await profileService.updateProfile(user.id, { onboarding_completed: true });
+      } catch (e) {
+        console.log('Failed to save onboarding to Supabase:', e);
+      }
+
+      // Also save to local storage as backup
       const storageKey = Platform.OS === 'web'
         ? `onboarding_completed_${user.id}`
         : `@onboarding_completed_${user.id}`;
