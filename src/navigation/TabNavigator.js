@@ -20,8 +20,8 @@ const TabNavigator = () => {
 
   // For web, use fixed padding to handle mobile browsers
   // For native, use safe area insets
-  const bottomPadding = Platform.OS === 'web' ? 4 : Math.max(insets.bottom, 8);
-  const tabBarHeight = Platform.OS === 'web' ? 90 : (60 + insets.bottom);
+  const bottomPadding = Platform.OS === 'web' ? 50 : Math.max(insets.bottom, 8);
+  const tabBarHeight = Platform.OS === 'web' ? 110 : (60 + insets.bottom);
 
   return (
     <Tab.Navigator
