@@ -18,10 +18,10 @@ const Tab = createBottomTabNavigator();
 const TabNavigator = () => {
   const insets = useSafeAreaInsets();
 
-  // For web, use fixed large padding to handle all mobile browsers
+  // For web, use fixed padding to handle mobile browsers
   // For native, use safe area insets
-  const bottomPadding = Platform.OS === 'web' ? 28 : Math.max(insets.bottom, 8);
-  const tabBarHeight = Platform.OS === 'web' ? 90 : (60 + insets.bottom);
+  const bottomPadding = Platform.OS === 'web' ? 24 : Math.max(insets.bottom, 8);
+  const tabBarHeight = Platform.OS === 'web' ? 70 : (60 + insets.bottom);
 
   return (
     <Tab.Navigator
@@ -33,7 +33,7 @@ const TabNavigator = () => {
           borderTopWidth: 1,
           height: tabBarHeight,
           paddingBottom: bottomPadding,
-          paddingTop: 10,
+          paddingTop: 4,
         },
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.textMuted,
