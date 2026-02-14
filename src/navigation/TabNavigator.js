@@ -1,6 +1,7 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { View } from 'react-native';
+import { View, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Home, Dumbbell, Apple, User, TrendingUp, Users } from 'lucide-react-native';
 import { COLORS } from '../constants/colors';
 
@@ -15,6 +16,9 @@ import CommunityScreen from '../screens/CommunityScreen';
 const Tab = createBottomTabNavigator();
 
 const TabNavigator = () => {
+  const insets = useSafeAreaInsets();
+  const bottomPadding = Math.max(insets.bottom, 8);
+
   return (
     <Tab.Navigator
       screenOptions={{
@@ -23,8 +27,8 @@ const TabNavigator = () => {
           backgroundColor: COLORS.surface,
           borderTopColor: COLORS.border,
           borderTopWidth: 1,
-          height: 60,
-          paddingBottom: 8,
+          height: 52 + bottomPadding,
+          paddingBottom: bottomPadding,
           paddingTop: 8,
         },
         tabBarActiveTintColor: COLORS.primary,
