@@ -18,13 +18,10 @@ const Tab = createBottomTabNavigator();
 const TabNavigator = () => {
   const insets = useSafeAreaInsets();
 
-  // Detect iOS Safari for proper safe area handling
-  const isIOSWeb = Platform.OS === 'web' &&
-    typeof navigator !== 'undefined' &&
-    /iPhone|iPad|iPod/.test(navigator.userAgent);
-
-  // Use larger padding for iOS web devices (home indicator area)
-  const bottomPadding = isIOSWeb ? 34 : Math.max(insets.bottom, 8);
+  // For web, use fixed large padding to handle all mobile browsers
+  // For native, use safe area insets
+  const bottomPadding = Platform.OS === 'web' ? 20 : Math.max(insets.bottom, 8);
+  const tabBarHeight = Platform.OS === 'web' ? 80 : (60 + insets.bottom);
 
   return (
     <Tab.Navigator
@@ -34,9 +31,9 @@ const TabNavigator = () => {
           backgroundColor: COLORS.surface,
           borderTopColor: COLORS.border,
           borderTopWidth: 1,
-          height: 52 + bottomPadding,
+          height: tabBarHeight,
           paddingBottom: bottomPadding,
-          paddingTop: 8,
+          paddingTop: 10,
         },
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.textMuted,
