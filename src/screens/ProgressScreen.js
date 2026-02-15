@@ -54,33 +54,22 @@ const ProgressScreen = () => {
   });
 
   const [streaks, setStreaks] = useState({
-    workouts: 3,
+    workouts: 0,
     calories: 0,
-    water: 3,
+    water: 0,
     supps: 0,
     sleep: 0,
   });
 
   const [weightData, setWeightData] = useState({
-    current: 118,
-    target: 100,
-    start: 118,
+    current: 0,
+    target: 0,
+    start: 0,
   });
 
-  const [weightHistory, setWeightHistory] = useState([
-    { week: 'W1', weight: 120 },
-    { week: 'W2', weight: 119 },
-  ]);
+  const [weightHistory, setWeightHistory] = useState([]);
 
-  const [programData, setProgramData] = useState({
-    name: 'Bro Split',
-    progressPercent: 7,
-    done: 7,
-    left: 93,
-    currentWeek: 2,
-    totalWeeks: 20,
-    weeksLeft: 18,
-  });
+  const [programData, setProgramData] = useState(null);
 
   const [loading, setLoading] = useState(true);
 
@@ -139,26 +128,18 @@ const ProgressScreen = () => {
     },
   };
 
-  // Dynamic chart data based on period
+  // Dynamic chart data based on period - returns actual user data only
   const getChartLabels = () => {
-    switch (chartPeriod) {
-      case '7D': return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-      case '30D': return ['W1', 'W2', 'W3', 'W4'];
-      case '90D': return ['M1', 'M2', 'M3'];
-      default: return weightHistory.map(w => w.week);
-    }
+    if (weightHistory.length === 0) return [];
+    return weightHistory.map(w => w.week);
   };
 
   const getWeightData = () => {
-    switch (chartPeriod) {
-      case '7D': return [118.5, 118.3, 118.4, 118.2, 118.0, 118.1, 118.0];
-      case '30D': return [119.5, 119.0, 118.5, 118.0];
-      case '90D': return [120.0, 119.0, 118.0];
-      default: return weightHistory.map(w => w.weight);
-    }
+    if (weightHistory.length === 0) return [];
+    return weightHistory.map(w => w.weight);
   };
 
-  const weightChartData = {
+  const weightChartData = weightHistory.length > 0 ? {
     labels: getChartLabels(),
     datasets: [
       {
@@ -167,75 +148,13 @@ const ProgressScreen = () => {
         strokeWidth: 2,
       },
     ],
-  };
+  } : null;
 
-  const caloriesChartData = {
-    labels: chartPeriod === '7D' ? ['M', 'T', 'W', 'T', 'F', 'S', 'S']
-          : chartPeriod === '30D' ? ['W1', 'W2', 'W3', 'W4']
-          : chartPeriod === '90D' ? ['M1', 'M2', 'M3']
-          : ['7w', '6w', '5w', '4w', '3w', 'This'],
-    datasets: [
-      {
-        data: chartPeriod === '7D' ? [1800, 2100, 1950, 2200, 2000, 2300, 1900]
-            : chartPeriod === '30D' ? [14000, 15000, 14500, 15200]
-            : chartPeriod === '90D' ? [58000, 62000, 60000]
-            : [100, 150, 200, 300, 500, 800],
-        color: (opacity = 1) => COLORS.accent,
-        strokeWidth: 2,
-      },
-    ],
-  };
-
-  const proteinChartData = {
-    labels: chartPeriod === '7D' ? ['M', 'T', 'W', 'T', 'F', 'S', 'S']
-          : chartPeriod === '30D' ? ['W1', 'W2', 'W3', 'W4']
-          : chartPeriod === '90D' ? ['M1', 'M2', 'M3']
-          : ['7w', '6w', '5w', '4w', '3w', 'This'],
-    datasets: [
-      {
-        data: chartPeriod === '7D' ? [140, 155, 145, 160, 150, 165, 155]
-            : chartPeriod === '30D' ? [145, 150, 155, 158]
-            : chartPeriod === '90D' ? [140, 150, 155]
-            : [20, 25, 30, 35, 50, 50],
-        color: (opacity = 1) => '#EC4899',
-        strokeWidth: 2,
-      },
-    ],
-  };
-
-  const waterChartData = {
-    labels: chartPeriod === '7D' ? ['M', 'T', 'W', 'T', 'F', 'S', 'S']
-          : chartPeriod === '30D' ? ['W1', 'W2', 'W3', 'W4']
-          : chartPeriod === '90D' ? ['M1', 'M2', 'M3']
-          : ['7w', '6w', '5w', '4w', '3w', 'This'],
-    datasets: [
-      {
-        data: chartPeriod === '7D' ? [2.5, 3.0, 2.8, 3.2, 2.9, 3.5, 3.0]
-            : chartPeriod === '30D' ? [2.8, 3.0, 3.2, 3.1]
-            : chartPeriod === '90D' ? [2.5, 2.9, 3.1]
-            : [1.5, 2.0, 2.2, 2.8, 2.5, 3.5],
-        color: (opacity = 1) => '#06B6D4',
-        strokeWidth: 2,
-      },
-    ],
-  };
-
-  const sleepChartData = {
-    labels: chartPeriod === '7D' ? ['M', 'T', 'W', 'T', 'F', 'S', 'S']
-          : chartPeriod === '30D' ? ['W1', 'W2', 'W3', 'W4']
-          : chartPeriod === '90D' ? ['M1', 'M2', 'M3']
-          : ['W1', 'W2'],
-    datasets: [
-      {
-        data: chartPeriod === '7D' ? [7.5, 6.8, 7.2, 7.0, 6.5, 8.0, 7.5]
-            : chartPeriod === '30D' ? [6.8, 7.0, 7.2, 7.1]
-            : chartPeriod === '90D' ? [6.5, 7.0, 7.2]
-            : [6.5, 7.2],
-        color: (opacity = 1) => '#8B5CF6',
-        strokeWidth: 2,
-      },
-    ],
-  };
+  // Empty chart placeholders - will show "No data" message instead
+  const caloriesChartData = null;
+  const proteinChartData = null;
+  const waterChartData = null;
+  const sleepChartData = null;
 
   const renderContent = () => (
     <>
@@ -252,15 +171,15 @@ const ProgressScreen = () => {
             <TrendingUp size={16} color={COLORS.primary} />
             <Text style={styles.overviewCardLabel}>Current</Text>
           </View>
-          <Text style={styles.overviewCardValue}>{weightData.current}kg</Text>
-          <Text style={styles.overviewCardSubtext}>Target: {weightData.target}kg</Text>
+          <Text style={styles.overviewCardValue}>{weightData.current > 0 ? `${weightData.current}kg` : '--'}</Text>
+          <Text style={styles.overviewCardSubtext}>{weightData.target > 0 ? `Target: ${weightData.target}kg` : 'Log a weigh-in'}</Text>
         </View>
         <View style={styles.overviewCard}>
           <View style={styles.overviewCardHeader}>
             <Target size={16} color={COLORS.success} />
             <Text style={styles.overviewCardLabel}>Progress</Text>
           </View>
-          <Text style={[styles.overviewCardValue, { color: COLORS.success }]}>{progressToGoal()}%</Text>
+          <Text style={[styles.overviewCardValue, { color: COLORS.success }]}>{weightData.current > 0 ? `${progressToGoal()}%` : '--'}</Text>
           <Text style={styles.overviewCardSubtext}>to goal</Text>
         </View>
       </View>
@@ -328,35 +247,42 @@ const ProgressScreen = () => {
 
       {/* PROGRAM Section */}
       <Text style={styles.sectionLabel}>PROGRAM</Text>
-      <View style={styles.programCard}>
-        <View style={styles.programHeader}>
-          <Text style={styles.programTitle}>{programData.name}</Text>
-          <View style={styles.programBadge}>
-            <Text style={styles.programBadgeText}>{programData.progressPercent}%</Text>
+      {programData ? (
+        <View style={styles.programCard}>
+          <View style={styles.programHeader}>
+            <Text style={styles.programTitle}>{programData.name}</Text>
+            <View style={styles.programBadge}>
+              <Text style={styles.programBadgeText}>{programData.progressPercent}%</Text>
+            </View>
+          </View>
+          <View style={styles.programProgressBar}>
+            <View style={[styles.programProgressFill, { width: `${programData.progressPercent}%` }]} />
+          </View>
+          <View style={styles.programStats}>
+            <View style={styles.programStat}>
+              <Text style={[styles.programStatValue, { color: COLORS.success }]}>{programData.done}</Text>
+              <Text style={styles.programStatLabel}>Done</Text>
+            </View>
+            <View style={styles.programStat}>
+              <Text style={[styles.programStatValue, { color: '#F59E0B' }]}>{programData.left}</Text>
+              <Text style={styles.programStatLabel}>Left</Text>
+            </View>
+            <View style={styles.programStat}>
+              <Text style={[styles.programStatValue, { color: COLORS.primary }]}>{programData.currentWeek}/{programData.totalWeeks}</Text>
+              <Text style={styles.programStatLabel}>Week</Text>
+            </View>
+            <View style={styles.programStat}>
+              <Text style={[styles.programStatValue, { color: COLORS.primary }]}>{programData.weeksLeft}</Text>
+              <Text style={styles.programStatLabel}>Wks left</Text>
+            </View>
           </View>
         </View>
-        <View style={styles.programProgressBar}>
-          <View style={[styles.programProgressFill, { width: `${programData.progressPercent}%` }]} />
+      ) : (
+        <View style={styles.emptyCard}>
+          <Text style={styles.emptyCardText}>No program active</Text>
+          <Text style={styles.emptyCardSubtext}>Start a workout program to track progress</Text>
         </View>
-        <View style={styles.programStats}>
-          <View style={styles.programStat}>
-            <Text style={[styles.programStatValue, { color: COLORS.success }]}>{programData.done}</Text>
-            <Text style={styles.programStatLabel}>Done</Text>
-          </View>
-          <View style={styles.programStat}>
-            <Text style={[styles.programStatValue, { color: '#F59E0B' }]}>{programData.left}</Text>
-            <Text style={styles.programStatLabel}>Left</Text>
-          </View>
-          <View style={styles.programStat}>
-            <Text style={[styles.programStatValue, { color: COLORS.primary }]}>{programData.currentWeek}/{programData.totalWeeks}</Text>
-            <Text style={styles.programStatLabel}>Week</Text>
-          </View>
-          <View style={styles.programStat}>
-            <Text style={[styles.programStatValue, { color: COLORS.primary }]}>{programData.weeksLeft}</Text>
-            <Text style={styles.programStatLabel}>Wks left</Text>
-          </View>
-        </View>
-      </View>
+      )}
 
       {/* WEIGHT TRACKING Section */}
       <View style={styles.chartSectionHeader}>
@@ -376,37 +302,45 @@ const ProgressScreen = () => {
         </View>
       </View>
       <View style={styles.chartCard}>
-        {weightHistory.length > 0 && (
-          <LineChart
-            data={weightChartData}
-            width={chartWidth}
-            height={180}
-            chartConfig={chartConfig}
-            bezier
-            style={styles.chart}
-            withInnerLines={true}
-            withOuterLines={false}
-            withVerticalLines={false}
-            withHorizontalLines={true}
-            withVerticalLabels={true}
-            withHorizontalLabels={true}
-            fromZero={false}
-            segments={4}
-          />
+        {weightChartData && weightHistory.length > 0 ? (
+          <>
+            <LineChart
+              data={weightChartData}
+              width={chartWidth}
+              height={180}
+              chartConfig={chartConfig}
+              bezier
+              style={styles.chart}
+              withInnerLines={true}
+              withOuterLines={false}
+              withVerticalLines={false}
+              withHorizontalLines={true}
+              withVerticalLabels={true}
+              withHorizontalLabels={true}
+              fromZero={false}
+              segments={4}
+            />
+            <View style={styles.chartGoalLine}>
+              <Text style={styles.chartGoalText}>Goal: {weightData.target}kg</Text>
+            </View>
+            <View style={styles.chartLegend}>
+              <View style={styles.chartLegendItem}>
+                <View style={[styles.chartLegendDot, { backgroundColor: COLORS.primary }]} />
+                <Text style={styles.chartLegendText}>Actual</Text>
+              </View>
+              <View style={styles.chartLegendItem}>
+                <View style={[styles.chartLegendDot, { backgroundColor: COLORS.success }]} />
+                <Text style={styles.chartLegendText}>Goal</Text>
+              </View>
+            </View>
+          </>
+        ) : (
+          <View style={styles.chartEmpty}>
+            <Scale size={32} color={COLORS.textMuted} />
+            <Text style={styles.chartEmptyText}>No weight data yet</Text>
+            <Text style={styles.chartEmptySubtext}>Log weigh-ins to see your progress</Text>
+          </View>
         )}
-        <View style={styles.chartGoalLine}>
-          <Text style={styles.chartGoalText}>Goal: {weightData.target}kg</Text>
-        </View>
-        <View style={styles.chartLegend}>
-          <View style={styles.chartLegendItem}>
-            <View style={[styles.chartLegendDot, { backgroundColor: COLORS.primary }]} />
-            <Text style={styles.chartLegendText}>Actual</Text>
-          </View>
-          <View style={styles.chartLegendItem}>
-            <View style={[styles.chartLegendDot, { backgroundColor: COLORS.success }]} />
-            <Text style={styles.chartLegendText}>Goal</Text>
-          </View>
-        </View>
       </View>
 
       {/* NUTRITION TRENDS Section */}
@@ -414,99 +348,38 @@ const ProgressScreen = () => {
       <View style={styles.nutritionCard}>
         {/* Calories */}
         <View style={styles.nutritionChartSection}>
-          <View style={styles.nutritionChartHeader}>
-            <Text style={[styles.nutritionChartTitle, { color: COLORS.accent }]}>Calories</Text>
-            <View style={styles.chartPeriodRowSmall}>
-              {['7D', '30D', '90D', 'All'].map((period) => (
-                <TouchableOpacity key={`cal-${period}`} style={[styles.chartPeriodBtnSmall, chartPeriod === period && styles.chartPeriodBtnActiveSmall]}>
-                  <Text style={[styles.chartPeriodTextSmall, chartPeriod === period && styles.chartPeriodTextActiveSmall]}>{period}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+          <Text style={[styles.nutritionChartTitle, { color: COLORS.accent }]}>Calories</Text>
+          <View style={styles.miniChartEmpty}>
+            <Flame size={24} color={COLORS.textMuted} />
+            <Text style={styles.miniChartEmptyText}>No calorie data yet</Text>
           </View>
-          <LineChart
-            data={caloriesChartData}
-            width={chartWidth}
-            height={120}
-            chartConfig={{
-              ...chartConfig,
-              color: (opacity = 1) => COLORS.accent,
-            }}
-            bezier
-            style={styles.miniChart}
-            withInnerLines={true}
-            withOuterLines={false}
-            withVerticalLines={false}
-            withHorizontalLines={true}
-            withDots={true}
-            fromZero={true}
-          />
         </View>
 
         {/* Protein */}
         <View style={[styles.nutritionChartSection, styles.nutritionChartBorder]}>
           <Text style={[styles.nutritionChartTitle, { color: '#EC4899' }]}>Protein</Text>
-          <LineChart
-            data={proteinChartData}
-            width={chartWidth}
-            height={120}
-            chartConfig={{
-              ...chartConfig,
-              color: (opacity = 1) => '#EC4899',
-            }}
-            bezier
-            style={styles.miniChart}
-            withInnerLines={true}
-            withOuterLines={false}
-            withVerticalLines={false}
-            withHorizontalLines={true}
-            withDots={true}
-            fromZero={true}
-          />
+          <View style={styles.miniChartEmpty}>
+            <Zap size={24} color={COLORS.textMuted} />
+            <Text style={styles.miniChartEmptyText}>No protein data yet</Text>
+          </View>
         </View>
 
         {/* Water */}
         <View style={[styles.nutritionChartSection, styles.nutritionChartBorder]}>
           <Text style={[styles.nutritionChartTitle, { color: '#06B6D4' }]}>Water</Text>
-          <LineChart
-            data={waterChartData}
-            width={chartWidth}
-            height={120}
-            chartConfig={{
-              ...chartConfig,
-              color: (opacity = 1) => '#06B6D4',
-            }}
-            bezier
-            style={styles.miniChart}
-            withInnerLines={true}
-            withOuterLines={false}
-            withVerticalLines={false}
-            withHorizontalLines={true}
-            withDots={true}
-            fromZero={true}
-          />
+          <View style={styles.miniChartEmpty}>
+            <Droplets size={24} color={COLORS.textMuted} />
+            <Text style={styles.miniChartEmptyText}>No water data yet</Text>
+          </View>
         </View>
 
         {/* Sleep */}
         <View style={[styles.nutritionChartSection, styles.nutritionChartBorder]}>
           <Text style={[styles.nutritionChartTitle, { color: '#8B5CF6' }]}>Sleep</Text>
-          <LineChart
-            data={sleepChartData}
-            width={chartWidth}
-            height={120}
-            chartConfig={{
-              ...chartConfig,
-              color: (opacity = 1) => '#8B5CF6',
-            }}
-            bezier
-            style={styles.miniChart}
-            withInnerLines={true}
-            withOuterLines={false}
-            withVerticalLines={false}
-            withHorizontalLines={true}
-            withDots={true}
-            fromZero={true}
-          />
+          <View style={styles.miniChartEmpty}>
+            <Moon size={24} color={COLORS.textMuted} />
+            <Text style={styles.miniChartEmptyText}>No sleep data yet</Text>
+          </View>
         </View>
       </View>
 
@@ -527,7 +400,7 @@ const ProgressScreen = () => {
             </View>
             <Text style={styles.measurementLabel}>Current Weight</Text>
           </View>
-          <Text style={styles.measurementValue}>{weightData.current} kg</Text>
+          <Text style={styles.measurementValue}>{weightData.current > 0 ? `${weightData.current} kg` : '--'}</Text>
         </View>
         <View style={styles.measurementRow}>
           <View style={styles.measurementLeft}>
@@ -536,7 +409,7 @@ const ProgressScreen = () => {
             </View>
             <Text style={styles.measurementLabel}>Goal Weight</Text>
           </View>
-          <Text style={styles.measurementValue}>{weightData.target} kg</Text>
+          <Text style={styles.measurementValue}>{weightData.target > 0 ? `${weightData.target} kg` : '--'}</Text>
         </View>
         <View style={styles.measurementRow}>
           <View style={styles.measurementLeft}>
@@ -545,7 +418,7 @@ const ProgressScreen = () => {
             </View>
             <Text style={styles.measurementLabel}>To Go</Text>
           </View>
-          <Text style={styles.measurementValue}>{(weightData.current - weightData.target).toFixed(1)} kg</Text>
+          <Text style={styles.measurementValue}>{weightData.current > 0 && weightData.target > 0 ? `${(weightData.current - weightData.target).toFixed(1)} kg` : '--'}</Text>
         </View>
       </View>
 
@@ -1059,6 +932,48 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     fontSize: 14,
     textAlign: 'center',
+  },
+
+  // Empty states
+  emptyCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+  },
+  emptyCardText: {
+    color: COLORS.textMuted,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  emptyCardSubtext: {
+    color: COLORS.textMuted,
+    fontSize: 13,
+    marginTop: 4,
+  },
+  chartEmpty: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  chartEmptyText: {
+    color: COLORS.textMuted,
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 12,
+  },
+  chartEmptySubtext: {
+    color: COLORS.textMuted,
+    fontSize: 13,
+    marginTop: 4,
+  },
+  miniChartEmpty: {
+    alignItems: 'center',
+    paddingVertical: 24,
+  },
+  miniChartEmptyText: {
+    color: COLORS.textMuted,
+    fontSize: 13,
+    marginTop: 8,
   },
 });
 
