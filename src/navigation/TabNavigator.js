@@ -20,7 +20,7 @@ const TabNavigator = () => {
 
   // For web, use compact height with minimal padding
   // For native, use safe area insets
-  const tabBarHeight = Platform.OS === 'web' ? 75 : (60 + insets.bottom);
+  const tabBarHeight = Platform.OS === 'web' ? 70 : (60 + insets.bottom);
 
   return (
     <Tab.Navigator
