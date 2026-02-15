@@ -29,8 +29,12 @@ import {
   ChevronUp,
 } from 'lucide-react-native';
 import { COLORS } from '../constants/colors';
+import { GOAL_INFO, GOAL_TO_PROGRAM, PROGRAM_TEMPLATES } from '../constants/goals';
+import { EXPERIENCE_LEVELS } from '../constants/experience';
+import { WORKOUT_TEMPLATES } from '../constants/workoutTemplates';
 import { useAuth } from '../contexts/AuthContext';
 import { profileService } from '../services/profileService';
+import { workoutService } from '../services/workoutService';
 
 const { width } = Dimensions.get('window');
 
@@ -44,75 +48,80 @@ const STEPS = [
   { id: 7, title: 'Set your sleep goal', subtitle: 'Good sleep is essential for recovery and results' },
 ];
 
+// Build GOALS array from GOAL_INFO constants
 const GOALS = [
   {
     id: 'bulk',
-    title: 'Build Muscle',
-    subtitle: 'Gain size & strength',
+    title: GOAL_INFO.bulk.title,
+    subtitle: 'Maximize size & strength',
     icon: TrendingUp,
     color: COLORS.success,
-    description: 'Focus on progressive overload with calorie surplus. High protein intake, 7-9 hours sleep.',
-    minDays: 4,
-    idealDays: 6,
+    description: GOAL_INFO.bulk.overview,
+    minDays: GOAL_INFO.bulk.minDays,
+    idealDays: GOAL_INFO.bulk.idealDays,
   },
   {
-    id: 'cut',
-    title: 'Lose Fat',
-    subtitle: 'Get lean & defined',
-    icon: TrendingDown,
-    color: COLORS.accent,
-    description: 'Maintain muscle while in a calorie deficit. High protein, moderate intensity training.',
-    minDays: 3,
-    idealDays: 5,
+    id: 'build_muscle',
+    title: GOAL_INFO.build_muscle.title,
+    subtitle: 'Build lean muscle',
+    icon: Dumbbell,
+    color: COLORS.primary,
+    description: GOAL_INFO.build_muscle.overview,
+    minDays: GOAL_INFO.build_muscle.minDays,
+    idealDays: GOAL_INFO.build_muscle.idealDays,
   },
   {
     id: 'strength',
-    title: 'Get Stronger',
+    title: GOAL_INFO.strength.title,
     subtitle: 'Increase your lifts',
     icon: Zap,
     color: COLORS.warning,
-    description: 'Focus on compound movements and progressive overload. Maintenance calories, high protein.',
-    minDays: 3,
-    idealDays: 4,
+    description: GOAL_INFO.strength.overview,
+    minDays: GOAL_INFO.strength.minDays,
+    idealDays: GOAL_INFO.strength.idealDays,
   },
   {
     id: 'recomp',
-    title: 'Body Recomp',
+    title: GOAL_INFO.recomp.title,
     subtitle: 'Build muscle & lose fat',
     icon: RefreshCw,
-    color: COLORS.primary,
-    description: 'Simultaneous muscle gain and fat loss. Maintenance calories, very high protein.',
-    minDays: 4,
-    idealDays: 5,
+    color: '#9333EA',
+    description: GOAL_INFO.recomp.overview,
+    minDays: GOAL_INFO.recomp.minDays,
+    idealDays: GOAL_INFO.recomp.idealDays,
+  },
+  {
+    id: 'lean',
+    title: GOAL_INFO.lean.title,
+    subtitle: 'Get lean & defined',
+    icon: TrendingDown,
+    color: COLORS.accent,
+    description: GOAL_INFO.lean.overview,
+    minDays: GOAL_INFO.lean.minDays,
+    idealDays: GOAL_INFO.lean.idealDays,
+  },
+  {
+    id: 'lose_fat',
+    title: GOAL_INFO.lose_fat.title,
+    subtitle: 'Aggressive fat loss',
+    icon: Target,
+    color: '#EF4444',
+    description: GOAL_INFO.lose_fat.overview,
+    minDays: GOAL_INFO.lose_fat.minDays,
+    idealDays: GOAL_INFO.lose_fat.idealDays,
   },
 ];
 
-const EXPERIENCE_LEVELS = [
-  {
-    id: 'beginner',
-    title: 'Beginner',
-    subtitle: '0-6 months training',
-    description: 'New to resistance training. Focus on learning proper form and building habits.',
-  },
-  {
-    id: 'intermediate',
-    title: 'Intermediate',
-    subtitle: '6-18 months training',
-    description: 'Comfortable with basic movements. Ready for more volume and intensity.',
-  },
-  {
-    id: 'experienced',
-    title: 'Experienced',
-    subtitle: '1.5-4 years training',
-    description: 'Strong foundation. Can handle advanced techniques and higher training loads.',
-  },
-  {
-    id: 'expert',
-    title: 'Expert',
-    subtitle: '4+ years training',
-    description: 'Extensive experience. Requires specialized programming for continued progress.',
-  },
-];
+// Build experience levels from constants
+const EXPERIENCE_OPTIONS = Object.values(EXPERIENCE_LEVELS).map(level => ({
+  id: level.id,
+  title: level.label,
+  subtitle: level.desc,
+  icon: level.icon,
+  description: level.workoutComplexity === 'basic'
+    ? 'Focus on learning proper form and building habits with simpler workouts.'
+    : 'Advanced techniques and higher training loads with muscle head specificity.',
+}));
 
 
 const EQUIPMENT = [
@@ -231,6 +240,77 @@ const OnboardingScreen = ({ navigation }) => {
     }
   };
 
+  const generateWorkoutSchedule = async (userId, goal, daysPerWeek = 4) => {
+    try {
+      const program = GOAL_TO_PROGRAM[goal];
+      if (!program) {
+        console.log('No program found for goal:', goal);
+        return;
+      }
+
+      const templateIds = PROGRAM_TEMPLATES[program.id];
+      if (!templateIds || templateIds.length === 0) {
+        console.log('No templates found for program:', program.id);
+        return;
+      }
+
+      // Generate schedule for the next 4 weeks
+      const today = new Date();
+      let templateIndex = 0;
+      let workoutDayCount = 0;
+
+      for (let week = 0; week < 4; week++) {
+        for (let day = 0; day < 7; day++) {
+          const scheduleDate = new Date(today);
+          scheduleDate.setDate(today.getDate() + (week * 7) + day);
+
+          const dayOfWeek = scheduleDate.getDay(); // 0 = Sunday
+          // Rest on Sunday (0) by default
+          const isRestDay = dayOfWeek === 0 || workoutDayCount >= daysPerWeek;
+
+          if (isRestDay) {
+            // Skip - no schedule entry needed for rest days unless explicitly set
+            if (dayOfWeek === 0) {
+              // Sunday is always rest
+              continue;
+            }
+          } else {
+            // Schedule a workout
+            const templateId = templateIds[templateIndex % templateIds.length];
+            const template = WORKOUT_TEMPLATES[templateId];
+
+            if (template) {
+              const dateStr = formatDateForDB(scheduleDate);
+              try {
+                await workoutService.setScheduleForDate(userId, dateStr, templateId, false);
+                templateIndex++;
+                workoutDayCount++;
+              } catch (e) {
+                console.log('Error setting schedule for date:', dateStr, e);
+              }
+            }
+          }
+
+          // Reset workout count at end of week
+          if (day === 6) {
+            workoutDayCount = 0;
+          }
+        }
+      }
+
+      console.log('Generated workout schedule for', goal, 'with', program.name);
+    } catch (error) {
+      console.log('Error generating workout schedule:', error);
+    }
+  };
+
+  const formatDateForDB = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const handleComplete = async () => {
     console.log('handleComplete called, user:', user?.id);
     if (saving) {
@@ -248,6 +328,11 @@ const OnboardingScreen = ({ navigation }) => {
       // Add optional fields that exist in profiles table
       if (formData.gender) updateData.gender = formData.gender;
       if (formData.bio) updateData.bio = formData.bio;
+      if (formData.currentWeight) updateData.current_weight = parseFloat(formData.currentWeight);
+      if (formData.goalWeight) updateData.goal_weight = parseFloat(formData.goalWeight);
+      if (formData.weightUnit) updateData.weight_unit = formData.weightUnit;
+      if (formData.experienceLevel) updateData.experience_level = formData.experienceLevel;
+      if (formData.goal) updateData.fitness_goal = formData.goal;
 
       console.log('Saving profile with data:', updateData);
 
@@ -256,6 +341,13 @@ const OnboardingScreen = ({ navigation }) => {
         await profileService.updateProfile(user.id, updateData);
       } catch (e) {
         console.log('Profile update error (ignored):', e);
+      }
+
+      // Generate workout schedule based on goal
+      if (formData.goal) {
+        const program = GOAL_TO_PROGRAM[formData.goal];
+        const daysPerWeek = program?.days || 4;
+        await generateWorkoutSchedule(user.id, formData.goal, daysPerWeek);
       }
 
       // Mark onboarding as complete in Supabase (syncs across devices)
@@ -506,7 +598,7 @@ const OnboardingScreen = ({ navigation }) => {
       </View>
 
       <View style={styles.experienceContainer}>
-        {EXPERIENCE_LEVELS.map((level) => {
+        {EXPERIENCE_OPTIONS.map((level) => {
           const isSelected = formData.experienceLevel === level.id;
           return (
             <TouchableOpacity
