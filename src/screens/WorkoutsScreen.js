@@ -64,7 +64,23 @@ const WorkoutsScreen = () => {
       const startStr = formatDate(weekStart);
       const endStr = formatDate(weekEnd);
 
-      const { data: scheduleData } = await workoutService.getSchedule(user.id, startStr, endStr);
+      // Fetch both schedule and completed sessions for the week
+      const [{ data: scheduleData }, { data: sessionsData }] = await Promise.all([
+        workoutService.getSchedule(user.id, startStr, endStr),
+        workoutService.getCompletedSessionsForDateRange(user.id, startStr, endStr),
+      ]);
+
+      // Group completed sessions by date
+      const sessionsByDate = {};
+      (sessionsData || []).forEach(session => {
+        if (session.ended_at) {
+          const sessionDate = formatDate(new Date(session.started_at));
+          if (!sessionsByDate[sessionDate]) {
+            sessionsByDate[sessionDate] = [];
+          }
+          sessionsByDate[sessionDate].push(session);
+        }
+      });
 
       // Build week schedule from database data
       const newSchedule = {};
@@ -74,14 +90,25 @@ const WorkoutsScreen = () => {
         const dateStr = formatDate(dayDate);
 
         const daySchedule = scheduleData?.find(s => s.scheduled_date === dateStr);
+        const daySessions = sessionsByDate[dateStr] || [];
+        const hasCompletedWorkout = daySessions.length > 0;
 
         if (daySchedule) {
           newSchedule[i] = {
             workout: daySchedule.is_rest_day ? null : (daySchedule.workout_templates?.name || 'Workout'),
             isRest: daySchedule.is_rest_day,
-            completed: daySchedule.is_completed || false,
+            completed: daySchedule.is_completed || hasCompletedWorkout,
             templateId: daySchedule.template_id,
             scheduleId: daySchedule.id,
+          };
+        } else if (hasCompletedWorkout) {
+          // Freeform workout completed on this day (no schedule entry)
+          newSchedule[i] = {
+            workout: daySessions[0].workout_name || 'Workout',
+            isRest: false,
+            completed: true,
+            templateId: null,
+            scheduleId: null,
           };
         } else {
           newSchedule[i] = { workout: null, isRest: false, completed: false };

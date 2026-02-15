@@ -246,6 +246,30 @@ export const workoutService = {
     }
   },
 
+  // Get completed workout sessions for a date range
+  async getCompletedSessionsForDateRange(userId, startDate, endDate) {
+    try {
+      const { data, error } = await supabase
+        .from('workout_sessions')
+        .select('*')
+        .eq('user_id', userId)
+        .not('ended_at', 'is', null)
+        .gte('started_at', `${startDate}T00:00:00`)
+        .lte('started_at', `${endDate}T23:59:59`)
+        .order('started_at', { ascending: true });
+
+      if (error) {
+        console.warn('getCompletedSessionsForDateRange error:', error?.message);
+        return { data: [], error };
+      }
+
+      return { data: data || [], error: null };
+    } catch (err) {
+      console.warn('getCompletedSessionsForDateRange exception:', err?.message);
+      return { data: [], error: err };
+    }
+  },
+
   // Get workout status for a list of users (active or recently completed)
   async getWorkoutStatuses(userIds) {
     try {
