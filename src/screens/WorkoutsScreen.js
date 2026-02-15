@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -53,6 +53,13 @@ const WorkoutsScreen = () => {
       }
     }, [user])
   );
+
+  // Reload data when week changes
+  useEffect(() => {
+    if (user?.id) {
+      loadWorkoutData();
+    }
+  }, [weekOffset]);
 
   const loadWorkoutData = async () => {
     try {
