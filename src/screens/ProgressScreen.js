@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Dimensions,
   Platform,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   TrendingUp,
   TrendingDown,
@@ -29,6 +30,12 @@ import { COLORS } from '../constants/colors';
 import { useAuth } from '../contexts/AuthContext';
 import { workoutService } from '../services/workoutService';
 import { streakService } from '../services/streakService';
+import { weightService } from '../services/weightService';
+import { nutritionService } from '../services/nutritionService';
+import { sleepService } from '../services/sleepService';
+import { supabase } from '../lib/supabase';
+import { GOAL_INFO, GOAL_TO_PROGRAM } from '../constants/goals';
+import { EXPERIENCE_LEVELS } from '../constants/experience';
 import WeighInModal from '../components/WeighInModal';
 
 const ProgressScreen = () => {
@@ -71,16 +78,24 @@ const ProgressScreen = () => {
 
   const [programData, setProgramData] = useState(null);
 
+  // Nutrition trend data
+  const [nutritionHistory, setNutritionHistory] = useState([]);
+  const [sleepHistory, setSleepHistory] = useState([]);
+
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (user?.id) {
-      loadProgressData();
-    }
-  }, [user]);
+  // Reload data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      if (user?.id) {
+        loadProgressData();
+      }
+    }, [user])
+  );
 
   const loadProgressData = async () => {
     try {
+      // Load workout stats
       const { count } = await workoutService.getWorkoutCount(user.id);
       const { data: streakData } = await streakService.getStreakData(user.id);
 
@@ -89,10 +104,171 @@ const ProgressScreen = () => {
         currentStreak: streakData?.current_streak || 0,
         bestStreak: streakData?.longest_streak || 0,
       });
+
+      // Load weight data
+      await loadWeightData();
+
+      // Load user program
+      await loadProgramData();
+
+      // Load streaks
+      await loadStreakData();
+
+      // Load nutrition data for charts
+      await loadNutritionData();
     } catch (error) {
       console.log('Error loading progress:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadWeightData = async () => {
+    try {
+      const { data: weights } = await weightService.getAllWeights(user.id);
+
+      if (weights && weights.length > 0) {
+        const formattedHistory = weights.map((w, idx) => ({
+          week: `W${idx + 1}`,
+          weight: Math.round(w.weight * 10) / 10,
+          date: w.log_date,
+        }));
+
+        setWeightHistory(formattedHistory);
+
+        const current = weights[weights.length - 1].weight;
+        const start = weights[0].weight;
+        // Get target from profile
+        const target = user?.user_metadata?.target_weight || 0;
+
+        setWeightData({
+          current: Math.round(current * 10) / 10,
+          start: Math.round(start * 10) / 10,
+          target: target,
+        });
+      }
+    } catch (error) {
+      console.log('Error loading weight data:', error);
+    }
+  };
+
+  const loadProgramData = async () => {
+    try {
+      // Get user's goals from the database
+      const { data: goalData } = await supabase
+        .from('user_goals')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (goalData && goalData.goal) {
+        const goalKey = goalData.goal;
+        const goalInfo = GOAL_INFO[goalKey];
+        const programInfo = GOAL_TO_PROGRAM[goalKey];
+        const experienceInfo = EXPERIENCE_LEVELS[goalData.experience] || EXPERIENCE_LEVELS.novice;
+
+        if (programInfo) {
+          // Calculate program progress based on completed workouts
+          const { count: completedCount } = await workoutService.getWorkoutCount(user.id);
+          const totalWorkouts = programInfo.days * programInfo.weeks;
+          const progressPercent = Math.min(Math.round((completedCount / totalWorkouts) * 100), 100);
+
+          // Calculate current week
+          const { data: firstWorkout } = await supabase
+            .from('workout_sessions')
+            .select('started_at')
+            .eq('user_id', user.id)
+            .order('started_at', { ascending: true })
+            .limit(1)
+            .maybeSingle();
+
+          let currentWeek = 1;
+          if (firstWorkout?.started_at) {
+            const startDate = new Date(firstWorkout.started_at);
+            const now = new Date();
+            const weeksPassed = Math.floor((now - startDate) / (7 * 24 * 60 * 60 * 1000)) + 1;
+            currentWeek = Math.min(weeksPassed, programInfo.weeks);
+          }
+
+          setProgramData({
+            name: programInfo.name,
+            goalTitle: goalInfo?.title || 'General Fitness',
+            experience: experienceInfo.label,
+            progressPercent,
+            done: completedCount,
+            left: Math.max(totalWorkouts - completedCount, 0),
+            currentWeek,
+            totalWeeks: programInfo.weeks,
+            weeksLeft: Math.max(programInfo.weeks - currentWeek, 0),
+          });
+        }
+      }
+    } catch (error) {
+      console.log('Error loading program data:', error);
+    }
+  };
+
+  const loadStreakData = async () => {
+    try {
+      const { streak: workoutStreak } = await streakService.calculateWorkoutStreak(user.id);
+
+      // Calculate nutrition streaks from last 30 days
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const startDate = thirtyDaysAgo.toISOString().split('T')[0];
+      const endDate = new Date().toISOString().split('T')[0];
+
+      const { data: nutritionHistory } = await nutritionService.getNutritionHistory(user.id, startDate, endDate);
+      const { data: sleepHistory } = await sleepService.getSleepHistory(user.id, startDate, endDate);
+
+      // Calculate consecutive days hitting goals
+      let calorieStreak = 0;
+      let waterStreak = 0;
+      let sleepStreak = 0;
+
+      // This is a simplified calculation - can be enhanced
+      if (nutritionHistory && nutritionHistory.length > 0) {
+        // Count days with calories logged
+        calorieStreak = nutritionHistory.filter(n => n.total_calories > 0).length;
+        waterStreak = nutritionHistory.filter(n => n.water_intake > 0).length;
+      }
+
+      if (sleepHistory && sleepHistory.length > 0) {
+        sleepStreak = sleepHistory.length;
+      }
+
+      setStreaks({
+        workouts: workoutStreak || 0,
+        calories: Math.min(calorieStreak, 30),
+        water: Math.min(waterStreak, 30),
+        supps: 0, // Would need supplement tracking
+        sleep: Math.min(sleepStreak, 30),
+      });
+    } catch (error) {
+      console.log('Error loading streak data:', error);
+    }
+  };
+
+  const loadNutritionData = async () => {
+    try {
+      // Get last 7 days of data for mini charts
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      const startDate = sevenDaysAgo.toISOString().split('T')[0];
+      const endDate = new Date().toISOString().split('T')[0];
+
+      const { data: nutrition } = await nutritionService.getNutritionHistory(user.id, startDate, endDate);
+      const { data: sleep } = await sleepService.getSleepHistory(user.id, startDate, endDate);
+
+      if (nutrition && nutrition.length > 0) {
+        setNutritionHistory(nutrition);
+      }
+
+      if (sleep && sleep.length > 0) {
+        setSleepHistory(sleep);
+      }
+    } catch (error) {
+      console.log('Error loading nutrition data:', error);
     }
   };
 
@@ -102,9 +278,17 @@ const ProgressScreen = () => {
     return totalChange > 0 ? Math.round((currentChange / totalChange) * 100) : 0;
   };
 
-  const handleSaveWeighIn = (weight, unit) => {
-    setWeightData(prev => ({ ...prev, current: weight }));
-    setWeightHistory(prev => [...prev, { week: `W${prev.length + 1}`, weight }]);
+  const handleSaveWeighIn = async (weight, unit) => {
+    try {
+      await weightService.logWeight(user.id, weight, unit);
+
+      // Update local state
+      setWeightData(prev => ({ ...prev, current: weight }));
+      setWeightHistory(prev => [...prev, { week: `W${prev.length + 1}`, weight, date: new Date().toISOString().split('T')[0] }]);
+      setShowWeighInModal(false);
+    } catch (error) {
+      console.log('Error logging weight:', error);
+    }
   };
 
   const chartConfig = {
@@ -150,11 +334,51 @@ const ProgressScreen = () => {
     ],
   } : null;
 
-  // Empty chart placeholders - will show "No data" message instead
-  const caloriesChartData = null;
-  const proteinChartData = null;
-  const waterChartData = null;
-  const sleepChartData = null;
+  // Generate chart data from actual history
+  const generateNutritionChartData = (dataKey, color) => {
+    if (!nutritionHistory || nutritionHistory.length < 2) return null;
+
+    const labels = nutritionHistory.map(n => {
+      const date = new Date(n.log_date);
+      return `${date.getMonth() + 1}/${date.getDate()}`;
+    });
+
+    const data = nutritionHistory.map(n => n[dataKey] || 0);
+
+    return {
+      labels,
+      datasets: [{
+        data,
+        color: (opacity = 1) => color.replace('1)', `${opacity})`),
+        strokeWidth: 2,
+      }],
+    };
+  };
+
+  const generateSleepChartData = () => {
+    if (!sleepHistory || sleepHistory.length < 2) return null;
+
+    const labels = sleepHistory.map(s => {
+      const date = new Date(s.log_date);
+      return `${date.getMonth() + 1}/${date.getDate()}`;
+    });
+
+    const data = sleepHistory.map(s => s.hours_slept || 0);
+
+    return {
+      labels,
+      datasets: [{
+        data,
+        color: (opacity = 1) => `rgba(139, 92, 246, ${opacity})`,
+        strokeWidth: 2,
+      }],
+    };
+  };
+
+  const caloriesChartData = generateNutritionChartData('total_calories', 'rgba(239, 68, 68, 1)');
+  const proteinChartData = generateNutritionChartData('total_protein', 'rgba(236, 72, 153, 1)');
+  const waterChartData = generateNutritionChartData('water_intake', 'rgba(6, 182, 212, 1)');
+  const sleepChartData = generateSleepChartData();
 
   const renderContent = () => (
     <>
@@ -197,8 +421,8 @@ const ProgressScreen = () => {
             <Target size={24} color={COLORS.primary} />
           </View>
           <View style={styles.goalInfo}>
-            <Text style={styles.goalTitle}>General Fitness</Text>
-            <Text style={styles.goalSubtitle}>Novice</Text>
+            <Text style={styles.goalTitle}>{programData?.goalTitle || 'General Fitness'}</Text>
+            <Text style={styles.goalSubtitle}>{programData?.experience || 'Novice'}</Text>
           </View>
         </View>
         <View style={styles.goalProgressRow}>
@@ -209,9 +433,9 @@ const ProgressScreen = () => {
           <View style={[styles.goalProgressFill, { width: `${progressToGoal()}%` }]} />
         </View>
         <View style={styles.goalWeights}>
-          <Text style={styles.goalWeightText}>Start: {weightData.start}kg</Text>
-          <Text style={[styles.goalWeightText, { color: COLORS.text, fontWeight: '600' }]}>Now: {weightData.current}kg</Text>
-          <Text style={[styles.goalWeightText, { color: COLORS.success }]}>Goal: {weightData.target}kg</Text>
+          <Text style={styles.goalWeightText}>Start: {weightData.start > 0 ? `${weightData.start}kg` : '--'}</Text>
+          <Text style={[styles.goalWeightText, { color: COLORS.text, fontWeight: '600' }]}>Now: {weightData.current > 0 ? `${weightData.current}kg` : '--'}</Text>
+          <Text style={[styles.goalWeightText, { color: COLORS.success }]}>Goal: {weightData.target > 0 ? `${weightData.target}kg` : '--'}</Text>
         </View>
       </View>
 
@@ -344,42 +568,138 @@ const ProgressScreen = () => {
       </View>
 
       {/* NUTRITION TRENDS Section */}
-      <Text style={styles.sectionLabel}>NUTRITION TRENDS</Text>
+      <Text style={styles.sectionLabel}>NUTRITION TRENDS (Last 7 Days)</Text>
       <View style={styles.nutritionCard}>
         {/* Calories */}
         <View style={styles.nutritionChartSection}>
-          <Text style={[styles.nutritionChartTitle, { color: COLORS.accent }]}>Calories</Text>
-          <View style={styles.miniChartEmpty}>
-            <Flame size={24} color={COLORS.textMuted} />
-            <Text style={styles.miniChartEmptyText}>No calorie data yet</Text>
+          <View style={styles.nutritionChartHeader}>
+            <Text style={[styles.nutritionChartTitle, { color: COLORS.accent }]}>Calories</Text>
+            {nutritionHistory.length > 0 && (
+              <Text style={styles.nutritionAvgText}>
+                Avg: {Math.round(nutritionHistory.reduce((sum, n) => sum + (n.total_calories || 0), 0) / nutritionHistory.length)}
+              </Text>
+            )}
           </View>
+          {caloriesChartData ? (
+            <LineChart
+              data={caloriesChartData}
+              width={chartWidth}
+              height={100}
+              chartConfig={{...chartConfig, color: () => COLORS.accent}}
+              bezier
+              style={styles.miniChart}
+              withInnerLines={false}
+              withOuterLines={false}
+              withVerticalLines={false}
+              withHorizontalLines={false}
+              withDots={true}
+              withShadow={false}
+            />
+          ) : (
+            <View style={styles.miniChartEmpty}>
+              <Flame size={24} color={COLORS.textMuted} />
+              <Text style={styles.miniChartEmptyText}>No calorie data yet</Text>
+            </View>
+          )}
         </View>
 
         {/* Protein */}
         <View style={[styles.nutritionChartSection, styles.nutritionChartBorder]}>
-          <Text style={[styles.nutritionChartTitle, { color: '#EC4899' }]}>Protein</Text>
-          <View style={styles.miniChartEmpty}>
-            <Zap size={24} color={COLORS.textMuted} />
-            <Text style={styles.miniChartEmptyText}>No protein data yet</Text>
+          <View style={styles.nutritionChartHeader}>
+            <Text style={[styles.nutritionChartTitle, { color: '#EC4899' }]}>Protein</Text>
+            {nutritionHistory.length > 0 && (
+              <Text style={styles.nutritionAvgText}>
+                Avg: {Math.round(nutritionHistory.reduce((sum, n) => sum + (n.total_protein || 0), 0) / nutritionHistory.length)}g
+              </Text>
+            )}
           </View>
+          {proteinChartData ? (
+            <LineChart
+              data={proteinChartData}
+              width={chartWidth}
+              height={100}
+              chartConfig={{...chartConfig, color: () => '#EC4899'}}
+              bezier
+              style={styles.miniChart}
+              withInnerLines={false}
+              withOuterLines={false}
+              withVerticalLines={false}
+              withHorizontalLines={false}
+              withDots={true}
+              withShadow={false}
+            />
+          ) : (
+            <View style={styles.miniChartEmpty}>
+              <Zap size={24} color={COLORS.textMuted} />
+              <Text style={styles.miniChartEmptyText}>No protein data yet</Text>
+            </View>
+          )}
         </View>
 
         {/* Water */}
         <View style={[styles.nutritionChartSection, styles.nutritionChartBorder]}>
-          <Text style={[styles.nutritionChartTitle, { color: '#06B6D4' }]}>Water</Text>
-          <View style={styles.miniChartEmpty}>
-            <Droplets size={24} color={COLORS.textMuted} />
-            <Text style={styles.miniChartEmptyText}>No water data yet</Text>
+          <View style={styles.nutritionChartHeader}>
+            <Text style={[styles.nutritionChartTitle, { color: '#06B6D4' }]}>Water</Text>
+            {nutritionHistory.length > 0 && (
+              <Text style={styles.nutritionAvgText}>
+                Avg: {(nutritionHistory.reduce((sum, n) => sum + (n.water_intake || 0), 0) / nutritionHistory.length / 1000).toFixed(1)}L
+              </Text>
+            )}
           </View>
+          {waterChartData ? (
+            <LineChart
+              data={waterChartData}
+              width={chartWidth}
+              height={100}
+              chartConfig={{...chartConfig, color: () => '#06B6D4'}}
+              bezier
+              style={styles.miniChart}
+              withInnerLines={false}
+              withOuterLines={false}
+              withVerticalLines={false}
+              withHorizontalLines={false}
+              withDots={true}
+              withShadow={false}
+            />
+          ) : (
+            <View style={styles.miniChartEmpty}>
+              <Droplets size={24} color={COLORS.textMuted} />
+              <Text style={styles.miniChartEmptyText}>No water data yet</Text>
+            </View>
+          )}
         </View>
 
         {/* Sleep */}
         <View style={[styles.nutritionChartSection, styles.nutritionChartBorder]}>
-          <Text style={[styles.nutritionChartTitle, { color: '#8B5CF6' }]}>Sleep</Text>
-          <View style={styles.miniChartEmpty}>
-            <Moon size={24} color={COLORS.textMuted} />
-            <Text style={styles.miniChartEmptyText}>No sleep data yet</Text>
+          <View style={styles.nutritionChartHeader}>
+            <Text style={[styles.nutritionChartTitle, { color: '#8B5CF6' }]}>Sleep</Text>
+            {sleepHistory.length > 0 && (
+              <Text style={styles.nutritionAvgText}>
+                Avg: {(sleepHistory.reduce((sum, s) => sum + (s.hours_slept || 0), 0) / sleepHistory.length).toFixed(1)}h
+              </Text>
+            )}
           </View>
+          {sleepChartData ? (
+            <LineChart
+              data={sleepChartData}
+              width={chartWidth}
+              height={100}
+              chartConfig={{...chartConfig, color: () => '#8B5CF6'}}
+              bezier
+              style={styles.miniChart}
+              withInnerLines={false}
+              withOuterLines={false}
+              withVerticalLines={false}
+              withHorizontalLines={false}
+              withDots={true}
+              withShadow={false}
+            />
+          ) : (
+            <View style={styles.miniChartEmpty}>
+              <Moon size={24} color={COLORS.textMuted} />
+              <Text style={styles.miniChartEmptyText}>No sleep data yet</Text>
+            </View>
+          )}
         </View>
       </View>
 
@@ -813,6 +1133,10 @@ const styles = StyleSheet.create({
   nutritionChartTitle: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  nutritionAvgText: {
+    color: COLORS.textMuted,
+    fontSize: 12,
   },
   chartPeriodBtnSmall: {
     paddingHorizontal: 8,

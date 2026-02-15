@@ -28,10 +28,13 @@ import { COLORS } from '../constants/colors';
 import { nutritionService } from '../services/nutritionService';
 import { workoutService } from '../services/workoutService';
 import { streakService } from '../services/streakService';
+import { weightService } from '../services/weightService';
+import { sleepService } from '../services/sleepService';
 import { useAuth } from '../contexts/AuthContext';
 import AddMealModal from '../components/AddMealModal';
 import WaterEntryModal from '../components/WaterEntryModal';
 import WeighInModal from '../components/WeighInModal';
+import SleepEntryModal from '../components/SleepEntryModal';
 
 const HomeScreen = () => {
   const navigation = useNavigation();
@@ -58,6 +61,8 @@ const HomeScreen = () => {
   const [showMealModal, setShowMealModal] = useState(false);
   const [showWaterModal, setShowWaterModal] = useState(false);
   const [showWeighInModal, setShowWeighInModal] = useState(false);
+  const [showSleepModal, setShowSleepModal] = useState(false);
+  const [lastNightSleepLogged, setLastNightSleepLogged] = useState(false);
 
   // Social stats
   const [followersCount, setFollowersCount] = useState(0);
@@ -84,12 +89,22 @@ const HomeScreen = () => {
         loadTodayNutrition(),
         loadTodayWorkout(),
         loadStreaks(),
+        loadSleepStatus(),
       ]);
     } catch (error) {
       console.log('Error loading home data:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+  };
+
+  const loadSleepStatus = async () => {
+    try {
+      const isLogged = await sleepService.isLastNightLogged(user.id);
+      setLastNightSleepLogged(isLogged);
+    } catch (error) {
+      console.log('Error checking sleep status:', error);
     }
   };
 
@@ -186,11 +201,20 @@ const HomeScreen = () => {
 
   const handleSaveWeight = async (weight, unit) => {
     try {
-      // TODO: Save to weight tracking service
-      console.log('Weight logged:', weight, unit);
-      // For now just log it - can integrate with a weight tracking service later
+      await weightService.logWeight(user.id, weight, unit);
+      setShowWeighInModal(false);
     } catch (error) {
       console.log('Error saving weight:', error);
+    }
+  };
+
+  const handleSaveSleep = async (sleepData) => {
+    try {
+      await sleepService.logSleep(user.id, sleepData);
+      setLastNightSleepLogged(true);
+      setShowSleepModal(false);
+    } catch (error) {
+      console.log('Error saving sleep:', error);
     }
   };
 
@@ -609,6 +633,27 @@ const HomeScreen = () => {
           </TouchableOpacity>
         </View>
 
+        {/* Sleep Tracking Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>SLEEP TRACKING</Text>
+          <TouchableOpacity
+            style={[styles.sleepButton, lastNightSleepLogged && styles.sleepButtonLogged]}
+            onPress={() => setShowSleepModal(true)}
+          >
+            {lastNightSleepLogged ? (
+              <>
+                <Check size={20} color={COLORS.success} />
+                <Text style={[styles.sleepButtonText, { color: COLORS.success }]}>Sleep Logged</Text>
+              </>
+            ) : (
+              <>
+                <Moon size={20} color={COLORS.text} />
+                <Text style={styles.sleepButtonText}>Log Last Night's Sleep</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+
         <View style={{ height: 100 }} />
       </ScrollView>
 
@@ -632,6 +677,12 @@ const HomeScreen = () => {
         onSave={handleSaveWeight}
         unit={profile?.weight_unit || 'kg'}
         currentWeight={profile?.current_weight || profile?.weight || 0}
+      />
+
+      <SleepEntryModal
+        visible={showSleepModal}
+        onClose={() => setShowSleepModal(false)}
+        onSave={handleSaveSleep}
       />
     </SafeAreaView>
   );
@@ -1001,6 +1052,25 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   weighInButtonText: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  sleepButton: {
+    backgroundColor: COLORS.sleep || '#8B5CF6',
+    borderRadius: 12,
+    paddingVertical: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  sleepButtonLogged: {
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.success,
+  },
+  sleepButtonText: {
     color: COLORS.text,
     fontSize: 16,
     fontWeight: '600',

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,9 +10,12 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
-import { X, Search, Plus, Utensils } from 'lucide-react-native';
+import { X, Search, Plus, Utensils, Star, Clock } from 'lucide-react-native';
 import { COLORS } from '../constants/colors';
+import { nutritionService } from '../services/nutritionService';
+import { useAuth } from '../contexts/AuthContext';
 
 // Quick add foods database
 const QUICK_FOODS = [
@@ -34,8 +37,32 @@ const QUICK_FOODS = [
 ];
 
 const AddMealModal = ({ visible, onClose, onAdd }) => {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('quick');
   const [searchQuery, setSearchQuery] = useState('');
+  const [frequentMeals, setFrequentMeals] = useState([]);
+  const [loadingFrequent, setLoadingFrequent] = useState(false);
+
+  // Load frequent meals when modal opens
+  useEffect(() => {
+    if (visible && user?.id) {
+      loadFrequentMeals();
+    }
+  }, [visible, user?.id]);
+
+  const loadFrequentMeals = async () => {
+    try {
+      setLoadingFrequent(true);
+      const { data } = await nutritionService.getFrequentMeals(user.id, 8);
+      if (data) {
+        setFrequentMeals(data);
+      }
+    } catch (error) {
+      console.log('Error loading frequent meals:', error);
+    } finally {
+      setLoadingFrequent(false);
+    }
+  };
 
   // Manual entry state
   const [mealName, setMealName] = useState('');
@@ -128,8 +155,54 @@ const AddMealModal = ({ visible, onClose, onAdd }) => {
                 />
               </View>
 
-              {/* Food List */}
               <ScrollView style={styles.foodList} showsVerticalScrollIndicator={false}>
+                {/* Frequent Meals Section */}
+                {frequentMeals.length > 0 && !searchQuery && (
+                  <View style={styles.frequentSection}>
+                    <View style={styles.sectionHeader}>
+                      <Clock size={14} color={COLORS.textMuted} />
+                      <Text style={styles.sectionTitle}>Frequently Logged</Text>
+                    </View>
+                    {loadingFrequent ? (
+                      <ActivityIndicator color={COLORS.primary} style={{ marginVertical: 16 }} />
+                    ) : (
+                      frequentMeals.map((meal, index) => (
+                        <TouchableOpacity
+                          key={`freq-${index}`}
+                          style={styles.foodItem}
+                          onPress={() => handleQuickAdd({
+                            name: meal.name,
+                            calories: meal.cal,
+                            protein: meal.p,
+                            carbs: meal.c,
+                            fats: meal.f,
+                          })}
+                        >
+                          <View style={[styles.foodIcon, { backgroundColor: COLORS.primary + '20' }]}>
+                            <Star size={18} color={COLORS.primary} fill={COLORS.primary} />
+                          </View>
+                          <View style={styles.foodInfo}>
+                            <Text style={styles.foodName}>{meal.name}</Text>
+                            <Text style={styles.foodServing}>Logged {meal.count}x</Text>
+                          </View>
+                          <View style={styles.foodMacros}>
+                            <Text style={styles.foodCalories}>{meal.cal} cal</Text>
+                            <Text style={styles.foodMacroDetail}>
+                              P: {meal.p}g • C: {meal.c}g • F: {meal.f}g
+                            </Text>
+                          </View>
+                          <Plus size={20} color={COLORS.primary} />
+                        </TouchableOpacity>
+                      ))
+                    )}
+                  </View>
+                )}
+
+                {/* Quick Foods Section */}
+                <View style={styles.sectionHeader}>
+                  <Utensils size={14} color={COLORS.textMuted} />
+                  <Text style={styles.sectionTitle}>{searchQuery ? 'Search Results' : 'Quick Foods'}</Text>
+                </View>
                 {filteredFoods.map((food, index) => (
                   <TouchableOpacity
                     key={index}
@@ -294,6 +367,23 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 16,
     marginTop: 12,
+  },
+  frequentSection: {
+    marginBottom: 16,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 10,
+    marginTop: 8,
+  },
+  sectionTitle: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   foodItem: {
     flexDirection: 'row',
