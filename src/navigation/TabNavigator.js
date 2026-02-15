@@ -18,9 +18,9 @@ const Tab = createBottomTabNavigator();
 const TabNavigator = () => {
   const insets = useSafeAreaInsets();
 
-  // For web, use fixed height for iPhone safe area, but minimal content padding
+  // For web, use compact height with minimal padding
   // For native, use safe area insets
-  const tabBarHeight = Platform.OS === 'web' ? 90 : (60 + insets.bottom);
+  const tabBarHeight = Platform.OS === 'web' ? 60 : (60 + insets.bottom);
 
   return (
     <Tab.Navigator
@@ -31,8 +31,8 @@ const TabNavigator = () => {
           borderTopColor: COLORS.border,
           borderTopWidth: 1,
           height: tabBarHeight,
-          paddingBottom: Platform.OS === 'web' ? 34 : insets.bottom,
-          paddingTop: 8,
+          paddingBottom: Platform.OS === 'web' ? 8 : insets.bottom,
+          paddingTop: 6,
         },
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.textMuted,
