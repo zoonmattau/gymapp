@@ -37,8 +37,12 @@ const TabNavigator = () => {
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.textMuted,
         tabBarLabelStyle: {
-          fontSize: 10,
+          fontSize: 9,
           fontWeight: '600',
+          marginTop: -2,
+        },
+        tabBarIconStyle: {
+          marginTop: 2,
         },
       }}
     >
@@ -46,42 +50,42 @@ const TabNavigator = () => {
         name="Home"
         component={HomeScreen}
         options={{
-          tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
+          tabBarIcon: ({ color }) => <Home size={20} color={color} />,
         }}
       />
       <Tab.Screen
         name="Workouts"
         component={WorkoutsScreen}
         options={{
-          tabBarIcon: ({ color, size }) => <Dumbbell size={size} color={color} />,
+          tabBarIcon: ({ color }) => <Dumbbell size={20} color={color} />,
         }}
       />
       <Tab.Screen
         name="Health"
         component={HealthScreen}
         options={{
-          tabBarIcon: ({ color, size }) => <Apple size={size} color={color} />,
+          tabBarIcon: ({ color }) => <Apple size={20} color={color} />,
         }}
       />
       <Tab.Screen
         name="Progress"
         component={ProgressScreen}
         options={{
-          tabBarIcon: ({ color, size }) => <TrendingUp size={size} color={color} />,
+          tabBarIcon: ({ color }) => <TrendingUp size={20} color={color} />,
         }}
       />
       <Tab.Screen
         name="Community"
         component={CommunityScreen}
         options={{
-          tabBarIcon: ({ color, size }) => <Users size={size} color={color} />,
+          tabBarIcon: ({ color }) => <Users size={20} color={color} />,
         }}
       />
       <Tab.Screen
         name="Profile"
         component={ProfileScreen}
         options={{
-          tabBarIcon: ({ color, size }) => <User size={size} color={color} />,
+          tabBarIcon: ({ color }) => <User size={20} color={color} />,
         }}
       />
     </Tab.Navigator>
