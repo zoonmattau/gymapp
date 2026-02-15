@@ -24,6 +24,8 @@ import {
 import { COLORS } from '../constants/colors';
 import ExerciseSearchModal from '../components/ExerciseSearchModal';
 import LogSetModal from '../components/LogSetModal';
+import Toast from '../components/Toast';
+import ConfirmModal from '../components/ConfirmModal';
 import { useAuth } from '../contexts/AuthContext';
 import { workoutService } from '../services/workoutService';
 import { setPausedWorkout } from '../utils/workoutStore';
@@ -52,8 +54,20 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
   const [selectedSetToLog, setSelectedSetToLog] = useState(null); // { exerciseId, exerciseName, setId, setNumber, weight, reps }
   const [pendingSupersetExercise, setPendingSupersetExercise] = useState(null);
   const [isReturningFromSuperset, setIsReturningFromSuperset] = useState(false);
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState('success');
+  const [showFinishModal, setShowFinishModal] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [finishModalData, setFinishModalData] = useState(null);
   const timerRef = useRef(null);
   const restTimerRef = useRef(null);
+
+  const showToast = (message, type = 'success') => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+  };
 
   // Load rest timer setting from storage
   useEffect(() => {
@@ -347,7 +361,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
     }
   };
 
-  const finishWorkout = async () => {
+  const finishWorkout = () => {
     const completedSets = exercises.reduce(
       (acc, ex) => acc + ex.sets.filter(s => s.completed).length,
       0
@@ -364,48 +378,28 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
       });
     });
 
-    const message = `You completed ${completedSets}/${totalSets} sets in ${formatTime(workoutTime)}. Save workout?`;
+    setFinishModalData({ completedSets, totalSets, totalVolume });
+    setShowFinishModal(true);
+  };
 
-    if (Platform.OS === 'web') {
-      if (window.confirm(message)) {
-        await saveAndFinishWorkout(completedSets, totalSets, totalVolume);
-      }
-    } else {
-      Alert.alert(
-        'Finish Workout',
-        message,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Save & Finish',
-            onPress: () => saveAndFinishWorkout(completedSets, totalSets, totalVolume),
-          },
-        ]
+  const handleConfirmFinish = async () => {
+    setShowFinishModal(false);
+    if (finishModalData) {
+      await saveAndFinishWorkout(
+        finishModalData.completedSets,
+        finishModalData.totalSets,
+        finishModalData.totalVolume
       );
     }
   };
 
   const cancelWorkout = () => {
-    const message = 'Are you sure you want to cancel? Your progress will be lost.';
+    setShowCancelModal(true);
+  };
 
-    if (Platform.OS === 'web') {
-      if (window.confirm(message)) {
-        navigation.goBack();
-      }
-    } else {
-      Alert.alert(
-        'Cancel Workout',
-        message,
-        [
-          { text: 'Keep Going', style: 'cancel' },
-          {
-            text: 'Cancel Workout',
-            style: 'destructive',
-            onPress: () => navigation.goBack(),
-          },
-        ]
-      );
-    }
+  const handleConfirmCancel = () => {
+    setShowCancelModal(false);
+    navigation.goBack();
   };
 
   const saveAndContinueLater = () => {
@@ -420,23 +414,12 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
 
     setPausedWorkout(pausedWorkoutData);
 
-    const message = 'Your workout has been saved. You can continue it later from the Workouts tab.';
+    showToast('Workout saved! Continue from Workouts tab.', 'success');
 
-    if (Platform.OS === 'web') {
-      window.alert(message);
+    // Navigate after a short delay to let the user see the toast
+    setTimeout(() => {
       navigation.goBack();
-    } else {
-      Alert.alert(
-        'Workout Saved',
-        message,
-        [
-          {
-            text: 'OK',
-            onPress: () => navigation.goBack(),
-          },
-        ]
-      );
-    }
+    }, 1500);
   };
 
   return (
@@ -657,6 +640,38 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
         onSelectSupersetExercise={handleSelectSupersetExercise}
         pendingSupersetExercise={pendingSupersetExercise}
         isReturningFromSuperset={isReturningFromSuperset}
+      />
+
+      {/* Toast Notification */}
+      <Toast
+        visible={toastVisible}
+        message={toastMessage}
+        type={toastType}
+        onDismiss={() => setToastVisible(false)}
+      />
+
+      {/* Finish Workout Confirmation */}
+      <ConfirmModal
+        visible={showFinishModal}
+        title="Finish Workout"
+        message={finishModalData ? `You completed ${finishModalData.completedSets}/${finishModalData.totalSets} sets in ${formatTime(workoutTime)}. Save workout?` : ''}
+        confirmText="Save & Finish"
+        cancelText="Keep Going"
+        confirmStyle="success"
+        onConfirm={handleConfirmFinish}
+        onCancel={() => setShowFinishModal(false)}
+      />
+
+      {/* Cancel Workout Confirmation */}
+      <ConfirmModal
+        visible={showCancelModal}
+        title="Cancel Workout"
+        message="Are you sure you want to cancel? Your progress will be lost."
+        confirmText="Cancel Workout"
+        cancelText="Keep Going"
+        confirmStyle="danger"
+        onConfirm={handleConfirmCancel}
+        onCancel={() => setShowCancelModal(false)}
       />
 
     </SafeAreaView>
