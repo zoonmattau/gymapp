@@ -7,7 +7,6 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Alert,
   Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -59,7 +58,9 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
   const [toastType, setToastType] = useState('success');
   const [showFinishModal, setShowFinishModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [finishModalData, setFinishModalData] = useState(null);
+  const [exerciseToDelete, setExerciseToDelete] = useState(null);
   const timerRef = useRef(null);
   const restTimerRef = useRef(null);
 
@@ -266,20 +267,16 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
   };
 
   const deleteExercise = (exerciseId) => {
-    Alert.alert(
-      'Delete Exercise',
-      'Are you sure you want to remove this exercise?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            setExercises(exercises.filter(ex => ex.id !== exerciseId));
-          },
-        },
-      ]
-    );
+    setExerciseToDelete(exerciseId);
+    setShowDeleteModal(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (exerciseToDelete) {
+      setExercises(exercises.filter(ex => ex.id !== exerciseToDelete));
+    }
+    setShowDeleteModal(false);
+    setExerciseToDelete(null);
   };
 
   const saveAndFinishWorkout = async (completedSets, totalSets, totalVolume) => {
@@ -672,6 +669,21 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
         confirmStyle="danger"
         onConfirm={handleConfirmCancel}
         onCancel={() => setShowCancelModal(false)}
+      />
+
+      {/* Delete Exercise Confirmation */}
+      <ConfirmModal
+        visible={showDeleteModal}
+        title="Delete Exercise"
+        message="Are you sure you want to remove this exercise?"
+        confirmText="Delete"
+        cancelText="Cancel"
+        confirmStyle="danger"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => {
+          setShowDeleteModal(false);
+          setExerciseToDelete(null);
+        }}
       />
 
     </SafeAreaView>
