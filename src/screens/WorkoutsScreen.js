@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -21,10 +21,12 @@ import {
   Settings,
   Coffee,
   Check,
+  Plus,
 } from 'lucide-react-native';
 import { COLORS } from '../constants/colors';
 import { useAuth } from '../contexts/AuthContext';
 import { getPausedWorkout, clearPausedWorkout } from '../utils/workoutStore';
+import { workoutService } from '../services/workoutService';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -33,39 +35,120 @@ const WorkoutsScreen = () => {
   const { user } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [weekOffset, setWeekOffset] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [workoutHistory, setWorkoutHistory] = useState([]);
 
   // Paused workout state
   const [pausedWorkout, setPausedWorkoutState] = useState(null);
 
-  // Check for paused workout from store when screen is focused
+  // Check for paused workout and load data when screen is focused
   useFocusEffect(
-    React.useCallback(() => {
+    useCallback(() => {
       const stored = getPausedWorkout();
       if (stored) {
         setPausedWorkoutState(stored);
       }
-    }, [])
+      if (user?.id) {
+        loadWorkoutData();
+      }
+    }, [user])
   );
+
+  const loadWorkoutData = async () => {
+    try {
+      // Get workout schedule for the current week
+      const weekStart = getWeekStartDate(weekOffset);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekEnd.getDate() + 6);
+
+      const startStr = formatDate(weekStart);
+      const endStr = formatDate(weekEnd);
+
+      const { data: scheduleData } = await workoutService.getSchedule(user.id, startStr, endStr);
+
+      // Build week schedule from database data
+      const newSchedule = {};
+      for (let i = 0; i < 7; i++) {
+        const dayDate = new Date(weekStart);
+        dayDate.setDate(dayDate.getDate() + i);
+        const dateStr = formatDate(dayDate);
+
+        const daySchedule = scheduleData?.find(s => s.scheduled_date === dateStr);
+
+        if (daySchedule) {
+          newSchedule[i] = {
+            workout: daySchedule.is_rest_day ? null : (daySchedule.workout_templates?.name || 'Workout'),
+            isRest: daySchedule.is_rest_day,
+            completed: daySchedule.is_completed || false,
+            templateId: daySchedule.template_id,
+            scheduleId: daySchedule.id,
+          };
+        } else {
+          newSchedule[i] = { workout: null, isRest: false, completed: false };
+        }
+      }
+      setWeekSchedule(newSchedule);
+
+      // Load recent workout history
+      const { data: historyData } = await workoutService.getWorkoutHistory(user.id, 5);
+      setWorkoutHistory(historyData || []);
+
+    } catch (error) {
+      console.log('Error loading workout data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatDate = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const getWeekStartDate = (offset = 0) => {
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const monday = new Date(today);
+    monday.setDate(today.getDate() + diff + (offset * 7));
+    return monday;
+  };
+
+  const formatActivityDate = (dateStr) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    return date.toLocaleDateString();
+  };
 
   // Drag and drop state
   const [draggedDay, setDraggedDay] = useState(null);
   const [dragOverDay, setDragOverDay] = useState(null);
   const [hoveredDay, setHoveredDay] = useState(null);
 
-  // Week schedule - workout name for each day (0 = Monday)
+  // Week schedule - loaded from database, starts empty
   const [weekSchedule, setWeekSchedule] = useState({
-    0: { workout: 'Upper', completed: true },
-    1: { workout: 'Lower', completed: true },
-    2: { workout: 'Chest', completed: true },
-    3: { workout: 'Back', completed: true },
-    4: { workout: null, isRest: true, completed: false },
-    5: { workout: 'Back', completed: false },
-    6: { workout: 'Leg', completed: false },
+    0: { workout: null, completed: false },
+    1: { workout: null, completed: false },
+    2: { workout: null, completed: false },
+    3: { workout: null, completed: false },
+    4: { workout: null, completed: false },
+    5: { workout: null, completed: false },
+    6: { workout: null, completed: false },
   });
 
-  const onRefresh = () => {
+  const onRefresh = async () => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 1000);
+    await loadWorkoutData();
+    setRefreshing(false);
   };
 
   const getWeekHeaderText = () => {
@@ -357,14 +440,24 @@ const WorkoutsScreen = () => {
 
           <View style={styles.todayCard}>
             <View style={styles.todayIconContainer}>
-              <Coffee size={32} color={COLORS.primary} />
+              {todaySchedule?.workout ? (
+                <Dumbbell size={32} color={COLORS.primary} />
+              ) : todaySchedule?.isRest ? (
+                <Coffee size={32} color={COLORS.sleep} />
+              ) : (
+                <Calendar size={32} color={COLORS.textMuted} />
+              )}
             </View>
             <View style={styles.todayContent}>
               <Text style={styles.todayTitle}>
-                {todaySchedule?.workout ? `${todaySchedule.workout} Day` : 'Rest Day'}
+                {todaySchedule?.workout ? todaySchedule.workout : todaySchedule?.isRest ? 'Rest Day' : 'No workout scheduled'}
               </Text>
               <Text style={styles.todaySubtitle}>
-                {todaySchedule?.workout ? `Complete ${todaySchedule.workout} Development` : 'Recovery is part of the process'}
+                {todaySchedule?.workout
+                  ? 'Ready to train'
+                  : todaySchedule?.isRest
+                    ? 'Recovery is part of the process'
+                    : 'Set up your training program'}
               </Text>
             </View>
           </View>
@@ -425,18 +518,28 @@ const WorkoutsScreen = () => {
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>RECENT ACTIVITY</Text>
 
-          {[1, 2, 3].map((i) => (
-            <TouchableOpacity key={i} style={styles.activityCard}>
-              <View style={styles.activityIcon}>
-                <Dumbbell size={20} color={COLORS.textMuted} />
-              </View>
-              <View style={styles.activityInfo}>
-                <Text style={styles.activityTitle}>Workout</Text>
-                <Text style={styles.activityTime}>Recently</Text>
-              </View>
-              <ChevronRight size={20} color={COLORS.textMuted} />
-            </TouchableOpacity>
-          ))}
+          {workoutHistory.length === 0 ? (
+            <View style={styles.emptyActivityCard}>
+              <Dumbbell size={32} color={COLORS.textMuted} />
+              <Text style={styles.emptyActivityTitle}>No workouts yet</Text>
+              <Text style={styles.emptyActivityText}>Complete your first workout to see it here</Text>
+            </View>
+          ) : (
+            workoutHistory.map((workout) => (
+              <TouchableOpacity key={workout.id} style={styles.activityCard}>
+                <View style={styles.activityIcon}>
+                  <Dumbbell size={20} color={COLORS.primary} />
+                </View>
+                <View style={styles.activityInfo}>
+                  <Text style={styles.activityTitle}>{workout.workout_name || 'Workout'}</Text>
+                  <Text style={styles.activityTime}>
+                    {workout.duration_minutes ? `${workout.duration_minutes} min` : 'Completed'} • {formatActivityDate(workout.ended_at)}
+                  </Text>
+                </View>
+                <ChevronRight size={20} color={COLORS.textMuted} />
+              </TouchableOpacity>
+            ))
+          )}
         </View>
 
         <View style={{ height: 100 }} />
@@ -667,6 +770,24 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     fontSize: 12,
     marginTop: 2,
+  },
+  emptyActivityCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 32,
+    alignItems: 'center',
+  },
+  emptyActivityTitle: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 12,
+  },
+  emptyActivityText: {
+    color: COLORS.textMuted,
+    fontSize: 14,
+    marginTop: 4,
+    textAlign: 'center',
   },
 });
 

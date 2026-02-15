@@ -19,6 +19,28 @@ export const streakService = {
     return { data, error };
   },
 
+  // Get streak data for progress screen
+  async getStreakData(userId) {
+    try {
+      const { streak: workoutStreak } = await this.calculateWorkoutStreak(userId);
+      const { data: allStreaks } = await this.getStreaks(userId);
+
+      // Find workout streak from stored data to get longest
+      const workoutStreakData = allStreaks?.find(s => s.streak_type === 'workout');
+
+      return {
+        data: {
+          current_streak: workoutStreak || 0,
+          longest_streak: workoutStreakData?.longest_streak || workoutStreak || 0,
+        },
+        error: null,
+      };
+    } catch (error) {
+      console.log('Error getting streak data:', error);
+      return { data: { current_streak: 0, longest_streak: 0 }, error };
+    }
+  },
+
   // Get specific streak
   async getStreak(userId, streakType) {
     const { data, error } = await supabase

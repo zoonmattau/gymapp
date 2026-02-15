@@ -33,17 +33,6 @@ import AddMealModal from '../components/AddMealModal';
 import WaterEntryModal from '../components/WaterEntryModal';
 import WeighInModal from '../components/WeighInModal';
 
-// Default weekly training schedule
-const DEFAULT_WEEK_SCHEDULE = {
-  0: { workout: 'Upper', focus: 'Upper body strength' },
-  1: { workout: 'Lower', focus: 'Lower body power' },
-  2: { workout: 'Chest', focus: 'Chest development' },
-  3: { workout: 'Back', focus: 'Back strength & width' },
-  4: { workout: null, isRest: true },
-  5: { workout: 'Back', focus: 'Back hypertrophy' },
-  6: { workout: 'Leg', focus: 'Leg development' },
-};
-
 const HomeScreen = () => {
   const navigation = useNavigation();
   const { user, profile } = useAuth();
@@ -142,34 +131,14 @@ const HomeScreen = () => {
           });
         }
       } else {
-        // Use default weekly schedule when no Supabase schedule exists
-        const today = new Date();
-        const dayOfWeek = today.getDay();
-        // Convert Sunday (0) to index 6, Monday (1) to index 0, etc.
-        const dayIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-        const defaultDay = DEFAULT_WEEK_SCHEDULE[dayIndex];
-
-        if (defaultDay?.isRest) {
-          setIsRestDay(true);
-          setTodayWorkout(null);
-        } else if (defaultDay?.workout) {
-          setIsRestDay(false);
-          setTodayWorkout({
-            id: null,
-            name: `${defaultDay.workout} Day`,
-            focus: defaultDay.focus,
-            scheduleId: null,
-            isCompleted: false,
-            exercises: [],
-            isFromDefaultSchedule: true,
-          });
-        } else {
-          setIsRestDay(false);
-          setTodayWorkout(null);
-        }
+        // No workout scheduled - show empty state
+        setIsRestDay(false);
+        setTodayWorkout(null);
       }
     } catch (error) {
       console.log('Error loading workout:', error);
+      setIsRestDay(false);
+      setTodayWorkout(null);
     }
   };
 
@@ -227,12 +196,6 @@ const HomeScreen = () => {
 
   const startWorkout = async () => {
     if (!todayWorkout) {
-      navigation.navigate('Workouts');
-      return;
-    }
-
-    // If workout is from default schedule, navigate to Workouts tab
-    if (todayWorkout.isFromDefaultSchedule) {
       navigation.navigate('Workouts');
       return;
     }
@@ -475,9 +438,7 @@ const HomeScreen = () => {
           onPress={startWorkout}
         >
           <Play size={18} color={COLORS.text} />
-          <Text style={styles.workoutButtonText}>
-            {todayWorkout.isFromDefaultSchedule ? 'Go to Workout' : 'Start Workout'}
-          </Text>
+          <Text style={styles.workoutButtonText}>Start Workout</Text>
         </TouchableOpacity>
       </View>
     );
