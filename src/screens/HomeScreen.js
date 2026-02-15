@@ -33,6 +33,17 @@ import AddMealModal from '../components/AddMealModal';
 import WaterEntryModal from '../components/WaterEntryModal';
 import WeighInModal from '../components/WeighInModal';
 
+// Default weekly training schedule
+const DEFAULT_WEEK_SCHEDULE = {
+  0: { workout: 'Upper', focus: 'Upper body strength' },
+  1: { workout: 'Lower', focus: 'Lower body power' },
+  2: { workout: 'Chest', focus: 'Chest development' },
+  3: { workout: 'Back', focus: 'Back strength & width' },
+  4: { workout: null, isRest: true },
+  5: { workout: 'Back', focus: 'Back hypertrophy' },
+  6: { workout: 'Leg', focus: 'Leg development' },
+};
+
 const HomeScreen = () => {
   const navigation = useNavigation();
   const { user, profile } = useAuth();
@@ -131,8 +142,31 @@ const HomeScreen = () => {
           });
         }
       } else {
-        setIsRestDay(false);
-        setTodayWorkout(null);
+        // Use default weekly schedule when no Supabase schedule exists
+        const today = new Date();
+        const dayOfWeek = today.getDay();
+        // Convert Sunday (0) to index 6, Monday (1) to index 0, etc.
+        const dayIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+        const defaultDay = DEFAULT_WEEK_SCHEDULE[dayIndex];
+
+        if (defaultDay?.isRest) {
+          setIsRestDay(true);
+          setTodayWorkout(null);
+        } else if (defaultDay?.workout) {
+          setIsRestDay(false);
+          setTodayWorkout({
+            id: null,
+            name: `${defaultDay.workout} Day`,
+            focus: defaultDay.focus,
+            scheduleId: null,
+            isCompleted: false,
+            exercises: [],
+            isFromDefaultSchedule: true,
+          });
+        } else {
+          setIsRestDay(false);
+          setTodayWorkout(null);
+        }
       }
     } catch (error) {
       console.log('Error loading workout:', error);
@@ -193,6 +227,12 @@ const HomeScreen = () => {
 
   const startWorkout = async () => {
     if (!todayWorkout) {
+      navigation.navigate('Workouts');
+      return;
+    }
+
+    // If workout is from default schedule, navigate to Workouts tab
+    if (todayWorkout.isFromDefaultSchedule) {
       navigation.navigate('Workouts');
       return;
     }
@@ -405,17 +445,17 @@ const HomeScreen = () => {
               <Calendar size={28} color={COLORS.primary} />
             </View>
             <View style={styles.workoutInfo}>
-              <Text style={[styles.workoutBadge, { color: COLORS.textMuted }]}>NO WORKOUT SCHEDULED</Text>
-              <Text style={styles.workoutName}>Plan your workout</Text>
-              <Text style={styles.workoutFocus}>Set up your training schedule</Text>
+              <Text style={[styles.workoutBadge, { color: COLORS.textMuted }]}>NO WORKOUT TODAY</Text>
+              <Text style={styles.workoutName}>View your training plan</Text>
+              <Text style={styles.workoutFocus}>Check your weekly schedule</Text>
             </View>
           </View>
           <TouchableOpacity
             style={[styles.workoutButton, { backgroundColor: COLORS.primary }]}
-            onPress={() => navigation.navigate('WorkoutSchedule')}
+            onPress={() => navigation.navigate('Workouts')}
           >
             <Calendar size={18} color={COLORS.text} />
-            <Text style={styles.workoutButtonText}>Schedule Workout</Text>
+            <Text style={styles.workoutButtonText}>View Training Plan</Text>
           </TouchableOpacity>
         </View>
       );
@@ -435,7 +475,9 @@ const HomeScreen = () => {
           onPress={startWorkout}
         >
           <Play size={18} color={COLORS.text} />
-          <Text style={styles.workoutButtonText}>Start Workout</Text>
+          <Text style={styles.workoutButtonText}>
+            {todayWorkout.isFromDefaultSchedule ? 'Go to Workout' : 'Start Workout'}
+          </Text>
         </TouchableOpacity>
       </View>
     );
