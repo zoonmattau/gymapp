@@ -720,67 +720,11 @@ const HealthScreen = () => {
           </View>
         )}
 
-        {/* Chart */}
+        {/* Chart - No Data State */}
         <View style={styles.chartContainer}>
-          <LineChart
-            data={{
-              labels: ['7w ago', '6w ago', '5w ago', '4w ago', '3w ago', 'This Week'],
-              datasets: [
-                {
-                  data: trendFilter === 'Calories'
-                    ? [0, 0, 0, 0, 800, 1200]
-                    : [0, 0, 0, 0, 1.5, 2.5],
-                  color: (opacity = 1) => COLORS.primary,
-                  strokeWidth: 2,
-                },
-                {
-                  data: trendFilter === 'Calories'
-                    ? [2800, 2800, 2800, 2800, 2800, 2800]
-                    : [3, 3, 3, 3, 3, 3],
-                  color: (opacity = 1) => COLORS.success,
-                  strokeWidth: 2,
-                  withDots: false,
-                },
-              ],
-            }}
-            width={screenWidth - 64}
-            height={180}
-            chartConfig={{
-              backgroundColor: COLORS.surface,
-              backgroundGradientFrom: COLORS.surface,
-              backgroundGradientTo: COLORS.surface,
-              decimalPlaces: trendFilter === 'Calories' ? 0 : 1,
-              color: (opacity = 1) => COLORS.primary,
-              labelColor: (opacity = 1) => COLORS.textMuted,
-              propsForDots: {
-                r: '4',
-                strokeWidth: '2',
-                stroke: COLORS.primary,
-              },
-              propsForBackgroundLines: {
-                strokeDasharray: '3 3',
-                stroke: COLORS.surfaceLight,
-              },
-            }}
-            bezier
-            style={styles.chart}
-            withInnerLines={true}
-            withOuterLines={false}
-            withVerticalLines={false}
-            withHorizontalLines={true}
-            fromZero={true}
-          />
-        </View>
-
-        {/* Legend */}
-        <View style={styles.chartLegend}>
-          <View style={styles.chartLegendItem}>
-            <View style={[styles.chartLegendLine, { backgroundColor: COLORS.primary }]} />
-            <Text style={styles.chartLegendText}>Avg/day</Text>
-          </View>
-          <View style={styles.chartLegendItem}>
-            <View style={[styles.chartLegendLine, { backgroundColor: COLORS.success }]} />
-            <Text style={styles.chartLegendText}>Goal</Text>
+          <View style={styles.noDataChart}>
+            <Text style={styles.noDataText}>No trend data yet</Text>
+            <Text style={styles.noDataSubtext}>Log your nutrition to see trends</Text>
           </View>
         </View>
       </View>
@@ -795,29 +739,20 @@ const HealthScreen = () => {
           ))}
         </View>
 
-        {/* Calendar grid - 4 weeks */}
+        {/* Calendar grid - 4 weeks - showing no data state */}
         {[0, 1, 2, 3].map((weekIdx) => (
           <View key={weekIdx} style={styles.streakWeekRow}>
             {[0, 1, 2, 3, 4, 5, 6].map((dayIdx) => {
-              const dayNumber = weekIdx * 7 + dayIdx;
               const today = new Date();
               const currentDayOfWeek = today.getDay() === 0 ? 6 : today.getDay() - 1;
               const isToday = weekIdx === 3 && dayIdx === currentDayOfWeek;
-              // Demo data - random status
-              const statuses = ['met', 'missed', 'noData'];
-              const status = dayNumber > 21 + currentDayOfWeek ? 'noData' :
-                            dayNumber === 21 + currentDayOfWeek ? 'met' :
-                            weekIdx === 3 ? (dayIdx < currentDayOfWeek ? (Math.random() > 0.5 ? 'met' : 'missed') : 'noData') :
-                            Math.random() > 0.4 ? 'met' : (Math.random() > 0.5 ? 'missed' : 'noData');
 
               return (
                 <View
                   key={dayIdx}
                   style={[
                     styles.streakDay,
-                    status === 'met' && styles.streakDayMet,
-                    status === 'missed' && styles.streakDayMissed,
-                    status === 'noData' && styles.streakDayNoData,
+                    styles.streakDayNoData,
                     isToday && styles.streakDayToday,
                   ]}
                 />
@@ -1020,27 +955,20 @@ const HealthScreen = () => {
             ))}
           </View>
 
-          {/* Calendar grid - 4 weeks */}
+          {/* Calendar grid - 4 weeks - showing no data state */}
           {[0, 1, 2, 3].map((weekIdx) => (
             <View key={weekIdx} style={styles.streakWeekRow}>
               {[0, 1, 2, 3, 4, 5, 6].map((dayIdx) => {
                 const today = new Date();
                 const currentDayOfWeek = today.getDay() === 0 ? 6 : today.getDay() - 1;
                 const isToday = weekIdx === 3 && dayIdx === currentDayOfWeek;
-                const isFuture = weekIdx === 3 && dayIdx > currentDayOfWeek;
-                // Demo data
-                const status = isFuture ? 'noData' :
-                              isToday ? (proteinIntake >= nutritionGoals.protein ? 'met' : 'missed') :
-                              Math.random() > 0.5 ? 'met' : 'missed';
 
                 return (
                   <View
                     key={dayIdx}
                     style={[
                       styles.streakDay,
-                      status === 'met' && styles.streakDayMet,
-                      status === 'missed' && styles.streakDayMissed,
-                      status === 'noData' && styles.streakDayNoData,
+                      styles.streakDayNoData,
                       isToday && styles.streakDayToday,
                     ]}
                   />
@@ -1373,15 +1301,13 @@ const HealthScreen = () => {
               datasets: [
                 {
                   data: sleepChartPeriod === '7D'
-                    ? sleepHistory.length > 0
-                      ? [0, 1, 2, 3, 4, 5, 6].map(i => {
-                          const entry = sleepHistory.find(h => h.date === new Date().getDate() - 6 + i);
-                          return entry?.hours || 0;
-                        })
-                      : [0, 0, 0, 0, 0, 0, 0]
+                    ? [0, 1, 2, 3, 4, 5, 6].map(i => {
+                        const entry = sleepHistory.find(h => h.date === new Date().getDate() - 6 + i);
+                        return entry?.hours || 0;
+                      })
                     : sleepChartPeriod === '4W'
-                    ? [6.5, 7.2, 6.8, 7.0]
-                    : [6.8, 7.1, 7.0],
+                    ? [0, 0, 0, 0]
+                    : [0, 0, 0],
                   color: (opacity = 1) => '#8B5CF6',
                   strokeWidth: 2,
                 },
@@ -1966,6 +1892,24 @@ const styles = StyleSheet.create({
   },
   chart: {
     borderRadius: 12,
+  },
+  noDataChart: {
+    height: 180,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 12,
+    marginHorizontal: 16,
+  },
+  noDataText: {
+    color: COLORS.textMuted,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  noDataSubtext: {
+    color: COLORS.textMuted,
+    fontSize: 13,
+    marginTop: 4,
   },
   chartLegend: {
     flexDirection: 'row',
