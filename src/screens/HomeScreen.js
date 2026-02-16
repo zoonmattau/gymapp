@@ -646,7 +646,7 @@ const HomeScreen = () => {
               style={styles.sleepButton}
               onPress={() => setShowSleepModal(true)}
             >
-              <Moon size={20} color={COLORS.background} />
+              <Moon size={20} color={COLORS.text} />
               <Text style={styles.sleepButtonText}>Log Last Night's Sleep</Text>
             </TouchableOpacity>
           )}
@@ -1055,7 +1055,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   sleepButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: COLORS.sleep || '#8B5CF6',
     borderRadius: 12,
     paddingVertical: 14,
     flexDirection: 'row',
@@ -1064,7 +1064,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   sleepButtonText: {
-    color: COLORS.background,
+    color: COLORS.text,
     fontSize: 16,
     fontWeight: '600',
   },
