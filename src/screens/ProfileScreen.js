@@ -42,6 +42,9 @@ import { supabase } from '../lib/supabase';
 import { EXPERIENCE_LEVELS, EQUIPMENT_OPTIONS } from '../constants/experience';
 import ExperienceLevelModal from '../components/ExperienceLevelModal';
 import EquipmentModal from '../components/EquipmentModal';
+import BaseLiftsModal from '../components/BaseLiftsModal';
+import UnitsModal from '../components/UnitsModal';
+import TrackingPreferencesModal from '../components/TrackingPreferencesModal';
 import Toast from '../components/Toast';
 
 const ProfileScreen = () => {
@@ -58,6 +61,24 @@ const ProfileScreen = () => {
   const [showExperienceModal, setShowExperienceModal] = useState(false);
   const [showEquipmentModal, setShowEquipmentModal] = useState(false);
   const [tempEquipment, setTempEquipment] = useState([]);
+
+  // Base Lifts
+  const [baseLifts, setBaseLifts] = useState({});
+  const [showBaseLiftsModal, setShowBaseLiftsModal] = useState(false);
+
+  // Units
+  const [units, setUnits] = useState('metric');
+  const [showUnitsModal, setShowUnitsModal] = useState(false);
+
+  // Tracking Preferences
+  const [trackingPreferences, setTrackingPreferences] = useState({
+    calories: true,
+    macros: true,
+    water: true,
+    sleep: true,
+    supplements: true,
+  });
+  const [showTrackingModal, setShowTrackingModal] = useState(false);
 
   // Toast
   const [toastVisible, setToastVisible] = useState(false);
@@ -97,14 +118,14 @@ const ProfileScreen = () => {
     loadSettings();
   }, []);
 
-  // Load experience and equipment from database
+  // Load experience, equipment, and base lifts from database
   useEffect(() => {
     const loadUserGoals = async () => {
       if (!user?.id) return;
       try {
         const { data, error } = await supabase
           .from('user_goals')
-          .select('experience, equipment')
+          .select('experience, equipment, base_bench, base_bench_reps, base_db_press, base_db_press_reps, base_ohp, base_ohp_reps, base_deadlift, base_deadlift_reps, base_row, base_row_reps, base_pullup, base_pullup_reps, base_squat, base_squat_reps, base_leg_press, base_leg_press_reps, base_rdl, base_rdl_reps, base_curl, base_curl_reps')
           .eq('user_id', user.id)
           .single();
 
@@ -115,6 +136,20 @@ const ProfileScreen = () => {
           if (data.equipment) {
             setSelectedEquipment(data.equipment);
           }
+          // Load base lifts
+          const lifts = {
+            bench: { weight: data.base_bench?.toString() || '', reps: data.base_bench_reps?.toString() || '' },
+            dbPress: { weight: data.base_db_press?.toString() || '', reps: data.base_db_press_reps?.toString() || '' },
+            ohp: { weight: data.base_ohp?.toString() || '', reps: data.base_ohp_reps?.toString() || '' },
+            deadlift: { weight: data.base_deadlift?.toString() || '', reps: data.base_deadlift_reps?.toString() || '' },
+            row: { weight: data.base_row?.toString() || '', reps: data.base_row_reps?.toString() || '' },
+            pullup: { weight: data.base_pullup?.toString() || '', reps: data.base_pullup_reps?.toString() || '' },
+            squat: { weight: data.base_squat?.toString() || '', reps: data.base_squat_reps?.toString() || '' },
+            legPress: { weight: data.base_leg_press?.toString() || '', reps: data.base_leg_press_reps?.toString() || '' },
+            rdl: { weight: data.base_rdl?.toString() || '', reps: data.base_rdl_reps?.toString() || '' },
+            curl: { weight: data.base_curl?.toString() || '', reps: data.base_curl_reps?.toString() || '' },
+          };
+          setBaseLifts(lifts);
         }
       } catch (error) {
         console.log('Error loading user goals:', error);
@@ -122,6 +157,22 @@ const ProfileScreen = () => {
     };
     loadUserGoals();
   }, [user?.id]);
+
+  // Load units and tracking preferences from AsyncStorage
+  useEffect(() => {
+    const loadPreferences = async () => {
+      try {
+        const storedUnits = await AsyncStorage.getItem('@units');
+        if (storedUnits) setUnits(storedUnits);
+
+        const storedTracking = await AsyncStorage.getItem('@tracking_preferences');
+        if (storedTracking) setTrackingPreferences(JSON.parse(storedTracking));
+      } catch (error) {
+        console.log('Error loading preferences:', error);
+      }
+    };
+    loadPreferences();
+  }, []);
 
   // Handle experience level change
   const handleExperienceSelect = async (levelId) => {
@@ -186,6 +237,79 @@ const ProfileScreen = () => {
         console.log('Error saving equipment:', error);
       }
     }
+  };
+
+  // Save base lifts
+  const handleBaseLiftsave = async (lifts) => {
+    setBaseLifts(lifts);
+
+    if (user?.id) {
+      try {
+        const { error } = await supabase
+          .from('user_goals')
+          .upsert({
+            user_id: user.id,
+            base_bench: parseInt(lifts.bench?.weight) || null,
+            base_bench_reps: parseInt(lifts.bench?.reps) || null,
+            base_db_press: parseInt(lifts.dbPress?.weight) || null,
+            base_db_press_reps: parseInt(lifts.dbPress?.reps) || null,
+            base_ohp: parseInt(lifts.ohp?.weight) || null,
+            base_ohp_reps: parseInt(lifts.ohp?.reps) || null,
+            base_deadlift: parseInt(lifts.deadlift?.weight) || null,
+            base_deadlift_reps: parseInt(lifts.deadlift?.reps) || null,
+            base_row: parseInt(lifts.row?.weight) || null,
+            base_row_reps: parseInt(lifts.row?.reps) || null,
+            base_pullup: parseInt(lifts.pullup?.weight) || null,
+            base_pullup_reps: parseInt(lifts.pullup?.reps) || null,
+            base_squat: parseInt(lifts.squat?.weight) || null,
+            base_squat_reps: parseInt(lifts.squat?.reps) || null,
+            base_leg_press: parseInt(lifts.legPress?.weight) || null,
+            base_leg_press_reps: parseInt(lifts.legPress?.reps) || null,
+            base_rdl: parseInt(lifts.rdl?.weight) || null,
+            base_rdl_reps: parseInt(lifts.rdl?.reps) || null,
+            base_curl: parseInt(lifts.curl?.weight) || null,
+            base_curl_reps: parseInt(lifts.curl?.reps) || null,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'user_id' });
+
+        if (!error) {
+          const count = Object.values(lifts).filter(l => l.weight && l.reps).length;
+          showToast(`${count} base lifts saved`, 'success');
+        }
+      } catch (error) {
+        console.log('Error saving base lifts:', error);
+      }
+    }
+  };
+
+  // Handle units change
+  const handleUnitsSelect = async (unitId) => {
+    setUnits(unitId);
+    try {
+      await AsyncStorage.setItem('@units', unitId);
+      showToast(`Units set to ${unitId}`, 'success');
+    } catch (error) {
+      console.log('Error saving units:', error);
+    }
+  };
+
+  // Handle tracking preference toggle
+  const handleTrackingToggle = async (trackingId) => {
+    const newPreferences = {
+      ...trackingPreferences,
+      [trackingId]: !trackingPreferences[trackingId],
+    };
+    setTrackingPreferences(newPreferences);
+    try {
+      await AsyncStorage.setItem('@tracking_preferences', JSON.stringify(newPreferences));
+    } catch (error) {
+      console.log('Error saving tracking preferences:', error);
+    }
+  };
+
+  // Count base lifts set
+  const countBaseLifts = () => {
+    return Object.values(baseLifts).filter(l => l.weight && l.reps).length;
   };
 
   const handleRestTimerToggle = async (value) => {
@@ -380,12 +504,12 @@ const ProfileScreen = () => {
         <Text style={styles.sectionLabel}>SETTINGS</Text>
         <View style={styles.settingsCard}>
           {/* Units */}
-          <TouchableOpacity style={styles.settingsItem} onPress={() => alert('Units - Coming soon!')} activeOpacity={0.7}>
+          <TouchableOpacity style={styles.settingsItem} onPress={() => setShowUnitsModal(true)} activeOpacity={0.7}>
             <View style={[styles.settingsIcon, { backgroundColor: COLORS.primary + '20' }]}>
               <Settings size={18} color={COLORS.primary} />
             </View>
             <Text style={styles.settingsLabel}>Units</Text>
-            <Text style={styles.settingsValue}>Metric (kg)</Text>
+            <Text style={styles.settingsValue}>{units === 'metric' ? 'Metric (kg)' : 'Imperial (lbs)'}</Text>
             <ChevronRight size={18} color={COLORS.textMuted} />
           </TouchableOpacity>
 
@@ -408,7 +532,7 @@ const ProfileScreen = () => {
           </TouchableOpacity>
 
           {/* Tracking Preferences */}
-          <TouchableOpacity style={styles.settingsItem} onPress={() => alert('Tracking Preferences - Coming soon!')} activeOpacity={0.7}>
+          <TouchableOpacity style={styles.settingsItem} onPress={() => setShowTrackingModal(true)} activeOpacity={0.7}>
             <View style={[styles.settingsIcon, { backgroundColor: COLORS.success + '20' }]}>
               <BarChart3 size={18} color={COLORS.success} />
             </View>
@@ -459,13 +583,13 @@ const ProfileScreen = () => {
           </View>
 
           {/* Base Lifts */}
-          <TouchableOpacity style={styles.settingsItem} onPress={() => alert('Base Lifts - Coming soon!')} activeOpacity={0.7}>
+          <TouchableOpacity style={styles.settingsItem} onPress={() => setShowBaseLiftsModal(true)} activeOpacity={0.7}>
             <View style={[styles.settingsIcon, { backgroundColor: COLORS.primary + '20' }]}>
               <Dumbbell size={18} color={COLORS.primary} />
             </View>
             <View style={styles.settingsLabelContainer}>
               <Text style={styles.settingsLabel}>Base Lifts</Text>
-              <Text style={styles.settingsSubLabel}>0 lifts set for weight estimation</Text>
+              <Text style={styles.settingsSubLabel}>{countBaseLifts()} lifts set for weight estimation</Text>
             </View>
             <ChevronRight size={18} color={COLORS.textMuted} />
           </TouchableOpacity>
@@ -562,6 +686,30 @@ const ProfileScreen = () => {
         selectedEquipment={tempEquipment}
         onToggle={handleEquipmentToggle}
         onSave={handleEquipmentSave}
+      />
+
+      {/* Base Lifts Modal */}
+      <BaseLiftsModal
+        visible={showBaseLiftsModal}
+        onClose={() => setShowBaseLiftsModal(false)}
+        initialData={baseLifts}
+        onSave={handleBaseLiftsave}
+      />
+
+      {/* Units Modal */}
+      <UnitsModal
+        visible={showUnitsModal}
+        onClose={() => setShowUnitsModal(false)}
+        currentUnit={units}
+        onSelect={handleUnitsSelect}
+      />
+
+      {/* Tracking Preferences Modal */}
+      <TrackingPreferencesModal
+        visible={showTrackingModal}
+        onClose={() => setShowTrackingModal(false)}
+        preferences={trackingPreferences}
+        onToggle={handleTrackingToggle}
       />
 
       {/* Toast */}
