@@ -38,6 +38,11 @@ import {
 import { COLORS } from '../constants/colors';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigation } from '@react-navigation/native';
+import { supabase } from '../lib/supabase';
+import { EXPERIENCE_LEVELS, EQUIPMENT_OPTIONS } from '../constants/experience';
+import ExperienceLevelModal from '../components/ExperienceLevelModal';
+import EquipmentModal from '../components/EquipmentModal';
+import Toast from '../components/Toast';
 
 const ProfileScreen = () => {
   const navigation = useNavigation();
@@ -46,6 +51,24 @@ const ProfileScreen = () => {
   // Settings states
   const [restTimerEnabled, setRestTimerEnabled] = useState(true);
   const [coreExercisesPosition, setCoreExercisesPosition] = useState('last');
+
+  // Experience and Equipment
+  const [experienceLevel, setExperienceLevel] = useState('novice');
+  const [selectedEquipment, setSelectedEquipment] = useState(['Barbell', 'Dumbbells', 'Cable', 'Machine', 'Bodyweight']);
+  const [showExperienceModal, setShowExperienceModal] = useState(false);
+  const [showEquipmentModal, setShowEquipmentModal] = useState(false);
+  const [tempEquipment, setTempEquipment] = useState([]);
+
+  // Toast
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState('success');
+
+  const showToast = (message, type = 'success') => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+  };
 
   // Stats
   const [stats, setStats] = useState({
@@ -73,6 +96,97 @@ const ProfileScreen = () => {
     };
     loadSettings();
   }, []);
+
+  // Load experience and equipment from database
+  useEffect(() => {
+    const loadUserGoals = async () => {
+      if (!user?.id) return;
+      try {
+        const { data, error } = await supabase
+          .from('user_goals')
+          .select('experience, equipment')
+          .eq('user_id', user.id)
+          .single();
+
+        if (data) {
+          if (data.experience) {
+            setExperienceLevel(data.experience);
+          }
+          if (data.equipment) {
+            setSelectedEquipment(data.equipment);
+          }
+        }
+      } catch (error) {
+        console.log('Error loading user goals:', error);
+      }
+    };
+    loadUserGoals();
+  }, [user?.id]);
+
+  // Handle experience level change
+  const handleExperienceSelect = async (levelId) => {
+    setExperienceLevel(levelId);
+    setShowExperienceModal(false);
+
+    if (user?.id) {
+      try {
+        const { error } = await supabase
+          .from('user_goals')
+          .upsert({
+            user_id: user.id,
+            experience: levelId,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'user_id' });
+
+        if (!error) {
+          showToast('Experience level updated', 'success');
+        }
+      } catch (error) {
+        console.log('Error updating experience:', error);
+      }
+    }
+  };
+
+  // Handle equipment toggle
+  const handleEquipmentToggle = (equipId) => {
+    setTempEquipment(prev => {
+      if (prev.includes(equipId)) {
+        return prev.filter(e => e !== equipId);
+      } else {
+        return [...prev, equipId];
+      }
+    });
+  };
+
+  // Open equipment modal
+  const openEquipmentModal = () => {
+    setTempEquipment([...selectedEquipment]);
+    setShowEquipmentModal(true);
+  };
+
+  // Save equipment selection
+  const handleEquipmentSave = async () => {
+    setSelectedEquipment(tempEquipment);
+    setShowEquipmentModal(false);
+
+    if (user?.id) {
+      try {
+        const { error } = await supabase
+          .from('user_goals')
+          .upsert({
+            user_id: user.id,
+            equipment: tempEquipment,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'user_id' });
+
+        if (!error) {
+          showToast(`${tempEquipment.length} equipment items saved`, 'success');
+        }
+      } catch (error) {
+        console.log('Error saving equipment:', error);
+      }
+    }
+  };
 
   const handleRestTimerToggle = async (value) => {
     setRestTimerEnabled(value);
@@ -193,15 +307,19 @@ const ProfileScreen = () => {
         <Text style={styles.sectionLabel}>EXPERIENCE LEVEL</Text>
         <TouchableOpacity
           style={styles.menuCard}
-          onPress={() => alert('Experience Level - Coming soon!')}
+          onPress={() => setShowExperienceModal(true)}
           activeOpacity={0.7}
         >
           <View style={[styles.menuIcon, { backgroundColor: '#1a237e' }]}>
             <TrendingUp size={20} color={COLORS.primary} />
           </View>
           <View style={styles.menuInfo}>
-            <Text style={styles.menuTitle}>Novice</Text>
-            <Text style={styles.menuSubtitle}>Learning the basics (6-18 months)</Text>
+            <Text style={styles.menuTitle}>
+              {EXPERIENCE_LEVELS[experienceLevel]?.label || 'Novice'}
+            </Text>
+            <Text style={styles.menuSubtitle}>
+              {EXPERIENCE_LEVELS[experienceLevel]?.desc || 'Learning the basics (6-18 months)'}
+            </Text>
           </View>
           <ChevronRight size={20} color={COLORS.textMuted} />
         </TouchableOpacity>
@@ -210,15 +328,17 @@ const ProfileScreen = () => {
         <Text style={styles.sectionLabel}>GYM EQUIPMENT</Text>
         <TouchableOpacity
           style={styles.menuCard}
-          onPress={() => alert('Gym Equipment - Coming soon!')}
+          onPress={openEquipmentModal}
           activeOpacity={0.7}
         >
           <View style={[styles.menuIcon, { backgroundColor: '#3d2914' }]}>
             <Dumbbell size={20} color={COLORS.warning} />
           </View>
           <View style={styles.menuInfo}>
-            <Text style={styles.menuTitle}>8 items selected</Text>
-            <Text style={styles.menuSubtitle}>Barbell, Dumbbells, Cable...</Text>
+            <Text style={styles.menuTitle}>{selectedEquipment.length} items selected</Text>
+            <Text style={styles.menuSubtitle} numberOfLines={1}>
+              {selectedEquipment.slice(0, 3).join(', ')}{selectedEquipment.length > 3 ? '...' : ''}
+            </Text>
           </View>
           <ChevronRight size={20} color={COLORS.textMuted} />
         </TouchableOpacity>
@@ -426,6 +546,31 @@ const ProfileScreen = () => {
 
         <View style={{ height: 100 }} />
       </ScrollView>
+
+      {/* Experience Level Modal */}
+      <ExperienceLevelModal
+        visible={showExperienceModal}
+        onClose={() => setShowExperienceModal(false)}
+        currentLevel={experienceLevel}
+        onSelect={handleExperienceSelect}
+      />
+
+      {/* Equipment Modal */}
+      <EquipmentModal
+        visible={showEquipmentModal}
+        onClose={() => setShowEquipmentModal(false)}
+        selectedEquipment={tempEquipment}
+        onToggle={handleEquipmentToggle}
+        onSave={handleEquipmentSave}
+      />
+
+      {/* Toast */}
+      <Toast
+        visible={toastVisible}
+        message={toastMessage}
+        type={toastType}
+        onDismiss={() => setToastVisible(false)}
+      />
     </SafeAreaView>
   );
 };
