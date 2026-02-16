@@ -2754,14 +2754,14 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   sleepLogBtnNew: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: COLORS.sleep || '#8B5CF6',
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
     marginBottom: 20,
   },
   sleepLogBtnTextNew: {
-    color: COLORS.background,
+    color: COLORS.text,
     fontSize: 16,
     fontWeight: '600',
   },
