@@ -30,11 +30,13 @@ import { workoutService } from '../services/workoutService';
 import { streakService } from '../services/streakService';
 import { weightService } from '../services/weightService';
 import { sleepService } from '../services/sleepService';
+import { publishedWorkoutService } from '../services/publishedWorkoutService';
 import { useAuth } from '../contexts/AuthContext';
 import AddMealModal from '../components/AddMealModal';
 import WaterEntryModal from '../components/WaterEntryModal';
 import WeighInModal from '../components/WeighInModal';
 import SleepEntryModal from '../components/SleepEntryModal';
+import RepertoireModal from '../components/RepertoireModal';
 
 const HomeScreen = () => {
   const navigation = useNavigation();
@@ -63,6 +65,9 @@ const HomeScreen = () => {
   const [showWeighInModal, setShowWeighInModal] = useState(false);
   const [showSleepModal, setShowSleepModal] = useState(false);
   const [lastNightSleepLogged, setLastNightSleepLogged] = useState(false);
+  const [showRepertoireModal, setShowRepertoireModal] = useState(false);
+  const [savedWorkouts, setSavedWorkouts] = useState([]);
+  const [repertoireLoading, setRepertoireLoading] = useState(false);
 
   // Social stats
   const [followersCount, setFollowersCount] = useState(0);
@@ -164,6 +169,44 @@ const HomeScreen = () => {
     } catch (error) {
       console.log('Error loading streaks:', error);
     }
+  };
+
+  const loadRepertoire = async () => {
+    setShowRepertoireModal(true);
+    setRepertoireLoading(true);
+    try {
+      const { data } = await publishedWorkoutService.getSavedWorkoutsWithDetails(user.id);
+      setSavedWorkouts(data || []);
+    } catch (error) {
+      console.log('Error loading repertoire:', error);
+    } finally {
+      setRepertoireLoading(false);
+    }
+  };
+
+  const handleStartRepertoireWorkout = (workout) => {
+    setShowRepertoireModal(false);
+
+    // Parse exercises from the saved workout
+    const exercises = workout.exercises || [];
+
+    navigation.navigate('ActiveWorkout', {
+      workoutName: workout.name,
+      workout: {
+        id: workout.id,
+        name: workout.name,
+        focus: workout.muscle_groups?.join(', ') || '',
+        exercises: exercises.map(ex => ({
+          id: ex.exercise_id || ex.id,
+          name: ex.name,
+          sets: ex.sets || 3,
+          targetReps: ex.reps,
+          suggestedWeight: ex.weight,
+        })),
+      },
+      fromRepertoire: true,
+      publishedWorkoutId: workout.id,
+    });
   };
 
   const onRefresh = () => {
@@ -586,21 +629,18 @@ const HomeScreen = () => {
         {/* My Rep-Ertoire Section */}
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>MY REP-ERTOIRE</Text>
-          <View style={styles.repertoireCard}>
+          <TouchableOpacity style={styles.repertoireCard} onPress={loadRepertoire}>
             <View style={styles.repertoireIconBox}>
-              <Bookmark size={24} color={COLORS.textMuted} />
+              <Bookmark size={24} color={COLORS.warning} />
             </View>
             <View style={styles.repertoireInfo}>
-              <Text style={styles.repertoireTitle}>No saved workouts yet</Text>
-              <Text style={styles.repertoireSubtitle}>Save workouts from the community</Text>
+              <Text style={styles.repertoireTitle}>My Saved Workouts</Text>
+              <Text style={styles.repertoireSubtitle}>Tap to view your Rep-Ertoire</Text>
             </View>
-            <TouchableOpacity
-              style={styles.discoverButton}
-              onPress={() => navigation.navigate('Community')}
-            >
-              <Text style={styles.discoverButtonText}>Discover</Text>
-            </TouchableOpacity>
-          </View>
+            <View style={styles.discoverButton}>
+              <Text style={styles.discoverButtonText}>Open</Text>
+            </View>
+          </TouchableOpacity>
         </View>
 
         {/* Trending Workouts Section */}
@@ -681,6 +721,14 @@ const HomeScreen = () => {
         visible={showSleepModal}
         onClose={() => setShowSleepModal(false)}
         onSave={handleSaveSleep}
+      />
+
+      <RepertoireModal
+        visible={showRepertoireModal}
+        onClose={() => setShowRepertoireModal(false)}
+        savedWorkouts={savedWorkouts}
+        loading={repertoireLoading}
+        onStartWorkout={handleStartRepertoireWorkout}
       />
     </SafeAreaView>
   );
@@ -970,7 +1018,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 12,
-    backgroundColor: COLORS.surfaceLight,
+    backgroundColor: COLORS.warning + '20',
     justifyContent: 'center',
     alignItems: 'center',
   },
