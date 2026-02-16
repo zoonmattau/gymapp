@@ -580,6 +580,28 @@ export const workoutService = {
       return { data: null, error: null };
     }
   },
+
+  // Rename a completed workout session
+  async renameWorkoutSession(sessionId, newName) {
+    try {
+      const { data, error } = await supabase
+        .from('workout_sessions')
+        .update({ workout_name: newName })
+        .eq('id', sessionId)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error renaming workout session:', error);
+        return { data: null, error };
+      }
+
+      return { data, error: null };
+    } catch (err) {
+      console.error('Error renaming workout session:', err);
+      return { data: null, error: err };
+    }
+  },
 };
 
 export default workoutService;

@@ -7,8 +7,10 @@ import {
   TouchableOpacity,
   FlatList,
   ActivityIndicator,
+  Modal,
+  TextInput,
 } from 'react-native';
-import { ArrowLeft, Dumbbell, Check, Clock, TrendingUp } from 'lucide-react-native';
+import { ArrowLeft, Dumbbell, Check, Clock, TrendingUp, Pencil, X } from 'lucide-react-native';
 import { COLORS } from '../constants/colors';
 import { useAuth } from '../contexts/AuthContext';
 import { workoutService } from '../services/workoutService';
@@ -17,10 +19,45 @@ const WorkoutHistoryScreen = ({ navigation }) => {
   const { user } = useAuth();
   const [workoutHistory, setWorkoutHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [renameModalVisible, setRenameModalVisible] = useState(false);
+  const [workoutToRename, setWorkoutToRename] = useState(null);
+  const [newWorkoutName, setNewWorkoutName] = useState('');
 
   useEffect(() => {
     loadWorkoutHistory();
   }, []);
+
+  const handleRenamePress = (workout) => {
+    setWorkoutToRename(workout);
+    setNewWorkoutName(workout.name);
+    setRenameModalVisible(true);
+  };
+
+  const handleRenameSubmit = async () => {
+    if (!workoutToRename || !newWorkoutName.trim()) return;
+
+    try {
+      const { error } = await workoutService.renameWorkoutSession(
+        workoutToRename.id,
+        newWorkoutName.trim()
+      );
+
+      if (!error) {
+        // Update local state
+        setWorkoutHistory(prev =>
+          prev.map(w =>
+            w.id === workoutToRename.id ? { ...w, name: newWorkoutName.trim() } : w
+          )
+        );
+      }
+    } catch (err) {
+      console.log('Error renaming workout:', err);
+    }
+
+    setRenameModalVisible(false);
+    setWorkoutToRename(null);
+    setNewWorkoutName('');
+  };
 
   const loadWorkoutHistory = async () => {
     try {
@@ -86,7 +123,7 @@ const WorkoutHistoryScreen = ({ navigation }) => {
     const workoutColor = getWorkoutColor(item.name);
 
     return (
-      <TouchableOpacity style={styles.historyCard}>
+      <View style={styles.historyCard}>
         <View style={styles.historyHeader}>
           <View style={styles.historyLeft}>
             <View style={[styles.historyIcon, { backgroundColor: workoutColor + '20' }]}>
@@ -97,7 +134,15 @@ const WorkoutHistoryScreen = ({ navigation }) => {
               <Text style={styles.historyDate}>{item.date}</Text>
             </View>
           </View>
-          <Check size={18} color={COLORS.success} />
+          <View style={styles.historyActions}>
+            <TouchableOpacity
+              style={styles.editButton}
+              onPress={() => handleRenamePress(item)}
+            >
+              <Pencil size={16} color={COLORS.textMuted} />
+            </TouchableOpacity>
+            <Check size={18} color={COLORS.success} />
+          </View>
         </View>
         <View style={styles.historyStats}>
           <View style={styles.historyStat}>
@@ -117,7 +162,7 @@ const WorkoutHistoryScreen = ({ navigation }) => {
             </View>
           )}
         </View>
-      </TouchableOpacity>
+      </View>
     );
   };
 
@@ -206,6 +251,50 @@ const WorkoutHistoryScreen = ({ navigation }) => {
           />
         </>
       )}
+
+      {/* Rename Modal */}
+      <Modal
+        visible={renameModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setRenameModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Rename Workout</Text>
+              <TouchableOpacity
+                onPress={() => setRenameModalVisible(false)}
+                style={styles.modalCloseButton}
+              >
+                <X size={20} color={COLORS.textMuted} />
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              style={styles.renameInput}
+              value={newWorkoutName}
+              onChangeText={setNewWorkoutName}
+              placeholder="Workout name"
+              placeholderTextColor={COLORS.textMuted}
+              autoFocus
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setRenameModalVisible(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.saveButton}
+                onPress={handleRenameSubmit}
+              >
+                <Text style={styles.saveButtonText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -352,6 +441,81 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   emptyButtonText: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  historyActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  editButton: {
+    padding: 6,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalContainer: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    width: '100%',
+    maxWidth: 340,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    color: COLORS.text,
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  renameInput: {
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    color: COLORS.text,
+    fontSize: 16,
+    marginBottom: 20,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  saveButton: {
+    flex: 1,
+    backgroundColor: COLORS.primary,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  saveButtonText: {
     color: COLORS.text,
     fontSize: 16,
     fontWeight: '600',
