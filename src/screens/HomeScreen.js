@@ -636,22 +636,20 @@ const HomeScreen = () => {
         {/* Sleep Tracking Section */}
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>SLEEP TRACKING</Text>
-          <TouchableOpacity
-            style={[styles.sleepButton, lastNightSleepLogged && styles.sleepButtonLogged]}
-            onPress={() => setShowSleepModal(true)}
-          >
-            {lastNightSleepLogged ? (
-              <>
-                <Check size={20} color={COLORS.success} />
-                <Text style={[styles.sleepButtonText, { color: COLORS.success }]}>Sleep Logged</Text>
-              </>
-            ) : (
-              <>
-                <Moon size={20} color={COLORS.text} />
-                <Text style={styles.sleepButtonText}>Log Last Night's Sleep</Text>
-              </>
-            )}
-          </TouchableOpacity>
+          {lastNightSleepLogged ? (
+            <View style={styles.sleepLoggedButton}>
+              <Check size={20} color={COLORS.background} />
+              <Text style={styles.sleepLoggedButtonText}>Sleep Logged</Text>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.sleepButton}
+              onPress={() => setShowSleepModal(true)}
+            >
+              <Moon size={20} color={COLORS.background} />
+              <Text style={styles.sleepButtonText}>Log Last Night's Sleep</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <View style={{ height: 100 }} />
@@ -1057,21 +1055,30 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   sleepButton: {
-    backgroundColor: COLORS.sleep || '#8B5CF6',
+    backgroundColor: COLORS.primary,
     borderRadius: 12,
-    paddingVertical: 18,
+    paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
   },
-  sleepButtonLogged: {
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.success,
-  },
   sleepButtonText: {
-    color: COLORS.text,
+    color: COLORS.background,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  sleepLoggedButton: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.success,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  sleepLoggedButtonText: {
+    color: COLORS.background,
     fontSize: 16,
     fontWeight: '600',
   },
