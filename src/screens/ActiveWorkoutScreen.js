@@ -19,6 +19,7 @@ import {
   Dumbbell,
   ChevronDown,
   ChevronUp,
+  Pencil,
 } from 'lucide-react-native';
 import { COLORS } from '../constants/colors';
 import ExerciseSearchModal from '../components/ExerciseSearchModal';
@@ -44,6 +45,13 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
   const [exercises, setExercises] = useState(resumedExercises || []);
   const [expandedExercise, setExpandedExercise] = useState(resumedExercises?.length > 0 ? resumedExercises[0]?.id : null);
   const [workoutTime, setWorkoutTime] = useState(resumedTime || 0);
+  const [workoutStartTime] = useState(() => {
+    // Calculate start time based on resumed time or current time
+    if (resumedTime) {
+      return Date.now() - (resumedTime * 1000);
+    }
+    return Date.now();
+  });
   const [isTimerRunning, setIsTimerRunning] = useState(true);
   const [restTimer, setRestTimer] = useState(0);
   const [isResting, setIsResting] = useState(false);
@@ -59,8 +67,11 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
   const [showFinishModal, setShowFinishModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showDeleteSetModal, setShowDeleteSetModal] = useState(false);
   const [finishModalData, setFinishModalData] = useState(null);
   const [exerciseToDelete, setExerciseToDelete] = useState(null);
+  const [setToEdit, setSetToEdit] = useState(null); // { exerciseId, setId, ... }
+  const [setToDelete, setSetToDelete] = useState(null); // { exerciseId, setId }
   const timerRef = useRef(null);
   const restTimerRef = useRef(null);
 
@@ -103,15 +114,19 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
     }
   }, [workout, resumedExercises]);
 
-  // Workout timer
+  // Workout timer - uses start time so it persists through background
   useEffect(() => {
     if (isTimerRunning) {
+      // Update immediately
+      setWorkoutTime(Math.floor((Date.now() - workoutStartTime) / 1000));
+
+      // Then update every second
       timerRef.current = setInterval(() => {
-        setWorkoutTime(prev => prev + 1);
+        setWorkoutTime(Math.floor((Date.now() - workoutStartTime) / 1000));
       }, 1000);
     }
     return () => clearInterval(timerRef.current);
-  }, [isTimerRunning]);
+  }, [isTimerRunning, workoutStartTime]);
 
   // Rest timer
   useEffect(() => {
@@ -203,10 +218,15 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
     const exercise = exercises.find(ex => ex.id === exerciseId);
     const nextSetNumber = exercise ? exercise.sets.length + 1 : 1;
 
+    // Get the weight from the last set (if any)
+    const lastSet = exercise?.sets?.length > 0 ? exercise.sets[exercise.sets.length - 1] : null;
+    const previousWeight = lastSet?.weight || '';
+
     setSelectedSetToLog({
       exerciseId,
       exerciseName,
       setNumber: nextSetNumber,
+      weight: previousWeight,
       isNewSet: true,
     });
     setShowLogSetModal(true);
@@ -277,6 +297,91 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
     }
     setShowDeleteModal(false);
     setExerciseToDelete(null);
+  };
+
+  // Edit a set
+  const openEditSetModal = (exerciseId, exerciseName, set) => {
+    setSetToEdit({
+      exerciseId,
+      exerciseName,
+      setId: set.id,
+      setNumber: set.id,
+      weight: set.weight,
+      reps: set.reps,
+      rpe: set.rpe,
+      setType: set.setType,
+      supersetExercise: set.supersetExercise,
+      supersetWeight: set.supersetWeight,
+      supersetReps: set.supersetReps,
+      drops: set.drops,
+      isEdit: true,
+    });
+    setSelectedSetToLog({
+      exerciseId,
+      exerciseName,
+      setId: set.id,
+      setNumber: set.id,
+      weight: set.weight,
+      reps: set.reps,
+      isEdit: true,
+    });
+    setShowLogSetModal(true);
+  };
+
+  // Update an existing set
+  const handleUpdateSet = (setData) => {
+    if (!setToEdit) return;
+
+    setExercises(exercises.map(ex => {
+      if (ex.id === setToEdit.exerciseId) {
+        return {
+          ...ex,
+          sets: ex.sets.map(set => {
+            if (set.id === setToEdit.setId) {
+              return {
+                ...set,
+                weight: setData.weight.toString(),
+                reps: setData.reps.toString(),
+                rpe: setData.rpe,
+                setType: setData.setType,
+                supersetExercise: setData.supersetExercise,
+                supersetWeight: setData.supersetWeight,
+                supersetReps: setData.supersetReps,
+                drops: setData.drops,
+              };
+            }
+            return set;
+          }),
+        };
+      }
+      return ex;
+    }));
+
+    setSetToEdit(null);
+  };
+
+  // Delete a set
+  const confirmDeleteSet = (exerciseId, setId) => {
+    setSetToDelete({ exerciseId, setId });
+    setShowDeleteSetModal(true);
+  };
+
+  const handleConfirmDeleteSet = () => {
+    if (setToDelete) {
+      setExercises(exercises.map(ex => {
+        if (ex.id === setToDelete.exerciseId) {
+          const newSets = ex.sets.filter(set => set.id !== setToDelete.setId);
+          // Re-number the sets
+          return {
+            ...ex,
+            sets: newSets.map((set, idx) => ({ ...set, id: idx + 1 })),
+          };
+        }
+        return ex;
+      }));
+    }
+    setShowDeleteSetModal(false);
+    setSetToDelete(null);
   };
 
   const saveAndFinishWorkout = async (completedSets, totalSets, totalVolume) => {
@@ -543,8 +648,19 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
                             )}
 
                             {/* Edit Button */}
-                            <TouchableOpacity style={styles.setEditButton}>
-                              <Dumbbell size={16} color={COLORS.textMuted} />
+                            <TouchableOpacity
+                              style={styles.setEditButton}
+                              onPress={() => openEditSetModal(exercise.id, exercise.name, set)}
+                            >
+                              <Pencil size={16} color={COLORS.textMuted} />
+                            </TouchableOpacity>
+
+                            {/* Delete Button */}
+                            <TouchableOpacity
+                              style={styles.setDeleteButton}
+                              onPress={() => confirmDeleteSet(exercise.id, set.id)}
+                            >
+                              <Trash2 size={16} color={COLORS.error} />
                             </TouchableOpacity>
                           </View>
                         </View>
@@ -621,11 +737,16 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
         onClose={() => {
           setShowLogSetModal(false);
           setSelectedSetToLog(null);
+          setSetToEdit(null);
           setPendingSupersetExercise(null);
           setIsReturningFromSuperset(false);
         }}
         onSave={(setData) => {
-          handleLogSet(setData);
+          if (setToEdit) {
+            handleUpdateSet(setData);
+          } else {
+            handleLogSet(setData);
+          }
           setPendingSupersetExercise(null);
           setIsReturningFromSuperset(false);
         }}
@@ -637,6 +758,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
         onSelectSupersetExercise={handleSelectSupersetExercise}
         pendingSupersetExercise={pendingSupersetExercise}
         isReturningFromSuperset={isReturningFromSuperset}
+        isEdit={!!setToEdit}
       />
 
       {/* Toast Notification */}
@@ -683,6 +805,21 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
         onCancel={() => {
           setShowDeleteModal(false);
           setExerciseToDelete(null);
+        }}
+      />
+
+      {/* Delete Set Confirmation */}
+      <ConfirmModal
+        visible={showDeleteSetModal}
+        title="Delete Set"
+        message="Are you sure you want to delete this set?"
+        confirmText="Delete"
+        cancelText="Cancel"
+        confirmStyle="danger"
+        onConfirm={handleConfirmDeleteSet}
+        onCancel={() => {
+          setShowDeleteSetModal(false);
+          setSetToDelete(null);
         }}
       />
 
@@ -863,6 +1000,9 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
   },
   setEditButton: {
+    padding: 4,
+  },
+  setDeleteButton: {
     padding: 4,
   },
   setDetailsContainer: {

@@ -220,11 +220,10 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   filterList: {
-    maxHeight: 50,
+    flexGrow: 0,
   },
   filterContent: {
     paddingHorizontal: 16,
-    gap: 8,
   },
   filterChip: {
     paddingHorizontal: 16,

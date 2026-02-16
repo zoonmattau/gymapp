@@ -25,6 +25,7 @@ const LogSetModal = ({
   onSelectSupersetExercise,
   pendingSupersetExercise = null, // Exercise selected from superset flow
   isReturningFromSuperset = false,
+  isEdit = false,
 }) => {
   const [weight, setWeight] = useState(initialWeight);
   const [reps, setReps] = useState(initialReps);
@@ -148,7 +149,7 @@ const LogSetModal = ({
         <View style={styles.header}>
           <View>
             <Text style={styles.title}>{exerciseName} - Set {setNumber}</Text>
-            <Text style={styles.subtitle}>Log your performance</Text>
+            <Text style={styles.subtitle}>{isEdit ? 'Edit set details' : 'Log your performance'}</Text>
           </View>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
             <X size={24} color={COLORS.text} />
@@ -481,7 +482,7 @@ const LogSetModal = ({
             disabled={!canSave}
           >
             <Check size={20} color={COLORS.text} />
-            <Text style={styles.logButtonText}>Log Set</Text>
+            <Text style={styles.logButtonText}>{isEdit ? 'Update Set' : 'Log Set'}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
