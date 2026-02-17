@@ -182,6 +182,7 @@ const ExerciseLibraryScreen = ({ navigation }) => {
         renderItem={renderExerciseItem}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        style={styles.exerciseList}
       />
     </SafeAreaView>
   );
@@ -260,9 +261,12 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 8,
   },
+  exerciseList: {
+    flex: 1,
+  },
   listContent: {
     paddingHorizontal: 16,
-    paddingBottom: 20,
+    paddingBottom: 100,
   },
   exerciseCard: {
     backgroundColor: COLORS.surface,

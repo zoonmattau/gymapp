@@ -757,7 +757,13 @@ const ProgressScreen = () => {
         {weightHistory.length > 0 ? (
           weightHistory.slice().reverse().map((entry, index) => (
             <View key={index} style={[styles.historyRow, index < weightHistory.length - 1 && styles.historyRowBorder]}>
-              <Text style={styles.historyWeek}>{entry.week}</Text>
+              <Text style={styles.historyDate}>
+                {entry.date ? new Date(entry.date).toLocaleDateString('en-US', {
+                  weekday: 'short',
+                  day: 'numeric',
+                  month: 'short',
+                }) : entry.week}
+              </Text>
               <Text style={styles.historyWeight}>{entry.weight} kg</Text>
             </View>
           ))
@@ -1244,6 +1250,10 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.surfaceLight,
   },
   historyWeek: {
+    color: COLORS.textMuted,
+    fontSize: 14,
+  },
+  historyDate: {
     color: COLORS.textMuted,
     fontSize: 14,
   },
