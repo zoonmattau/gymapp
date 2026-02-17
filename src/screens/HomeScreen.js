@@ -678,7 +678,7 @@ const HomeScreen = () => {
           <Text style={styles.sectionLabel}>SLEEP TRACKING</Text>
           {lastNightSleepLogged ? (
             <View style={styles.sleepLoggedButton}>
-              <Check size={20} color={COLORS.background} />
+              <Check size={20} color="#FFFFFF" />
               <Text style={styles.sleepLoggedButtonText}>Sleep Logged</Text>
             </View>
           ) : (
@@ -1126,7 +1126,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   sleepLoggedButtonText: {
-    color: COLORS.background,
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
   },
