@@ -10,6 +10,7 @@ import {
   RefreshControl,
   Alert,
   Platform,
+  Modal,
 } from 'react-native';
 import {
   Users,
@@ -28,6 +29,8 @@ import {
   FileText,
   ChevronDown,
   Filter,
+  X,
+  Check,
 } from 'lucide-react-native';
 import { COLORS } from '../constants/colors';
 import { useAuth } from '../contexts/AuthContext';
@@ -76,6 +79,13 @@ const CommunityScreen = ({ route }) => {
 
   // Challenges
   const [challenges, setChallenges] = useState([]);
+  const [showCreateChallenge, setShowCreateChallenge] = useState(false);
+  const [newChallenge, setNewChallenge] = useState({
+    name: '',
+    type: 'workouts',
+    duration: 7,
+    invitedFriends: [],
+  });
 
   // Share Workout Modal
   const [showShareModal, setShowShareModal] = useState(false);
@@ -868,7 +878,10 @@ const CommunityScreen = ({ route }) => {
           <Text style={[styles.sectionLabel, { marginTop: 8 }]}>JOIN A CHALLENGE</Text>
 
           {/* Create New Challenge Button */}
-          <TouchableOpacity style={styles.createChallengeDashedBtn}>
+          <TouchableOpacity
+            style={styles.createChallengeDashedBtn}
+            onPress={() => setShowCreateChallenge(true)}
+          >
             <Plus size={20} color={COLORS.textMuted} />
             <Text style={styles.createChallengeDashedText}>Create New Challenge</Text>
           </TouchableOpacity>
@@ -920,7 +933,10 @@ const CommunityScreen = ({ route }) => {
           <Text style={[styles.sectionLabel, { marginTop: 20 }]}>JOIN A CHALLENGE</Text>
 
           {/* Create New Challenge Button */}
-          <TouchableOpacity style={styles.createChallengeDashedBtn}>
+          <TouchableOpacity
+            style={styles.createChallengeDashedBtn}
+            onPress={() => setShowCreateChallenge(true)}
+          >
             <Plus size={20} color={COLORS.textMuted} />
             <Text style={styles.createChallengeDashedText}>Create New Challenge</Text>
           </TouchableOpacity>
@@ -1159,6 +1175,225 @@ const CommunityScreen = ({ route }) => {
           </View>
         </View>
       )}
+
+      {/* Create Challenge Modal */}
+      <Modal
+        visible={showCreateChallenge}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={() => setShowCreateChallenge(false)}
+      >
+        <SafeAreaView style={styles.createChallengeModal}>
+          {/* Header */}
+          <View style={styles.createChallengeHeader}>
+            <TouchableOpacity
+              onPress={() => {
+                setShowCreateChallenge(false);
+                setNewChallenge({ name: '', type: 'workouts', duration: 7, invitedFriends: [] });
+              }}
+            >
+              <X size={24} color={COLORS.text} />
+            </TouchableOpacity>
+            <Text style={styles.createChallengeTitle}>Create Challenge</Text>
+            <View style={{ width: 24 }} />
+          </View>
+
+          <ScrollView style={styles.createChallengeContent}>
+            {/* Challenge Name */}
+            <View style={styles.createChallengeSection}>
+              <Text style={styles.createChallengeSectionTitle}>Challenge Name</Text>
+              <TextInput
+                style={styles.createChallengeInput}
+                value={newChallenge.name}
+                onChangeText={(text) => setNewChallenge(prev => ({ ...prev, name: text }))}
+                placeholder="e.g. January Grind, Push-up Masters"
+                placeholderTextColor={COLORS.textMuted}
+                maxLength={30}
+              />
+            </View>
+
+            {/* Challenge Type */}
+            <View style={styles.createChallengeSection}>
+              <Text style={styles.createChallengeSectionTitle}>Challenge Type</Text>
+              <View style={styles.challengeTypeGrid}>
+                {[
+                  { id: 'workouts', label: 'Most Workouts', icon: '🏋️', desc: 'Complete the most workouts' },
+                  { id: 'streak', label: 'Longest Streak', icon: '🔥', desc: 'Maintain the longest streak' },
+                  { id: 'volume', label: 'Total Volume', icon: '💪', desc: 'Lift the most total weight' },
+                  { id: 'reps', label: 'Total Reps', icon: '🔄', desc: 'Complete the most reps' },
+                ].map((type) => (
+                  <TouchableOpacity
+                    key={type.id}
+                    style={[
+                      styles.challengeTypeOption,
+                      newChallenge.type === type.id && styles.challengeTypeOptionSelected,
+                    ]}
+                    onPress={() => setNewChallenge(prev => ({ ...prev, type: type.id }))}
+                  >
+                    <Text style={styles.challengeTypeIcon}>{type.icon}</Text>
+                    <Text style={[
+                      styles.challengeTypeLabel,
+                      newChallenge.type === type.id && styles.challengeTypeLabelSelected,
+                    ]}>{type.label}</Text>
+                    <Text style={styles.challengeTypeDesc}>{type.desc}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Duration */}
+            <View style={styles.createChallengeSection}>
+              <Text style={styles.createChallengeSectionTitle}>Duration</Text>
+              <View style={styles.durationRow}>
+                {[
+                  { days: 7, label: '1 Week' },
+                  { days: 14, label: '2 Weeks' },
+                  { days: 30, label: '1 Month' },
+                  { days: 90, label: '3 Months' },
+                ].map((duration) => (
+                  <TouchableOpacity
+                    key={duration.days}
+                    style={[
+                      styles.durationOption,
+                      newChallenge.duration === duration.days && styles.durationOptionSelected,
+                    ]}
+                    onPress={() => setNewChallenge(prev => ({ ...prev, duration: duration.days }))}
+                  >
+                    <Text style={[
+                      styles.durationLabel,
+                      newChallenge.duration === duration.days && styles.durationLabelSelected,
+                    ]}>{duration.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Invite Friends */}
+            <View style={styles.createChallengeSection}>
+              <Text style={styles.createChallengeSectionTitle}>Invite Friends</Text>
+              {following.length === 0 ? (
+                <Text style={styles.noFriendsText}>Follow some users to invite them to challenges!</Text>
+              ) : (
+                following.map((item) => {
+                  const friend = item.following;
+                  const friendId = item.following_id;
+                  const isSelected = newChallenge.invitedFriends.includes(friendId);
+                  return (
+                    <TouchableOpacity
+                      key={friendId}
+                      style={[
+                        styles.inviteFriendRow,
+                        isSelected && styles.inviteFriendRowSelected,
+                      ]}
+                      onPress={() => {
+                        setNewChallenge(prev => ({
+                          ...prev,
+                          invitedFriends: isSelected
+                            ? prev.invitedFriends.filter(id => id !== friendId)
+                            : [...prev.invitedFriends, friendId]
+                        }));
+                      }}
+                    >
+                      <View style={styles.inviteFriendAvatar}>
+                        <Text style={styles.inviteFriendAvatarText}>
+                          {friend?.username?.[0]?.toUpperCase() || 'U'}
+                        </Text>
+                      </View>
+                      <View style={styles.inviteFriendInfo}>
+                        <Text style={styles.inviteFriendName}>@{friend?.username || 'user'}</Text>
+                      </View>
+                      <View style={[
+                        styles.inviteFriendCheck,
+                        isSelected && styles.inviteFriendCheckSelected,
+                      ]}>
+                        {isSelected && <Check size={14} color={COLORS.text} />}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })
+              )}
+              {newChallenge.invitedFriends.length > 0 && (
+                <Text style={styles.selectedCountText}>
+                  {newChallenge.invitedFriends.length} friend{newChallenge.invitedFriends.length > 1 ? 's' : ''} selected
+                </Text>
+              )}
+            </View>
+
+            {/* Preview */}
+            {newChallenge.name && (
+              <View style={styles.challengePreview}>
+                <Text style={styles.challengePreviewLabel}>PREVIEW</Text>
+                <View style={styles.challengePreviewContent}>
+                  <View style={styles.challengePreviewHeader}>
+                    <Trophy size={18} color={COLORS.warning} />
+                    <Text style={styles.challengePreviewName}>{newChallenge.name}</Text>
+                  </View>
+                  <Text style={styles.challengePreviewDesc}>
+                    {newChallenge.type === 'workouts' && 'Complete the most workouts'}
+                    {newChallenge.type === 'streak' && 'Maintain the longest streak'}
+                    {newChallenge.type === 'volume' && 'Lift the most total weight'}
+                    {newChallenge.type === 'reps' && 'Complete the most reps'}
+                  </Text>
+                  <Text style={styles.challengePreviewMeta}>
+                    {newChallenge.duration} days • {newChallenge.invitedFriends.length + 1} participants
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            <View style={{ height: 100 }} />
+          </ScrollView>
+
+          {/* Create Button */}
+          <View style={styles.createChallengeFooter}>
+            <TouchableOpacity
+              style={[
+                styles.createChallengeButton,
+                (!newChallenge.name || newChallenge.invitedFriends.length === 0) && styles.createChallengeButtonDisabled,
+              ]}
+              onPress={async () => {
+                if (newChallenge.name && newChallenge.invitedFriends.length > 0) {
+                  try {
+                    const endDate = new Date();
+                    endDate.setDate(endDate.getDate() + newChallenge.duration);
+
+                    // Create challenge via service
+                    const { data, error } = await competitionService.createChallenge({
+                      name: newChallenge.name,
+                      type: newChallenge.type,
+                      duration: newChallenge.duration,
+                      creatorId: user.id,
+                      invitedFriends: newChallenge.invitedFriends,
+                    });
+
+                    if (!error) {
+                      // Add to local state
+                      const newChallengeObj = {
+                        id: data?.id || Date.now(),
+                        name: newChallenge.name,
+                        goal_type: newChallenge.type,
+                        goal_value: newChallenge.type === 'workouts' ? 10 : 7,
+                        participant_count: newChallenge.invitedFriends.length + 1,
+                        user_progress: 0,
+                      };
+                      setChallenges(prev => [...prev, newChallengeObj]);
+                    }
+
+                    setNewChallenge({ name: '', type: 'workouts', duration: 7, invitedFriends: [] });
+                    setShowCreateChallenge(false);
+                  } catch (err) {
+                    console.log('Error creating challenge:', err);
+                    Alert.alert('Error', 'Failed to create challenge. Please try again.');
+                  }
+                }
+              }}
+              disabled={!newChallenge.name || newChallenge.invitedFriends.length === 0}
+            >
+              <Text style={styles.createChallengeButtonText}>Create Challenge</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -1848,6 +2083,216 @@ const styles = StyleSheet.create({
     marginTop: 24,
   },
   applyFiltersBtnText: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  // Create Challenge Modal
+  createChallengeModal: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  createChallengeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.surfaceLight,
+  },
+  createChallengeTitle: {
+    color: COLORS.text,
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  createChallengeContent: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
+  createChallengeSection: {
+    marginTop: 24,
+  },
+  createChallengeSectionTitle: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  createChallengeInput: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 16,
+    color: COLORS.text,
+    fontSize: 16,
+    borderWidth: 2,
+    borderColor: COLORS.surfaceLight,
+  },
+  challengeTypeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  challengeTypeOption: {
+    width: '48%',
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 2,
+    borderColor: COLORS.surfaceLight,
+  },
+  challengeTypeOptionSelected: {
+    backgroundColor: COLORS.primary + '20',
+    borderColor: COLORS.primary,
+  },
+  challengeTypeIcon: {
+    fontSize: 20,
+    marginBottom: 4,
+  },
+  challengeTypeLabel: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  challengeTypeLabelSelected: {
+    color: COLORS.primary,
+  },
+  challengeTypeDesc: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+  },
+  durationRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  durationOption: {
+    flex: 1,
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.surfaceLight,
+  },
+  durationOptionSelected: {
+    backgroundColor: COLORS.primary + '20',
+    borderColor: COLORS.primary,
+  },
+  durationLabel: {
+    color: COLORS.text,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  durationLabelSelected: {
+    color: COLORS.primary,
+  },
+  inviteFriendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  inviteFriendRowSelected: {
+    backgroundColor: COLORS.primary + '20',
+    borderColor: COLORS.primary,
+  },
+  inviteFriendAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.surfaceLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  inviteFriendAvatarText: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  inviteFriendInfo: {
+    flex: 1,
+  },
+  inviteFriendName: {
+    color: COLORS.text,
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  inviteFriendCheck: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: COLORS.surfaceLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  inviteFriendCheckSelected: {
+    backgroundColor: COLORS.primary,
+  },
+  selectedCountText: {
+    color: COLORS.primary,
+    fontSize: 12,
+    marginTop: 8,
+  },
+  noFriendsText: {
+    color: COLORS.textMuted,
+    fontSize: 14,
+    textAlign: 'center',
+    paddingVertical: 20,
+  },
+  challengePreview: {
+    marginTop: 24,
+  },
+  challengePreviewLabel: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    marginBottom: 8,
+  },
+  challengePreviewContent: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 16,
+  },
+  challengePreviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  challengePreviewName: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  challengePreviewDesc: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  challengePreviewMeta: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+  },
+  createChallengeFooter: {
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.surfaceLight,
+  },
+  createChallengeButton: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  createChallengeButtonDisabled: {
+    opacity: 0.5,
+  },
+  createChallengeButtonText: {
     color: COLORS.text,
     fontSize: 16,
     fontWeight: '600',
