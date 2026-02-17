@@ -9,6 +9,7 @@ import {
   Switch,
   Alert,
   Platform,
+  Modal,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -34,6 +35,8 @@ import {
   Crosshair,
   RefreshCw,
   Flame,
+  X,
+  Lock,
 } from 'lucide-react-native';
 import { COLORS } from '../constants/colors';
 import { useAuth } from '../contexts/AuthContext';
@@ -79,6 +82,21 @@ const ProfileScreen = () => {
     supplements: true,
   });
   const [showTrackingModal, setShowTrackingModal] = useState(false);
+
+  // Notifications & Privacy modals
+  const [showNotificationsModal, setShowNotificationsModal] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [notificationSettings, setNotificationSettings] = useState({
+    workoutReminders: true,
+    progressUpdates: true,
+    socialActivity: true,
+    weeklyReport: false,
+  });
+  const [privacySettings, setPrivacySettings] = useState({
+    profileVisible: true,
+    showActivity: true,
+    showProgress: false,
+  });
 
   // Toast
   const [toastVisible, setToastVisible] = useState(false);
@@ -489,7 +507,7 @@ const ProfileScreen = () => {
                 <TouchableOpacity
                   key={achievement.id}
                   style={styles.achievementItem}
-                  onPress={() => alert(`${achievement.name} - Coming soon!`)}
+                  onPress={() => showToast(`${achievement.name} - Coming soon!`, 'info')}
                   activeOpacity={0.7}
                 >
                   <View style={styles.achievementIcon}>
@@ -523,7 +541,7 @@ const ProfileScreen = () => {
           </TouchableOpacity>
 
           {/* Notifications */}
-          <TouchableOpacity style={styles.settingsItem} onPress={() => showToast('Notifications coming soon!', 'info')} activeOpacity={0.7}>
+          <TouchableOpacity style={styles.settingsItem} onPress={() => setShowNotificationsModal(true)} activeOpacity={0.7}>
             <View style={[styles.settingsIcon, { backgroundColor: COLORS.success + '20' }]}>
               <Zap size={18} color={COLORS.success} />
             </View>
@@ -532,7 +550,7 @@ const ProfileScreen = () => {
           </TouchableOpacity>
 
           {/* Privacy */}
-          <TouchableOpacity style={styles.settingsItem} onPress={() => showToast('Privacy settings coming soon!', 'info')} activeOpacity={0.7}>
+          <TouchableOpacity style={styles.settingsItem} onPress={() => setShowPrivacyModal(true)} activeOpacity={0.7}>
             <View style={[styles.settingsIcon, { backgroundColor: COLORS.primary + '20' }]}>
               <Eye size={18} color={COLORS.primary} />
             </View>
@@ -720,6 +738,122 @@ const ProfileScreen = () => {
         preferences={trackingPreferences}
         onToggle={handleTrackingToggle}
       />
+
+      {/* Notifications Modal */}
+      <Modal
+        visible={showNotificationsModal}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={() => setShowNotificationsModal(false)}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setShowNotificationsModal(false)}>
+              <X size={24} color={COLORS.text} />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Notifications</Text>
+            <View style={{ width: 24 }} />
+          </View>
+
+          <ScrollView style={styles.modalContent}>
+            <Text style={styles.modalDescription}>
+              Choose which notifications you want to receive
+            </Text>
+
+            {[
+              { id: 'workoutReminders', label: 'Workout Reminders', desc: "Get reminded when it's time to train" },
+              { id: 'progressUpdates', label: 'Progress Updates', desc: 'Weekly summaries and milestone alerts' },
+              { id: 'socialActivity', label: 'Social Activity', desc: 'Friend requests, likes, and comments' },
+              { id: 'weeklyReport', label: 'Weekly Report', desc: 'Detailed weekly performance report' },
+            ].map((notif) => (
+              <View key={notif.id} style={styles.notifItem}>
+                <View style={styles.notifInfo}>
+                  <Text style={styles.notifLabel}>{notif.label}</Text>
+                  <Text style={styles.notifDesc}>{notif.desc}</Text>
+                </View>
+                <Switch
+                  value={notificationSettings[notif.id]}
+                  onValueChange={(value) =>
+                    setNotificationSettings((prev) => ({ ...prev, [notif.id]: value }))
+                  }
+                  trackColor={{ false: COLORS.surfaceLight, true: COLORS.success }}
+                  thumbColor={COLORS.text}
+                />
+              </View>
+            ))}
+          </ScrollView>
+
+          <View style={styles.modalFooter}>
+            <TouchableOpacity
+              style={styles.modalDoneBtn}
+              onPress={() => setShowNotificationsModal(false)}
+            >
+              <Text style={styles.modalDoneBtnText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </Modal>
+
+      {/* Privacy Modal */}
+      <Modal
+        visible={showPrivacyModal}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={() => setShowPrivacyModal(false)}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setShowPrivacyModal(false)}>
+              <X size={24} color={COLORS.text} />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Privacy</Text>
+            <View style={{ width: 24 }} />
+          </View>
+
+          <ScrollView style={styles.modalContent}>
+            <Text style={styles.modalDescription}>
+              Control who can see your profile and activity
+            </Text>
+
+            {[
+              { id: 'profileVisible', label: 'Public Profile', desc: 'Allow others to find and view your profile' },
+              { id: 'showActivity', label: 'Show Activity', desc: 'Share your workouts in the activity feed' },
+              { id: 'showProgress', label: 'Show Progress', desc: 'Display weight and body stats to friends' },
+            ].map((privacy) => (
+              <View key={privacy.id} style={styles.notifItem}>
+                <View style={styles.notifInfo}>
+                  <Text style={styles.notifLabel}>{privacy.label}</Text>
+                  <Text style={styles.notifDesc}>{privacy.desc}</Text>
+                </View>
+                <Switch
+                  value={privacySettings[privacy.id]}
+                  onValueChange={(value) =>
+                    setPrivacySettings((prev) => ({ ...prev, [privacy.id]: value }))
+                  }
+                  trackColor={{ false: COLORS.surfaceLight, true: COLORS.success }}
+                  thumbColor={COLORS.text}
+                />
+              </View>
+            ))}
+
+            <View style={styles.privacyNote}>
+              <Lock size={16} color={COLORS.primary} />
+              <Text style={styles.privacyNoteText}>
+                Your workout data is always private and encrypted. These settings only control what friends can see.
+              </Text>
+            </View>
+          </ScrollView>
+
+          <View style={styles.modalFooter}>
+            <TouchableOpacity
+              style={styles.modalDoneBtn}
+              onPress={() => setShowPrivacyModal(false)}
+            >
+              <Text style={styles.modalDoneBtnText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </Modal>
 
       {/* Toast */}
       <Toast
@@ -1053,6 +1187,89 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     fontSize: 13,
     textAlign: 'center',
+  },
+  // Notification & Privacy Modals
+  modalContainer: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.surfaceLight,
+  },
+  modalTitle: {
+    color: COLORS.text,
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  modalContent: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
+  modalDescription: {
+    color: COLORS.textMuted,
+    fontSize: 14,
+    marginBottom: 20,
+  },
+  notifItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  notifInfo: {
+    flex: 1,
+    marginRight: 16,
+  },
+  notifLabel: {
+    color: COLORS.text,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  notifDesc: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  privacyNote: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: COLORS.primary + '15',
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 12,
+    gap: 12,
+  },
+  privacyNoteText: {
+    flex: 1,
+    color: COLORS.primary,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  modalFooter: {
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.surfaceLight,
+  },
+  modalDoneBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  modalDoneBtnText: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 
