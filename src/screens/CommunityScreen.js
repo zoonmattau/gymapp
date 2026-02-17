@@ -72,6 +72,7 @@ const CommunityScreen = ({ route }) => {
 
   // Following search
   const [followingSearchQuery, setFollowingSearchQuery] = useState('');
+  const [followingSearchResults, setFollowingSearchResults] = useState([]);
 
   // Challenges
   const [challenges, setChallenges] = useState([]);
@@ -354,6 +355,22 @@ const CommunityScreen = ({ route }) => {
       }
     } catch (error) {
       console.log('Error searching:', error);
+    }
+  };
+
+  const searchUsersFromFollowing = async () => {
+    if (!followingSearchQuery.trim()) {
+      setFollowingSearchResults([]);
+      return;
+    }
+
+    try {
+      const { data } = await socialService.searchUsers(followingSearchQuery);
+      if (data) {
+        setFollowingSearchResults(data.filter(u => u.id !== user.id));
+      }
+    } catch (error) {
+      console.log('Error searching from following:', error);
     }
   };
 
@@ -645,16 +662,6 @@ const CommunityScreen = ({ route }) => {
   );
 
   const renderFollowing = () => {
-    // Filter following list based on search query
-    const filteredFollowing = followingSearchQuery.trim()
-      ? following.filter((item) => {
-          const username = item.following?.username?.toLowerCase() || '';
-          const bio = item.following?.bio?.toLowerCase() || '';
-          const query = followingSearchQuery.toLowerCase();
-          return username.includes(query) || bio.includes(query);
-        })
-      : following;
-
     return (
       <>
         {/* Search Bar */}
@@ -663,34 +670,63 @@ const CommunityScreen = ({ route }) => {
           <TextInput
             style={styles.searchInput}
             value={followingSearchQuery}
-            onChangeText={setFollowingSearchQuery}
-            placeholder="Search people you follow..."
+            onChangeText={(text) => {
+              setFollowingSearchQuery(text);
+              if (!text.trim()) {
+                setFollowingSearchResults([]);
+              }
+            }}
+            placeholder="Search for users..."
             placeholderTextColor={COLORS.textMuted}
+            onSubmitEditing={searchUsersFromFollowing}
+            returnKeyType="search"
           />
         </View>
 
-        {/* Find Users Button */}
-        <TouchableOpacity
-          style={styles.findUsersBtn}
-          onPress={() => setActiveTab('discover')}
-        >
-          <Plus size={20} color={COLORS.text} />
-          <Text style={styles.findUsersBtnText}>Find Users to Follow</Text>
-        </TouchableOpacity>
+        {/* Search Results */}
+        {followingSearchResults.length > 0 && (
+          <>
+            <Text style={styles.sectionLabel}>SEARCH RESULTS</Text>
+            {followingSearchResults.map((userProfile) => {
+              const isFollowingUser = followingIds.has(userProfile.id);
+              return (
+                <View key={userProfile.id} style={styles.userCard}>
+                  <View style={styles.userAvatar}>
+                    <Text style={styles.userAvatarText}>
+                      {userProfile.username?.[0]?.toUpperCase() || 'U'}
+                    </Text>
+                  </View>
+                  <View style={styles.userInfo}>
+                    <Text style={styles.userName}>@{userProfile.username || 'user'}</Text>
+                    {userProfile.bio && (
+                      <Text style={styles.userBio} numberOfLines={1}>{userProfile.bio}</Text>
+                    )}
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.followButton, isFollowingUser && styles.followingButton]}
+                    onPress={() => handleFollowUser(userProfile.id)}
+                  >
+                    {isFollowingUser ? (
+                      <UserCheck size={16} color={COLORS.text} />
+                    ) : (
+                      <UserPlus size={16} color={COLORS.text} />
+                    )}
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
+          </>
+        )}
 
         {/* Following Section */}
-        <Text style={styles.sectionLabel}>
-          {followingSearchQuery.trim()
-            ? `RESULTS (${filteredFollowing.length})`
-            : `FOLLOWING (${following.length})`}
-        </Text>
+        <Text style={styles.sectionLabel}>FOLLOWING ({following.length})</Text>
 
         {following.length === 0 ? (
           <View style={styles.emptyStateCard}>
             <UserPlus size={48} color={COLORS.primary} />
             <Text style={styles.emptyStateCardTitle}>Not following anyone yet</Text>
             <Text style={styles.emptyStateCardText}>
-              Search for users or discover top athletes to follow!
+              Search for users above or discover top athletes to follow!
             </Text>
             <TouchableOpacity
               style={styles.discoverBtn}
@@ -699,16 +735,8 @@ const CommunityScreen = ({ route }) => {
               <Text style={styles.discoverBtnText}>Discover People</Text>
             </TouchableOpacity>
           </View>
-        ) : filteredFollowing.length === 0 ? (
-          <View style={styles.emptyStateCard}>
-            <Search size={48} color={COLORS.textMuted} />
-            <Text style={styles.emptyStateCardTitle}>No results found</Text>
-            <Text style={styles.emptyStateCardText}>
-              Try a different search term
-            </Text>
-          </View>
         ) : (
-          filteredFollowing.map((item) => {
+          following.map((item) => {
             const userProfile = item.following;
             const userId = item.following_id;
             const isFollowingUser = followingIds.has(userId);
