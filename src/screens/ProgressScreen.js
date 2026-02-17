@@ -103,14 +103,18 @@ const ProgressScreen = () => {
   useEffect(() => {
     const loadCurrentGoal = async () => {
       if (!user?.id) return;
+      console.log('Loading goal for user:', user.id);
       try {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('user_goals')
           .select('goal')
           .eq('user_id', user.id)
           .maybeSingle();
 
+        console.log('Loaded goal data:', { data, error });
+
         if (data?.goal) {
+          console.log('Setting current goal to:', data.goal);
           setCurrentGoal(data.goal);
         }
       } catch (error) {
@@ -328,16 +332,19 @@ const ProgressScreen = () => {
   };
 
   const handleSelectGoal = async (goalKey) => {
+    console.log('Saving goal:', goalKey, 'for user:', user.id);
     setCurrentGoal(goalKey);
     // Save to user_goals table
     try {
-      await supabase
+      const { data, error } = await supabase
         .from('user_goals')
         .upsert({
           user_id: user.id,
           goal: goalKey,
         }, { onConflict: 'user_id' })
         .select();
+
+      console.log('Goal save result:', { data, error });
     } catch (error) {
       console.log('Error saving goal:', error);
     }
