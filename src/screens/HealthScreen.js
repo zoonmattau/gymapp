@@ -1305,7 +1305,7 @@ const HealthScreen = () => {
         {/* Log Button */}
         {sleepHistory.find(d => d.date === displayDate.getDate()) ? (
           <View style={styles.sleepLoggedBtn}>
-            <Check size={20} color={COLORS.background} />
+            <Check size={20} color="#FFFFFF" />
             <Text style={styles.sleepLoggedBtnText}>Sleep Logged</Text>
           </View>
         ) : (
@@ -2859,7 +2859,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   sleepLoggedBtnText: {
-    color: COLORS.background,
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
   },

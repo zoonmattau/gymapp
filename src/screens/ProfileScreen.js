@@ -502,7 +502,7 @@ const ProfileScreen = () => {
           </View>
           <TouchableOpacity
             style={styles.viewAllBtn}
-            onPress={() => alert('View All Achievements - Coming soon!')}
+            onPress={() => showToast('Achievements coming soon!', 'info')}
             activeOpacity={0.7}
           >
             <Text style={styles.viewAllText}>View All 24 Achievements</Text>
@@ -523,7 +523,7 @@ const ProfileScreen = () => {
           </TouchableOpacity>
 
           {/* Notifications */}
-          <TouchableOpacity style={styles.settingsItem} onPress={() => alert('Notifications - Coming soon!')} activeOpacity={0.7}>
+          <TouchableOpacity style={styles.settingsItem} onPress={() => showToast('Notifications coming soon!', 'info')} activeOpacity={0.7}>
             <View style={[styles.settingsIcon, { backgroundColor: COLORS.success + '20' }]}>
               <Zap size={18} color={COLORS.success} />
             </View>
@@ -532,7 +532,7 @@ const ProfileScreen = () => {
           </TouchableOpacity>
 
           {/* Privacy */}
-          <TouchableOpacity style={styles.settingsItem} onPress={() => alert('Privacy - Coming soon!')} activeOpacity={0.7}>
+          <TouchableOpacity style={styles.settingsItem} onPress={() => showToast('Privacy settings coming soon!', 'info')} activeOpacity={0.7}>
             <View style={[styles.settingsIcon, { backgroundColor: COLORS.primary + '20' }]}>
               <Eye size={18} color={COLORS.primary} />
             </View>
@@ -604,7 +604,7 @@ const ProfileScreen = () => {
           </TouchableOpacity>
 
           {/* Account */}
-          <TouchableOpacity style={[styles.settingsItem, { borderBottomWidth: 0 }]} onPress={() => alert('Account - Coming soon!')} activeOpacity={0.7}>
+          <TouchableOpacity style={[styles.settingsItem, { borderBottomWidth: 0 }]} onPress={() => showToast('Account settings coming soon!', 'info')} activeOpacity={0.7}>
             <View style={[styles.settingsIcon, { backgroundColor: COLORS.surfaceLight }]}>
               <User size={18} color={COLORS.textMuted} />
             </View>
@@ -617,7 +617,7 @@ const ProfileScreen = () => {
         <Text style={styles.sectionLabelLarge}>Support</Text>
         <View style={styles.settingsCard}>
           {/* Help Center */}
-          <TouchableOpacity style={styles.settingsItem} onPress={() => alert('Help Center - Coming soon!')} activeOpacity={0.7}>
+          <TouchableOpacity style={styles.settingsItem} onPress={() => showToast('Help center coming soon!', 'info')} activeOpacity={0.7}>
             <View style={[styles.settingsIcon, { backgroundColor: 'transparent', borderWidth: 1, borderColor: COLORS.textMuted }]}>
               <HelpCircle size={18} color={COLORS.textMuted} />
             </View>
@@ -626,7 +626,7 @@ const ProfileScreen = () => {
           </TouchableOpacity>
 
           {/* Send Feedback */}
-          <TouchableOpacity style={styles.settingsItem} onPress={() => alert('Send Feedback - Coming soon!')} activeOpacity={0.7}>
+          <TouchableOpacity style={styles.settingsItem} onPress={() => showToast('Feedback coming soon!', 'info')} activeOpacity={0.7}>
             <View style={[styles.settingsIcon, { backgroundColor: 'transparent', borderWidth: 1, borderColor: COLORS.textMuted }]}>
               <MessageSquare size={18} color={COLORS.textMuted} />
             </View>
@@ -635,7 +635,7 @@ const ProfileScreen = () => {
           </TouchableOpacity>
 
           {/* About UpRep */}
-          <TouchableOpacity style={[styles.settingsItem, { borderBottomWidth: 0 }]} onPress={() => alert('About UpRep v5.0.0')} activeOpacity={0.7}>
+          <TouchableOpacity style={[styles.settingsItem, { borderBottomWidth: 0 }]} onPress={() => showToast('UpRep v5.0.0 - Built with React Native', 'info')} activeOpacity={0.7}>
             <View style={[styles.settingsIcon, { backgroundColor: 'transparent', borderWidth: 1, borderColor: COLORS.textMuted }]}>
               <Info size={18} color={COLORS.textMuted} />
             </View>
@@ -658,11 +658,11 @@ const ProfileScreen = () => {
             </View>
           </View>
           <View style={styles.storeButtons}>
-            <TouchableOpacity style={styles.storeBtn} onPress={() => alert('App Store - Coming soon!')} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.storeBtn} onPress={() => showToast('App Store link coming soon!', 'info')} activeOpacity={0.7}>
               <Text style={styles.storeEmoji}>🍎</Text>
               <Text style={styles.storeBtnText}>App Store</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.storeBtn} onPress={() => alert('Google Play - Coming soon!')} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.storeBtn} onPress={() => showToast('Google Play link coming soon!', 'info')} activeOpacity={0.7}>
               <Text style={styles.storeEmoji}>🤖</Text>
               <Text style={styles.storeBtnText}>Google Play</Text>
             </TouchableOpacity>

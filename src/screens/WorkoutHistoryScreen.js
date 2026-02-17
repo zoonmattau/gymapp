@@ -10,10 +10,11 @@ import {
   Modal,
   TextInput,
 } from 'react-native';
-import { ArrowLeft, Dumbbell, Check, Clock, TrendingUp, Pencil, X } from 'lucide-react-native';
+import { ArrowLeft, Dumbbell, Check, Clock, TrendingUp, Pencil, X, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { COLORS } from '../constants/colors';
 import { useAuth } from '../contexts/AuthContext';
 import { workoutService } from '../services/workoutService';
+import { supabase } from '../lib/supabase';
 
 const WorkoutHistoryScreen = ({ navigation }) => {
   const { user } = useAuth();
@@ -22,6 +23,9 @@ const WorkoutHistoryScreen = ({ navigation }) => {
   const [renameModalVisible, setRenameModalVisible] = useState(false);
   const [workoutToRename, setWorkoutToRename] = useState(null);
   const [newWorkoutName, setNewWorkoutName] = useState('');
+  const [selectedWorkout, setSelectedWorkout] = useState(null);
+  const [workoutDetails, setWorkoutDetails] = useState(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
 
   useEffect(() => {
     loadWorkoutHistory();
@@ -31,6 +35,50 @@ const WorkoutHistoryScreen = ({ navigation }) => {
     setWorkoutToRename(workout);
     setNewWorkoutName(workout.name);
     setRenameModalVisible(true);
+  };
+
+  const handleWorkoutPress = async (workout) => {
+    setSelectedWorkout(workout);
+    setDetailsLoading(true);
+
+    try {
+      // Fetch the sets for this workout session
+      const { data: sets, error } = await supabase
+        .from('workout_sets')
+        .select('*')
+        .eq('session_id', workout.id)
+        .order('completed_at', { ascending: true });
+
+      if (error) {
+        console.log('Error fetching workout details:', error);
+        setWorkoutDetails([]);
+      } else {
+        // Group sets by exercise
+        const exerciseMap = {};
+        (sets || []).forEach(set => {
+          const name = set.exercise_name || 'Unknown Exercise';
+          if (!exerciseMap[name]) {
+            exerciseMap[name] = {
+              name,
+              sets: [],
+            };
+          }
+          exerciseMap[name].sets.push({
+            setNumber: set.set_number,
+            weight: set.weight,
+            reps: set.reps,
+            rpe: set.rpe,
+            isWarmup: set.is_warmup,
+          });
+        });
+        setWorkoutDetails(Object.values(exerciseMap));
+      }
+    } catch (err) {
+      console.log('Error:', err);
+      setWorkoutDetails([]);
+    } finally {
+      setDetailsLoading(false);
+    }
   };
 
   const handleRenameSubmit = async () => {
@@ -121,9 +169,14 @@ const WorkoutHistoryScreen = ({ navigation }) => {
 
   const renderHistoryItem = ({ item }) => {
     const workoutColor = getWorkoutColor(item.name);
+    const isExpanded = selectedWorkout?.id === item.id;
 
     return (
-      <View style={styles.historyCard}>
+      <TouchableOpacity
+        style={styles.historyCard}
+        onPress={() => handleWorkoutPress(item)}
+        activeOpacity={0.7}
+      >
         <View style={styles.historyHeader}>
           <View style={styles.historyLeft}>
             <View style={[styles.historyIcon, { backgroundColor: workoutColor + '20' }]}>
@@ -137,11 +190,18 @@ const WorkoutHistoryScreen = ({ navigation }) => {
           <View style={styles.historyActions}>
             <TouchableOpacity
               style={styles.editButton}
-              onPress={() => handleRenamePress(item)}
+              onPress={(e) => {
+                e.stopPropagation();
+                handleRenamePress(item);
+              }}
             >
               <Pencil size={16} color={COLORS.textMuted} />
             </TouchableOpacity>
-            <Check size={18} color={COLORS.success} />
+            {isExpanded ? (
+              <ChevronUp size={18} color={COLORS.primary} />
+            ) : (
+              <ChevronDown size={18} color={COLORS.textMuted} />
+            )}
           </View>
         </View>
         <View style={styles.historyStats}>
@@ -162,7 +222,40 @@ const WorkoutHistoryScreen = ({ navigation }) => {
             </View>
           )}
         </View>
-      </View>
+
+        {/* Expanded Details */}
+        {isExpanded && (
+          <View style={styles.expandedDetails}>
+            {detailsLoading ? (
+              <View style={styles.detailsLoading}>
+                <ActivityIndicator size="small" color={COLORS.primary} />
+                <Text style={styles.detailsLoadingText}>Loading exercises...</Text>
+              </View>
+            ) : workoutDetails && workoutDetails.length > 0 ? (
+              workoutDetails.map((exercise, idx) => (
+                <View key={idx} style={styles.exerciseDetail}>
+                  <Text style={styles.exerciseDetailName}>{exercise.name}</Text>
+                  <View style={styles.exerciseSets}>
+                    {exercise.sets.map((set, setIdx) => (
+                      <View key={setIdx} style={styles.setDetail}>
+                        <Text style={[styles.setNumber, set.isWarmup && styles.warmupText]}>
+                          {set.isWarmup ? 'W' : setIdx + 1}
+                        </Text>
+                        <Text style={styles.setInfo}>
+                          {set.weight > 0 ? `${set.weight} kg` : 'BW'} × {set.reps}
+                          {set.rpe ? ` @${set.rpe}` : ''}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              ))
+            ) : (
+              <Text style={styles.noDetailsText}>No exercise data recorded</Text>
+            )}
+          </View>
+        )}
+      </TouchableOpacity>
     );
   };
 
@@ -519,6 +612,67 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontSize: 16,
     fontWeight: '600',
+  },
+  // Expanded Details
+  expandedDetails: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.surfaceLight,
+  },
+  detailsLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    gap: 8,
+  },
+  detailsLoadingText: {
+    color: COLORS.textMuted,
+    fontSize: 13,
+  },
+  exerciseDetail: {
+    marginBottom: 12,
+  },
+  exerciseDetailName: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  exerciseSets: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  setDetail: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    gap: 6,
+  },
+  setNumber: {
+    color: COLORS.primary,
+    fontSize: 12,
+    fontWeight: '700',
+    minWidth: 14,
+    textAlign: 'center',
+  },
+  warmupText: {
+    color: COLORS.warning,
+  },
+  setInfo: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+  },
+  noDetailsText: {
+    color: COLORS.textMuted,
+    fontSize: 13,
+    textAlign: 'center',
+    paddingVertical: 8,
   },
 });
 

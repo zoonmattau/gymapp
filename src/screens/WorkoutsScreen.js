@@ -8,6 +8,8 @@ import {
   TouchableOpacity,
   RefreshControl,
   Platform,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import {
@@ -22,7 +24,11 @@ import {
   Coffee,
   Check,
   Plus,
+  Search,
+  X,
+  FileText,
 } from 'lucide-react-native';
+import { WORKOUT_TEMPLATES, AVAILABLE_PROGRAMS } from '../constants/workoutTemplates';
 import { COLORS } from '../constants/colors';
 import { useAuth } from '../contexts/AuthContext';
 import { getPausedWorkout, clearPausedWorkout } from '../utils/workoutStore';
@@ -40,6 +46,11 @@ const WorkoutsScreen = () => {
 
   // Paused workout state
   const [pausedWorkout, setPausedWorkoutState] = useState(null);
+
+  // Start workout modal state
+  const [showStartModal, setShowStartModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
 
   // Check for paused workout and load data when screen is focused
   useFocusEffect(
@@ -292,13 +303,68 @@ const WorkoutsScreen = () => {
       clearPausedWorkout();
       setPausedWorkoutState(null);
     } else {
-      // Start new freeform workout
+      // Show start workout options modal
+      setShowStartModal(true);
+    }
+  };
+
+  const startFreeformWorkout = () => {
+    setShowStartModal(false);
+    navigation.navigate('ActiveWorkout', {
+      workoutName: 'Workout',
+      workout: null,
+    });
+  };
+
+  const startScheduledWorkout = () => {
+    setShowStartModal(false);
+    if (todaySchedule?.workout && todaySchedule?.templateId) {
+      const template = WORKOUT_TEMPLATES[todaySchedule.templateId];
+      if (template) {
+        navigation.navigate('ActiveWorkout', {
+          workoutName: template.name,
+          workout: template,
+          templateId: todaySchedule.templateId,
+          scheduleId: todaySchedule.scheduleId,
+        });
+      } else {
+        // Fallback to freeform
+        navigation.navigate('ActiveWorkout', {
+          workoutName: todaySchedule.workout,
+          workout: null,
+        });
+      }
+    } else {
+      // No scheduled workout, start freeform
       navigation.navigate('ActiveWorkout', {
         workoutName: 'Workout',
         workout: null,
       });
     }
   };
+
+  const startFromTemplate = (templateId) => {
+    setShowStartModal(false);
+    const template = WORKOUT_TEMPLATES[templateId];
+    if (template) {
+      navigation.navigate('ActiveWorkout', {
+        workoutName: template.name,
+        workout: template,
+        templateId: templateId,
+      });
+    }
+  };
+
+  // Filter templates based on search
+  const filteredTemplates = Object.entries(WORKOUT_TEMPLATES).filter(([id, template]) => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      template.name.toLowerCase().includes(query) ||
+      template.focus?.toLowerCase().includes(query) ||
+      template.exercises?.some(ex => ex.name.toLowerCase().includes(query))
+    );
+  });
 
   const weekDates = getWeekDates();
   const todaySchedule = weekDates.find(d => d.isToday);
@@ -588,6 +654,93 @@ const WorkoutsScreen = () => {
 
         <View style={{ height: 100 }} />
       </ScrollView>
+
+      {/* Start Workout Modal */}
+      <Modal
+        visible={showStartModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowStartModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Start Workout</Text>
+              <TouchableOpacity onPress={() => setShowStartModal(false)} style={styles.modalCloseBtn}>
+                <X size={24} color={COLORS.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Quick Start Options */}
+            <View style={styles.quickStartOptions}>
+              <TouchableOpacity style={styles.quickStartOption} onPress={startFreeformWorkout}>
+                <View style={[styles.quickStartIcon, { backgroundColor: COLORS.primary + '20' }]}>
+                  <Play size={24} color={COLORS.primary} />
+                </View>
+                <View style={styles.quickStartInfo}>
+                  <Text style={styles.quickStartTitle}>Freeform Workout</Text>
+                  <Text style={styles.quickStartDesc}>Build your workout as you go</Text>
+                </View>
+                <ChevronRight size={20} color={COLORS.textMuted} />
+              </TouchableOpacity>
+
+              {todaySchedule?.workout && (
+                <TouchableOpacity style={styles.quickStartOption} onPress={startScheduledWorkout}>
+                  <View style={[styles.quickStartIcon, { backgroundColor: COLORS.success + '20' }]}>
+                    <Calendar size={24} color={COLORS.success} />
+                  </View>
+                  <View style={styles.quickStartInfo}>
+                    <Text style={styles.quickStartTitle}>Today's Scheduled</Text>
+                    <Text style={styles.quickStartDesc}>{todaySchedule.workout}</Text>
+                  </View>
+                  <ChevronRight size={20} color={COLORS.textMuted} />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Search Templates */}
+            <View style={styles.searchSection}>
+              <Text style={styles.searchLabel}>BROWSE TEMPLATES</Text>
+              <View style={styles.searchInputContainer}>
+                <Search size={18} color={COLORS.textMuted} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Search workouts..."
+                  placeholderTextColor={COLORS.textMuted}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                />
+                {searchQuery ? (
+                  <TouchableOpacity onPress={() => setSearchQuery('')}>
+                    <X size={16} color={COLORS.textMuted} />
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            </View>
+
+            {/* Template List */}
+            <ScrollView style={styles.templateList} showsVerticalScrollIndicator={false}>
+              {filteredTemplates.slice(0, 10).map(([id, template]) => (
+                <TouchableOpacity
+                  key={id}
+                  style={styles.templateItem}
+                  onPress={() => startFromTemplate(id)}
+                >
+                  <View style={styles.templateIcon}>
+                    <Dumbbell size={18} color={COLORS.primary} />
+                  </View>
+                  <View style={styles.templateInfo}>
+                    <Text style={styles.templateName}>{template.name}</Text>
+                    <Text style={styles.templateFocus}>{template.focus}</Text>
+                    <Text style={styles.templateExercises}>{template.exercises?.length || 0} exercises</Text>
+                  </View>
+                  <ChevronRight size={18} color={COLORS.textMuted} />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -832,6 +985,132 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 4,
     textAlign: 'center',
+  },
+  // Start Workout Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'flex-end',
+  },
+  modalContainer: {
+    backgroundColor: COLORS.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '85%',
+    paddingBottom: 40,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.surfaceLight,
+  },
+  modalTitle: {
+    color: COLORS.text,
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  modalCloseBtn: {
+    padding: 4,
+  },
+  quickStartOptions: {
+    padding: 16,
+    gap: 12,
+  },
+  quickStartOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 16,
+    padding: 16,
+  },
+  quickStartIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  quickStartInfo: {
+    flex: 1,
+  },
+  quickStartTitle: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  quickStartDesc: {
+    color: COLORS.textMuted,
+    fontSize: 13,
+    marginTop: 2,
+  },
+  searchSection: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
+  searchLabel: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    marginBottom: 10,
+  },
+  searchInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 10,
+  },
+  searchInput: {
+    flex: 1,
+    color: COLORS.text,
+    fontSize: 15,
+  },
+  templateList: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    maxHeight: 300,
+  },
+  templateItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.background,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 8,
+  },
+  templateIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: COLORS.primary + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  templateInfo: {
+    flex: 1,
+  },
+  templateName: {
+    color: COLORS.text,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  templateFocus: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  templateExercises: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    marginTop: 2,
   },
 });
 

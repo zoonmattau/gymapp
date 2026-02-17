@@ -10,6 +10,72 @@ const getLocalDateString = (date = new Date()) => {
 
 export const competitionService = {
   // =====================================================
+  // CHALLENGES
+  // =====================================================
+
+  // Get active challenges for a user
+  async getActiveChallenges(userId) {
+    try {
+      if (!userId) return { data: [], error: null };
+
+      // For now, return some sample challenges since we don't have a challenges table yet
+      // This can be connected to a real database table later
+      const sampleChallenges = [
+        {
+          id: '1',
+          name: '30-Day Workout Streak',
+          description: 'Complete at least one workout every day for 30 days',
+          type: 'streak',
+          target: 30,
+          progress: 12,
+          endDate: new Date(Date.now() + 18 * 24 * 60 * 60 * 1000).toISOString(),
+          participants: 245,
+          reward: '🏆 Streak Master Badge',
+        },
+        {
+          id: '2',
+          name: 'Volume Challenge',
+          description: 'Lift 100,000 kg total this month',
+          type: 'volume',
+          target: 100000,
+          progress: 42500,
+          endDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+          participants: 128,
+          reward: '💪 Volume King Badge',
+        },
+        {
+          id: '3',
+          name: 'PR Hunter',
+          description: 'Set 5 personal records this week',
+          type: 'prs',
+          target: 5,
+          progress: 2,
+          endDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+          participants: 89,
+          reward: '🎯 PR Hunter Badge',
+        },
+      ];
+
+      return { data: sampleChallenges, error: null };
+    } catch (err) {
+      console.warn('Error getting active challenges:', err?.message);
+      return { data: [], error: err };
+    }
+  },
+
+  // Join a challenge
+  async joinChallenge(userId, challengeId) {
+    try {
+      // This would insert into a user_challenges table
+      // For now, just return success
+      return { data: { joined: true, challengeId }, error: null };
+    } catch (err) {
+      console.warn('Error joining challenge:', err?.message);
+      return { data: null, error: err };
+    }
+  },
+
+  // =====================================================
   // HEAD-TO-HEAD COMPARISONS
   // =====================================================
 
