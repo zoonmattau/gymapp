@@ -67,6 +67,10 @@ const WorkoutsScreen = () => {
   const [workoutDetails, setWorkoutDetails] = useState(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
 
+  // Week data cache for seamless scrolling
+  const [weekCache, setWeekCache] = useState({});
+  const [weekLoading, setWeekLoading] = useState(false);
+
   // Check for paused workout and load data when screen is focused
   useFocusEffect(
     useCallback(() => {
@@ -80,27 +84,30 @@ const WorkoutsScreen = () => {
     }, [user])
   );
 
-  // Reload data when week changes - clear schedule immediately for instant feedback
+  // Reload data when week changes - use cache for instant feedback
   useEffect(() => {
     if (user?.id) {
-      // Clear schedule immediately for instant UI feedback
-      setWeekSchedule({
-        0: { workout: null, completed: false },
-        1: { workout: null, completed: false },
-        2: { workout: null, completed: false },
-        3: { workout: null, completed: false },
-        4: { workout: null, completed: false },
-        5: { workout: null, completed: false },
-        6: { workout: null, completed: false },
-      });
-      loadWorkoutData();
+      // Check if we have cached data for this week
+      if (weekCache[weekOffset]) {
+        // Use cached data immediately
+        setWeekSchedule(weekCache[weekOffset]);
+        // Still refresh in background
+        loadWorkoutData(true);
+      } else {
+        // No cache - show loading indicator but keep current view
+        setWeekLoading(true);
+        loadWorkoutData(false);
+      }
     }
   }, [weekOffset]);
 
-  const loadWorkoutData = async () => {
+  const loadWorkoutData = async (isBackgroundRefresh = false) => {
+    // Capture current weekOffset to avoid race conditions
+    const currentWeekOffset = weekOffset;
+
     try {
       // Get workout schedule for the current week
-      const weekStart = getWeekStartDate(weekOffset);
+      const weekStart = getWeekStartDate(currentWeekOffset);
       const weekEnd = new Date(weekStart);
       weekEnd.setDate(weekEnd.getDate() + 6);
 
@@ -157,16 +164,25 @@ const WorkoutsScreen = () => {
           newSchedule[i] = { workout: null, isRest: false, completed: false };
         }
       }
-      setWeekSchedule(newSchedule);
 
-      // Load recent workout history
-      const { data: historyData } = await workoutService.getWorkoutHistory(user.id, 5);
-      setWorkoutHistory(historyData || []);
+      // Only update if still on the same week (avoid race conditions)
+      if (currentWeekOffset === weekOffset) {
+        setWeekSchedule(newSchedule);
+        // Cache the week data
+        setWeekCache(prev => ({ ...prev, [currentWeekOffset]: newSchedule }));
+      }
+
+      // Load recent workout history (only on initial load, not background refresh)
+      if (!isBackgroundRefresh) {
+        const { data: historyData } = await workoutService.getWorkoutHistory(user.id, 5);
+        setWorkoutHistory(historyData || []);
+      }
 
     } catch (error) {
       console.log('Error loading workout data:', error);
     } finally {
       setLoading(false);
+      setWeekLoading(false);
     }
   };
 
@@ -498,7 +514,12 @@ const WorkoutsScreen = () => {
               <ChevronLeft size={20} color={COLORS.textMuted} />
             </TouchableOpacity>
 
-            <Text style={styles.weekTitle}>{getWeekHeaderText()}</Text>
+            <View style={styles.weekTitleContainer}>
+              <Text style={styles.weekTitle}>{getWeekHeaderText()}</Text>
+              {weekLoading && (
+                <ActivityIndicator size="small" color={COLORS.primary} style={{ marginLeft: 8 }} />
+              )}
+            </View>
 
             <View style={styles.weekNavRight}>
               <TouchableOpacity
@@ -978,6 +999,10 @@ const styles = StyleSheet.create({
   },
   weekNavBtn: {
     padding: 8,
+  },
+  weekTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   weekTitle: {
     color: COLORS.text,
