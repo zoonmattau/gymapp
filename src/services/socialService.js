@@ -472,8 +472,8 @@ export const socialService = {
     }
   },
 
-  // Get activity feed from followed users
-  async getActivityFeed(userId, limit = 20) {
+  // Get activity feed from followed users (Instagram-style)
+  async getActivityFeed(userId, limit = 30) {
     try {
       if (!userId) return { data: [], error: null };
 
@@ -487,42 +487,103 @@ export const socialService = {
       const followingIds = (following || []).map(f => f.friend_id);
       if (followingIds.length === 0) return { data: [], error: null };
 
-      // Get recent workout sessions from followed users
-      const { data: workouts, error } = await supabase
-        .from('workout_sessions')
-        .select('id, user_id, workout_name, duration_minutes, ended_at')
-        .in('user_id', followingIds)
-        .not('ended_at', 'is', null)
-        .order('ended_at', { ascending: false })
-        .limit(limit);
+      // Fetch workouts and PRs in parallel
+      const [workoutsResult, prsResult] = await Promise.all([
+        // Get recent workout sessions
+        supabase
+          .from('workout_sessions')
+          .select('id, user_id, workout_name, duration_minutes, ended_at')
+          .in('user_id', followingIds)
+          .not('ended_at', 'is', null)
+          .order('ended_at', { ascending: false })
+          .limit(limit),
+        // Get recent PRs
+        supabase
+          .from('personal_records')
+          .select('id, user_id, exercise_name, weight, reps, achieved_at')
+          .in('user_id', followingIds)
+          .order('achieved_at', { ascending: false })
+          .limit(limit)
+      ]);
 
-      if (error) {
-        console.warn('getActivityFeed error:', error?.message);
-        return { data: [], error };
-      }
+      const workouts = workoutsResult.data || [];
+      const prs = prsResult.data || [];
 
-      // Enrich with user profiles
-      const enriched = await Promise.all((workouts || []).map(async (workout) => {
-        const { data: profile } = await supabase
+      // Get unique user IDs and fetch profiles
+      const allUserIds = [...new Set([
+        ...workouts.map(w => w.user_id),
+        ...prs.map(p => p.user_id)
+      ])];
+
+      const profilesMap = {};
+      if (allUserIds.length > 0) {
+        const { data: profiles } = await supabase
           .from('profiles')
           .select('id, username, first_name, last_name, avatar_url')
-          .eq('id', workout.user_id)
-          .single();
+          .in('id', allUserIds);
 
-        return {
-          id: workout.id,
-          type: 'workout',
-          friendId: workout.user_id,
-          friend: profile,
-          workoutName: workout.workout_name || 'Workout',
-          duration: workout.duration_minutes || 45,
-          time: formatActivityTime(workout.ended_at),
-          completedAt: workout.ended_at,
-          likes: 0,
-        };
+        (profiles || []).forEach(p => {
+          profilesMap[p.id] = p;
+        });
+      }
+
+      // Get like counts for activities
+      const workoutIds = workouts.map(w => w.id);
+      const likesMap = {};
+      if (workoutIds.length > 0) {
+        const { data: likes } = await supabase
+          .from('activity_likes')
+          .select('activity_id')
+          .in('activity_id', workoutIds);
+
+        (likes || []).forEach(l => {
+          likesMap[l.activity_id] = (likesMap[l.activity_id] || 0) + 1;
+        });
+      }
+
+      // Build workout activities
+      const workoutActivities = workouts.map(workout => ({
+        id: `workout_${workout.id}`,
+        activityId: workout.id,
+        type: 'workout',
+        userId: workout.user_id,
+        profile: profilesMap[workout.user_id] || {},
+        title: workout.workout_name || 'Workout',
+        subtitle: `${workout.duration_minutes || 0} min workout`,
+        timestamp: workout.ended_at,
+        likes: likesMap[workout.id] || 0,
+        comments: 0,
+        data: {
+          duration: workout.duration_minutes,
+          workoutName: workout.workout_name,
+        }
       }));
 
-      return { data: enriched, error: null };
+      // Build PR activities
+      const prActivities = prs.map(pr => ({
+        id: `pr_${pr.id}`,
+        activityId: pr.id,
+        type: 'pr',
+        userId: pr.user_id,
+        profile: profilesMap[pr.user_id] || {},
+        title: `New PR: ${pr.exercise_name}`,
+        subtitle: `${pr.weight} kg × ${pr.reps} reps`,
+        timestamp: pr.achieved_at,
+        likes: 0,
+        comments: 0,
+        data: {
+          exerciseName: pr.exercise_name,
+          weight: pr.weight,
+          reps: pr.reps,
+        }
+      }));
+
+      // Combine and sort by timestamp
+      const allActivities = [...workoutActivities, ...prActivities]
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+        .slice(0, limit);
+
+      return { data: allActivities, error: null };
     } catch (err) {
       console.warn('Error getting activity feed:', err?.message);
       return { data: [], error: err };

@@ -40,11 +40,11 @@ import { competitionService } from '../services/competitionService';
 import { workoutService } from '../services/workoutService';
 
 const TABS = [
-  { id: 'feed', label: 'Activity' },
-  { id: 'workouts', label: 'Workouts' },
-  { id: 'followers', label: 'Followers' },
-  { id: 'following', label: 'Following' },
+  { id: 'feed', label: 'Feed' },
   { id: 'discover', label: 'Discover' },
+  { id: 'workouts', label: 'Workouts' },
+  { id: 'following', label: 'Following' },
+  { id: 'followers', label: 'Followers' },
   { id: 'challenges', label: 'Challenges' },
 ];
 
@@ -163,15 +163,24 @@ const CommunityScreen = ({ route }) => {
 
   const loadActivityFeed = async () => {
     try {
-      const { data } = await socialService.getActivityFeed(user.id, 20);
-      if (data) {
-        setActivityFeed(data);
+      // Load feed and suggested users in parallel
+      const [feedResult, suggestedResult, likesResult] = await Promise.all([
+        socialService.getActivityFeed(user.id, 30),
+        socialService.getSuggestedUsers(user.id, 5),
+        socialService.getUserLikes(user.id),
+      ]);
+
+      if (feedResult.data) {
+        setActivityFeed(feedResult.data);
       }
 
-      const { data: likes } = await socialService.getUserLikes(user.id);
-      if (likes) {
+      if (suggestedResult.data) {
+        setSuggestedUsers(suggestedResult.data);
+      }
+
+      if (likesResult.data) {
         const likesMap = {};
-        likes.forEach(l => { likesMap[l.activity_id] = true; });
+        likesResult.data.forEach(l => { likesMap[l.activity_id] = true; });
         setUserLikes(likesMap);
       }
     } catch (error) {
@@ -442,59 +451,167 @@ const CommunityScreen = ({ route }) => {
 
   const renderActivityFeed = () => (
     <>
+      {/* Suggested Users Section */}
+      {suggestedUsers.length > 0 && (
+        <View style={styles.suggestedSection}>
+          <View style={styles.suggestedHeader}>
+            <Text style={styles.suggestedTitle}>Suggested for you</Text>
+            <TouchableOpacity onPress={() => setActiveTab('discover')}>
+              <Text style={styles.seeAllText}>See All</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.suggestedScroll}
+            contentContainerStyle={styles.suggestedScrollContent}
+          >
+            {suggestedUsers.map((suggestedUser) => (
+              <View key={suggestedUser.id} style={styles.suggestedCard}>
+                <View style={styles.suggestedAvatar}>
+                  <Text style={styles.suggestedAvatarText}>
+                    {suggestedUser.username?.[0]?.toUpperCase() || 'U'}
+                  </Text>
+                </View>
+                <Text style={styles.suggestedName} numberOfLines={1}>
+                  {suggestedUser.name || suggestedUser.username}
+                </Text>
+                <Text style={styles.suggestedUsername} numberOfLines={1}>
+                  @{suggestedUser.username}
+                </Text>
+                <Text style={styles.suggestedFollowers}>
+                  {suggestedUser.followers || 0} followers
+                </Text>
+                <TouchableOpacity
+                  style={[
+                    styles.suggestedFollowBtn,
+                    followingIds.has(suggestedUser.id) && styles.suggestedFollowingBtn,
+                  ]}
+                  onPress={() => handleFollowUser(suggestedUser.id)}
+                >
+                  <Text style={[
+                    styles.suggestedFollowBtnText,
+                    followingIds.has(suggestedUser.id) && styles.suggestedFollowingBtnText,
+                  ]}>
+                    {followingIds.has(suggestedUser.id) ? 'Following' : 'Follow'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
+      {/* Activity Feed */}
       {activityFeed.length === 0 ? (
         <View style={styles.emptyState}>
           <Users size={48} color={COLORS.textMuted} />
-          <Text style={styles.emptyStateTitle}>No activity yet 😊</Text>
+          <Text style={styles.emptyStateTitle}>No activity yet</Text>
           <Text style={styles.emptyStateText}>
-            Follow friends to see their workouts here
+            Follow friends to see their workouts and PRs here
           </Text>
+          <TouchableOpacity
+            style={styles.discoverBtn}
+            onPress={() => setActiveTab('discover')}
+          >
+            <Text style={styles.discoverBtnText}>Find People to Follow</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         activityFeed.map((activity) => (
-          <View key={activity.id} style={styles.activityCard}>
-            <View style={styles.activityHeader}>
-              <View style={styles.activityAvatar}>
-                <Text style={styles.avatarText}>
-                  {activity.username?.[0]?.toUpperCase() || 'U'}
+          <View key={activity.id} style={styles.feedCard}>
+            {/* Header with avatar and username */}
+            <View style={styles.feedHeader}>
+              <TouchableOpacity style={styles.feedUserRow}>
+                <View style={[
+                  styles.feedAvatar,
+                  activity.type === 'pr' && styles.feedAvatarPR,
+                ]}>
+                  <Text style={styles.feedAvatarText}>
+                    {activity.profile?.username?.[0]?.toUpperCase() || 'U'}
+                  </Text>
+                </View>
+                <View style={styles.feedUserInfo}>
+                  <Text style={styles.feedUsername}>
+                    @{activity.profile?.username || 'user'}
+                  </Text>
+                  <Text style={styles.feedTime}>{formatTimeAgo(activity.timestamp)}</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+
+            {/* Activity Content */}
+            <View style={styles.feedContent}>
+              {/* Activity Type Badge */}
+              <View style={[
+                styles.feedTypeBadge,
+                activity.type === 'pr' ? styles.feedTypeBadgePR : styles.feedTypeBadgeWorkout,
+              ]}>
+                {activity.type === 'pr' ? (
+                  <Trophy size={16} color={COLORS.warning} />
+                ) : (
+                  <Dumbbell size={16} color={COLORS.primary} />
+                )}
+                <Text style={[
+                  styles.feedTypeBadgeText,
+                  activity.type === 'pr' ? styles.feedTypeBadgeTextPR : styles.feedTypeBadgeTextWorkout,
+                ]}>
+                  {activity.type === 'pr' ? 'Personal Record' : 'Completed Workout'}
                 </Text>
               </View>
-              <View style={styles.activityInfo}>
-                <Text style={styles.activityUsername}>@{activity.username}</Text>
-                <Text style={styles.activityTime}>{formatTimeAgo(activity.created_at)}</Text>
+
+              {/* Activity Title */}
+              <Text style={styles.feedTitle}>{activity.title}</Text>
+
+              {/* Activity Details */}
+              <View style={styles.feedDetails}>
+                {activity.type === 'workout' && activity.data?.duration && (
+                  <View style={styles.feedDetailItem}>
+                    <Clock size={14} color={COLORS.textMuted} />
+                    <Text style={styles.feedDetailText}>{activity.data.duration} min</Text>
+                  </View>
+                )}
+                {activity.type === 'pr' && (
+                  <>
+                    <View style={styles.feedDetailItem}>
+                      <Text style={styles.feedDetailHighlight}>{activity.data?.weight} kg</Text>
+                    </View>
+                    <View style={styles.feedDetailItem}>
+                      <Text style={styles.feedDetailText}>× {activity.data?.reps} reps</Text>
+                    </View>
+                  </>
+                )}
               </View>
             </View>
 
-            <View style={styles.activityContent}>
-              <View style={styles.workoutBadge}>
-                <Dumbbell size={14} color={COLORS.primary} />
-                <Text style={styles.workoutBadgeText}>{activity.workout_name || 'Workout'}</Text>
-              </View>
-              {activity.duration_minutes && (
-                <View style={styles.activityStats}>
-                  <Clock size={12} color={COLORS.textMuted} />
-                  <Text style={styles.activityStatText}>{activity.duration_minutes} min</Text>
-                </View>
-              )}
-            </View>
-
-            <View style={styles.activityActions}>
+            {/* Actions Row */}
+            <View style={styles.feedActions}>
               <TouchableOpacity
-                style={styles.actionButton}
-                onPress={() => handleLikeActivity(activity.id)}
+                style={styles.feedActionBtn}
+                onPress={() => handleLikeActivity(activity.activityId)}
               >
                 <Heart
-                  size={18}
-                  color={userLikes[activity.id] ? COLORS.error : COLORS.textMuted}
-                  fill={userLikes[activity.id] ? COLORS.error : 'none'}
+                  size={22}
+                  color={userLikes[activity.activityId] ? COLORS.error : COLORS.textSecondary}
+                  fill={userLikes[activity.activityId] ? COLORS.error : 'none'}
                 />
-                <Text style={[styles.actionText, userLikes[activity.id] && { color: COLORS.error }]}>
-                  {activity.like_count || 0}
-                </Text>
+                {activity.likes > 0 && (
+                  <Text style={[
+                    styles.feedActionText,
+                    userLikes[activity.activityId] && styles.feedActionTextActive,
+                  ]}>
+                    {activity.likes}
+                  </Text>
+                )}
               </TouchableOpacity>
-              <TouchableOpacity style={styles.actionButton}>
-                <MessageCircle size={18} color={COLORS.textMuted} />
-                <Text style={styles.actionText}>{activity.comment_count || 0}</Text>
+              <TouchableOpacity style={styles.feedActionBtn}>
+                <MessageCircle size={22} color={COLORS.textSecondary} />
+                {activity.comments > 0 && (
+                  <Text style={styles.feedActionText}>{activity.comments}</Text>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.feedActionBtn}>
+                <Share2 size={20} color={COLORS.textSecondary} />
               </TouchableOpacity>
             </View>
           </View>
@@ -1548,6 +1665,218 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     fontSize: 12,
   },
+
+  // Instagram-like Feed Styles
+  suggestedSection: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+  },
+  suggestedHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  suggestedTitle: {
+    color: COLORS.text,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  seeAllText: {
+    color: COLORS.primary,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  suggestedScroll: {
+    marginHorizontal: -4,
+  },
+  suggestedScrollContent: {
+    paddingHorizontal: 4,
+    gap: 12,
+  },
+  suggestedCard: {
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    width: 130,
+  },
+  suggestedAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  suggestedAvatarText: {
+    color: COLORS.text,
+    fontSize: 22,
+    fontWeight: 'bold',
+  },
+  suggestedName: {
+    color: COLORS.text,
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  suggestedUsername: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  suggestedFollowers: {
+    color: COLORS.textSecondary,
+    fontSize: 11,
+    marginTop: 4,
+  },
+  suggestedFollowBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    marginTop: 10,
+  },
+  suggestedFollowingBtn: {
+    backgroundColor: COLORS.surfaceLight,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  suggestedFollowBtnText: {
+    color: COLORS.text,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  suggestedFollowingBtnText: {
+    color: COLORS.textMuted,
+  },
+
+  // Feed Card Styles
+  feedCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    marginBottom: 16,
+    overflow: 'hidden',
+  },
+  feedHeader: {
+    padding: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  feedUserRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  feedAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  feedAvatarPR: {
+    backgroundColor: COLORS.warning,
+  },
+  feedAvatarText: {
+    color: COLORS.text,
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  feedUserInfo: {
+    flex: 1,
+  },
+  feedUsername: {
+    color: COLORS.text,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  feedTime: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  feedContent: {
+    padding: 16,
+  },
+  feedTypeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  feedTypeBadgeWorkout: {
+    backgroundColor: COLORS.primary + '20',
+  },
+  feedTypeBadgePR: {
+    backgroundColor: COLORS.warning + '20',
+  },
+  feedTypeBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  feedTypeBadgeTextWorkout: {
+    color: COLORS.primary,
+  },
+  feedTypeBadgeTextPR: {
+    color: COLORS.warning,
+  },
+  feedTitle: {
+    color: COLORS.text,
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  feedDetails: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  feedDetailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  feedDetailText: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+  },
+  feedDetailHighlight: {
+    color: COLORS.warning,
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  feedActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+    gap: 20,
+  },
+  feedActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  feedActionText: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  feedActionTextActive: {
+    color: COLORS.error,
+  },
+
   shareWorkoutBtn: {
     flexDirection: 'row',
     alignItems: 'center',
