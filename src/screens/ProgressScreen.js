@@ -40,7 +40,7 @@ import WeighInModal from '../components/WeighInModal';
 import GoalModal from '../components/GoalModal';
 
 const ProgressScreen = () => {
-  const { user, profile } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const [chartPeriod, setChartPeriod] = useState('All');
   const [showWeighInModal, setShowWeighInModal] = useState(false);
   const [showGoalModal, setShowGoalModal] = useState(false);
@@ -98,6 +98,13 @@ const ProgressScreen = () => {
   const [sleepHistory, setSleepHistory] = useState([]);
 
   const [loading, setLoading] = useState(true);
+
+  // Load current goal from profile
+  useEffect(() => {
+    if (profile?.fitness_goal) {
+      setCurrentGoal(profile.fitness_goal);
+    }
+  }, [profile]);
 
   // Reload data when screen comes into focus
   useFocusEffect(
@@ -314,6 +321,8 @@ const ProgressScreen = () => {
         .from('profiles')
         .update({ fitness_goal: goalKey })
         .eq('id', user.id);
+      // Refresh profile to persist the change
+      await refreshProfile();
     } catch (error) {
       console.log('Error saving goal:', error);
     }
