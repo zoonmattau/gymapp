@@ -40,7 +40,7 @@ import WeighInModal from '../components/WeighInModal';
 import GoalModal from '../components/GoalModal';
 
 const ProgressScreen = () => {
-  const { user, profile, refreshProfile } = useAuth();
+  const { user, profile } = useAuth();
   const [chartPeriod, setChartPeriod] = useState('All');
   const [showWeighInModal, setShowWeighInModal] = useState(false);
   const [showGoalModal, setShowGoalModal] = useState(false);
@@ -99,12 +99,26 @@ const ProgressScreen = () => {
 
   const [loading, setLoading] = useState(true);
 
-  // Load current goal from profile
+  // Load current goal from user_goals table
   useEffect(() => {
-    if (profile?.fitness_goal) {
-      setCurrentGoal(profile.fitness_goal);
-    }
-  }, [profile]);
+    const loadCurrentGoal = async () => {
+      if (!user?.id) return;
+      try {
+        const { data } = await supabase
+          .from('user_goals')
+          .select('goal')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (data?.goal) {
+          setCurrentGoal(data.goal);
+        }
+      } catch (error) {
+        console.log('Error loading goal:', error);
+      }
+    };
+    loadCurrentGoal();
+  }, [user]);
 
   // Reload data when screen comes into focus
   useFocusEffect(
@@ -315,14 +329,15 @@ const ProgressScreen = () => {
 
   const handleSelectGoal = async (goalKey) => {
     setCurrentGoal(goalKey);
-    // Save to database
+    // Save to user_goals table
     try {
       await supabase
-        .from('profiles')
-        .update({ fitness_goal: goalKey })
-        .eq('id', user.id);
-      // Refresh profile to persist the change
-      await refreshProfile();
+        .from('user_goals')
+        .upsert({
+          user_id: user.id,
+          goal: goalKey,
+        }, { onConflict: 'user_id' })
+        .select();
     } catch (error) {
       console.log('Error saving goal:', error);
     }
