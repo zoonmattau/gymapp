@@ -70,6 +70,9 @@ const CommunityScreen = ({ route }) => {
   const [searchResults, setSearchResults] = useState([]);
   const [followingIds, setFollowingIds] = useState(new Set());
 
+  // Following search
+  const [followingSearchQuery, setFollowingSearchQuery] = useState('');
+
   // Challenges
   const [challenges, setChallenges] = useState([]);
 
@@ -641,69 +644,105 @@ const CommunityScreen = ({ route }) => {
     </>
   );
 
-  const renderFollowing = () => (
-    <>
-      {/* Find Users Button */}
-      <TouchableOpacity
-        style={styles.findUsersBtn}
-        onPress={() => setActiveTab('discover')}
-      >
-        <Plus size={20} color={COLORS.text} />
-        <Text style={styles.findUsersBtnText}>Find Users to Follow</Text>
-      </TouchableOpacity>
-
-      {/* Following Section */}
-      <Text style={styles.sectionLabel}>FOLLOWING ({following.length})</Text>
-
-      {following.length === 0 ? (
-        <View style={styles.emptyStateCard}>
-          <UserPlus size={48} color={COLORS.primary} />
-          <Text style={styles.emptyStateCardTitle}>Not following anyone yet</Text>
-          <Text style={styles.emptyStateCardText}>
-            Search for users or discover top athletes to follow!
-          </Text>
-          <TouchableOpacity
-            style={styles.discoverBtn}
-            onPress={() => setActiveTab('discover')}
-          >
-            <Text style={styles.discoverBtnText}>Discover People</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        following.map((item) => {
-          const userProfile = item.following;
-          const userId = item.following_id;
-          const isFollowingUser = followingIds.has(userId);
-
-          return (
-            <View key={item.id} style={styles.userCard}>
-              <View style={styles.userAvatar}>
-                <Text style={styles.userAvatarText}>
-                  {userProfile?.username?.[0]?.toUpperCase() || 'U'}
-                </Text>
-              </View>
-              <View style={styles.userInfo}>
-                <Text style={styles.userName}>@{userProfile?.username || 'user'}</Text>
-                {userProfile?.bio && (
-                  <Text style={styles.userBio} numberOfLines={1}>{userProfile.bio}</Text>
-                )}
-              </View>
-              <TouchableOpacity
-                style={[styles.followButton, isFollowingUser && styles.followingButton]}
-                onPress={() => handleFollowUser(userId)}
-              >
-                {isFollowingUser ? (
-                  <UserCheck size={16} color={COLORS.text} />
-                ) : (
-                  <UserPlus size={16} color={COLORS.text} />
-                )}
-              </TouchableOpacity>
-            </View>
-          );
+  const renderFollowing = () => {
+    // Filter following list based on search query
+    const filteredFollowing = followingSearchQuery.trim()
+      ? following.filter((item) => {
+          const username = item.following?.username?.toLowerCase() || '';
+          const bio = item.following?.bio?.toLowerCase() || '';
+          const query = followingSearchQuery.toLowerCase();
+          return username.includes(query) || bio.includes(query);
         })
-      )}
-    </>
-  );
+      : following;
+
+    return (
+      <>
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <Search size={18} color={COLORS.textMuted} />
+          <TextInput
+            style={styles.searchInput}
+            value={followingSearchQuery}
+            onChangeText={setFollowingSearchQuery}
+            placeholder="Search people you follow..."
+            placeholderTextColor={COLORS.textMuted}
+          />
+        </View>
+
+        {/* Find Users Button */}
+        <TouchableOpacity
+          style={styles.findUsersBtn}
+          onPress={() => setActiveTab('discover')}
+        >
+          <Plus size={20} color={COLORS.text} />
+          <Text style={styles.findUsersBtnText}>Find Users to Follow</Text>
+        </TouchableOpacity>
+
+        {/* Following Section */}
+        <Text style={styles.sectionLabel}>
+          {followingSearchQuery.trim()
+            ? `RESULTS (${filteredFollowing.length})`
+            : `FOLLOWING (${following.length})`}
+        </Text>
+
+        {following.length === 0 ? (
+          <View style={styles.emptyStateCard}>
+            <UserPlus size={48} color={COLORS.primary} />
+            <Text style={styles.emptyStateCardTitle}>Not following anyone yet</Text>
+            <Text style={styles.emptyStateCardText}>
+              Search for users or discover top athletes to follow!
+            </Text>
+            <TouchableOpacity
+              style={styles.discoverBtn}
+              onPress={() => setActiveTab('discover')}
+            >
+              <Text style={styles.discoverBtnText}>Discover People</Text>
+            </TouchableOpacity>
+          </View>
+        ) : filteredFollowing.length === 0 ? (
+          <View style={styles.emptyStateCard}>
+            <Search size={48} color={COLORS.textMuted} />
+            <Text style={styles.emptyStateCardTitle}>No results found</Text>
+            <Text style={styles.emptyStateCardText}>
+              Try a different search term
+            </Text>
+          </View>
+        ) : (
+          filteredFollowing.map((item) => {
+            const userProfile = item.following;
+            const userId = item.following_id;
+            const isFollowingUser = followingIds.has(userId);
+
+            return (
+              <View key={item.id} style={styles.userCard}>
+                <View style={styles.userAvatar}>
+                  <Text style={styles.userAvatarText}>
+                    {userProfile?.username?.[0]?.toUpperCase() || 'U'}
+                  </Text>
+                </View>
+                <View style={styles.userInfo}>
+                  <Text style={styles.userName}>@{userProfile?.username || 'user'}</Text>
+                  {userProfile?.bio && (
+                    <Text style={styles.userBio} numberOfLines={1}>{userProfile.bio}</Text>
+                  )}
+                </View>
+                <TouchableOpacity
+                  style={[styles.followButton, isFollowingUser && styles.followingButton]}
+                  onPress={() => handleFollowUser(userId)}
+                >
+                  {isFollowingUser ? (
+                    <UserCheck size={16} color={COLORS.text} />
+                  ) : (
+                    <UserPlus size={16} color={COLORS.text} />
+                  )}
+                </TouchableOpacity>
+              </View>
+            );
+          })
+        )}
+      </>
+    );
+  };
 
   const renderDiscover = () => (
     <>
