@@ -68,6 +68,7 @@ const HomeScreen = () => {
   const [showRepertoireModal, setShowRepertoireModal] = useState(false);
   const [savedWorkouts, setSavedWorkouts] = useState([]);
   const [repertoireLoading, setRepertoireLoading] = useState(false);
+  const [weightHistory, setWeightHistory] = useState([]);
 
   // Social stats
   const [followersCount, setFollowersCount] = useState(0);
@@ -95,6 +96,7 @@ const HomeScreen = () => {
         loadTodayWorkout(),
         loadStreaks(),
         loadSleepStatus(),
+        loadWeightHistory(),
       ]);
     } catch (error) {
       console.log('Error loading home data:', error);
@@ -110,6 +112,17 @@ const HomeScreen = () => {
       setLastNightSleepLogged(isLogged);
     } catch (error) {
       console.log('Error checking sleep status:', error);
+    }
+  };
+
+  const loadWeightHistory = async () => {
+    try {
+      const { data } = await weightService.getRecentWeights(user.id, 30);
+      // Sort by date descending (most recent first)
+      const sorted = (data || []).sort((a, b) => new Date(b.log_date) - new Date(a.log_date));
+      setWeightHistory(sorted);
+    } catch (error) {
+      console.log('Error loading weight history:', error);
     }
   };
 
@@ -246,6 +259,8 @@ const HomeScreen = () => {
     try {
       await weightService.logWeight(user.id, weight, unit, date);
       setShowWeighInModal(false);
+      // Reload weight history to show the new entry
+      await loadWeightHistory();
     } catch (error) {
       console.log('Error saving weight:', error);
     }
@@ -671,6 +686,36 @@ const HomeScreen = () => {
             <Plus size={20} color={COLORS.text} />
             <Text style={styles.weighInButtonText}>Log Weigh-In</Text>
           </TouchableOpacity>
+
+          {weightHistory.length > 0 && (
+            <View style={styles.weightHistoryContainer}>
+              <ScrollView
+                style={styles.weightHistoryScroll}
+                nestedScrollEnabled={true}
+                showsVerticalScrollIndicator={true}
+              >
+                {weightHistory.map((entry, index) => {
+                  const date = new Date(entry.log_date + 'T00:00:00');
+                  const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
+                  const monthDay = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                  const weight = entry.weight?.toFixed(1) || '0';
+                  const unit = profile?.weight_unit || 'kg';
+                  const displayWeight = unit === 'lbs' ? (entry.weight * 2.205).toFixed(1) : weight;
+
+                  return (
+                    <View key={entry.id || index} style={styles.weightHistoryItem}>
+                      <Text style={styles.weightHistoryDate}>
+                        {dayName} {monthDay}
+                      </Text>
+                      <Text style={styles.weightHistoryValue}>
+                        {displayWeight} {unit}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          )}
         </View>
 
         {/* Sleep Tracking Section */}
@@ -1098,6 +1143,32 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   weighInButtonText: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  weightHistoryContainer: {
+    marginTop: 12,
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    maxHeight: 200,
+  },
+  weightHistoryScroll: {
+    padding: 12,
+  },
+  weightHistoryItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  weightHistoryDate: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+  },
+  weightHistoryValue: {
     color: COLORS.text,
     fontSize: 16,
     fontWeight: '600',
