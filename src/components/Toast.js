@@ -1,46 +1,36 @@
 import React, { useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Animated,
-  TouchableOpacity,
-  Platform,
-} from 'react-native';
-import { Check, X, AlertCircle, Info } from 'lucide-react-native';
+import { View, Text, StyleSheet, Animated, Platform } from 'react-native';
+import { Check, X, AlertCircle } from 'lucide-react-native';
 import { COLORS } from '../constants/colors';
 
-const Toast = ({ visible, message, type = 'success', onDismiss, duration = 3000 }) => {
+const Toast = ({ visible, message, type = 'success', duration = 3000, onHide }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(-100)).current;
 
   useEffect(() => {
     if (visible) {
-      // Animate in
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
           duration: 300,
           useNativeDriver: true,
         }),
-        Animated.spring(slideAnim, {
+        Animated.timing(slideAnim, {
           toValue: 0,
-          tension: 50,
-          friction: 8,
+          duration: 300,
           useNativeDriver: true,
         }),
       ]).start();
 
-      // Auto dismiss
       const timer = setTimeout(() => {
-        dismissToast();
+        hideToast();
       }, duration);
 
       return () => clearTimeout(timer);
     }
   }, [visible]);
 
-  const dismissToast = () => {
+  const hideToast = () => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 0,
@@ -53,7 +43,7 @@ const Toast = ({ visible, message, type = 'success', onDismiss, duration = 3000 
         useNativeDriver: true,
       }),
     ]).start(() => {
-      if (onDismiss) onDismiss();
+      if (onHide) onHide();
     });
   };
 
@@ -62,14 +52,13 @@ const Toast = ({ visible, message, type = 'success', onDismiss, duration = 3000 
   const getIcon = () => {
     switch (type) {
       case 'success':
-        return <Check size={20} color={COLORS.success} />;
+        return <Check size={18} color={COLORS.success} />;
       case 'error':
-        return <X size={20} color={COLORS.error} />;
+        return <X size={18} color={COLORS.error || '#EF4444'} />;
       case 'warning':
-        return <AlertCircle size={20} color={COLORS.warning} />;
-      case 'info':
+        return <AlertCircle size={18} color={COLORS.warning} />;
       default:
-        return <Info size={20} color={COLORS.primary} />;
+        return <Check size={18} color={COLORS.success} />;
     }
   };
 
@@ -78,12 +67,11 @@ const Toast = ({ visible, message, type = 'success', onDismiss, duration = 3000 
       case 'success':
         return COLORS.success;
       case 'error':
-        return COLORS.error;
+        return COLORS.error || '#EF4444';
       case 'warning':
         return COLORS.warning;
-      case 'info':
       default:
-        return COLORS.primary;
+        return COLORS.success;
     }
   };
 
@@ -100,9 +88,6 @@ const Toast = ({ visible, message, type = 'success', onDismiss, duration = 3000 
     >
       <View style={styles.iconContainer}>{getIcon()}</View>
       <Text style={styles.message}>{message}</Text>
-      <TouchableOpacity onPress={dismissToast} style={styles.closeButton}>
-        <X size={16} color={COLORS.textMuted} />
-      </TouchableOpacity>
     </Animated.View>
   );
 };
@@ -116,29 +101,24 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     borderRadius: 12,
     borderLeftWidth: 4,
+    padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    zIndex: 9999,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
-    zIndex: 9999,
   },
   iconContainer: {
     marginRight: 12,
   },
   message: {
-    flex: 1,
     color: COLORS.text,
     fontSize: 14,
     fontWeight: '500',
-  },
-  closeButton: {
-    padding: 4,
-    marginLeft: 8,
+    flex: 1,
   },
 });
 

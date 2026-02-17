@@ -1126,7 +1126,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   sleepLoggedButtonText: {
-    color: COLORS.background,
+    color: COLORS.text,
     fontSize: 16,
     fontWeight: '600',
   },

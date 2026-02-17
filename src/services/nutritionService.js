@@ -253,6 +253,28 @@ export const nutritionService = {
     return { data, error };
   },
 
+  // Delete supplement
+  async deleteSupplement(supplementId) {
+    const { error } = await supabase
+      .from('user_supplements')
+      .delete()
+      .eq('id', supplementId);
+
+    return { error };
+  },
+
+  // Update supplement
+  async updateSupplement(supplementId, updates) {
+    const { data, error } = await supabase
+      .from('user_supplements')
+      .update(updates)
+      .eq('id', supplementId)
+      .select()
+      .single();
+
+    return { data, error };
+  },
+
   // Log supplement taken
   async logSupplement(userId, supplementId, date = null) {
     const logDate = date || getLocalDateString();

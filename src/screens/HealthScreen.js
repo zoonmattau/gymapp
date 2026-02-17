@@ -16,6 +16,7 @@ import {
   Utensils,
   Check,
   Trash2,
+  Pencil,
   Moon,
   Pill,
   ChevronLeft,
@@ -34,6 +35,7 @@ import { nutritionService } from '../services/nutritionService';
 import { sleepService } from '../services/sleepService';
 import AddMealModal from '../components/AddMealModal';
 import WaterEntryModal from '../components/WaterEntryModal';
+import Toast from '../components/Toast';
 
 const TABS = [
   { id: 'overview', label: 'Overview' },
@@ -106,6 +108,7 @@ const HealthScreen = () => {
   const [newSupplementUnit, setNewSupplementUnit] = useState('mg');
   const [newSupplementTimesPerDay, setNewSupplementTimesPerDay] = useState('1');
   const [newSupplementTimesPerWeek, setNewSupplementTimesPerWeek] = useState('7');
+  const [editingSupplement, setEditingSupplement] = useState(null);
 
   // Sleep state
   const [selectedSleepDate, setSelectedSleepDate] = useState(() => {
@@ -125,6 +128,17 @@ const HealthScreen = () => {
   // Modals
   const [showAddMeal, setShowAddMeal] = useState(false);
   const [showWaterEntry, setShowWaterEntry] = useState(false);
+
+  // Toast notification
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState('success');
+
+  const showToast = (message, type = 'success') => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+  };
 
   // Goals
   const nutritionGoals = {
@@ -368,6 +382,49 @@ const HealthScreen = () => {
     setNewSupplementTimesPerDay('1');
     setNewSupplementTimesPerWeek('7');
     setShowAddSupplement(false);
+    setEditingSupplement(null);
+  };
+
+  const handleDeleteSupplement = async (supp) => {
+    try {
+      await nutritionService.deleteSupplement(supp.id);
+      setSupplements(prev => prev.filter(s => s.id !== supp.id));
+      showToast(`${supp.name} deleted`, 'success');
+    } catch (error) {
+      console.log('Error deleting supplement:', error);
+      showToast('Failed to delete supplement', 'error');
+    }
+  };
+
+  const handleEditSupplement = (supp) => {
+    setEditingSupplement(supp);
+    setNewSupplementName(supp.name);
+    setNewSupplementAmount(supp.dosage?.split(' ')[0] || '');
+    setNewSupplementUnit(supp.dosage?.split(' ')[1] || 'mg');
+    setShowAddSupplement(true);
+  };
+
+  const handleUpdateSupplement = async () => {
+    if (!editingSupplement || !newSupplementName.trim()) return;
+
+    const dosage = newSupplementAmount ? `${newSupplementAmount} ${newSupplementUnit}` : '1 serving';
+
+    try {
+      await nutritionService.updateSupplement(editingSupplement.id, {
+        name: newSupplementName,
+        dosage: dosage,
+      });
+
+      setSupplements(prev => prev.map(s =>
+        s.id === editingSupplement.id ? { ...s, name: newSupplementName, dosage } : s
+      ));
+
+      handleCancelAddSupplement();
+      showToast('Supplement updated', 'success');
+    } catch (error) {
+      console.log('Error updating supplement:', error);
+      showToast('Failed to update supplement', 'error');
+    }
   };
 
   const handleLogSleep = async () => {
@@ -404,18 +461,10 @@ const HealthScreen = () => {
         return [...filtered, { date: dayOfMonth, hours: parseFloat(hours.toFixed(1)) }];
       });
 
-      if (Platform.OS === 'web') {
-        alert(`Sleep logged: ${hours.toFixed(1)} hours`);
-      } else {
-        Alert.alert('Success', `Sleep logged: ${hours.toFixed(1)} hours`);
-      }
+      showToast(`Sleep logged: ${hours.toFixed(1)} hours`, 'success');
     } catch (error) {
       console.log('Error logging sleep:', error);
-      if (Platform.OS === 'web') {
-        alert('Failed to log sleep');
-      } else {
-        Alert.alert('Error', 'Failed to log sleep');
-      }
+      showToast('Failed to log sleep', 'error');
     }
   };
 
@@ -1036,24 +1085,36 @@ const HealthScreen = () => {
         supplements.map((supp) => {
           const isTaken = supp.taken || false;
           return (
-            <TouchableOpacity
-              key={supp.id}
-              style={[styles.supplementCard, isTaken && styles.supplementCardComplete]}
-              onPress={() => handleSupplementTaken(supp)}
-            >
-              <View style={[styles.supplementCheck, isTaken && styles.supplementCheckComplete]}>
-                {isTaken && <Check size={14} color={COLORS.background} />}
+            <View key={supp.id} style={[styles.supplementCard, isTaken && styles.supplementCardComplete]}>
+              <TouchableOpacity
+                style={styles.supplementMainArea}
+                onPress={() => handleSupplementTaken(supp)}
+              >
+                <View style={[styles.supplementCheck, isTaken && styles.supplementCheckComplete]}>
+                  {isTaken && <Check size={14} color={COLORS.background} />}
+                </View>
+                <View style={styles.supplementInfo}>
+                  <Text style={styles.supplementName}>{supp.name}</Text>
+                  <Text style={styles.supplementDosage}>
+                    {supp.dosage} • {supp.times_per_day || 1}x/day
+                  </Text>
+                </View>
+              </TouchableOpacity>
+              <View style={styles.supplementActions}>
+                <TouchableOpacity
+                  style={styles.supplementActionBtn}
+                  onPress={() => handleEditSupplement(supp)}
+                >
+                  <Pencil size={16} color={COLORS.textMuted} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.supplementActionBtn}
+                  onPress={() => handleDeleteSupplement(supp)}
+                >
+                  <Trash2 size={16} color={COLORS.error || '#EF4444'} />
+                </TouchableOpacity>
               </View>
-              <View style={styles.supplementInfo}>
-                <Text style={styles.supplementName}>{supp.name}</Text>
-                <Text style={styles.supplementDosage}>
-                  {supp.dosage} • {supp.times_per_day || 1}x/day
-                </Text>
-              </View>
-              <Text style={[styles.supplementStatus, { color: isTaken ? COLORS.success : COLORS.textMuted }]}>
-                {isTaken ? 'Taken' : 'Not taken'}
-              </Text>
-            </TouchableOpacity>
+            </View>
           );
         })
       )}
@@ -1062,7 +1123,9 @@ const HealthScreen = () => {
       {showAddSupplement && (
         <View style={styles.modalOverlay}>
           <View style={styles.supplementModal}>
-            <Text style={styles.supplementModalTitle}>Add New Supplement</Text>
+            <Text style={styles.supplementModalTitle}>
+              {editingSupplement ? 'Edit Supplement' : 'Add New Supplement'}
+            </Text>
 
             {/* Supplement Name */}
             <TextInput
@@ -1122,9 +1185,11 @@ const HealthScreen = () => {
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.supplementAddBtn}
-                onPress={handleAddSupplement}
+                onPress={editingSupplement ? handleUpdateSupplement : handleAddSupplement}
               >
-                <Text style={styles.supplementAddText}>Add</Text>
+                <Text style={styles.supplementAddText}>
+                  {editingSupplement ? 'Save' : 'Add'}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1484,6 +1549,12 @@ const HealthScreen = () => {
         onClose={() => setShowWaterEntry(false)}
         onAdd={handleAddWater}
         currentIntake={waterIntake}
+      />
+      <Toast
+        visible={toastVisible}
+        message={toastMessage}
+        type={toastType}
+        onHide={() => setToastVisible(false)}
       />
     </SafeAreaView>
   );
@@ -2202,7 +2273,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   addMealWithMacrosText: {
-    color: COLORS.background,
+    color: COLORS.text,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -2420,6 +2491,18 @@ const styles = StyleSheet.create({
   supplementStatus: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  supplementMainArea: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  supplementActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  supplementActionBtn: {
+    padding: 8,
   },
   sleepDateNav: {
     flexDirection: 'row',

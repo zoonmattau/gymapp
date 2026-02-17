@@ -54,9 +54,19 @@ const WorkoutsScreen = () => {
     }, [user])
   );
 
-  // Reload data when week changes
+  // Reload data when week changes - clear schedule immediately for instant feedback
   useEffect(() => {
     if (user?.id) {
+      // Clear schedule immediately for instant UI feedback
+      setWeekSchedule({
+        0: { workout: null, completed: false },
+        1: { workout: null, completed: false },
+        2: { workout: null, completed: false },
+        3: { workout: null, completed: false },
+        4: { workout: null, completed: false },
+        5: { workout: null, completed: false },
+        6: { workout: null, completed: false },
+      });
       loadWorkoutData();
     }
   }, [weekOffset]);
