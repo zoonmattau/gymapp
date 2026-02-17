@@ -90,6 +90,7 @@ const ProgressScreen = () => {
   });
 
   const [weightHistory, setWeightHistory] = useState([]);
+  const [lastWeighInDate, setLastWeighInDate] = useState(null);
 
   const [programData, setProgramData] = useState(null);
 
@@ -176,7 +177,13 @@ const ProgressScreen = () => {
 
         setWeightHistory(formattedHistory);
 
-        const current = weights[weights.length - 1].weight;
+        // Set last weigh-in date for retrospective logging
+        const lastWeight = weights[weights.length - 1];
+        if (lastWeight?.log_date) {
+          setLastWeighInDate(lastWeight.log_date);
+        }
+
+        const current = lastWeight.weight;
         const start = weights[0].weight;
         // Get target from profile
         const target = user?.user_metadata?.target_weight || 0;
@@ -851,6 +858,7 @@ const ProgressScreen = () => {
           onSave={handleSaveWeighIn}
           currentWeight={weightData.current}
           unit={weightUnit}
+          lastWeighInDate={lastWeighInDate}
         />
         <GoalModal
           visible={showGoalModal}
@@ -874,6 +882,7 @@ const ProgressScreen = () => {
         onClose={() => setShowWeighInModal(false)}
         onSave={handleSaveWeighIn}
         currentWeight={weightData.current}
+        lastWeighInDate={lastWeighInDate}
       />
       <GoalModal
         visible={showGoalModal}

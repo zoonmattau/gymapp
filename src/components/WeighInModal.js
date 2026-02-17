@@ -13,19 +13,38 @@ import {
 import { X, Scale, Plus, Minus, ChevronLeft, ChevronRight, Calendar } from 'lucide-react-native';
 import { COLORS } from '../constants/colors';
 
-const WeighInModal = ({ visible, onClose, onSave, unit = 'kg', currentWeight = 0 }) => {
+const WeighInModal = ({ visible, onClose, onSave, unit = 'kg', currentWeight = 0, lastWeighInDate = null }) => {
   const [weight, setWeight] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date());
 
-  // Set initial weight and reset date when modal opens
+  // Set initial weight and date when modal opens
   useEffect(() => {
     if (visible) {
       if (currentWeight > 0) {
         setWeight(currentWeight.toString());
       }
-      setSelectedDate(new Date()); // Reset to today when opening
+
+      // Set date to day after last weigh-in, or today if none/future
+      if (lastWeighInDate) {
+        const lastDate = new Date(lastWeighInDate);
+        const nextDay = new Date(lastDate);
+        nextDay.setDate(nextDay.getDate() + 1);
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        nextDay.setHours(0, 0, 0, 0);
+
+        // Use the day after last weigh-in, but not future dates
+        if (nextDay <= today) {
+          setSelectedDate(nextDay);
+        } else {
+          setSelectedDate(new Date());
+        }
+      } else {
+        setSelectedDate(new Date());
+      }
     }
-  }, [visible, currentWeight]);
+  }, [visible, currentWeight, lastWeighInDate]);
 
   const handleSave = () => {
     const weightValue = parseFloat(weight);
