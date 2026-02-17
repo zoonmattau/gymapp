@@ -943,7 +943,7 @@ const HealthScreen = () => {
           style={styles.addMealWithMacrosBtn}
           onPress={() => setShowAddMeal(true)}
         >
-          <Plus size={20} color={COLORS.background} />
+          <Plus size={20} color={COLORS.text} />
           <Text style={styles.addMealWithMacrosText}>Add Meal with Macros</Text>
         </TouchableOpacity>
 
