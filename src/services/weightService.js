@@ -17,6 +17,8 @@ export const weightService = {
       // Convert to kg if needed for consistent storage
       const weightKg = unit === 'lbs' ? weight / 2.205 : weight;
 
+      console.log('weightService.logWeight:', { userId, weightKg, logDate });
+
       const { data, error } = await supabase
         .from('weight_logs')
         .upsert({
@@ -27,13 +29,12 @@ export const weightService = {
         .select()
         .maybeSingle();
 
+      console.log('Supabase upsert result:', { data, error });
+
       if (error) {
         console.warn('logWeight error:', error?.message);
         return { data: null, error };
       }
-
-      // Update profile with current weight
-      await this.updateProfileWeight(userId, weightKg);
 
       return { data, error: null };
     } catch (err) {
