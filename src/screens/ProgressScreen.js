@@ -165,8 +165,10 @@ const ProgressScreen = () => {
   };
 
   const loadWeightData = async () => {
+    console.log('loadWeightData called for user:', user.id);
     try {
-      const { data: weights } = await weightService.getAllWeights(user.id);
+      const { data: weights, error } = await weightService.getAllWeights(user.id);
+      console.log('getAllWeights result:', { weights, error, count: weights?.length });
 
       if (weights && weights.length > 0) {
         const formattedHistory = weights.map((w, idx) => ({
@@ -179,6 +181,7 @@ const ProgressScreen = () => {
 
         // Set last weigh-in date for retrospective logging
         const lastWeight = weights[weights.length - 1];
+        console.log('Last weight entry:', lastWeight);
         if (lastWeight?.log_date) {
           setLastWeighInDate(lastWeight.log_date);
         }
@@ -188,11 +191,14 @@ const ProgressScreen = () => {
         // Get target from profile
         const target = user?.user_metadata?.target_weight || 0;
 
+        console.log('Setting weightData:', { current, start, target });
         setWeightData({
           current: Math.round(current * 10) / 10,
           start: Math.round(start * 10) / 10,
           target: target,
         });
+      } else {
+        console.log('No weights found');
       }
     } catch (error) {
       console.log('Error loading weight data:', error);
@@ -326,12 +332,17 @@ const ProgressScreen = () => {
   };
 
   const handleSaveWeighIn = async (weight, unit, date) => {
+    console.log('handleSaveWeighIn called:', { weight, unit, date, userId: user.id });
     try {
       const logDate = date || new Date().toISOString().split('T')[0];
-      await weightService.logWeight(user.id, weight, unit, logDate);
+      console.log('Logging weight with date:', logDate);
+      const result = await weightService.logWeight(user.id, weight, unit, logDate);
+      console.log('Weight log result:', result);
 
       // Reload weight data to show updated history
+      console.log('Reloading weight data...');
       await loadWeightData();
+      console.log('Weight data reloaded, weightData:', weightData);
       setShowWeighInModal(false);
     } catch (error) {
       console.log('Error logging weight:', error);
