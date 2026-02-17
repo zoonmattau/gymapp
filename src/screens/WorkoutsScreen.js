@@ -274,7 +274,7 @@ const WorkoutsScreen = () => {
         .from('workout_sets')
         .select('*')
         .eq('session_id', workout.id)
-        .order('created_at', { ascending: true });
+        .order('set_number', { ascending: true });
 
       console.log('Workout sets result:', { sets, error });
 
