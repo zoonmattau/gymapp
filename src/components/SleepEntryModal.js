@@ -10,7 +10,7 @@ import {
   ScrollView,
   Platform,
 } from 'react-native';
-import { X, Moon, Clock, Star } from 'lucide-react-native';
+import { X, Moon, Clock, Star, ChevronLeft, ChevronRight, Calendar } from 'lucide-react-native';
 import { COLORS } from '../constants/colors';
 
 const SleepEntryModal = ({ visible, onClose, onSave, existingData }) => {
@@ -19,6 +19,21 @@ const SleepEntryModal = ({ visible, onClose, onSave, existingData }) => {
   const [hoursSlept, setHoursSlept] = useState('8');
   const [qualityRating, setQualityRating] = useState(3);
   const [notes, setNotes] = useState('');
+
+  // Default to yesterday (last night's sleep)
+  const getYesterday = () => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return d;
+  };
+  const [selectedDate, setSelectedDate] = useState(getYesterday());
+
+  useEffect(() => {
+    if (visible) {
+      // Reset to yesterday when opening
+      setSelectedDate(getYesterday());
+    }
+  }, [visible]);
 
   useEffect(() => {
     if (existingData) {
@@ -29,6 +44,39 @@ const SleepEntryModal = ({ visible, onClose, onSave, existingData }) => {
       setNotes(existingData.notes || '');
     }
   }, [existingData]);
+
+  const changeDate = (days) => {
+    const newDate = new Date(selectedDate);
+    newDate.setDate(newDate.getDate() + days);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    // Don't allow today or future dates (can only log past sleep)
+    if (newDate < today) {
+      setSelectedDate(newDate);
+    }
+  };
+
+  const isYesterday = () => {
+    const yesterday = getYesterday();
+    return selectedDate.toDateString() === yesterday.toDateString();
+  };
+
+  const formatSelectedDate = () => {
+    const yesterday = getYesterday();
+    if (selectedDate.toDateString() === yesterday.toDateString()) {
+      return 'Last Night';
+    }
+    const twoDaysAgo = new Date();
+    twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+    if (selectedDate.toDateString() === twoDaysAgo.toDateString()) {
+      return '2 Nights Ago';
+    }
+    return selectedDate.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    });
+  };
 
   // Calculate hours from bed/wake times
   useEffect(() => {
@@ -53,9 +101,7 @@ const SleepEntryModal = ({ visible, onClose, onSave, existingData }) => {
   }, [bedTime, wakeTime]);
 
   const handleSave = () => {
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const dateStr = yesterday.toISOString().split('T')[0];
+    const dateStr = selectedDate.toISOString().split('T')[0];
 
     onSave({
       date: dateStr,
@@ -117,6 +163,30 @@ const SleepEntryModal = ({ visible, onClose, onSave, existingData }) => {
         </View>
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          {/* Date Picker */}
+          <View style={styles.dateSection}>
+            <Text style={styles.sectionLabel}>LOG SLEEP FOR</Text>
+            <View style={styles.datePicker}>
+              <TouchableOpacity
+                style={styles.dateArrow}
+                onPress={() => changeDate(-1)}
+              >
+                <ChevronLeft size={24} color={COLORS.text} />
+              </TouchableOpacity>
+              <View style={styles.dateDisplay}>
+                <Calendar size={16} color={COLORS.sleep} />
+                <Text style={styles.dateValue}>{formatSelectedDate()}</Text>
+              </View>
+              <TouchableOpacity
+                style={[styles.dateArrow, isYesterday() && styles.dateArrowDisabled]}
+                onPress={() => changeDate(1)}
+                disabled={isYesterday()}
+              >
+                <ChevronRight size={24} color={isYesterday() ? COLORS.textMuted : COLORS.text} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
           {/* Quick Duration Buttons */}
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>QUICK LOG</Text>
@@ -244,6 +314,41 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 16,
+  },
+  dateSection: {
+    marginTop: 16,
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 16,
+  },
+  datePicker: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  dateArrow: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: COLORS.surfaceLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dateArrowDisabled: {
+    opacity: 0.4,
+  },
+  dateDisplay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+    justifyContent: 'center',
+  },
+  dateValue: {
+    color: COLORS.text,
+    fontSize: 18,
+    fontWeight: '600',
   },
   section: {
     marginTop: 24,

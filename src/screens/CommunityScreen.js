@@ -45,9 +45,10 @@ const TABS = [
   { id: 'challenges', label: 'Challenges' },
 ];
 
-const CommunityScreen = () => {
+const CommunityScreen = ({ route }) => {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState('feed');
+  const initialTab = route?.params?.initialTab || 'feed';
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [refreshing, setRefreshing] = useState(false);
 
   // Activity Feed
@@ -79,6 +80,16 @@ const CommunityScreen = () => {
   const [discoverPeriod, setDiscoverPeriod] = useState('all');
   const [recentWorkouts, setRecentWorkouts] = useState([]);
   const [loadingWorkouts, setLoadingWorkouts] = useState(false);
+
+  // Filters modal
+  const [showFiltersModal, setShowFiltersModal] = useState(false);
+  const [muscleGroupFilter, setMuscleGroupFilter] = useState('all');
+  const [difficultyFilter, setDifficultyFilter] = useState('all');
+
+  // My Rep-ertoire modal
+  const [showRepertoireModal, setShowRepertoireModal] = useState(false);
+  const [savedWorkoutsWithDetails, setSavedWorkoutsWithDetails] = useState([]);
+  const [loadingRepertoire, setLoadingRepertoire] = useState(false);
 
   useEffect(() => {
     if (user?.id) {
@@ -272,6 +283,37 @@ const CommunityScreen = () => {
     }
   };
 
+  const handleOpenRepertoire = async () => {
+    setShowRepertoireModal(true);
+    setLoadingRepertoire(true);
+    try {
+      const { data } = await publishedWorkoutService.getSavedWorkoutsWithDetails(user.id);
+      setSavedWorkoutsWithDetails(data || []);
+    } catch (error) {
+      console.log('Error loading repertoire:', error);
+      setSavedWorkoutsWithDetails([]);
+    } finally {
+      setLoadingRepertoire(false);
+    }
+  };
+
+  const handleStartRepertoireWorkout = (workout) => {
+    setShowRepertoireModal(false);
+    // TODO: Navigate to active workout screen with this workout
+    const successMessage = `Starting "${workout.name}"`;
+    if (Platform.OS === 'web') {
+      alert(successMessage);
+    } else {
+      Alert.alert('Starting Workout', successMessage);
+    }
+  };
+
+  const handleApplyFilters = () => {
+    setShowFiltersModal(false);
+    // Reload workouts with filters
+    loadCommunityWorkouts();
+  };
+
   const handleSaveWorkout = async (workoutId) => {
     const isSaved = savedWorkoutIds.has(workoutId);
 
@@ -459,14 +501,14 @@ const CommunityScreen = () => {
       </View>
 
       {/* Filters */}
-      <TouchableOpacity style={styles.filtersBtn}>
+      <TouchableOpacity style={styles.filtersBtn} onPress={() => setShowFiltersModal(true)}>
         <Filter size={16} color={COLORS.textMuted} />
         <Text style={styles.filtersBtnText}>Filters</Text>
         <ChevronDown size={16} color={COLORS.textMuted} />
       </TouchableOpacity>
 
       {/* My Rep-ertoire Button */}
-      <TouchableOpacity style={styles.repertoireBtn}>
+      <TouchableOpacity style={styles.repertoireBtn} onPress={handleOpenRepertoire}>
         <FileText size={20} color={COLORS.warning} />
         <Text style={styles.repertoireBtnText}>My Rep-ertoire</Text>
       </TouchableOpacity>
@@ -665,6 +707,55 @@ const CommunityScreen = () => {
 
   const renderDiscover = () => (
     <>
+      {/* Search Users */}
+      <View style={styles.searchContainer}>
+        <Search size={18} color={COLORS.textMuted} />
+        <TextInput
+          style={styles.searchInput}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="Search for users..."
+          placeholderTextColor={COLORS.textMuted}
+          onSubmitEditing={searchUsers}
+          returnKeyType="search"
+        />
+      </View>
+
+      {/* Search Results */}
+      {searchResults.length > 0 && (
+        <>
+          <Text style={styles.sectionLabel}>SEARCH RESULTS</Text>
+          {searchResults.map((userProfile) => {
+            const isFollowingUser = followingIds.has(userProfile.id);
+            return (
+              <View key={userProfile.id} style={styles.userCard}>
+                <View style={styles.userAvatar}>
+                  <Text style={styles.userAvatarText}>
+                    {userProfile.username?.[0]?.toUpperCase() || 'U'}
+                  </Text>
+                </View>
+                <View style={styles.userInfo}>
+                  <Text style={styles.userName}>@{userProfile.username || 'user'}</Text>
+                  {userProfile.bio && (
+                    <Text style={styles.userBio} numberOfLines={1}>{userProfile.bio}</Text>
+                  )}
+                </View>
+                <TouchableOpacity
+                  style={[styles.followButton, isFollowingUser && styles.followingButton]}
+                  onPress={() => handleFollowUser(userProfile.id)}
+                >
+                  {isFollowingUser ? (
+                    <UserCheck size={16} color={COLORS.text} />
+                  ) : (
+                    <UserPlus size={16} color={COLORS.text} />
+                  )}
+                </TouchableOpacity>
+              </View>
+            );
+          })}
+        </>
+      )}
+
       {/* TOP FOLLOWED Section */}
       <Text style={styles.sectionLabel}>TOP FOLLOWED</Text>
 
@@ -877,6 +968,126 @@ const CommunityScreen = () => {
               onPress={() => setShowShareModal(false)}
             >
               <Text style={styles.shareModalCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* Filters Modal */}
+      {showFiltersModal && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.filtersModal}>
+            <View style={styles.shareModalHeader}>
+              <Text style={styles.shareModalTitle}>Filter Workouts</Text>
+              <TouchableOpacity
+                onPress={() => setShowFiltersModal(false)}
+                style={styles.shareModalClose}
+              >
+                <Text style={styles.shareModalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.filterLabel}>MUSCLE GROUP</Text>
+            <View style={styles.filterOptions}>
+              {['all', 'chest', 'back', 'shoulders', 'legs', 'arms', 'core'].map((group) => (
+                <TouchableOpacity
+                  key={group}
+                  style={[styles.filterChip, muscleGroupFilter === group && styles.filterChipActive]}
+                  onPress={() => setMuscleGroupFilter(group)}
+                >
+                  <Text style={[styles.filterChipText, muscleGroupFilter === group && styles.filterChipTextActive]}>
+                    {group === 'all' ? 'All' : group.charAt(0).toUpperCase() + group.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={styles.filterLabel}>DIFFICULTY</Text>
+            <View style={styles.filterOptions}>
+              {['all', 'beginner', 'intermediate', 'advanced'].map((diff) => (
+                <TouchableOpacity
+                  key={diff}
+                  style={[styles.filterChip, difficultyFilter === diff && styles.filterChipActive]}
+                  onPress={() => setDifficultyFilter(diff)}
+                >
+                  <Text style={[styles.filterChipText, difficultyFilter === diff && styles.filterChipTextActive]}>
+                    {diff === 'all' ? 'All' : diff.charAt(0).toUpperCase() + diff.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TouchableOpacity style={styles.applyFiltersBtn} onPress={handleApplyFilters}>
+              <Text style={styles.applyFiltersBtnText}>Apply Filters</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.shareModalCancelBtn}
+              onPress={() => setShowFiltersModal(false)}
+            >
+              <Text style={styles.shareModalCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* My Rep-ertoire Modal */}
+      {showRepertoireModal && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.shareModal}>
+            <View style={styles.shareModalHeader}>
+              <Text style={styles.shareModalTitle}>My Rep-ertoire</Text>
+              <TouchableOpacity
+                onPress={() => setShowRepertoireModal(false)}
+                style={styles.shareModalClose}
+              >
+                <Text style={styles.shareModalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.shareModalSubtitle}>
+              Your saved workouts from the community
+            </Text>
+
+            {loadingRepertoire ? (
+              <View style={styles.shareModalLoading}>
+                <Text style={styles.shareModalLoadingText}>Loading saved workouts...</Text>
+              </View>
+            ) : savedWorkoutsWithDetails.length === 0 ? (
+              <View style={styles.shareModalEmpty}>
+                <FileText size={40} color={COLORS.textMuted} />
+                <Text style={styles.shareModalEmptyText}>No saved workouts yet</Text>
+                <Text style={styles.shareModalEmptySubtext}>
+                  Save workouts from the community to build your Rep-ertoire
+                </Text>
+              </View>
+            ) : (
+              <ScrollView style={styles.shareModalList}>
+                {savedWorkoutsWithDetails.map((workout) => (
+                  <TouchableOpacity
+                    key={workout.id}
+                    style={styles.shareWorkoutItem}
+                    onPress={() => handleStartRepertoireWorkout(workout)}
+                  >
+                    <View style={styles.shareWorkoutIcon}>
+                      <Dumbbell size={18} color={COLORS.warning} />
+                    </View>
+                    <View style={styles.shareWorkoutInfo}>
+                      <Text style={styles.shareWorkoutName}>{workout.name}</Text>
+                      <Text style={styles.shareWorkoutMeta}>
+                        {workout.exercise_count || workout.exercises?.length || 0} exercises • {workout.target_duration || 45} min
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
+
+            <TouchableOpacity
+              style={styles.shareModalCancelBtn}
+              onPress={() => setShowRepertoireModal(false)}
+            >
+              <Text style={styles.shareModalCancelText}>Close</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1519,6 +1730,57 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   shareModalCancelText: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+
+  // Filters Modal
+  filtersModal: {
+    backgroundColor: COLORS.background,
+    borderRadius: 16,
+    width: '90%',
+    maxWidth: 400,
+    padding: 20,
+  },
+  filterLabel: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    marginTop: 16,
+    marginBottom: 10,
+  },
+  filterOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  filterChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: COLORS.surface,
+  },
+  filterChipActive: {
+    backgroundColor: COLORS.primary,
+  },
+  filterChipText: {
+    color: COLORS.textMuted,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  filterChipTextActive: {
+    color: COLORS.text,
+  },
+  applyFiltersBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 24,
+  },
+  applyFiltersBtnText: {
     color: COLORS.text,
     fontSize: 16,
     fontWeight: '600',

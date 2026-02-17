@@ -37,12 +37,27 @@ import { supabase } from '../lib/supabase';
 import { GOAL_INFO, GOAL_TO_PROGRAM } from '../constants/goals';
 import { EXPERIENCE_LEVELS } from '../constants/experience';
 import WeighInModal from '../components/WeighInModal';
+import GoalModal from '../components/GoalModal';
 
 const ProgressScreen = () => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [chartPeriod, setChartPeriod] = useState('All');
   const [showWeighInModal, setShowWeighInModal] = useState(false);
+  const [showGoalModal, setShowGoalModal] = useState(false);
+  const [currentGoal, setCurrentGoal] = useState('fitness');
   const [screenWidth, setScreenWidth] = useState(Dimensions.get('window').width);
+
+  // Weight unit from profile
+  const weightUnit = profile?.weight_unit || 'kg';
+
+  // Helper to format weight with correct unit
+  const formatWeight = (weightKg) => {
+    if (!weightKg || weightKg === 0) return '--';
+    if (weightUnit === 'lbs') {
+      return `${(weightKg * 2.205).toFixed(1)} lbs`;
+    }
+    return `${weightKg.toFixed(1)} kg`;
+  };
 
   // Update width on dimension changes (important for web)
   useEffect(() => {
@@ -278,16 +293,29 @@ const ProgressScreen = () => {
     return totalChange > 0 ? Math.round((currentChange / totalChange) * 100) : 0;
   };
 
-  const handleSaveWeighIn = async (weight, unit) => {
+  const handleSaveWeighIn = async (weight, unit, date) => {
     try {
-      await weightService.logWeight(user.id, weight, unit);
+      const logDate = date || new Date().toISOString().split('T')[0];
+      await weightService.logWeight(user.id, weight, unit, logDate);
 
-      // Update local state
-      setWeightData(prev => ({ ...prev, current: weight }));
-      setWeightHistory(prev => [...prev, { week: `W${prev.length + 1}`, weight, date: new Date().toISOString().split('T')[0] }]);
+      // Reload weight data to show updated history
+      await loadWeightData();
       setShowWeighInModal(false);
     } catch (error) {
       console.log('Error logging weight:', error);
+    }
+  };
+
+  const handleSelectGoal = async (goalKey) => {
+    setCurrentGoal(goalKey);
+    // Save to database
+    try {
+      await supabase
+        .from('profiles')
+        .update({ fitness_goal: goalKey })
+        .eq('id', user.id);
+    } catch (error) {
+      console.log('Error saving goal:', error);
     }
   };
 
@@ -395,8 +423,8 @@ const ProgressScreen = () => {
             <TrendingUp size={16} color={COLORS.primary} />
             <Text style={styles.overviewCardLabel}>Current</Text>
           </View>
-          <Text style={styles.overviewCardValue}>{weightData.current > 0 ? `${weightData.current}kg` : '--'}</Text>
-          <Text style={styles.overviewCardSubtext}>{weightData.target > 0 ? `Target: ${weightData.target}kg` : 'Log a weigh-in'}</Text>
+          <Text style={styles.overviewCardValue}>{formatWeight(weightData.current)}</Text>
+          <Text style={styles.overviewCardSubtext}>{weightData.target > 0 ? `Target: ${formatWeight(weightData.target)}` : 'Log a weigh-in'}</Text>
         </View>
         <View style={styles.overviewCard}>
           <View style={styles.overviewCardHeader}>
@@ -411,7 +439,7 @@ const ProgressScreen = () => {
       {/* CURRENT GOAL Section */}
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionLabel}>CURRENT GOAL</Text>
-        <TouchableOpacity style={styles.changeButton}>
+        <TouchableOpacity style={styles.changeButton} onPress={() => setShowGoalModal(true)}>
           <Text style={styles.changeButtonText}>Change</Text>
         </TouchableOpacity>
       </View>
@@ -421,8 +449,8 @@ const ProgressScreen = () => {
             <Target size={24} color={COLORS.primary} />
           </View>
           <View style={styles.goalInfo}>
-            <Text style={styles.goalTitle}>{programData?.goalTitle || 'General Fitness'}</Text>
-            <Text style={styles.goalSubtitle}>{programData?.experience || 'Novice'}</Text>
+            <Text style={styles.goalTitle}>{GOAL_INFO[currentGoal]?.title || 'General Fitness'}</Text>
+            <Text style={styles.goalSubtitle}>{GOAL_INFO[currentGoal]?.idealDays || '3-5'} days/week</Text>
           </View>
         </View>
         <View style={styles.goalProgressRow}>
@@ -433,9 +461,9 @@ const ProgressScreen = () => {
           <View style={[styles.goalProgressFill, { width: `${progressToGoal()}%` }]} />
         </View>
         <View style={styles.goalWeights}>
-          <Text style={styles.goalWeightText}>Start: {weightData.start > 0 ? `${weightData.start}kg` : '--'}</Text>
-          <Text style={[styles.goalWeightText, { color: COLORS.text, fontWeight: '600' }]}>Now: {weightData.current > 0 ? `${weightData.current}kg` : '--'}</Text>
-          <Text style={[styles.goalWeightText, { color: COLORS.success }]}>Goal: {weightData.target > 0 ? `${weightData.target}kg` : '--'}</Text>
+          <Text style={styles.goalWeightText}>Start: {formatWeight(weightData.start)}</Text>
+          <Text style={[styles.goalWeightText, { color: COLORS.text, fontWeight: '600' }]}>Now: {formatWeight(weightData.current)}</Text>
+          <Text style={[styles.goalWeightText, { color: COLORS.success }]}>Goal: {formatWeight(weightData.target)}</Text>
         </View>
       </View>
 
@@ -545,7 +573,7 @@ const ProgressScreen = () => {
               segments={4}
             />
             <View style={styles.chartGoalLine}>
-              <Text style={styles.chartGoalText}>Goal: {weightData.target}kg</Text>
+              <Text style={styles.chartGoalText}>Goal: {formatWeight(weightData.target)}</Text>
             </View>
             <View style={styles.chartLegend}>
               <View style={styles.chartLegendItem}>
@@ -720,7 +748,7 @@ const ProgressScreen = () => {
             </View>
             <Text style={styles.measurementLabel}>Current Weight</Text>
           </View>
-          <Text style={styles.measurementValue}>{weightData.current > 0 ? `${weightData.current} kg` : '--'}</Text>
+          <Text style={styles.measurementValue}>{formatWeight(weightData.current)}</Text>
         </View>
         <View style={styles.measurementRow}>
           <View style={styles.measurementLeft}>
@@ -729,7 +757,7 @@ const ProgressScreen = () => {
             </View>
             <Text style={styles.measurementLabel}>Goal Weight</Text>
           </View>
-          <Text style={styles.measurementValue}>{weightData.target > 0 ? `${weightData.target} kg` : '--'}</Text>
+          <Text style={styles.measurementValue}>{formatWeight(weightData.target)}</Text>
         </View>
         <View style={styles.measurementRow}>
           <View style={styles.measurementLeft}>
@@ -738,7 +766,7 @@ const ProgressScreen = () => {
             </View>
             <Text style={styles.measurementLabel}>To Go</Text>
           </View>
-          <Text style={styles.measurementValue}>{weightData.current > 0 && weightData.target > 0 ? `${(weightData.current - weightData.target).toFixed(1)} kg` : '--'}</Text>
+          <Text style={styles.measurementValue}>{weightData.current > 0 && weightData.target > 0 ? formatWeight(Math.abs(weightData.current - weightData.target)) : '--'}</Text>
         </View>
       </View>
 
@@ -764,7 +792,7 @@ const ProgressScreen = () => {
                   month: 'short',
                 }) : entry.week}
               </Text>
-              <Text style={styles.historyWeight}>{entry.weight} kg</Text>
+              <Text style={styles.historyWeight}>{formatWeight(entry.weight)}</Text>
             </View>
           ))
         ) : (
@@ -791,6 +819,13 @@ const ProgressScreen = () => {
           onClose={() => setShowWeighInModal(false)}
           onSave={handleSaveWeighIn}
           currentWeight={weightData.current}
+          unit={weightUnit}
+        />
+        <GoalModal
+          visible={showGoalModal}
+          onClose={() => setShowGoalModal(false)}
+          currentGoal={currentGoal}
+          onSelect={handleSelectGoal}
         />
       </View>
     );
@@ -808,6 +843,12 @@ const ProgressScreen = () => {
         onClose={() => setShowWeighInModal(false)}
         onSave={handleSaveWeighIn}
         currentWeight={weightData.current}
+      />
+      <GoalModal
+        visible={showGoalModal}
+        onClose={() => setShowGoalModal(false)}
+        currentGoal={currentGoal}
+        onSelect={handleSelectGoal}
       />
     </SafeAreaView>
   );

@@ -242,9 +242,9 @@ const HomeScreen = () => {
     }
   };
 
-  const handleSaveWeight = async (weight, unit) => {
+  const handleSaveWeight = async (weight, unit, date) => {
     try {
-      await weightService.logWeight(user.id, weight, unit);
+      await weightService.logWeight(user.id, weight, unit, date);
       setShowWeighInModal(false);
     } catch (error) {
       console.log('Error saving weight:', error);

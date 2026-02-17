@@ -287,7 +287,16 @@ const ProfileScreen = () => {
     setUnits(unitId);
     try {
       await AsyncStorage.setItem('@units', unitId);
-      showToast(`Units set to ${unitId}`, 'success');
+
+      // Also update in Supabase so it syncs across the app
+      if (user?.id) {
+        await supabase
+          .from('profiles')
+          .update({ weight_unit: unitId === 'imperial' ? 'lbs' : 'kg' })
+          .eq('id', user.id);
+      }
+
+      showToast(`Units set to ${unitId === 'imperial' ? 'Imperial (lbs)' : 'Metric (kg)'}`, 'success');
     } catch (error) {
       console.log('Error saving units:', error);
     }
@@ -388,19 +397,19 @@ const ProfileScreen = () => {
 
           {/* Followers / Following */}
           <View style={styles.followRow}>
-            <TouchableOpacity style={styles.followItem} onPress={() => alert('Followers - Coming soon!')} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.followItem} onPress={() => navigation.navigate('Community', { initialTab: 'followers' })} activeOpacity={0.7}>
               <Text style={styles.followCount}>0</Text>
               <Text style={styles.followLabel}>followers</Text>
             </TouchableOpacity>
             <View style={styles.followDivider} />
-            <TouchableOpacity style={styles.followItem} onPress={() => alert('Following - Coming soon!')} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.followItem} onPress={() => navigation.navigate('Community', { initialTab: 'following' })} activeOpacity={0.7}>
               <Text style={styles.followCount}>0</Text>
               <Text style={styles.followLabel}>following</Text>
             </TouchableOpacity>
           </View>
 
           {/* Edit Profile Button */}
-          <TouchableOpacity style={styles.editProfileBtn} onPress={() => alert('Edit Profile - Coming soon!')} activeOpacity={0.7}>
+          <TouchableOpacity style={styles.editProfileBtn} onPress={() => navigation.navigate('EditProfile')} activeOpacity={0.7}>
             <Edit2 size={16} color={COLORS.text} />
             <Text style={styles.editProfileText}>Edit Profile</Text>
           </TouchableOpacity>

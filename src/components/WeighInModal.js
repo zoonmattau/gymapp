@@ -8,27 +8,63 @@ import {
   TextInput,
   SafeAreaView,
   Platform,
+  ScrollView,
 } from 'react-native';
-import { X, Scale, Plus, Minus } from 'lucide-react-native';
+import { X, Scale, Plus, Minus, ChevronLeft, ChevronRight, Calendar } from 'lucide-react-native';
 import { COLORS } from '../constants/colors';
 
 const WeighInModal = ({ visible, onClose, onSave, unit = 'kg', currentWeight = 0 }) => {
   const [weight, setWeight] = useState('');
+  const [selectedDate, setSelectedDate] = useState(new Date());
 
-  // Set initial weight when modal opens
+  // Set initial weight and reset date when modal opens
   useEffect(() => {
-    if (visible && currentWeight > 0) {
-      setWeight(currentWeight.toString());
+    if (visible) {
+      if (currentWeight > 0) {
+        setWeight(currentWeight.toString());
+      }
+      setSelectedDate(new Date()); // Reset to today when opening
     }
   }, [visible, currentWeight]);
 
   const handleSave = () => {
     const weightValue = parseFloat(weight);
     if (weightValue > 0) {
-      onSave(weightValue, unit);
+      const dateStr = selectedDate.toISOString().split('T')[0];
+      onSave(weightValue, unit, dateStr);
       onClose();
       setWeight('');
     }
+  };
+
+  const changeDate = (days) => {
+    const newDate = new Date(selectedDate);
+    newDate.setDate(newDate.getDate() + days);
+    // Don't allow future dates
+    if (newDate <= new Date()) {
+      setSelectedDate(newDate);
+    }
+  };
+
+  const isToday = () => {
+    const today = new Date();
+    return selectedDate.toDateString() === today.toDateString();
+  };
+
+  const formatSelectedDate = () => {
+    if (isToday()) {
+      return 'Today';
+    }
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (selectedDate.toDateString() === yesterday.toDateString()) {
+      return 'Yesterday';
+    }
+    return selectedDate.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    });
   };
 
   const adjustWeight = (delta) => {
@@ -89,17 +125,29 @@ const WeighInModal = ({ visible, onClose, onSave, unit = 'kg', currentWeight = 0
               </View>
             </View>
 
-            {/* Today's Date */}
+            {/* Date Picker */}
             <View style={styles.dateCard}>
               <Text style={styles.dateLabel}>Recording for</Text>
-              <Text style={styles.dateValue}>
-                {new Date().toLocaleDateString('en-US', {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                })}
-              </Text>
+              <View style={styles.datePicker}>
+                <TouchableOpacity
+                  style={styles.dateArrow}
+                  onPress={() => changeDate(-1)}
+                >
+                  <ChevronLeft size={24} color={COLORS.text} />
+                </TouchableOpacity>
+                <View style={styles.dateDisplay}>
+                  <Calendar size={16} color={COLORS.primary} />
+                  <Text style={styles.dateValue}>{formatSelectedDate()}</Text>
+                </View>
+                <TouchableOpacity
+                  style={[styles.dateArrow, isToday() && styles.dateArrowDisabled]}
+                  onPress={() => changeDate(1)}
+                  disabled={isToday()}
+                >
+                  <ChevronRight size={24} color={isToday() ? COLORS.textMuted : COLORS.text} />
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.dateHint}>Tap arrows to log past weigh-ins</Text>
             </View>
 
             {/* Save Button */}
@@ -165,17 +213,29 @@ const WeighInModal = ({ visible, onClose, onSave, unit = 'kg', currentWeight = 0
             </View>
           </View>
 
-          {/* Today's Date */}
+          {/* Date Picker */}
           <View style={styles.dateCard}>
             <Text style={styles.dateLabel}>Recording for</Text>
-            <Text style={styles.dateValue}>
-              {new Date().toLocaleDateString('en-US', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-              })}
-            </Text>
+            <View style={styles.datePicker}>
+              <TouchableOpacity
+                style={styles.dateArrow}
+                onPress={() => changeDate(-1)}
+              >
+                <ChevronLeft size={24} color={COLORS.text} />
+              </TouchableOpacity>
+              <View style={styles.dateDisplay}>
+                <Calendar size={16} color={COLORS.primary} />
+                <Text style={styles.dateValue}>{formatSelectedDate()}</Text>
+              </View>
+              <TouchableOpacity
+                style={[styles.dateArrow, isToday() && styles.dateArrowDisabled]}
+                onPress={() => changeDate(1)}
+                disabled={isToday()}
+              >
+                <ChevronRight size={24} color={isToday() ? COLORS.textMuted : COLORS.text} />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.dateHint}>Tap arrows to log past weigh-ins</Text>
           </View>
 
           {/* Save Button */}
@@ -294,12 +354,42 @@ const styles = StyleSheet.create({
   dateLabel: {
     color: COLORS.textMuted,
     fontSize: 12,
-    marginBottom: 4,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  datePicker: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  dateArrow: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: COLORS.surfaceLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dateArrowDisabled: {
+    opacity: 0.4,
+  },
+  dateDisplay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+    justifyContent: 'center',
   },
   dateValue: {
     color: COLORS.text,
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  dateHint: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    textAlign: 'center',
+    marginTop: 8,
   },
   saveButton: {
     backgroundColor: COLORS.primary,
