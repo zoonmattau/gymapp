@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   TextInput,
   Platform,
+  Modal,
 } from 'react-native';
 import {
   Trophy,
@@ -21,16 +22,23 @@ import {
   Check,
   Frown,
   Smile,
+  Pencil,
+  X,
 } from 'lucide-react-native';
 import { COLORS } from '../constants/colors';
+import { workoutService } from '../services/workoutService';
 
 const WorkoutSummaryScreen = ({ route, navigation }) => {
   const { summary } = route?.params || {};
   const [rating, setRating] = useState(null);
   const [feedback, setFeedback] = useState('');
   const [notes, setNotes] = useState('');
+  const [renameModalVisible, setRenameModalVisible] = useState(false);
+  const [newWorkoutName, setNewWorkoutName] = useState('');
+  const [displayName, setDisplayName] = useState(summary?.workoutName || 'Workout');
 
   const {
+    sessionId = null,
     workoutName = 'Workout',
     duration = 0,
     totalSets = 0,
@@ -39,6 +47,34 @@ const WorkoutSummaryScreen = ({ route, navigation }) => {
     totalVolume = 0,
     newPRs = [],
   } = summary || {};
+
+  const handleRenamePress = () => {
+    setNewWorkoutName(displayName);
+    setRenameModalVisible(true);
+  };
+
+  const handleRenameSubmit = async () => {
+    if (!sessionId || !newWorkoutName.trim()) {
+      setRenameModalVisible(false);
+      return;
+    }
+
+    try {
+      const { error } = await workoutService.renameWorkoutSession(
+        sessionId,
+        newWorkoutName.trim()
+      );
+
+      if (!error) {
+        setDisplayName(newWorkoutName.trim());
+      }
+    } catch (err) {
+      console.log('Error renaming workout:', err);
+    }
+
+    setRenameModalVisible(false);
+    setNewWorkoutName('');
+  };
 
   const formatDuration = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -78,7 +114,18 @@ const WorkoutSummaryScreen = ({ route, navigation }) => {
           <Check size={40} color={COLORS.success} strokeWidth={3} />
         </View>
         <Text style={styles.title}>Workout Complete!</Text>
-        <Text style={styles.workoutName}>{workoutName}</Text>
+        <View style={styles.nameRow}>
+          <Text style={styles.workoutName}>{displayName}</Text>
+          {sessionId && (
+            <TouchableOpacity
+              style={styles.renameButton}
+              onPress={handleRenamePress}
+              onClick={handleRenamePress}
+            >
+              <Pencil size={16} color={COLORS.textMuted} />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {/* Stats Grid */}
@@ -223,6 +270,50 @@ const WorkoutSummaryScreen = ({ route, navigation }) => {
         <Text style={styles.doneButtonText}>Done</Text>
       </TouchableOpacity>
 
+      {/* Rename Modal */}
+      <Modal
+        visible={renameModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setRenameModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Rename Workout</Text>
+              <TouchableOpacity
+                onPress={() => setRenameModalVisible(false)}
+                style={styles.modalCloseButton}
+              >
+                <X size={20} color={COLORS.textMuted} />
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              style={styles.renameInput}
+              value={newWorkoutName}
+              onChangeText={setNewWorkoutName}
+              placeholder="Workout name"
+              placeholderTextColor={COLORS.textMuted}
+              autoFocus
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setRenameModalVisible(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.renameSubmitButton}
+                onPress={handleRenameSubmit}
+              >
+                <Text style={styles.renameSubmitButtonText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <View style={{ height: 100 }} />
     </>
   );
@@ -292,10 +383,18 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+  },
   workoutName: {
     color: COLORS.textMuted,
     fontSize: 16,
-    marginTop: 4,
+  },
+  renameButton: {
+    padding: 4,
   },
   statsGrid: {
     flexDirection: 'row',
@@ -426,6 +525,73 @@ const styles = StyleSheet.create({
   doneButtonText: {
     color: COLORS.text,
     fontSize: 18,
+    fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalContainer: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    width: '100%',
+    maxWidth: 340,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    color: COLORS.text,
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  renameInput: {
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    color: COLORS.text,
+    fontSize: 16,
+    marginBottom: 20,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  renameSubmitButton: {
+    flex: 1,
+    backgroundColor: COLORS.primary,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  renameSubmitButtonText: {
+    color: COLORS.text,
+    fontSize: 16,
     fontWeight: '600',
   },
 });

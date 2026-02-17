@@ -437,6 +437,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
       // Navigate to summary screen
       navigation.replace('WorkoutSummary', {
         summary: {
+          sessionId: currentSessionId,
           workoutName,
           duration: workoutTime,
           totalSets,
@@ -451,6 +452,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
       // Still navigate to summary even if save fails
       navigation.replace('WorkoutSummary', {
         summary: {
+          sessionId: currentSessionId,
           workoutName,
           duration: workoutTime,
           totalSets,

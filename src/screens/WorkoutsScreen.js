@@ -10,6 +10,7 @@ import {
   Platform,
   Modal,
   TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import {
@@ -18,6 +19,8 @@ import {
   Play,
   ChevronRight,
   ChevronLeft,
+  ChevronDown,
+  ChevronUp,
   Clock,
   Trophy,
   Settings,
@@ -27,12 +30,14 @@ import {
   Search,
   X,
   FileText,
+  Pencil,
 } from 'lucide-react-native';
 import { WORKOUT_TEMPLATES, AVAILABLE_PROGRAMS } from '../constants/workoutTemplates';
 import { COLORS } from '../constants/colors';
 import { useAuth } from '../contexts/AuthContext';
 import { getPausedWorkout, clearPausedWorkout } from '../utils/workoutStore';
 import { workoutService } from '../services/workoutService';
+import { supabase } from '../lib/supabase';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -51,6 +56,16 @@ const WorkoutsScreen = () => {
   const [showStartModal, setShowStartModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState(null);
+
+  // Rename workout modal state
+  const [renameModalVisible, setRenameModalVisible] = useState(false);
+  const [workoutToRename, setWorkoutToRename] = useState(null);
+  const [newWorkoutName, setNewWorkoutName] = useState('');
+
+  // Expandable workout details state
+  const [selectedWorkout, setSelectedWorkout] = useState(null);
+  const [workoutDetails, setWorkoutDetails] = useState(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
 
   // Check for paused workout and load data when screen is focused
   useFocusEffect(
@@ -204,6 +219,92 @@ const WorkoutsScreen = () => {
     setRefreshing(true);
     await loadWorkoutData();
     setRefreshing(false);
+  };
+
+  const handleRenamePress = (workout) => {
+    setWorkoutToRename(workout);
+    setNewWorkoutName(workout.workout_name || 'Workout');
+    setRenameModalVisible(true);
+  };
+
+  const handleRenameSubmit = async () => {
+    if (!workoutToRename || !newWorkoutName.trim()) {
+      setRenameModalVisible(false);
+      return;
+    }
+
+    try {
+      const { error } = await workoutService.renameWorkoutSession(
+        workoutToRename.id,
+        newWorkoutName.trim()
+      );
+
+      if (!error) {
+        // Update local state
+        setWorkoutHistory(prev =>
+          prev.map(w =>
+            w.id === workoutToRename.id ? { ...w, workout_name: newWorkoutName.trim() } : w
+          )
+        );
+      }
+    } catch (err) {
+      console.log('Error renaming workout:', err);
+    }
+
+    setRenameModalVisible(false);
+    setWorkoutToRename(null);
+    setNewWorkoutName('');
+  };
+
+  const handleWorkoutPress = async (workout) => {
+    // If already selected, collapse it
+    if (selectedWorkout?.id === workout.id) {
+      setSelectedWorkout(null);
+      setWorkoutDetails(null);
+      return;
+    }
+
+    setSelectedWorkout(workout);
+    setDetailsLoading(true);
+
+    try {
+      // Fetch the sets for this workout session
+      const { data: sets, error } = await supabase
+        .from('workout_sets')
+        .select('*')
+        .eq('session_id', workout.id)
+        .order('completed_at', { ascending: true });
+
+      if (error) {
+        console.log('Error fetching workout details:', error);
+        setWorkoutDetails([]);
+      } else {
+        // Group sets by exercise
+        const exerciseMap = {};
+        (sets || []).forEach(set => {
+          const name = set.exercise_name || 'Unknown Exercise';
+          if (!exerciseMap[name]) {
+            exerciseMap[name] = {
+              name,
+              sets: [],
+            };
+          }
+          exerciseMap[name].sets.push({
+            setNumber: set.set_number,
+            weight: set.weight,
+            reps: set.reps,
+            rpe: set.rpe,
+            isWarmup: set.is_warmup,
+          });
+        });
+        setWorkoutDetails(Object.values(exerciseMap));
+      }
+    } catch (err) {
+      console.log('Error:', err);
+      setWorkoutDetails([]);
+    } finally {
+      setDetailsLoading(false);
+    }
   };
 
   const getWeekHeaderText = () => {
@@ -635,20 +736,76 @@ const WorkoutsScreen = () => {
               <Text style={styles.emptyActivityText}>Complete your first workout to see it here</Text>
             </View>
           ) : (
-            workoutHistory.map((workout) => (
-              <TouchableOpacity key={workout.id} style={styles.activityCard}>
-                <View style={styles.activityIcon}>
-                  <Dumbbell size={20} color={COLORS.primary} />
-                </View>
-                <View style={styles.activityInfo}>
-                  <Text style={styles.activityTitle}>{workout.workout_name || 'Workout'}</Text>
-                  <Text style={styles.activityTime}>
-                    {workout.duration_minutes ? `${workout.duration_minutes} min` : 'Completed'} • {formatActivityDate(workout.ended_at)}
-                  </Text>
-                </View>
-                <ChevronRight size={20} color={COLORS.textMuted} />
-              </TouchableOpacity>
-            ))
+            workoutHistory.map((workout) => {
+              const isExpanded = selectedWorkout?.id === workout.id;
+              return (
+                <TouchableOpacity
+                  key={workout.id}
+                  style={styles.activityCard}
+                  onPress={() => handleWorkoutPress(workout)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.activityHeader}>
+                    <View style={styles.activityIcon}>
+                      <Dumbbell size={20} color={COLORS.primary} />
+                    </View>
+                    <View style={styles.activityInfo}>
+                      <Text style={styles.activityTitle}>{workout.workout_name || 'Workout'}</Text>
+                      <Text style={styles.activityTime}>
+                        {workout.duration_minutes ? `${workout.duration_minutes} min` : 'Completed'} • {formatActivityDate(workout.ended_at)}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.renameActivityButton}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        handleRenamePress(workout);
+                      }}
+                    >
+                      <Pencil size={16} color={COLORS.textMuted} />
+                    </TouchableOpacity>
+                    {isExpanded ? (
+                      <ChevronUp size={18} color={COLORS.primary} />
+                    ) : (
+                      <ChevronDown size={18} color={COLORS.textMuted} />
+                    )}
+                  </View>
+
+                  {/* Expanded Details */}
+                  {isExpanded && (
+                    <View style={styles.expandedDetails}>
+                      {detailsLoading ? (
+                        <View style={styles.detailsLoading}>
+                          <ActivityIndicator size="small" color={COLORS.primary} />
+                          <Text style={styles.detailsLoadingText}>Loading exercises...</Text>
+                        </View>
+                      ) : workoutDetails && workoutDetails.length > 0 ? (
+                        workoutDetails.map((exercise, idx) => (
+                          <View key={idx} style={styles.exerciseDetail}>
+                            <Text style={styles.exerciseDetailName}>{exercise.name}</Text>
+                            <View style={styles.exerciseSets}>
+                              {exercise.sets.map((set, setIdx) => (
+                                <View key={setIdx} style={styles.setDetail}>
+                                  <Text style={[styles.setNumber, set.isWarmup && styles.warmupText]}>
+                                    {set.isWarmup ? 'W' : setIdx + 1}
+                                  </Text>
+                                  <Text style={styles.setInfo}>
+                                    {set.weight > 0 ? `${set.weight} kg` : 'BW'} × {set.reps}
+                                    {set.rpe ? ` @${set.rpe}` : ''}
+                                  </Text>
+                                </View>
+                              ))}
+                            </View>
+                          </View>
+                        ))
+                      ) : (
+                        <Text style={styles.noDetailsText}>No exercise data recorded</Text>
+                      )}
+                    </View>
+                  )}
+                </TouchableOpacity>
+              );
+            })
           )}
         </View>
 
@@ -738,6 +895,50 @@ const WorkoutsScreen = () => {
                 </TouchableOpacity>
               ))}
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Rename Workout Modal */}
+      <Modal
+        visible={renameModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setRenameModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.renameModalContainer}>
+            <View style={styles.renameModalHeader}>
+              <Text style={styles.renameModalTitle}>Rename Workout</Text>
+              <TouchableOpacity
+                onPress={() => setRenameModalVisible(false)}
+                style={styles.renameModalCloseBtn}
+              >
+                <X size={20} color={COLORS.textMuted} />
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              style={styles.renameInput}
+              value={newWorkoutName}
+              onChangeText={setNewWorkoutName}
+              placeholder="Workout name"
+              placeholderTextColor={COLORS.textMuted}
+              autoFocus
+            />
+            <View style={styles.renameModalButtons}>
+              <TouchableOpacity
+                style={styles.renameCancelButton}
+                onPress={() => setRenameModalVisible(false)}
+              >
+                <Text style={styles.renameCancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.renameSaveButton}
+                onPress={handleRenameSubmit}
+              >
+                <Text style={styles.renameSaveButtonText}>Save</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -942,9 +1143,11 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     borderRadius: 12,
     padding: 14,
+    marginBottom: 8,
+  },
+  activityHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
   },
   activityIcon: {
     width: 40,
@@ -967,6 +1170,71 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     fontSize: 12,
     marginTop: 2,
+  },
+  renameActivityButton: {
+    padding: 8,
+    marginLeft: 4,
+  },
+  // Expanded workout details
+  expandedDetails: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.surfaceLight,
+  },
+  detailsLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    gap: 8,
+  },
+  detailsLoadingText: {
+    color: COLORS.textMuted,
+    fontSize: 13,
+  },
+  exerciseDetail: {
+    marginBottom: 12,
+  },
+  exerciseDetailName: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  exerciseSets: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  setDetail: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    gap: 6,
+  },
+  setNumber: {
+    color: COLORS.primary,
+    fontSize: 12,
+    fontWeight: '700',
+    minWidth: 14,
+    textAlign: 'center',
+  },
+  warmupText: {
+    color: COLORS.warning,
+  },
+  setInfo: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+  },
+  noDetailsText: {
+    color: COLORS.textMuted,
+    fontSize: 13,
+    textAlign: 'center',
+    paddingVertical: 8,
   },
   emptyActivityCard: {
     backgroundColor: COLORS.surface,
@@ -1111,6 +1379,67 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     fontSize: 11,
     marginTop: 2,
+  },
+  // Rename Modal
+  renameModalContainer: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    width: '100%',
+    maxWidth: 340,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  renameModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  renameModalTitle: {
+    color: COLORS.text,
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  renameModalCloseBtn: {
+    padding: 4,
+  },
+  renameInput: {
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    color: COLORS.text,
+    fontSize: 16,
+    marginBottom: 20,
+  },
+  renameModalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  renameCancelButton: {
+    flex: 1,
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  renameCancelButtonText: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  renameSaveButton: {
+    flex: 1,
+    backgroundColor: COLORS.primary,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  renameSaveButtonText: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 
