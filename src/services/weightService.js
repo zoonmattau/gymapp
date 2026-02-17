@@ -23,8 +23,6 @@ export const weightService = {
           user_id: userId,
           log_date: logDate,
           weight: weightKg,
-          weight_unit: unit,
-          original_weight: weight,
         }, { onConflict: 'user_id,log_date' })
         .select()
         .maybeSingle();
