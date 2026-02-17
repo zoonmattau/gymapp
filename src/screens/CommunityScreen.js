@@ -451,15 +451,15 @@ const CommunityScreen = ({ route }) => {
 
   const renderActivityFeed = () => (
     <>
-      {/* Suggested Users Section */}
-      {suggestedUsers.length > 0 && (
-        <View style={styles.suggestedSection}>
-          <View style={styles.suggestedHeader}>
-            <Text style={styles.suggestedTitle}>Suggested for you</Text>
-            <TouchableOpacity onPress={() => setActiveTab('discover')}>
-              <Text style={styles.seeAllText}>See All</Text>
-            </TouchableOpacity>
-          </View>
+      {/* Suggested Users Section - Always show */}
+      <View style={styles.suggestedSection}>
+        <View style={styles.suggestedHeader}>
+          <Text style={styles.suggestedTitle}>Suggested for you</Text>
+          <TouchableOpacity onPress={() => setActiveTab('discover')}>
+            <Text style={styles.seeAllText}>See All</Text>
+          </TouchableOpacity>
+        </View>
+        {suggestedUsers.length > 0 ? (
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -499,10 +499,18 @@ const CommunityScreen = ({ route }) => {
               </View>
             ))}
           </ScrollView>
-        </View>
-      )}
+        ) : (
+          <View style={styles.noSuggestionsRow}>
+            <UserPlus size={20} color={COLORS.textMuted} />
+            <Text style={styles.noSuggestionsText}>
+              Go to Discover to find people to follow
+            </Text>
+          </View>
+        )}
+      </View>
 
       {/* Activity Feed */}
+      <Text style={styles.sectionLabel}>RECENT ACTIVITY</Text>
       {activityFeed.length === 0 ? (
         <View style={styles.emptyState}>
           <Users size={48} color={COLORS.textMuted} />
@@ -1752,6 +1760,17 @@ const styles = StyleSheet.create({
   },
   suggestedFollowingBtnText: {
     color: COLORS.textMuted,
+  },
+  noSuggestionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 16,
+  },
+  noSuggestionsText: {
+    color: COLORS.textMuted,
+    fontSize: 13,
   },
 
   // Feed Card Styles
