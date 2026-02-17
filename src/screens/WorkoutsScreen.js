@@ -269,11 +269,14 @@ const WorkoutsScreen = () => {
 
     try {
       // Fetch the sets for this workout session
+      console.log('Fetching sets for workout:', workout.id, workout);
       const { data: sets, error } = await supabase
         .from('workout_sets')
         .select('*')
         .eq('session_id', workout.id)
-        .order('completed_at', { ascending: true });
+        .order('created_at', { ascending: true });
+
+      console.log('Workout sets result:', { sets, error });
 
       if (error) {
         console.log('Error fetching workout details:', error);
