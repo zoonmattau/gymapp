@@ -126,11 +126,31 @@ export const workoutService = {
 
   // Log a completed set
   async logSet(sessionId, exerciseId, exerciseName, setData) {
+    // If no exerciseId provided, look it up by name
+    let finalExerciseId = exerciseId;
+    if (!finalExerciseId && exerciseName) {
+      const { data: exerciseData } = await supabase
+        .from('exercises')
+        .select('id')
+        .eq('name', exerciseName)
+        .maybeSingle();
+
+      if (exerciseData?.id) {
+        finalExerciseId = exerciseData.id;
+      }
+    }
+
+    // If still no exercise ID, we can't insert
+    if (!finalExerciseId) {
+      console.error('Could not find exercise ID for:', exerciseName);
+      return { data: null, error: { message: 'Exercise not found: ' + exerciseName } };
+    }
+
     const { data, error } = await supabase
       .from('workout_sets')
       .insert({
         session_id: sessionId,
-        exercise_id: exerciseId,
+        exercise_id: finalExerciseId,
         exercise_name: exerciseName,
         set_number: setData.setNumber,
         weight: setData.weight,
@@ -140,6 +160,10 @@ export const workoutService = {
       })
       .select()
       .single();
+
+    if (error) {
+      console.error('logSet error:', error);
+    }
 
     return { data, error };
   },
@@ -158,30 +182,21 @@ export const workoutService = {
 
   // Complete workout session
   async completeWorkout(sessionId, summary) {
+    // Only update fields that definitely exist
+    const updateData = {
+      ended_at: new Date().toISOString(),
+    };
+
+    // Add optional fields only if they have values
+    if (summary.durationMinutes !== undefined) updateData.duration_minutes = summary.durationMinutes;
+    if (summary.totalVolume !== undefined) updateData.total_volume = summary.totalVolume;
+
     const { data, error } = await supabase
       .from('workout_sessions')
-      .update({
-        ended_at: new Date().toISOString(),
-        duration_minutes: summary.durationMinutes,
-        total_volume: summary.totalVolume,
-        total_working_time: summary.workingTime,
-        total_rest_time: summary.restTime,
-        notes: summary.notes,
-      })
+      .update(updateData)
       .eq('id', sessionId)
       .select()
       .maybeSingle();
-
-    // Mark schedule as completed if schedule_id exists
-    if (summary.scheduleId) {
-      await supabase
-        .from('workout_schedule')
-        .update({
-          is_completed: true,
-          completed_at: new Date().toISOString(),
-        })
-        .eq('id', summary.scheduleId);
-    }
 
     return { data, error };
   },

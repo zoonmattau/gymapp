@@ -76,12 +76,45 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
   const [isSaving, setIsSaving] = useState(false);
   const timerRef = useRef(null);
   const restTimerRef = useRef(null);
+  const sessionIdRef = useRef(sessionId);
 
   const showToast = (message, type = 'success') => {
     setToastMessage(message);
     setToastType(type);
     setToastVisible(true);
   };
+
+  // Create a workout session on mount if one doesn't exist
+  useEffect(() => {
+    const createSession = async () => {
+      if (!sessionId && user?.id) {
+        try {
+          console.log('Creating workout session...');
+          const { data, error } = await workoutService.startWorkout(
+            user.id,
+            workout?.id || null,
+            null,
+            workoutName
+          );
+          if (data?.id) {
+            console.log('Session created:', data.id);
+            setSessionId(data.id);
+            sessionIdRef.current = data.id;
+          } else if (error) {
+            console.error('Failed to create session:', error);
+          }
+        } catch (err) {
+          console.error('Error creating session:', err);
+        }
+      }
+    };
+    createSession();
+  }, [user?.id]);
+
+  // Keep sessionIdRef in sync
+  useEffect(() => {
+    sessionIdRef.current = sessionId;
+  }, [sessionId]);
 
   // Load rest timer setting from storage
   useEffect(() => {
@@ -386,99 +419,18 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
     setSetToDelete(null);
   };
 
-  const saveAndFinishWorkout = async (completedSets, totalSets, totalVolume) => {
-    try {
-      if (user?.id) {
-        // Use existing session or create a new one
-        let currentSessionId = sessionId;
+  const finishWorkout = async () => {
+    // Capture values first
+    const currentSessionId = sessionIdRef.current;
+    const currentExercises = JSON.parse(JSON.stringify(exercises));
+    const currentWorkoutTime = workoutTime;
+    const currentUserId = user?.id;
 
-        if (!currentSessionId) {
-          const { data: session } = await workoutService.startWorkout(
-            user.id,
-            workout?.id || null,
-            null,
-            workoutName
-          );
-          currentSessionId = session?.id;
-        }
-
-        if (currentSessionId) {
-          // Log all completed sets
-          for (const exercise of exercises) {
-            for (const set of exercise.sets) {
-              if (set.completed && set.weight && set.reps) {
-                await workoutService.logSet(currentSessionId, null, exercise.name, {
-                  setNumber: set.id,
-                  weight: parseFloat(set.weight),
-                  reps: parseInt(set.reps),
-                });
-
-                // Check for PR
-                await workoutService.checkAndCreatePR(
-                  user.id,
-                  null,
-                  exercise.name,
-                  parseFloat(set.weight),
-                  parseInt(set.reps),
-                  currentSessionId
-                );
-              }
-            }
-          }
-
-          // Complete the workout session
-          await workoutService.completeWorkout(currentSessionId, {
-            durationMinutes: Math.floor(workoutTime / 60),
-            totalVolume,
-            workingTime: workoutTime,
-            restTime: 0,
-          });
-        }
-      }
-
-      // Navigate to summary screen
-      navigation.replace('WorkoutSummary', {
-        summary: {
-          sessionId: currentSessionId,
-          workoutName,
-          duration: workoutTime,
-          totalSets,
-          completedSets,
-          exercises,
-          totalVolume,
-          newPRs: [], // Would need to track PRs during workout
-        },
-      });
-    } catch (error) {
-      console.log('Error saving workout:', error);
-      // Still navigate to summary even if save fails
-      navigation.replace('WorkoutSummary', {
-        summary: {
-          sessionId: currentSessionId,
-          workoutName,
-          duration: workoutTime,
-          totalSets,
-          completedSets,
-          exercises,
-          totalVolume,
-          newPRs: [],
-        },
-      });
-    }
-  };
-
-  const finishWorkout = () => {
-    if (isSaving) return; // Prevent double-click
-
-    const completedSets = exercises.reduce(
-      (acc, ex) => acc + ex.sets.filter(s => s.completed).length,
-      0
+    const completedSets = currentExercises.reduce(
+      (acc, ex) => acc + ex.sets.filter(s => s.completed).length, 0
     );
-    const totalSets = exercises.reduce((acc, ex) => acc + ex.sets.length, 0);
-
-    // Calculate total volume
     let totalVolume = 0;
-    exercises.forEach(ex => {
+    currentExercises.forEach(ex => {
       ex.sets.forEach(set => {
         if (set.completed && set.weight && set.reps) {
           totalVolume += parseFloat(set.weight) * parseInt(set.reps);
@@ -486,24 +438,44 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
       });
     });
 
-    setFinishModalData({ completedSets, totalSets, totalVolume });
-    setShowFinishModal(true);
+    // Save data FIRST, then navigate
+    if (currentSessionId && currentUserId) {
+      try {
+        for (const exercise of currentExercises) {
+          for (const set of exercise.sets) {
+            if (set.completed) {
+              await workoutService.logSet(currentSessionId, null, exercise.name, {
+                setNumber: set.id,
+                weight: parseFloat(set.weight) || 0,
+                reps: parseInt(set.reps) || 0,
+                rpe: set.rpe || null,
+                isWarmup: false,
+              });
+            }
+          }
+        }
+
+        await workoutService.completeWorkout(currentSessionId, {
+          durationMinutes: Math.floor(currentWorkoutTime / 60),
+          totalVolume,
+          exerciseCount: currentExercises.length,
+          totalSets: completedSets,
+        });
+      } catch (err) {
+        console.error('Error saving workout:', err);
+      }
+    }
+
+    // Navigate AFTER save completes
+    if (Platform.OS === 'web') {
+      window.location.href = '/';
+    } else {
+      navigation.goBack();
+    }
   };
 
-  const handleConfirmFinish = async () => {
-    if (isSaving) return; // Prevent double-click
-
-    setIsSaving(true);
-    setShowFinishModal(false);
-
-    if (finishModalData) {
-      await saveAndFinishWorkout(
-        finishModalData.completedSets,
-        finishModalData.totalSets,
-        finishModalData.totalVolume
-      );
-    }
-    // Note: isSaving stays true since we navigate away
+  const handleConfirmFinish = () => {
+    finishWorkout();
   };
 
   const cancelWorkout = () => {
@@ -569,7 +541,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
             onPress={finishWorkout}
             disabled={isSaving}
           >
-            <Text style={styles.finishButtonText}>{isSaving ? 'Saving...' : 'Finish'}</Text>
+            <Text style={styles.finishButtonText}>Finish</Text>
           </TouchableOpacity>
         </View>
       </View>
