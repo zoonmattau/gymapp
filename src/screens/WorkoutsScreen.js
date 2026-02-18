@@ -901,8 +901,12 @@ const WorkoutsScreen = () => {
             </View>
 
             {/* Template List */}
-            <ScrollView style={styles.templateList} showsVerticalScrollIndicator={false}>
-              {filteredTemplates.slice(0, 10).map(([id, template]) => (
+            <ScrollView
+              style={styles.templateList}
+              showsVerticalScrollIndicator={true}
+              contentContainerStyle={{ paddingBottom: 20 }}
+            >
+              {filteredTemplates.map(([id, template]) => (
                 <TouchableOpacity
                   key={id}
                   style={styles.templateItem}
@@ -919,6 +923,11 @@ const WorkoutsScreen = () => {
                   <ChevronRight size={18} color={COLORS.textMuted} />
                 </TouchableOpacity>
               ))}
+              {filteredTemplates.length === 0 && (
+                <View style={styles.noResultsContainer}>
+                  <Text style={styles.noResultsText}>No templates found</Text>
+                </View>
+              )}
             </ScrollView>
           </View>
         </View>
@@ -1293,7 +1302,8 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    maxHeight: '85%',
+    maxHeight: '90%',
+    minHeight: '60%',
     paddingBottom: 40,
   },
   modalHeader: {
@@ -1370,9 +1380,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   templateList: {
+    flex: 1,
     paddingHorizontal: 16,
     paddingTop: 12,
-    maxHeight: 300,
   },
   templateItem: {
     flexDirection: 'row',
@@ -1408,6 +1418,14 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     fontSize: 11,
     marginTop: 2,
+  },
+  noResultsContainer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  noResultsText: {
+    color: COLORS.textMuted,
+    fontSize: 14,
   },
   // Rename Modal
   renameModalContainer: {

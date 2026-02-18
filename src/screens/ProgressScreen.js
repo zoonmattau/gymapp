@@ -34,13 +34,15 @@ import { weightService } from '../services/weightService';
 import { nutritionService } from '../services/nutritionService';
 import { sleepService } from '../services/sleepService';
 import { supabase } from '../lib/supabase';
-import { GOAL_INFO, GOAL_TO_PROGRAM } from '../constants/goals';
+import { GOAL_INFO, GOAL_TO_PROGRAM, PROGRAM_TEMPLATES } from '../constants/goals';
+import { WORKOUT_TEMPLATES } from '../constants/workoutTemplates';
 import { EXPERIENCE_LEVELS } from '../constants/experience';
 import WeighInModal from '../components/WeighInModal';
 import GoalModal from '../components/GoalModal';
+import Toast from '../components/Toast';
 
 const ProgressScreen = () => {
-  const { user, profile } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const [chartPeriod, setChartPeriod] = useState('All');
   const [showWeighInModal, setShowWeighInModal] = useState(false);
   const [showGoalModal, setShowGoalModal] = useState(false);
@@ -100,6 +102,17 @@ const ProgressScreen = () => {
 
   const [loading, setLoading] = useState(true);
 
+  // Toast state
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState('success');
+
+  const showToast = (message, type = 'success') => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+  };
+
   // Load current goal from user_goals table
   useEffect(() => {
     const loadCurrentGoal = async () => {
@@ -130,6 +143,8 @@ const ProgressScreen = () => {
     useCallback(() => {
       if (user?.id) {
         loadProgressData();
+        // Refresh profile to get latest settings (like weight_unit)
+        refreshProfile();
       }
     }, [user])
   );
@@ -349,9 +364,87 @@ const ProgressScreen = () => {
     }
   };
 
+  // Helper to format date for database
+  const formatDateForDB = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  // Generate workout schedule based on selected goal/program
+  const generateWorkoutSchedule = async (userId, goal) => {
+    try {
+      const program = GOAL_TO_PROGRAM[goal];
+      if (!program) {
+        console.log('No program found for goal:', goal);
+        return false;
+      }
+
+      const templateIds = PROGRAM_TEMPLATES[program.id];
+      if (!templateIds || templateIds.length === 0) {
+        console.log('No templates found for program:', program.id);
+        return false;
+      }
+
+      const daysPerWeek = program.days || 4;
+
+      // Generate schedule for the next 4 weeks
+      const today = new Date();
+      let templateIndex = 0;
+      let workoutDayCount = 0;
+
+      for (let week = 0; week < 4; week++) {
+        for (let day = 0; day < 7; day++) {
+          const scheduleDate = new Date(today);
+          scheduleDate.setDate(today.getDate() + (week * 7) + day);
+
+          const dayOfWeek = scheduleDate.getDay(); // 0 = Sunday
+          // Rest on Sunday (0) by default
+          const isRestDay = dayOfWeek === 0 || workoutDayCount >= daysPerWeek;
+
+          if (isRestDay) {
+            // Sunday is always rest - skip
+            if (dayOfWeek === 0) {
+              continue;
+            }
+          } else {
+            // Schedule a workout
+            const templateId = templateIds[templateIndex % templateIds.length];
+            const template = WORKOUT_TEMPLATES[templateId];
+
+            if (template) {
+              const dateStr = formatDateForDB(scheduleDate);
+              try {
+                await workoutService.setScheduleForDate(userId, dateStr, templateId, false);
+                templateIndex++;
+                workoutDayCount++;
+              } catch (e) {
+                console.log('Error setting schedule for date:', dateStr, e);
+              }
+            }
+          }
+
+          // Reset workout count at end of week
+          if (day === 6) {
+            workoutDayCount = 0;
+          }
+        }
+      }
+
+      console.log('Generated workout schedule for', goal, 'with', program.name);
+      return true;
+    } catch (error) {
+      console.log('Error generating workout schedule:', error);
+      return false;
+    }
+  };
+
   const handleSelectGoal = async (goalKey) => {
     console.log('Saving goal:', goalKey, 'for user:', user.id);
     setCurrentGoal(goalKey);
+    setShowGoalModal(false);
+
     // Save to user_goals table
     try {
       const { data, error } = await supabase
@@ -363,8 +456,21 @@ const ProgressScreen = () => {
         .select();
 
       console.log('Goal save result:', { data, error });
+
+      // Generate workout schedule based on the selected goal
+      const program = GOAL_TO_PROGRAM[goalKey];
+      if (program) {
+        showToast(`Generating ${program.name} schedule...`, 'info');
+        const success = await generateWorkoutSchedule(user.id, goalKey);
+        if (success) {
+          showToast(`${program.name} schedule created!`, 'success');
+        } else {
+          showToast('Schedule created with default program', 'info');
+        }
+      }
     } catch (error) {
       console.log('Error saving goal:', error);
+      showToast('Error saving goal', 'error');
     }
   };
 
@@ -877,6 +983,12 @@ const ProgressScreen = () => {
           currentGoal={currentGoal}
           onSelect={handleSelectGoal}
         />
+        <Toast
+          visible={toastVisible}
+          message={toastMessage}
+          type={toastType}
+          onDismiss={() => setToastVisible(false)}
+        />
       </View>
     );
   }
@@ -893,6 +1005,7 @@ const ProgressScreen = () => {
         onClose={() => setShowWeighInModal(false)}
         onSave={handleSaveWeighIn}
         currentWeight={weightData.current}
+        unit={weightUnit}
         lastWeighInDate={lastWeighInDate}
       />
       <GoalModal
@@ -900,6 +1013,12 @@ const ProgressScreen = () => {
         onClose={() => setShowGoalModal(false)}
         currentGoal={currentGoal}
         onSelect={handleSelectGoal}
+      />
+      <Toast
+        visible={toastVisible}
+        message={toastMessage}
+        type={toastType}
+        onDismiss={() => setToastVisible(false)}
       />
     </SafeAreaView>
   );

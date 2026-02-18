@@ -14,6 +14,20 @@ export const GOAL_INFO = {
     idealDays: '4-6',
     weightDirection: 'gain',
   },
+  bodybuilding: {
+    title: 'Classic Bodybuilding',
+    icon: '🏆',
+    overview: "Traditional bro split - one muscle group per day for maximum focus.",
+    requirements: [
+      { icon: '💪', title: 'Isolation Focus', desc: 'Target each muscle group with dedicated sessions.' },
+      { icon: '🔥', title: 'High Volume', desc: 'Multiple exercises per muscle group each session.' },
+      { icon: '🍗', title: 'High Protein', desc: 'Aim for 1.8-2.2g protein per kg bodyweight.' },
+      { icon: '😴', title: 'Recovery', desc: 'Each muscle gets 6-7 days rest between sessions.' },
+    ],
+    minDays: 5,
+    idealDays: '5-6',
+    weightDirection: 'gain',
+  },
   build_muscle: {
     title: 'Lean Muscle Building',
     icon: '💪',
@@ -112,6 +126,7 @@ export const GOAL_INFO = {
 // Map goals to recommended programs
 export const GOAL_TO_PROGRAM = {
   bulk: { id: 'ppl', name: 'Push/Pull/Legs', days: 6, weeks: 12, desc: 'High volume split for maximum muscle growth' },
+  bodybuilding: { id: 'bro_split', name: 'Bro Split', days: 5, weeks: 12, desc: 'Classic bodybuilding - one muscle group per day' },
   build_muscle: { id: 'upper_lower', name: 'Upper/Lower', days: 4, weeks: 16, desc: 'Balanced approach with optimal recovery' },
   strength: { id: 'strength', name: 'Strength Focus', days: 4, weeks: 12, desc: 'Powerlifting-style for max strength' },
   recomp: { id: 'upper_lower', name: 'Upper/Lower', days: 4, weeks: 16, desc: 'Balanced approach for body recomposition' },
@@ -129,11 +144,13 @@ export const PROGRAM_TEMPLATES = {
   full_body: ['full_body_a', 'full_body_b', 'full_body_a'],
   athlete: ['athletic_power', 'upper_a', 'legs_a', 'full_body_b', 'athletic_power'],
   fat_loss: ['full_body_a', 'full_body_b', 'upper_a', 'legs_a'],
+  bro_split: ['chest', 'back', 'shoulders', 'legs_quad', 'arms'],
 };
 
 // Goal training parameters
 export const GOAL_TRAINING_PARAMS = {
   bulk: { setsPerExercise: [4, 5], repsPerSet: [8, 12], restTime: [90, 120], compoundFirst: true },
+  bodybuilding: { setsPerExercise: [4, 5], repsPerSet: [8, 12], restTime: [60, 90], compoundFirst: true },
   build_muscle: { setsPerExercise: [3, 4], repsPerSet: [8, 12], restTime: [60, 90], compoundFirst: true },
   strength: { setsPerExercise: [4, 5], repsPerSet: [3, 6], restTime: [180, 240], compoundFirst: true },
   recomp: { setsPerExercise: [3, 4], repsPerSet: [8, 12], restTime: [60, 90], compoundFirst: true },

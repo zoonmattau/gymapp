@@ -52,7 +52,7 @@ import Toast from '../components/Toast';
 
 const ProfileScreen = () => {
   const navigation = useNavigation();
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, signOut, refreshProfile } = useAuth();
 
   // Settings states
   const [restTimerEnabled, setRestTimerEnabled] = useState(true);
@@ -303,15 +303,24 @@ const ProfileScreen = () => {
   // Handle units change
   const handleUnitsSelect = async (unitId) => {
     setUnits(unitId);
+    setShowUnitsModal(false); // Close modal immediately after selection
+
     try {
       await AsyncStorage.setItem('@units', unitId);
 
       // Also update in Supabase so it syncs across the app
       if (user?.id) {
-        await supabase
+        const { error } = await supabase
           .from('profiles')
           .update({ weight_unit: unitId === 'imperial' ? 'lbs' : 'kg' })
           .eq('id', user.id);
+
+        if (error) {
+          console.log('Error updating weight_unit in database:', error);
+        }
+
+        // Refresh the profile so the new weight_unit is available app-wide
+        await refreshProfile();
       }
 
       showToast(`Units set to ${unitId === 'imperial' ? 'Imperial (lbs)' : 'Metric (kg)'}`, 'success');

@@ -573,7 +573,11 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
         </View>
       )}
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={true}
+      >
         {/* Exercises */}
         {exercises.map((exercise) => (
           <View key={exercise.id} style={styles.exerciseCard}>
@@ -716,7 +720,6 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
           <Text style={styles.addExerciseText}>Add Exercise</Text>
         </TouchableOpacity>
 
-        <View style={{ height: 100 }} />
       </ScrollView>
 
       {/* Exercise Search Modal */}
@@ -834,6 +837,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
+    ...(Platform.OS === 'web' ? { height: '100vh', overflow: 'hidden' } : {}),
   },
   header: {
     flexDirection: 'row',
@@ -886,6 +890,11 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 16,
     paddingTop: 16,
+    ...(Platform.OS === 'web' ? { overflow: 'auto' } : {}),
+  },
+  contentContainer: {
+    flexGrow: 1,
+    paddingBottom: 100,
   },
   exerciseCard: {
     backgroundColor: COLORS.surface,
