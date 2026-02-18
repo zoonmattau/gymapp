@@ -15,7 +15,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { workoutService } from '../services/workoutService';
 
 const PersonalRecordsScreen = ({ navigation }) => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  const weightUnit = profile?.weight_unit || 'kg';
   const [personalRecords, setPersonalRecords] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -69,13 +70,13 @@ const PersonalRecordsScreen = ({ navigation }) => {
         </View>
       </View>
       <View style={styles.prRight}>
-        <Text style={styles.prWeight}>{item.weight}kg</Text>
+        <Text style={styles.prWeight}>{weightUnit === 'lbs' ? Math.round(item.weight * 2.205) : item.weight}{weightUnit}</Text>
         <Text style={styles.prReps}>x {item.reps} reps</Text>
       </View>
       {item.weight > 0 && item.reps > 0 && (
         <View style={styles.prE1RM}>
           <Text style={styles.prE1RMLabel}>Est. 1RM</Text>
-          <Text style={styles.prE1RMValue}>{calculateE1RM(item.weight, item.reps)}kg</Text>
+          <Text style={styles.prE1RMValue}>{weightUnit === 'lbs' ? Math.round(calculateE1RM(item.weight, item.reps) * 2.205) : calculateE1RM(item.weight, item.reps)}{weightUnit}</Text>
         </View>
       )}
     </TouchableOpacity>

@@ -49,7 +49,8 @@ const TABS = [
 ];
 
 const CommunityScreen = ({ route }) => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  const weightUnit = profile?.weight_unit || 'kg';
   const initialTab = route?.params?.initialTab || 'feed';
   const [activeTab, setActiveTab] = useState(initialTab);
   const [refreshing, setRefreshing] = useState(false);
@@ -582,7 +583,7 @@ const CommunityScreen = ({ route }) => {
                 {activity.type === 'pr' && (
                   <>
                     <View style={styles.feedDetailItem}>
-                      <Text style={styles.feedDetailHighlight}>{activity.data?.weight} kg</Text>
+                      <Text style={styles.feedDetailHighlight}>{weightUnit === 'lbs' ? Math.round(activity.data?.weight * 2.205) : activity.data?.weight} {weightUnit}</Text>
                     </View>
                     <View style={styles.feedDetailItem}>
                       <Text style={styles.feedDetailText}>× {activity.data?.reps} reps</Text>

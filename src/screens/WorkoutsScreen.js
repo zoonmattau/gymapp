@@ -43,7 +43,8 @@ const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 const WorkoutsScreen = () => {
   const navigation = useNavigation();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  const weightUnit = profile?.weight_unit || 'kg';
   const [refreshing, setRefreshing] = useState(false);
   const [weekOffset, setWeekOffset] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -814,7 +815,7 @@ const WorkoutsScreen = () => {
                                     {set.isWarmup ? 'W' : setIdx + 1}
                                   </Text>
                                   <Text style={styles.setInfo}>
-                                    {set.weight > 0 ? `${set.weight} kg` : 'BW'} × {set.reps}
+                                    {set.weight > 0 ? `${weightUnit === 'lbs' ? Math.round(set.weight * 2.205) : set.weight} ${weightUnit}` : 'BW'} × {set.reps}
                                     {set.rpe ? ` @${set.rpe}` : ''}
                                   </Text>
                                 </View>

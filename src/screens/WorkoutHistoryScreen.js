@@ -17,7 +17,8 @@ import { workoutService } from '../services/workoutService';
 import { supabase } from '../lib/supabase';
 
 const WorkoutHistoryScreen = ({ navigation }) => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  const weightUnit = profile?.weight_unit || 'kg';
   const [workoutHistory, setWorkoutHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [renameModalVisible, setRenameModalVisible] = useState(false);
@@ -161,10 +162,11 @@ const WorkoutHistoryScreen = ({ navigation }) => {
   };
 
   const formatVolume = (volume) => {
-    if (volume >= 1000) {
-      return `${(volume / 1000).toFixed(1)}k kg`;
+    const displayVolume = weightUnit === 'lbs' ? Math.round(volume * 2.205) : volume;
+    if (displayVolume >= 1000) {
+      return `${(displayVolume / 1000).toFixed(1)}k ${weightUnit}`;
     }
-    return `${volume} kg`;
+    return `${displayVolume} ${weightUnit}`;
   };
 
   const renderHistoryItem = ({ item }) => {
@@ -242,7 +244,7 @@ const WorkoutHistoryScreen = ({ navigation }) => {
                           {set.isWarmup ? 'W' : setIdx + 1}
                         </Text>
                         <Text style={styles.setInfo}>
-                          {set.weight > 0 ? `${set.weight} kg` : 'BW'} × {set.reps}
+                          {set.weight > 0 ? `${weightUnit === 'lbs' ? Math.round(set.weight * 2.205) : set.weight} ${weightUnit}` : 'BW'} × {set.reps}
                           {set.rpe ? ` @${set.rpe}` : ''}
                         </Text>
                       </View>

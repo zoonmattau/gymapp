@@ -31,7 +31,8 @@ import { workoutService } from '../services/workoutService';
 import { setPausedWorkout } from '../utils/workoutStore';
 
 const ActiveWorkoutScreen = ({ route, navigation }) => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  const weightUnit = profile?.weight_unit || 'kg';
   const {
     workout,
     workoutName: initialName,
@@ -625,7 +626,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
                           {/* Right side: Weight x Reps + Badges + Edit */}
                           <View style={styles.setRowRight}>
                             <Text style={styles.setWeightReps}>
-                              {set.weight || 0}kg × {set.reps || 0}
+                              {set.weight || 0}{weightUnit} × {set.reps || 0}
                             </Text>
 
                             {/* Dropset Badge */}
@@ -672,7 +673,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
                           <View style={styles.setDetailsContainer}>
                             <Text style={styles.setDetailsLabel}>Superset with: {set.supersetExercise}</Text>
                             <Text style={styles.setDetailsText}>
-                              {set.supersetWeight || 0}kg × {set.supersetReps || 0}
+                              {set.supersetWeight || 0}{weightUnit} × {set.supersetReps || 0}
                             </Text>
                           </View>
                         )}
@@ -682,7 +683,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
                           <View style={styles.setDetailsContainer}>
                             {set.drops.map((drop, idx) => (
                               <Text key={idx} style={styles.setDetailsText}>
-                                Drop {idx + 1}: {drop.weight || 0}kg × {drop.reps || 0}
+                                Drop {idx + 1}: {drop.weight || 0}{weightUnit} × {drop.reps || 0}
                               </Text>
                             ))}
                           </View>
@@ -756,7 +757,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
         setNumber={selectedSetToLog?.setNumber || 1}
         initialWeight={selectedSetToLog?.weight || ''}
         initialReps={selectedSetToLog?.reps || ''}
-        weightUnit="kg"
+        weightUnit={weightUnit}
         onSelectSupersetExercise={handleSelectSupersetExercise}
         pendingSupersetExercise={pendingSupersetExercise}
         isReturningFromSuperset={isReturningFromSuperset}

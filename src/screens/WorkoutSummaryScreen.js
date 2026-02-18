@@ -27,8 +27,11 @@ import {
 } from 'lucide-react-native';
 import { COLORS } from '../constants/colors';
 import { workoutService } from '../services/workoutService';
+import { useAuth } from '../contexts/AuthContext';
 
 const WorkoutSummaryScreen = ({ route, navigation }) => {
+  const { profile } = useAuth();
+  const weightUnit = profile?.weight_unit || 'kg';
   const { summary } = route?.params || {};
   const [rating, setRating] = useState(null);
   const [feedback, setFeedback] = useState('');
@@ -86,10 +89,11 @@ const WorkoutSummaryScreen = ({ route, navigation }) => {
   };
 
   const formatVolume = (volume) => {
-    if (volume >= 1000) {
-      return `${(volume / 1000).toFixed(1)}K kg`;
+    const displayVolume = weightUnit === 'lbs' ? Math.round(volume * 2.205) : volume;
+    if (displayVolume >= 1000) {
+      return `${(displayVolume / 1000).toFixed(1)}K ${weightUnit}`;
     }
-    return `${volume} kg`;
+    return `${displayVolume} ${weightUnit}`;
   };
 
   const feedbackOptions = [
@@ -162,7 +166,7 @@ const WorkoutSummaryScreen = ({ route, navigation }) => {
               <View style={styles.prInfo}>
                 <Text style={styles.prExercise}>{pr.exercise}</Text>
                 <Text style={styles.prValue}>
-                  {pr.weight}kg x {pr.reps} reps
+                  {weightUnit === 'lbs' ? Math.round(pr.weight * 2.205) : pr.weight}{weightUnit} x {pr.reps} reps
                 </Text>
               </View>
             </View>
