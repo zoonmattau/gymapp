@@ -38,7 +38,9 @@ export const workoutService = {
   // Get today's scheduled workout
   async getTodaySchedule(userId) {
     const today = getLocalDateString();
-    const { data, error } = await supabase
+
+    // First try to get schedule with joined template data
+    let { data, error } = await supabase
       .from('workout_schedule')
       .select(`
         *,
@@ -53,6 +55,22 @@ export const workoutService = {
       .eq('user_id', userId)
       .eq('scheduled_date', today)
       .maybeSingle();
+
+    // If that fails (e.g. template_id is a string key not a UUID),
+    // try getting just the schedule record
+    if (error || (!data?.workout_templates && !data?.is_rest_day)) {
+      const simpleResult = await supabase
+        .from('workout_schedule')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('scheduled_date', today)
+        .maybeSingle();
+
+      if (simpleResult.data) {
+        data = simpleResult.data;
+        error = null;
+      }
+    }
 
     return { data, error };
   },

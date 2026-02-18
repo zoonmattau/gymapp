@@ -163,6 +163,7 @@ const HomeScreen = () => {
           setIsRestDay(true);
           setTodayWorkout(null);
         } else if (schedule.workout_templates) {
+          // Database template found
           setIsRestDay(false);
           setTodayWorkout({
             id: schedule.workout_templates.id,
@@ -176,6 +177,26 @@ const HomeScreen = () => {
               sets: te.sets || 3,
             })) || [],
           });
+        } else if (schedule.template_id) {
+          // Local template - look up from WORKOUT_TEMPLATES
+          const localTemplate = WORKOUT_TEMPLATES[schedule.template_id];
+          if (localTemplate) {
+            setIsRestDay(false);
+            setTodayWorkout({
+              id: schedule.template_id,
+              name: localTemplate.name,
+              focus: localTemplate.focus,
+              scheduleId: schedule.id,
+              isCompleted: schedule.is_completed,
+              exercises: localTemplate.exercises || [],
+            });
+          } else {
+            setIsRestDay(false);
+            setTodayWorkout(null);
+          }
+        } else {
+          setIsRestDay(false);
+          setTodayWorkout(null);
         }
       } else {
         // No workout scheduled - show empty state
