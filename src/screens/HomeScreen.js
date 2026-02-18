@@ -80,6 +80,7 @@ const HomeScreen = () => {
   // Start workout modal
   const [showStartWorkoutModal, setShowStartWorkoutModal] = useState(false);
   const [workoutSearchQuery, setWorkoutSearchQuery] = useState('');
+  const [selectedWorkoutType, setSelectedWorkoutType] = useState('scheduled'); // 'scheduled' | 'freeform' | 'browse'
 
   // Social stats
   const [followersCount, setFollowersCount] = useState(0);
@@ -327,6 +328,13 @@ const HomeScreen = () => {
     }
   };
 
+  const openStartWorkoutModal = () => {
+    // Set default selection based on whether there's a scheduled workout
+    setSelectedWorkoutType(todayWorkout ? 'scheduled' : 'freeform');
+    setWorkoutSearchQuery('');
+    setShowStartWorkoutModal(true);
+  };
+
   const startFreeformWorkout = () => {
     setShowStartWorkoutModal(false);
     navigation.navigate('ActiveWorkout', {
@@ -520,7 +528,7 @@ const HomeScreen = () => {
           </View>
           <TouchableOpacity
             style={[styles.workoutButton, { backgroundColor: COLORS.primary }]}
-            onPress={() => setShowStartWorkoutModal(true)}
+            onPress={openStartWorkoutModal}
           >
             <Play size={18} color={COLORS.text} />
             <Text style={styles.workoutButtonText}>Start Workout Anyway</Text>
@@ -544,7 +552,7 @@ const HomeScreen = () => {
           </View>
           <TouchableOpacity
             style={[styles.workoutButton, { backgroundColor: COLORS.primary }]}
-            onPress={() => setShowStartWorkoutModal(true)}
+            onPress={openStartWorkoutModal}
           >
             <Play size={18} color={COLORS.text} />
             <Text style={styles.workoutButtonText}>Start Workout</Text>
@@ -564,7 +572,7 @@ const HomeScreen = () => {
         </View>
         <TouchableOpacity
           style={[styles.workoutButton, { backgroundColor: COLORS.primary }]}
-          onPress={() => setShowStartWorkoutModal(true)}
+          onPress={openStartWorkoutModal}
         >
           <Play size={18} color={COLORS.text} />
           <Text style={styles.workoutButtonText}>Start Workout</Text>
@@ -833,90 +841,175 @@ const HomeScreen = () => {
         <View style={styles.startModalOverlay}>
           <View style={styles.startModalContainer}>
             <View style={styles.startModalHeader}>
-              <Text style={styles.startModalTitle}>Start Workout</Text>
+              <Text style={styles.startModalTitle}>Start Your Workout</Text>
               <TouchableOpacity onPress={() => setShowStartWorkoutModal(false)} style={styles.startModalCloseBtn}>
                 <X size={24} color={COLORS.textMuted} />
               </TouchableOpacity>
             </View>
 
-            {/* Quick Start Options */}
-            <View style={styles.quickStartOptions}>
-              {/* As Scheduled Option */}
+            {/* Workout Type Toggle */}
+            <View style={styles.workoutTypeToggle}>
               {todayWorkout && (
-                <TouchableOpacity style={styles.quickStartOption} onPress={startScheduledWorkout}>
-                  <View style={[styles.quickStartIcon, { backgroundColor: COLORS.success + '20' }]}>
-                    <Calendar size={24} color={COLORS.success} />
-                  </View>
-                  <View style={styles.quickStartInfo}>
-                    <Text style={styles.quickStartTitle}>Today's Scheduled</Text>
-                    <Text style={styles.quickStartDesc}>{todayWorkout.name}</Text>
-                  </View>
-                  <ChevronRight size={20} color={COLORS.textMuted} />
+                <TouchableOpacity
+                  style={[
+                    styles.toggleButton,
+                    selectedWorkoutType === 'scheduled' && styles.toggleButtonActive,
+                    selectedWorkoutType === 'scheduled' && { backgroundColor: COLORS.primary }
+                  ]}
+                  onPress={() => setSelectedWorkoutType('scheduled')}
+                >
+                  <Text style={[
+                    styles.toggleButtonText,
+                    selectedWorkoutType === 'scheduled' && styles.toggleButtonTextActive
+                  ]}>Scheduled</Text>
                 </TouchableOpacity>
               )}
-
-              {/* Freeform Option */}
-              <TouchableOpacity style={styles.quickStartOption} onPress={startFreeformWorkout}>
-                <View style={[styles.quickStartIcon, { backgroundColor: COLORS.primary + '20' }]}>
-                  <Play size={24} color={COLORS.primary} />
-                </View>
-                <View style={styles.quickStartInfo}>
-                  <Text style={styles.quickStartTitle}>Freeform Workout</Text>
-                  <Text style={styles.quickStartDesc}>Build your workout as you go</Text>
-                </View>
-                <ChevronRight size={20} color={COLORS.textMuted} />
+              <TouchableOpacity
+                style={[
+                  styles.toggleButton,
+                  selectedWorkoutType === 'freeform' && styles.toggleButtonActive,
+                  selectedWorkoutType === 'freeform' && { backgroundColor: COLORS.accent }
+                ]}
+                onPress={() => setSelectedWorkoutType('freeform')}
+              >
+                <Text style={[
+                  styles.toggleButtonText,
+                  selectedWorkoutType === 'freeform' && styles.toggleButtonTextActive
+                ]}>Free-form</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.toggleButton,
+                  selectedWorkoutType === 'browse' && styles.toggleButtonActive,
+                  selectedWorkoutType === 'browse' && { backgroundColor: COLORS.warning }
+                ]}
+                onPress={() => setSelectedWorkoutType('browse')}
+              >
+                <Text style={[
+                  styles.toggleButtonText,
+                  selectedWorkoutType === 'browse' && styles.toggleButtonTextActive
+                ]}>Browse</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Search Templates */}
-            <View style={styles.searchSection}>
-              <Text style={styles.searchLabel}>BROWSE TEMPLATES</Text>
-              <View style={styles.searchInputContainer}>
-                <Search size={18} color={COLORS.textMuted} />
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder="Search workouts..."
-                  placeholderTextColor={COLORS.textMuted}
-                  value={workoutSearchQuery}
-                  onChangeText={setWorkoutSearchQuery}
-                />
-                {workoutSearchQuery ? (
-                  <TouchableOpacity onPress={() => setWorkoutSearchQuery('')}>
-                    <X size={16} color={COLORS.textMuted} />
-                  </TouchableOpacity>
-                ) : null}
-              </View>
+            {/* Type Description */}
+            <View style={styles.typeDescription}>
+              {selectedWorkoutType === 'scheduled' && todayWorkout && (
+                <>
+                  <View style={styles.typeDescHeader}>
+                    <Calendar size={20} color={COLORS.primary} />
+                    <Text style={styles.typeDescTitle}>{todayWorkout.name}</Text>
+                  </View>
+                  <Text style={styles.typeDescText}>
+                    Pre-loaded with today's exercises from your program.
+                  </Text>
+                  <View style={styles.typeDescMeta}>
+                    <Text style={styles.typeDescMetaText}>{todayWorkout.exercises?.length || 0} exercises</Text>
+                    <Text style={styles.typeDescMetaDot}>•</Text>
+                    <Text style={styles.typeDescMetaText}>{todayWorkout.focus || 'Full Body'}</Text>
+                  </View>
+                </>
+              )}
+              {selectedWorkoutType === 'freeform' && (
+                <>
+                  <View style={styles.typeDescHeader}>
+                    <Dumbbell size={20} color={COLORS.accent} />
+                    <Text style={styles.typeDescTitle}>Free-form Workout</Text>
+                  </View>
+                  <Text style={styles.typeDescText}>
+                    Start empty and add exercises as you go. Complete flexibility to train however you want today.
+                  </Text>
+                </>
+              )}
+              {selectedWorkoutType === 'browse' && (
+                <>
+                  <View style={styles.typeDescHeader}>
+                    <Search size={20} color={COLORS.warning} />
+                    <Text style={styles.typeDescTitle}>Browse Templates</Text>
+                  </View>
+                  <Text style={styles.typeDescText}>
+                    Choose from pre-built workout templates for different muscle groups and goals.
+                  </Text>
+                </>
+              )}
             </View>
 
-            {/* Template List */}
-            <ScrollView
-              style={styles.templateList}
-              showsVerticalScrollIndicator={true}
-              contentContainerStyle={{ paddingBottom: 20 }}
-            >
-              {filteredTemplates.map(([id, template]) => (
-                <TouchableOpacity
-                  key={id}
-                  style={styles.templateItem}
-                  onPress={() => startFromTemplate(id)}
-                >
-                  <View style={styles.templateIcon}>
-                    <Dumbbell size={18} color={COLORS.primary} />
+            {/* Browse Templates Section - only show when browse is selected */}
+            {selectedWorkoutType === 'browse' && (
+              <>
+                <View style={styles.searchSection}>
+                  <View style={styles.searchInputContainer}>
+                    <Search size={18} color={COLORS.textMuted} />
+                    <TextInput
+                      style={styles.searchInput}
+                      placeholder="Search workouts..."
+                      placeholderTextColor={COLORS.textMuted}
+                      value={workoutSearchQuery}
+                      onChangeText={setWorkoutSearchQuery}
+                    />
+                    {workoutSearchQuery ? (
+                      <TouchableOpacity onPress={() => setWorkoutSearchQuery('')}>
+                        <X size={16} color={COLORS.textMuted} />
+                      </TouchableOpacity>
+                    ) : null}
                   </View>
-                  <View style={styles.templateInfo}>
-                    <Text style={styles.templateName}>{template.name}</Text>
-                    <Text style={styles.templateFocus}>{template.focus}</Text>
-                    <Text style={styles.templateExercises}>{template.exercises?.length || 0} exercises</Text>
-                  </View>
-                  <ChevronRight size={18} color={COLORS.textMuted} />
-                </TouchableOpacity>
-              ))}
-              {filteredTemplates.length === 0 && (
-                <View style={styles.noResultsContainer}>
-                  <Text style={styles.noResultsText}>No templates found</Text>
                 </View>
-              )}
-            </ScrollView>
+
+                {/* Template List */}
+                <ScrollView
+                  style={styles.templateList}
+                  showsVerticalScrollIndicator={true}
+                  contentContainerStyle={{ paddingBottom: 20 }}
+                >
+                  {filteredTemplates.map(([id, template]) => (
+                    <TouchableOpacity
+                      key={id}
+                      style={styles.templateItem}
+                      onPress={() => startFromTemplate(id)}
+                    >
+                      <View style={styles.templateIcon}>
+                        <Dumbbell size={18} color={COLORS.primary} />
+                      </View>
+                      <View style={styles.templateInfo}>
+                        <Text style={styles.templateName}>{template.name}</Text>
+                        <Text style={styles.templateFocus}>{template.focus}</Text>
+                        <Text style={styles.templateExercises}>{template.exercises?.length || 0} exercises</Text>
+                      </View>
+                      <ChevronRight size={18} color={COLORS.textMuted} />
+                    </TouchableOpacity>
+                  ))}
+                  {filteredTemplates.length === 0 && (
+                    <View style={styles.noResultsContainer}>
+                      <Text style={styles.noResultsText}>No templates found</Text>
+                    </View>
+                  )}
+                </ScrollView>
+              </>
+            )}
+
+            {/* Start Button - show for scheduled and freeform */}
+            {selectedWorkoutType !== 'browse' && (
+              <View style={styles.startButtonContainer}>
+                <TouchableOpacity
+                  style={[
+                    styles.startWorkoutButton,
+                    { backgroundColor: selectedWorkoutType === 'scheduled' ? COLORS.primary : COLORS.accent }
+                  ]}
+                  onPress={() => {
+                    if (selectedWorkoutType === 'scheduled') {
+                      startScheduledWorkout();
+                    } else {
+                      startFreeformWorkout();
+                    }
+                  }}
+                >
+                  <Play size={20} color={COLORS.text} />
+                  <Text style={styles.startWorkoutButtonText}>
+                    {selectedWorkoutType === 'scheduled' ? 'Start Scheduled Workout' : 'Start Free-form Workout'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         </View>
       </Modal>
@@ -1377,50 +1470,90 @@ const styles = StyleSheet.create({
   startModalCloseBtn: {
     padding: 4,
   },
-  quickStartOptions: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
+  workoutTypeToggle: {
+    flexDirection: 'row',
+    marginHorizontal: 16,
+    marginTop: 16,
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 12,
+    padding: 4,
   },
-  quickStartOption: {
+  toggleButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  toggleButtonActive: {
+    backgroundColor: COLORS.primary,
+  },
+  toggleButtonText: {
+    color: COLORS.textMuted,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  toggleButtonTextActive: {
+    color: COLORS.text,
+  },
+  typeDescription: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 12,
+    padding: 16,
+  },
+  typeDescHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 10,
+    gap: 10,
+    marginBottom: 8,
   },
-  quickStartIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 14,
-  },
-  quickStartInfo: {
-    flex: 1,
-  },
-  quickStartTitle: {
+  typeDescTitle: {
     color: COLORS.text,
     fontSize: 16,
     fontWeight: '600',
   },
-  quickStartDesc: {
+  typeDescText: {
     color: COLORS.textMuted,
-    fontSize: 13,
-    marginTop: 2,
+    fontSize: 14,
+    lineHeight: 20,
   },
-  searchSection: {
+  typeDescMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    gap: 8,
+  },
+  typeDescMetaText: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+  },
+  typeDescMetaDot: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+  },
+  startButtonContainer: {
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 8,
   },
-  searchLabel: {
-    color: COLORS.textMuted,
-    fontSize: 12,
+  startWorkoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 16,
+    borderRadius: 12,
+  },
+  startWorkoutButtonText: {
+    color: COLORS.text,
+    fontSize: 16,
     fontWeight: '600',
-    marginBottom: 10,
-    letterSpacing: 0.5,
+  },
+  searchSection: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
   },
   searchInputContainer: {
     flexDirection: 'row',
