@@ -161,6 +161,7 @@ const HealthScreen = () => {
       loadTodayNutrition();
       loadSupplements();
       loadSleepData();
+      loadSleepHistory();
     }
   }, [user]);
 
@@ -243,6 +244,31 @@ const HealthScreen = () => {
       }
     } catch (error) {
       console.log('Error loading sleep:', error);
+    }
+  };
+
+  const loadSleepHistory = async () => {
+    try {
+      // Get current month's start and end dates
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+      const startDate = getLocalDateString(startOfMonth);
+      const endDate = getLocalDateString(endOfMonth);
+
+      const { data } = await sleepService.getSleepHistory(user.id, startDate, endDate);
+
+      if (data && data.length > 0) {
+        // Convert to format expected by the calendar: { date: dayOfMonth, hours: hoursSlept }
+        const historyForCalendar = data.map(entry => ({
+          date: new Date(entry.log_date + 'T00:00:00').getDate(),
+          hours: entry.hours_slept || 0,
+        }));
+        setSleepHistory(historyForCalendar);
+      }
+    } catch (error) {
+      console.log('Error loading sleep history:', error);
     }
   };
 
