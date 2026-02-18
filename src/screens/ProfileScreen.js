@@ -10,6 +10,7 @@ import {
   Alert,
   Platform,
   Modal,
+  TextInput,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -97,6 +98,12 @@ const ProfileScreen = () => {
     showActivity: true,
     showProgress: false,
   });
+
+  // Target Weight Goal
+  const [targetWeight, setTargetWeight] = useState('');
+  const [currentWeight, setCurrentWeight] = useState('');
+  const [showTargetWeightModal, setShowTargetWeightModal] = useState(false);
+  const [tempTargetWeight, setTempTargetWeight] = useState('');
 
   // Toast
   const [toastVisible, setToastVisible] = useState(false);
@@ -191,6 +198,42 @@ const ProfileScreen = () => {
     };
     loadPreferences();
   }, []);
+
+  // Load target weight from profile
+  useEffect(() => {
+    if (profile) {
+      setTargetWeight(profile.target_weight?.toString() || '');
+      setCurrentWeight(profile.current_weight?.toString() || profile.weight?.toString() || '');
+    }
+  }, [profile]);
+
+  // Handle target weight save
+  const handleSaveTargetWeight = async () => {
+    const weight = parseFloat(tempTargetWeight);
+    if (isNaN(weight) || weight <= 0) {
+      showToast('Please enter a valid weight', 'error');
+      return;
+    }
+
+    setTargetWeight(tempTargetWeight);
+    setShowTargetWeightModal(false);
+
+    if (user?.id) {
+      try {
+        const { error } = await supabase
+          .from('profiles')
+          .update({ target_weight: weight })
+          .eq('id', user.id);
+
+        if (!error) {
+          await refreshProfile();
+          showToast('Target weight saved', 'success');
+        }
+      } catch (error) {
+        console.log('Error saving target weight:', error);
+      }
+    }
+  };
 
   // Handle experience level change
   const handleExperienceSelect = async (levelId) => {
@@ -462,6 +505,46 @@ const ProfileScreen = () => {
             <Text style={styles.statLabel}>badges</Text>
           </View>
         </View>
+
+        {/* WEIGHT GOAL Section */}
+        <Text style={styles.sectionLabel}>WEIGHT GOAL</Text>
+        <TouchableOpacity
+          style={styles.weightGoalCard}
+          onPress={() => {
+            setTempTargetWeight(targetWeight);
+            setShowTargetWeightModal(true);
+          }}
+          activeOpacity={0.7}
+        >
+          <View style={styles.weightGoalContent}>
+            <View style={styles.weightGoalItem}>
+              <Text style={styles.weightGoalLabel}>Current</Text>
+              <Text style={styles.weightGoalValue}>
+                {currentWeight ? `${currentWeight} ${units === 'metric' ? 'kg' : 'lbs'}` : '-- kg'}
+              </Text>
+            </View>
+            <View style={styles.weightGoalArrow}>
+              <ChevronRight size={24} color={COLORS.primary} />
+            </View>
+            <View style={styles.weightGoalItem}>
+              <Text style={styles.weightGoalLabel}>Target</Text>
+              <Text style={[styles.weightGoalValue, { color: COLORS.primary }]}>
+                {targetWeight ? `${targetWeight} ${units === 'metric' ? 'kg' : 'lbs'}` : 'Set Goal'}
+              </Text>
+            </View>
+          </View>
+          {targetWeight && currentWeight && (
+            <View style={styles.weightGoalProgress}>
+              <Text style={styles.weightGoalProgressText}>
+                {parseFloat(currentWeight) > parseFloat(targetWeight)
+                  ? `${(parseFloat(currentWeight) - parseFloat(targetWeight)).toFixed(1)} ${units === 'metric' ? 'kg' : 'lbs'} to lose`
+                  : parseFloat(currentWeight) < parseFloat(targetWeight)
+                  ? `${(parseFloat(targetWeight) - parseFloat(currentWeight)).toFixed(1)} ${units === 'metric' ? 'kg' : 'lbs'} to gain`
+                  : 'Goal reached!'}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
 
         {/* EXPERIENCE LEVEL Section */}
         <Text style={styles.sectionLabel}>EXPERIENCE LEVEL</Text>
@@ -862,6 +945,59 @@ const ProfileScreen = () => {
             </TouchableOpacity>
           </View>
         </SafeAreaView>
+      </Modal>
+
+      {/* Target Weight Modal */}
+      <Modal
+        visible={showTargetWeightModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowTargetWeightModal(false)}
+      >
+        <View style={styles.targetWeightModalOverlay}>
+          <View style={styles.targetWeightModalContainer}>
+            <View style={styles.modalHeader}>
+              <TouchableOpacity onPress={() => setShowTargetWeightModal(false)}>
+                <X size={24} color={COLORS.text} />
+              </TouchableOpacity>
+              <Text style={styles.modalTitle}>Set Target Weight</Text>
+              <View style={{ width: 24 }} />
+            </View>
+
+            <View style={styles.targetWeightModalContent}>
+              <Text style={styles.targetWeightModalLabel}>
+                What's your goal weight?
+              </Text>
+              <View style={styles.targetWeightInputRow}>
+                <TextInput
+                  style={styles.targetWeightInput}
+                  value={tempTargetWeight}
+                  onChangeText={setTempTargetWeight}
+                  keyboardType="decimal-pad"
+                  placeholder="0"
+                  placeholderTextColor={COLORS.textMuted}
+                />
+                <Text style={styles.targetWeightUnit}>
+                  {units === 'metric' ? 'kg' : 'lbs'}
+                </Text>
+              </View>
+              {currentWeight && (
+                <Text style={styles.targetWeightHint}>
+                  Current weight: {currentWeight} {units === 'metric' ? 'kg' : 'lbs'}
+                </Text>
+              )}
+            </View>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.modalDoneBtn}
+                onPress={handleSaveTargetWeight}
+              >
+                <Text style={styles.modalDoneBtnText}>Save Target</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
       </Modal>
 
       {/* Toast */}
@@ -1279,6 +1415,94 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontSize: 16,
     fontWeight: '600',
+  },
+  // Weight Goal Section
+  weightGoalCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+  },
+  weightGoalContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  weightGoalItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  weightGoalLabel: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  weightGoalValue: {
+    color: COLORS.text,
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  weightGoalArrow: {
+    paddingHorizontal: 16,
+  },
+  weightGoalProgress: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.surfaceLight,
+    alignItems: 'center',
+  },
+  weightGoalProgressText: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+  },
+  // Target Weight Modal
+  targetWeightModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'flex-end',
+  },
+  targetWeightModalContainer: {
+    backgroundColor: COLORS.background,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+  },
+  targetWeightModalContent: {
+    padding: 24,
+    alignItems: 'center',
+  },
+  targetWeightModalLabel: {
+    color: COLORS.text,
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 24,
+  },
+  targetWeightInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  targetWeightInput: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    textAlign: 'center',
+    minWidth: 120,
+  },
+  targetWeightUnit: {
+    color: COLORS.textMuted,
+    fontSize: 24,
+    fontWeight: '600',
+  },
+  targetWeightHint: {
+    color: COLORS.textMuted,
+    fontSize: 14,
+    marginTop: 16,
   },
 });
 
