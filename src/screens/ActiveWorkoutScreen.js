@@ -73,6 +73,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
   const [exerciseToDelete, setExerciseToDelete] = useState(null);
   const [setToEdit, setSetToEdit] = useState(null); // { exerciseId, setId, ... }
   const [setToDelete, setSetToDelete] = useState(null); // { exerciseId, setId }
+  const [isSaving, setIsSaving] = useState(false);
   const timerRef = useRef(null);
   const restTimerRef = useRef(null);
 
@@ -467,6 +468,8 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
   };
 
   const finishWorkout = () => {
+    if (isSaving) return; // Prevent double-click
+
     const completedSets = exercises.reduce(
       (acc, ex) => acc + ex.sets.filter(s => s.completed).length,
       0
@@ -488,7 +491,11 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
   };
 
   const handleConfirmFinish = async () => {
+    if (isSaving) return; // Prevent double-click
+
+    setIsSaving(true);
     setShowFinishModal(false);
+
     if (finishModalData) {
       await saveAndFinishWorkout(
         finishModalData.completedSets,
@@ -496,6 +503,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
         finishModalData.totalVolume
       );
     }
+    // Note: isSaving stays true since we navigate away
   };
 
   const cancelWorkout = () => {
@@ -508,6 +516,10 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
   };
 
   const saveAndContinueLater = () => {
+    if (isSaving) return; // Prevent double-click
+
+    setIsSaving(true);
+
     // Store paused workout data in global store
     const pausedWorkoutData = {
       workoutName,
@@ -533,7 +545,6 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
       <View style={styles.header}>
         <TouchableOpacity
           onPress={cancelWorkout}
-          onClick={cancelWorkout}
           style={styles.backButton}
         >
           <ArrowLeft size={24} color={COLORS.text} />
@@ -547,18 +558,18 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
         </View>
         <View style={styles.headerButtons}>
           <TouchableOpacity
-            style={styles.resumeLaterButton}
+            style={[styles.resumeLaterButton, isSaving && styles.buttonDisabled]}
             onPress={saveAndContinueLater}
-            onClick={saveAndContinueLater}
+            disabled={isSaving}
           >
             <Text style={styles.resumeLaterText}>Resume Later</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.finishButton}
+            style={[styles.finishButton, isSaving && styles.buttonDisabled]}
             onPress={finishWorkout}
-            onClick={finishWorkout}
+            disabled={isSaving}
           >
-            <Text style={styles.finishButtonText}>Finish</Text>
+            <Text style={styles.finishButtonText}>{isSaving ? 'Saving...' : 'Finish'}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -714,7 +725,6 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
         <TouchableOpacity
           style={styles.addExerciseButton}
           onPress={() => setShowExerciseModal(true)}
-          onClick={() => setShowExerciseModal(true)}
         >
           <Plus size={20} color={COLORS.primary} />
           <Text style={styles.addExerciseText}>Add Exercise</Text>
@@ -1130,6 +1140,9 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontSize: 13,
     fontWeight: '600',
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
 });
 
