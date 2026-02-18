@@ -8,7 +8,10 @@ import {
   TouchableOpacity,
   Dimensions,
   Platform,
+  Modal,
+  TextInput,
 } from 'react-native';
+import { X } from 'lucide-react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   TrendingUp,
@@ -46,6 +49,8 @@ const ProgressScreen = () => {
   const [chartPeriod, setChartPeriod] = useState('All');
   const [showWeighInModal, setShowWeighInModal] = useState(false);
   const [showGoalModal, setShowGoalModal] = useState(false);
+  const [showTargetWeightModal, setShowTargetWeightModal] = useState(false);
+  const [tempTargetWeight, setTempTargetWeight] = useState('');
   const [currentGoal, setCurrentGoal] = useState('fitness');
   const [screenWidth, setScreenWidth] = useState(Dimensions.get('window').width);
 
@@ -204,7 +209,7 @@ const ProgressScreen = () => {
         const current = lastWeight.weight;
         const start = weights[0].weight;
         // Get target from profile
-        const target = user?.user_metadata?.target_weight || 0;
+        const target = profile?.target_weight || 0;
 
         console.log('Setting weightData:', { current, start, target });
         setWeightData({
@@ -440,6 +445,35 @@ const ProgressScreen = () => {
     }
   };
 
+  const handleSaveTargetWeight = async () => {
+    const weight = parseFloat(tempTargetWeight);
+    if (isNaN(weight) || weight <= 0) {
+      showToast('Please enter a valid weight', 'error');
+      return;
+    }
+
+    setShowTargetWeightModal(false);
+
+    if (user?.id) {
+      try {
+        const { error } = await supabase
+          .from('profiles')
+          .update({ target_weight: weight })
+          .eq('id', user.id);
+
+        if (!error) {
+          await refreshProfile();
+          // Update local state
+          setWeightData(prev => ({ ...prev, target: weight }));
+          showToast('Target weight saved', 'success');
+        }
+      } catch (error) {
+        console.log('Error saving target weight:', error);
+        showToast('Error saving target weight', 'error');
+      }
+    }
+  };
+
   const handleSelectGoal = async (goalKey) => {
     console.log('Saving goal:', goalKey, 'for user:', user.id);
     setCurrentGoal(goalKey);
@@ -589,6 +623,48 @@ const ProgressScreen = () => {
           <Text style={[styles.overviewCardValue, { color: COLORS.success }]}>{weightData.current > 0 ? `${progressToGoal()}%` : '--'}</Text>
           <Text style={styles.overviewCardSubtext}>to goal</Text>
         </View>
+      </View>
+
+      {/* TARGET WEIGHT Section */}
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionLabel}>TARGET WEIGHT</Text>
+        <TouchableOpacity
+          style={styles.changeButton}
+          onPress={() => {
+            setTempTargetWeight(weightData.target?.toString() || '');
+            setShowTargetWeightModal(true);
+          }}
+        >
+          <Text style={styles.changeButtonText}>{weightData.target > 0 ? 'Edit' : 'Set Goal'}</Text>
+        </TouchableOpacity>
+      </View>
+      <View style={styles.targetWeightCard}>
+        <View style={styles.targetWeightContent}>
+          <View style={styles.targetWeightItem}>
+            <Text style={styles.targetWeightLabel}>Current</Text>
+            <Text style={styles.targetWeightValue}>{formatWeight(weightData.current)}</Text>
+          </View>
+          <View style={styles.targetWeightArrow}>
+            <ChevronRight size={24} color={COLORS.primary} />
+          </View>
+          <View style={styles.targetWeightItem}>
+            <Text style={styles.targetWeightLabel}>Target</Text>
+            <Text style={[styles.targetWeightValue, { color: COLORS.primary }]}>
+              {weightData.target > 0 ? formatWeight(weightData.target) : 'Set Goal'}
+            </Text>
+          </View>
+        </View>
+        {weightData.target > 0 && weightData.current > 0 && (
+          <View style={styles.targetWeightProgress}>
+            <Text style={styles.targetWeightProgressText}>
+              {weightData.current > weightData.target
+                ? `${formatWeight(weightData.current - weightData.target)} to lose`
+                : weightData.current < weightData.target
+                ? `${formatWeight(weightData.target - weightData.current)} to gain`
+                : 'Goal reached!'}
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* CURRENT GOAL Section */}
@@ -983,6 +1059,58 @@ const ProgressScreen = () => {
           currentGoal={currentGoal}
           onSelect={handleSelectGoal}
         />
+        {/* Target Weight Modal */}
+        <Modal
+          visible={showTargetWeightModal}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setShowTargetWeightModal(false)}
+        >
+          <View style={styles.targetModalOverlay}>
+            <View style={styles.targetModalContainer}>
+              <View style={styles.targetModalHeader}>
+                <TouchableOpacity onPress={() => setShowTargetWeightModal(false)}>
+                  <X size={24} color={COLORS.text} />
+                </TouchableOpacity>
+                <Text style={styles.targetModalTitle}>Set Target Weight</Text>
+                <View style={{ width: 24 }} />
+              </View>
+
+              <View style={styles.targetModalContent}>
+                <Text style={styles.targetModalLabel}>
+                  What's your goal weight?
+                </Text>
+                <View style={styles.targetInputRow}>
+                  <TextInput
+                    style={styles.targetInput}
+                    value={tempTargetWeight}
+                    onChangeText={setTempTargetWeight}
+                    keyboardType="decimal-pad"
+                    placeholder="0"
+                    placeholderTextColor={COLORS.textMuted}
+                  />
+                  <Text style={styles.targetInputUnit}>
+                    {weightUnit === 'lbs' ? 'lbs' : 'kg'}
+                  </Text>
+                </View>
+                {weightData.current > 0 && (
+                  <Text style={styles.targetHint}>
+                    Current weight: {formatWeight(weightData.current)}
+                  </Text>
+                )}
+              </View>
+
+              <View style={styles.targetModalFooter}>
+                <TouchableOpacity
+                  style={styles.targetSaveBtn}
+                  onPress={handleSaveTargetWeight}
+                >
+                  <Text style={styles.targetSaveBtnText}>Save Target</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
         <Toast
           visible={toastVisible}
           message={toastMessage}
@@ -1014,6 +1142,59 @@ const ProgressScreen = () => {
         currentGoal={currentGoal}
         onSelect={handleSelectGoal}
       />
+      {/* Target Weight Modal */}
+      <Modal
+        visible={showTargetWeightModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowTargetWeightModal(false)}
+      >
+        <View style={styles.targetModalOverlay}>
+          <View style={styles.targetModalContainer}>
+            <View style={styles.targetModalHeader}>
+              <TouchableOpacity onPress={() => setShowTargetWeightModal(false)}>
+                <X size={24} color={COLORS.text} />
+              </TouchableOpacity>
+              <Text style={styles.targetModalTitle}>Set Target Weight</Text>
+              <View style={{ width: 24 }} />
+            </View>
+
+            <View style={styles.targetModalContent}>
+              <Text style={styles.targetModalLabel}>
+                What's your goal weight?
+              </Text>
+              <View style={styles.targetInputRow}>
+                <TextInput
+                  style={styles.targetInput}
+                  value={tempTargetWeight}
+                  onChangeText={setTempTargetWeight}
+                  keyboardType="decimal-pad"
+                  placeholder="0"
+                  placeholderTextColor={COLORS.textMuted}
+                />
+                <Text style={styles.targetInputUnit}>
+                  {weightUnit === 'lbs' ? 'lbs' : 'kg'}
+                </Text>
+              </View>
+              {weightData.current > 0 && (
+                <Text style={styles.targetHint}>
+                  Current weight: {formatWeight(weightData.current)}
+                </Text>
+              )}
+            </View>
+
+            <View style={styles.targetModalFooter}>
+              <TouchableOpacity
+                style={styles.targetSaveBtn}
+                onPress={handleSaveTargetWeight}
+              >
+                <Text style={styles.targetSaveBtnText}>Save Target</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <Toast
         visible={toastVisible}
         message={toastMessage}
@@ -1519,6 +1700,124 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     fontSize: 13,
     marginTop: 8,
+  },
+  // Target Weight Section
+  targetWeightCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    padding: 16,
+  },
+  targetWeightContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  targetWeightItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  targetWeightLabel: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  targetWeightValue: {
+    color: COLORS.text,
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  targetWeightArrow: {
+    paddingHorizontal: 16,
+  },
+  targetWeightProgress: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.surfaceLight,
+    alignItems: 'center',
+  },
+  targetWeightProgressText: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  // Target Weight Modal
+  targetModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'flex-end',
+  },
+  targetModalContainer: {
+    backgroundColor: COLORS.background,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+  },
+  targetModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.surfaceLight,
+  },
+  targetModalTitle: {
+    color: COLORS.text,
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  targetModalContent: {
+    padding: 24,
+    alignItems: 'center',
+  },
+  targetModalLabel: {
+    color: COLORS.text,
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 24,
+  },
+  targetInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  targetInput: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    textAlign: 'center',
+    minWidth: 120,
+  },
+  targetInputUnit: {
+    color: COLORS.textMuted,
+    fontSize: 24,
+    fontWeight: '600',
+  },
+  targetHint: {
+    color: COLORS.textMuted,
+    fontSize: 14,
+    marginTop: 16,
+  },
+  targetModalFooter: {
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.surfaceLight,
+  },
+  targetSaveBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  targetSaveBtnText: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 
