@@ -262,17 +262,20 @@ const EXERCISES = [
 
 const MUSCLE_GROUPS = ['All', 'Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps', 'Legs', 'Glutes', 'Calves', 'Core', 'Traps', 'Cardio', 'Full Body'];
 
-// Complementary muscle groups for superset suggestions
+// Same muscle group for superset suggestions (compound sets)
 const SUPERSET_PAIRS = {
-  'Biceps': ['Triceps'],
-  'Triceps': ['Biceps'],
-  'Chest': ['Back'],
-  'Back': ['Chest'],
-  'Shoulders': ['Biceps', 'Triceps'],
-  'Legs': ['Legs', 'Glutes', 'Calves'],
-  'Glutes': ['Legs', 'Core'],
-  'Core': ['Back'],
-  'Calves': ['Legs'],
+  'Biceps': ['Biceps'],
+  'Triceps': ['Triceps'],
+  'Chest': ['Chest'],
+  'Back': ['Back'],
+  'Shoulders': ['Shoulders'],
+  'Legs': ['Legs'],
+  'Glutes': ['Glutes'],
+  'Core': ['Core'],
+  'Calves': ['Calves'],
+  'Traps': ['Traps'],
+  'Cardio': ['Cardio'],
+  'Full Body': ['Full Body'],
 };
 
 const ExerciseSearchModal = ({ visible, onClose, onSelect, excludeExercises = [], isSuperset = false, currentExercise = null }) => {
@@ -284,14 +287,30 @@ const ExerciseSearchModal = ({ visible, onClose, onSelect, excludeExercises = []
   const currentMuscleGroup = currentExerciseData?.muscleGroup;
   const suggestedMuscleGroups = currentMuscleGroup ? SUPERSET_PAIRS[currentMuscleGroup] || [] : [];
 
-  // Get suggested exercises for superset
-  const suggestedExercises = isSuperset && suggestedMuscleGroups.length > 0
-    ? EXERCISES.filter(ex =>
-        suggestedMuscleGroups.includes(ex.muscleGroup) &&
-        !excludeExercises.includes(ex.name) &&
-        ex.name !== currentExercise
-      ).slice(0, 6)
-    : [];
+  // Get suggested exercises for superset - prioritize different equipment/type for variety
+  const suggestedExercises = (() => {
+    if (!isSuperset || suggestedMuscleGroups.length === 0) return [];
+
+    const sameMuscleExercises = EXERCISES.filter(ex =>
+      suggestedMuscleGroups.includes(ex.muscleGroup) &&
+      !excludeExercises.includes(ex.name) &&
+      ex.name !== currentExercise
+    );
+
+    // If we know the current exercise, prioritize different equipment/type
+    if (currentExerciseData) {
+      const differentEquipment = sameMuscleExercises.filter(
+        ex => ex.equipment !== currentExerciseData.equipment
+      );
+      const sameEquipment = sameMuscleExercises.filter(
+        ex => ex.equipment === currentExerciseData.equipment
+      );
+      // Show variety first, then same equipment
+      return [...differentEquipment.slice(0, 4), ...sameEquipment.slice(0, 2)].slice(0, 6);
+    }
+
+    return sameMuscleExercises.slice(0, 6);
+  })();
 
   const filteredExercises = EXERCISES.filter(ex => {
     const matchesSearch = ex.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -367,7 +386,7 @@ const ExerciseSearchModal = ({ visible, onClose, onSelect, excludeExercises = []
           <View style={styles.suggestedSection}>
             <Text style={styles.suggestedTitle}>SUGGESTED FOR SUPERSET</Text>
             <Text style={styles.suggestedSubtitle}>
-              Pairs well with {currentMuscleGroup}
+              Other {currentMuscleGroup} exercises
             </Text>
             {suggestedExercises.map((item) => (
               <TouchableOpacity
