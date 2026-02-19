@@ -466,13 +466,23 @@ const ProgressScreen = () => {
 
     if (user?.id) {
       try {
+        // Check if user_goals record exists to get the current goal value
+        const { data: existing } = await supabase
+          .from('user_goals')
+          .select('goal')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        // goal is required (NOT NULL) - use existing or default
+        const goalValue = existing?.goal || currentGoal || 'fitness';
+
         // Save to user_goals table (target_weight column)
         const { error } = await supabase
           .from('user_goals')
           .upsert({
             user_id: user.id,
             target_weight: weight,
-            goal: currentGoal || 'fitness', // goal is required
+            goal: goalValue,
           }, { onConflict: 'user_id' })
           .select();
 
