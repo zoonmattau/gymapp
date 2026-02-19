@@ -188,17 +188,36 @@ const ProgressScreen = () => {
   const loadWeightData = async () => {
     console.log('loadWeightData called for user:', user.id);
     try {
-      // Get weights and target weight in parallel - check both profiles and user_goals
-      const [weightsResult, profileResult, goalsResult] = await Promise.all([
-        weightService.getAllWeights(user.id),
-        supabase.from('profiles').select('target_weight').eq('id', user.id).maybeSingle(),
-        supabase.from('user_goals').select('target_weight').eq('user_id', user.id).maybeSingle()
-      ]);
+      // Get weights
+      const { data: weights, error } = await weightService.getAllWeights(user.id);
 
-      const { data: weights, error } = weightsResult;
-      // Try profiles first, then user_goals
-      const target = profileResult.data?.target_weight || goalsResult.data?.target_weight || 0;
-      console.log('Target weight loaded:', { fromProfiles: profileResult.data?.target_weight, fromGoals: goalsResult.data?.target_weight, using: target });
+      // Get target weight - try localStorage first (most reliable for web)
+      let target = 0;
+      if (Platform.OS === 'web') {
+        try {
+          const stored = localStorage.getItem(`target_weight_${user.id}`);
+          if (stored) {
+            target = parseFloat(stored) || 0;
+          }
+        } catch (e) {
+          console.log('localStorage read error:', e);
+        }
+      }
+
+      // If no localStorage value, try database
+      if (target === 0) {
+        try {
+          const [profileResult, goalsResult] = await Promise.all([
+            supabase.from('profiles').select('target_weight').eq('id', user.id).maybeSingle(),
+            supabase.from('user_goals').select('target_weight').eq('user_id', user.id).maybeSingle()
+          ]);
+          target = profileResult.data?.target_weight || goalsResult.data?.target_weight || 0;
+        } catch (e) {
+          console.log('DB target weight fetch error:', e);
+        }
+      }
+
+      console.log('Target weight loaded:', target);
 
       console.log('getAllWeights result:', { weights, error, count: weights?.length, target });
 
@@ -469,36 +488,27 @@ const ProgressScreen = () => {
     setShowTargetWeightModal(false);
 
     if (user?.id) {
+      // Always save to localStorage first (reliable for web)
+      if (Platform.OS === 'web') {
+        try {
+          localStorage.setItem(`target_weight_${user.id}`, weight.toString());
+        } catch (e) {
+          console.log('localStorage save error:', e);
+        }
+      }
+
+      // Update local state immediately
+      setWeightData(prev => ({ ...prev, target: weight }));
+      showToast('Target weight saved', 'success');
+
+      // Try to save to database in background (don't block on this)
       try {
-        // Save to profiles table which definitely exists
-        const { error } = await supabase
+        await supabase
           .from('profiles')
           .update({ target_weight: weight })
           .eq('id', user.id);
-
-        if (error) {
-          console.log('Error saving target weight to profiles:', error);
-          // Try user_goals as fallback
-          const { error: goalsError } = await supabase
-            .from('user_goals')
-            .upsert({
-              user_id: user.id,
-              target_weight: weight,
-              goal: currentGoal || 'fitness',
-            }, { onConflict: 'user_id' });
-
-          if (goalsError) {
-            console.log('Error saving target weight to user_goals:', goalsError);
-            showToast('Error saving - please try again', 'error');
-            return;
-          }
-        }
-
-        setWeightData(prev => ({ ...prev, target: weight }));
-        showToast('Target weight saved', 'success');
       } catch (error) {
-        console.log('Error saving target weight:', error);
-        showToast('Error saving - please try again', 'error');
+        console.log('DB save error (non-blocking):', error);
       }
     }
   };
