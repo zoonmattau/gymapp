@@ -124,12 +124,13 @@ const LogSetModal = ({
 
   const handleSave = () => {
     const setData = {
-      weight: parseFloat(weight) || 0,
+      weight: weight === 'BW' ? 'BW' : (parseFloat(weight) || 0),
+      isBodyweight: weight === 'BW',
       reps: parseInt(reps) || 0,
       rpe,
       setType,
       supersetExercise: setType === 'superset' ? supersetExercise : null,
-      supersetWeight: setType === 'superset' ? (parseFloat(supersetWeight) || 0) : null,
+      supersetWeight: setType === 'superset' ? (supersetWeight === 'BW' ? 'BW' : (parseFloat(supersetWeight) || 0)) : null,
       supersetReps: setType === 'superset' ? (parseInt(supersetReps) || 0) : null,
       drops: setType === 'dropset' ? drops : null,
     };
@@ -138,7 +139,7 @@ const LogSetModal = ({
   };
 
   const hasValidDrops = setType === 'dropset' && drops.some(d => parseFloat(d.weight) > 0 && parseInt(d.reps) > 0);
-  const hasValidMainSet = parseFloat(weight) > 0 && parseInt(reps) > 0;
+  const hasValidMainSet = (parseFloat(weight) > 0 || weight === 'BW') && parseInt(reps) > 0;
   const canSave = hasValidMainSet || hasValidDrops;
 
   if (!visible) return null;
@@ -193,6 +194,21 @@ const LogSetModal = ({
                 <Plus size={24} color={COLORS.text} />
               </TouchableOpacity>
             </View>
+            {/* Bodyweight Option */}
+            <TouchableOpacity
+              style={[
+                styles.bodyweightButton,
+                weight === 'BW' && styles.bodyweightButtonSelected,
+              ]}
+              onPress={() => setWeight(weight === 'BW' ? '' : 'BW')}
+            >
+              <Text style={[
+                styles.bodyweightText,
+                weight === 'BW' && styles.bodyweightTextSelected,
+              ]}>
+                Bodyweight
+              </Text>
+            </TouchableOpacity>
 
             {/* Reps Input */}
             <Text style={styles.inputLabel}>Reps</Text>
@@ -381,6 +397,21 @@ const LogSetModal = ({
                         <Plus size={24} color={COLORS.text} />
                       </TouchableOpacity>
                     </View>
+                    {/* Bodyweight Option for Superset */}
+                    <TouchableOpacity
+                      style={[
+                        styles.bodyweightButton,
+                        supersetWeight === 'BW' && styles.bodyweightButtonSelected,
+                      ]}
+                      onPress={() => setSupersetWeight(supersetWeight === 'BW' ? '' : 'BW')}
+                    >
+                      <Text style={[
+                        styles.bodyweightText,
+                        supersetWeight === 'BW' && styles.bodyweightTextSelected,
+                      ]}>
+                        Bodyweight
+                      </Text>
+                    </TouchableOpacity>
 
                     <Text style={styles.inputLabel}>Reps</Text>
                     <View style={styles.inputRow}>
@@ -588,6 +619,27 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
     textAlign: 'center',
+  },
+
+  // Bodyweight
+  bodyweightButton: {
+    alignSelf: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: COLORS.surface,
+    marginBottom: 8,
+  },
+  bodyweightButtonSelected: {
+    backgroundColor: COLORS.primary,
+  },
+  bodyweightText: {
+    color: COLORS.textMuted,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  bodyweightTextSelected: {
+    color: COLORS.text,
   },
 
   // RPE
