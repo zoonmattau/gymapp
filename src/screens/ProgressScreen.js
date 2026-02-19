@@ -1130,8 +1130,9 @@ const ProgressScreen = () => {
                     <span style={{ color: COLORS.text, fontSize: 20, fontWeight: 'bold' }}>−</span>
                   </div>
                   <input
-                    type="number"
-                    step="0.1"
+                    type="text"
+                    inputMode="decimal"
+                    pattern="[0-9]*\.?[0-9]*"
                     style={{
                       backgroundColor: COLORS.surface,
                       borderRadius: 10,
@@ -1143,8 +1144,6 @@ const ProgressScreen = () => {
                       width: 100,
                       border: 'none',
                       outline: 'none',
-                      WebkitAppearance: 'none',
-                      MozAppearance: 'textfield',
                     }}
                     value={tempTargetWeight}
                     onChange={(e) => setTempTargetWeight(e.target.value)}
