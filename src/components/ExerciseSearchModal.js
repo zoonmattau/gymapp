@@ -381,41 +381,41 @@ const ExerciseSearchModal = ({ visible, onClose, onSelect, excludeExercises = []
           )}
         />
 
-        {/* Suggested Exercises for Superset */}
-        {isSuperset && suggestedExercises.length > 0 && searchQuery === '' && (
-          <View style={styles.suggestedSection}>
-            <Text style={styles.suggestedTitle}>SUGGESTED FOR SUPERSET</Text>
-            <Text style={styles.suggestedSubtitle}>
-              Other {currentMuscleGroup} exercises
-            </Text>
-            {suggestedExercises.map((item) => (
-              <TouchableOpacity
-                key={item.name}
-                style={[styles.exerciseItem, styles.suggestedItem]}
-                onPress={() => handleSelect(item)}
-              >
-                <View style={[styles.exerciseIcon, styles.suggestedIcon]}>
-                  <Dumbbell size={18} color="#D97706" />
-                </View>
-                <View style={styles.exerciseInfo}>
-                  <Text style={styles.exerciseName}>{item.name}</Text>
-                  <Text style={styles.exerciseMeta}>
-                    {item.muscleGroup} • {item.equipment}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-            <View style={styles.divider}>
-              <Text style={styles.dividerText}>ALL EXERCISES</Text>
-            </View>
-          </View>
-        )}
-
         {/* Exercise List */}
         <FlatList
           data={filteredExercises}
           keyExtractor={(item) => item.name}
           style={styles.exerciseList}
+          ListHeaderComponent={
+            isSuperset && suggestedExercises.length > 0 && searchQuery === '' ? (
+              <View style={styles.suggestedSection}>
+                <Text style={styles.suggestedTitle}>SUGGESTED FOR SUPERSET</Text>
+                <Text style={styles.suggestedSubtitle}>
+                  Other {currentMuscleGroup} exercises
+                </Text>
+                {suggestedExercises.map((item) => (
+                  <TouchableOpacity
+                    key={item.name}
+                    style={[styles.exerciseItem, styles.suggestedItem]}
+                    onPress={() => handleSelect(item)}
+                  >
+                    <View style={[styles.exerciseIcon, styles.suggestedIcon]}>
+                      <Dumbbell size={18} color="#D97706" />
+                    </View>
+                    <View style={styles.exerciseInfo}>
+                      <Text style={styles.exerciseName}>{item.name}</Text>
+                      <Text style={styles.exerciseMeta}>
+                        {item.muscleGroup} • {item.equipment}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+                <View style={styles.divider}>
+                  <Text style={styles.dividerText}>ALL EXERCISES</Text>
+                </View>
+              </View>
+            ) : null
+          }
           renderItem={({ item }) => (
             <TouchableOpacity
               style={styles.exerciseItem}
