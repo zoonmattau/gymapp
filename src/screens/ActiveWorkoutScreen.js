@@ -28,7 +28,7 @@ import Toast from '../components/Toast';
 import ConfirmModal from '../components/ConfirmModal';
 import { useAuth } from '../contexts/AuthContext';
 import { workoutService } from '../services/workoutService';
-import { setPausedWorkout } from '../utils/workoutStore';
+import { setPausedWorkout, clearPausedWorkout } from '../utils/workoutStore';
 
 // Get RPE color on a green to red scale (0-10)
 const getRpeColor = (rpe) => {
@@ -92,6 +92,53 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
     setToastType(type);
     setToastVisible(true);
   };
+
+  // Auto-save workout progress to localStorage (web only)
+  useEffect(() => {
+    if (Platform.OS === 'web' && exercises.length > 0) {
+      const workoutData = {
+        workoutName,
+        workout,
+        sessionId,
+        exercises,
+        elapsedTime: workoutTime,
+        workoutStartTime,
+        savedAt: Date.now(),
+      };
+      try {
+        localStorage.setItem('activeWorkout', JSON.stringify(workoutData));
+      } catch (e) {
+        console.log('Error auto-saving workout:', e);
+      }
+    }
+  }, [exercises, workoutName, sessionId, workoutTime]);
+
+  // Save before browser closes (web only)
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      const handleBeforeUnload = (e) => {
+        if (exercises.length > 0) {
+          const workoutData = {
+            workoutName,
+            workout,
+            sessionId: sessionIdRef.current,
+            exercises,
+            elapsedTime: Math.floor((Date.now() - workoutStartTime) / 1000),
+            workoutStartTime,
+            savedAt: Date.now(),
+          };
+          try {
+            localStorage.setItem('activeWorkout', JSON.stringify(workoutData));
+          } catch (err) {
+            console.log('Error saving on unload:', err);
+          }
+        }
+      };
+
+      window.addEventListener('beforeunload', handleBeforeUnload);
+      return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }
+  }, [exercises, workoutName, workout, workoutStartTime]);
 
   // Create a workout session on mount if one doesn't exist
   useEffect(() => {
@@ -475,6 +522,9 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
       }
     }
 
+    // Clear saved workout from localStorage
+    clearSavedWorkout();
+
     // Navigate AFTER save completes
     if (Platform.OS === 'web') {
       window.location.href = '/';
@@ -493,6 +543,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
 
   const handleConfirmCancel = () => {
     setShowCancelModal(false);
+    clearSavedWorkout();
     navigation.goBack();
   };
 
