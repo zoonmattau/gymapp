@@ -552,7 +552,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
     }
 
     // Clear saved workout from localStorage
-    clearSavedWorkout();
+    clearPausedWorkout();
 
     // Navigate AFTER save completes
     if (Platform.OS === 'web') {
@@ -572,7 +572,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
 
   const handleConfirmCancel = () => {
     setShowCancelModal(false);
-    clearSavedWorkout();
+    clearPausedWorkout();
     navigation.goBack();
   };
 
@@ -606,7 +606,6 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
       <View style={styles.header}>
         <TouchableOpacity
           onPress={cancelWorkout}
-          onClick={Platform.OS === 'web' ? cancelWorkout : undefined}
           style={styles.backButton}
         >
           <ArrowLeft size={24} color={COLORS.text} />
@@ -629,7 +628,6 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
           <TouchableOpacity
             style={[styles.finishButton, isSaving && styles.buttonDisabled]}
             onPress={finishWorkout}
-            onClick={Platform.OS === 'web' ? finishWorkout : undefined}
             disabled={isSaving}
           >
             <Text style={styles.finishButtonText}>Finish</Text>
