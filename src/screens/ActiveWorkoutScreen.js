@@ -513,14 +513,18 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
     const currentWorkoutTime = workoutTime;
     const currentUserId = user?.id;
 
-    const completedSets = currentExercises.reduce(
+    const totalSetsCount = currentExercises.reduce(
+      (acc, ex) => acc + ex.sets.length, 0
+    );
+    const completedSetsCount = currentExercises.reduce(
       (acc, ex) => acc + ex.sets.filter(s => s.completed).length, 0
     );
     let totalVolume = 0;
     currentExercises.forEach(ex => {
       ex.sets.forEach(set => {
         if (set.completed && set.weight && set.reps) {
-          totalVolume += parseFloat(set.weight) * parseInt(set.reps);
+          const weight = set.weight === 'BW' ? 0 : parseFloat(set.weight) || 0;
+          totalVolume += weight * parseInt(set.reps);
         }
       });
     });
@@ -533,7 +537,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
             if (set.completed) {
               await workoutService.logSet(currentSessionId, null, exercise.name, {
                 setNumber: set.id,
-                weight: parseFloat(set.weight) || 0,
+                weight: set.weight === 'BW' ? 0 : parseFloat(set.weight) || 0,
                 reps: parseInt(set.reps) || 0,
                 rpe: set.rpe || null,
                 isWarmup: false,
@@ -546,7 +550,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
           durationMinutes: Math.floor(currentWorkoutTime / 60),
           totalVolume,
           exerciseCount: currentExercises.length,
-          totalSets: completedSets,
+          totalSets: completedSetsCount,
         });
       } catch (err) {
         console.error('Error saving workout:', err);
@@ -556,12 +560,20 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
     // Clear saved workout from localStorage
     clearPausedWorkout();
 
-    // Navigate AFTER save completes
-    if (Platform.OS === 'web') {
-      window.location.href = '/';
-    } else {
-      navigation.goBack();
-    }
+    // Build summary data for WorkoutSummaryScreen
+    const summaryData = {
+      sessionId: currentSessionId,
+      workoutName: workoutName || 'Workout',
+      duration: currentWorkoutTime,
+      totalSets: totalSetsCount,
+      completedSets: completedSetsCount,
+      exercises: currentExercises,
+      totalVolume: totalVolume,
+      newPRs: [], // TODO: Calculate PRs by comparing to history
+    };
+
+    // Navigate to WorkoutSummaryScreen
+    navigation.replace('WorkoutSummary', { summary: summaryData });
   };
 
   const handleConfirmFinish = () => {
