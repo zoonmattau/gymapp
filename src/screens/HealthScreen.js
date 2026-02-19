@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -156,14 +157,18 @@ const HealthScreen = () => {
     color: '#7C2D2D', // Dark red/maroon
   };
 
-  useEffect(() => {
-    if (user?.id) {
-      loadTodayNutrition();
-      loadSupplements();
-      loadSleepData();
-      loadSleepHistory();
-    }
-  }, [user]);
+  // Reload data when screen comes into focus (syncs with HomeScreen)
+  useFocusEffect(
+    useCallback(() => {
+      if (user?.id) {
+        loadTodayNutrition();
+        loadWaterEntries();
+        loadSupplements();
+        loadSleepData();
+        loadSleepHistory();
+      }
+    }, [user])
+  );
 
   useEffect(() => {
     if (user?.id) {
@@ -196,6 +201,22 @@ const HealthScreen = () => {
       }
     } catch (error) {
       console.log('Error loading nutrition:', error);
+    }
+  };
+
+  const loadWaterEntries = async () => {
+    try {
+      const { data } = await nutritionService.getWaterLogs(user.id);
+      if (data) {
+        setWaterEntries(data.map(log => ({
+          id: log.id,
+          amount: log.amount_ml,
+          timestamp: new Date(log.created_at),
+          log_date: log.log_date,
+        })));
+      }
+    } catch (error) {
+      console.log('Error loading water entries:', error);
     }
   };
 
@@ -325,26 +346,43 @@ const HealthScreen = () => {
   };
 
   const handleAddWater = async (amount) => {
-    const newEntry = {
-      id: Date.now().toString(),
-      amount,
-      timestamp: new Date(),
-    };
-    setWaterEntries(prev => [newEntry, ...prev]);
+    // Optimistic update
     setWaterIntake(prev => Math.min(prev + amount, 10000));
 
     if (user?.id) {
       try {
         await nutritionService.logWater(user.id, amount);
+        // Reload entries to get the actual entry from database
+        await loadWaterEntries();
       } catch (error) {
         console.log('Error saving water:', error);
+        // Revert on error
+        setWaterIntake(prev => prev - amount);
       }
     }
   };
 
-  const handleDeleteWater = (entry) => {
+  const handleDeleteWater = async (entry) => {
+    // Optimistic update
     setWaterEntries(prev => prev.filter(e => e.id !== entry.id));
     setWaterIntake(prev => Math.max(0, prev - entry.amount));
+
+    if (user?.id) {
+      try {
+        const { error } = await nutritionService.deleteWaterLog(user.id, entry.id, entry.log_date);
+        if (error) {
+          console.log('Error deleting water entry:', error);
+          // Reload to restore state on error
+          await loadWaterEntries();
+          await loadTodayNutrition();
+        }
+      } catch (error) {
+        console.log('Error deleting water:', error);
+        // Reload to restore state on error
+        await loadWaterEntries();
+        await loadTodayNutrition();
+      }
+    }
   };
 
   const formatWaterAmount = (ml) => {

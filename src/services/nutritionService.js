@@ -220,9 +220,28 @@ export const nutritionService = {
       .from('water_logs')
       .select('*')
       .eq('user_id', userId)
-      .eq('log_date', logDate);
+      .eq('log_date', logDate)
+      .order('created_at', { ascending: false });
 
     return { data, error };
+  },
+
+  // Delete a water log entry
+  async deleteWaterLog(userId, logId, date = null) {
+    const logDate = date || getLocalDateString();
+
+    const { error } = await supabase
+      .from('water_logs')
+      .delete()
+      .eq('id', logId)
+      .eq('user_id', userId);
+
+    if (!error) {
+      // Recalculate the daily total after deletion
+      await this.recalculateWaterTotal(userId, logDate);
+    }
+
+    return { error };
   },
 
   // Get user supplements
