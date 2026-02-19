@@ -188,14 +188,17 @@ const ProgressScreen = () => {
   const loadWeightData = async () => {
     console.log('loadWeightData called for user:', user.id);
     try {
-      // Get weights and target weight in parallel
-      const [weightsResult, goalsResult] = await Promise.all([
+      // Get weights and target weight in parallel - check both profiles and user_goals
+      const [weightsResult, profileResult, goalsResult] = await Promise.all([
         weightService.getAllWeights(user.id),
+        supabase.from('profiles').select('target_weight').eq('id', user.id).maybeSingle(),
         supabase.from('user_goals').select('target_weight').eq('user_id', user.id).maybeSingle()
       ]);
 
       const { data: weights, error } = weightsResult;
-      const target = goalsResult.data?.target_weight || 0;
+      // Try profiles first, then user_goals
+      const target = profileResult.data?.target_weight || goalsResult.data?.target_weight || 0;
+      console.log('Target weight loaded:', { fromProfiles: profileResult.data?.target_weight, fromGoals: goalsResult.data?.target_weight, using: target });
 
       console.log('getAllWeights result:', { weights, error, count: weights?.length, target });
 
@@ -467,41 +470,32 @@ const ProgressScreen = () => {
 
     if (user?.id) {
       try {
-        // First check if user_goals record exists
-        const { data: existing } = await supabase
-          .from('user_goals')
-          .select('*')
-          .eq('user_id', user.id)
-          .maybeSingle();
+        // Save to profiles table which definitely exists
+        const { error } = await supabase
+          .from('profiles')
+          .update({ target_weight: weight })
+          .eq('id', user.id);
 
-        let saveError = null;
-
-        if (existing) {
-          // Update existing record
-          const { error } = await supabase
+        if (error) {
+          console.log('Error saving target weight to profiles:', error);
+          // Try user_goals as fallback
+          const { error: goalsError } = await supabase
             .from('user_goals')
-            .update({ target_weight: weight })
-            .eq('user_id', user.id);
-          saveError = error;
-        } else {
-          // Insert new record
-          const { error } = await supabase
-            .from('user_goals')
-            .insert({
+            .upsert({
               user_id: user.id,
               target_weight: weight,
-              goal: 'fitness',
-            });
-          saveError = error;
+              goal: currentGoal || 'fitness',
+            }, { onConflict: 'user_id' });
+
+          if (goalsError) {
+            console.log('Error saving target weight to user_goals:', goalsError);
+            showToast('Error saving - please try again', 'error');
+            return;
+          }
         }
 
-        if (saveError) {
-          console.log('Error saving target weight:', saveError);
-          showToast('Error saving - please try again', 'error');
-        } else {
-          setWeightData(prev => ({ ...prev, target: weight }));
-          showToast('Target weight saved', 'success');
-        }
+        setWeightData(prev => ({ ...prev, target: weight }));
+        showToast('Target weight saved', 'success');
       } catch (error) {
         console.log('Error saving target weight:', error);
         showToast('Error saving - please try again', 'error');
