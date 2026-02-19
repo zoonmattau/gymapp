@@ -726,6 +726,8 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
         }}
         onSelect={handleExerciseSelect}
         excludeExercises={exercises.map(ex => ex.name)}
+        isSuperset={!!selectedSetToLog}
+        currentExercise={selectedSetToLog?.exerciseName}
       />
 
       {/* Log Set Modal */}

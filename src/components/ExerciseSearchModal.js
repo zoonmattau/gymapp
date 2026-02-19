@@ -262,9 +262,36 @@ const EXERCISES = [
 
 const MUSCLE_GROUPS = ['All', 'Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps', 'Legs', 'Glutes', 'Calves', 'Core', 'Traps', 'Cardio', 'Full Body'];
 
-const ExerciseSearchModal = ({ visible, onClose, onSelect, excludeExercises = [] }) => {
+// Complementary muscle groups for superset suggestions
+const SUPERSET_PAIRS = {
+  'Biceps': ['Triceps'],
+  'Triceps': ['Biceps'],
+  'Chest': ['Back'],
+  'Back': ['Chest'],
+  'Shoulders': ['Biceps', 'Triceps'],
+  'Legs': ['Legs', 'Glutes', 'Calves'],
+  'Glutes': ['Legs', 'Core'],
+  'Core': ['Back'],
+  'Calves': ['Legs'],
+};
+
+const ExerciseSearchModal = ({ visible, onClose, onSelect, excludeExercises = [], isSuperset = false, currentExercise = null }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMuscle, setSelectedMuscle] = useState('All');
+
+  // Get the muscle group of the current exercise for superset suggestions
+  const currentExerciseData = currentExercise ? EXERCISES.find(e => e.name === currentExercise) : null;
+  const currentMuscleGroup = currentExerciseData?.muscleGroup;
+  const suggestedMuscleGroups = currentMuscleGroup ? SUPERSET_PAIRS[currentMuscleGroup] || [] : [];
+
+  // Get suggested exercises for superset
+  const suggestedExercises = isSuperset && suggestedMuscleGroups.length > 0
+    ? EXERCISES.filter(ex =>
+        suggestedMuscleGroups.includes(ex.muscleGroup) &&
+        !excludeExercises.includes(ex.name) &&
+        ex.name !== currentExercise
+      ).slice(0, 6)
+    : [];
 
   const filteredExercises = EXERCISES.filter(ex => {
     const matchesSearch = ex.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -286,7 +313,7 @@ const ExerciseSearchModal = ({ visible, onClose, onSelect, excludeExercises = []
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.title}>Add Exercise</Text>
+            <Text style={styles.title}>{isSuperset ? 'Select Superset Exercise' : 'Add Exercise'}</Text>
             <Text style={styles.exerciseCount}>{filteredExercises.length} exercises</Text>
           </View>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
@@ -334,6 +361,36 @@ const ExerciseSearchModal = ({ visible, onClose, onSelect, excludeExercises = []
             </TouchableOpacity>
           )}
         />
+
+        {/* Suggested Exercises for Superset */}
+        {isSuperset && suggestedExercises.length > 0 && searchQuery === '' && (
+          <View style={styles.suggestedSection}>
+            <Text style={styles.suggestedTitle}>SUGGESTED FOR SUPERSET</Text>
+            <Text style={styles.suggestedSubtitle}>
+              Pairs well with {currentMuscleGroup}
+            </Text>
+            {suggestedExercises.map((item) => (
+              <TouchableOpacity
+                key={item.name}
+                style={[styles.exerciseItem, styles.suggestedItem]}
+                onPress={() => handleSelect(item)}
+              >
+                <View style={[styles.exerciseIcon, styles.suggestedIcon]}>
+                  <Dumbbell size={18} color="#D97706" />
+                </View>
+                <View style={styles.exerciseInfo}>
+                  <Text style={styles.exerciseName}>{item.name}</Text>
+                  <Text style={styles.exerciseMeta}>
+                    {item.muscleGroup} • {item.equipment}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+            <View style={styles.divider}>
+              <Text style={styles.dividerText}>ALL EXERCISES</Text>
+            </View>
+          </View>
+        )}
 
         {/* Exercise List */}
         <FlatList
@@ -476,6 +533,42 @@ const styles = StyleSheet.create({
   emptyText: {
     color: COLORS.textMuted,
     fontSize: 16,
+  },
+  suggestedSection: {
+    paddingHorizontal: 16,
+    marginTop: 12,
+  },
+  suggestedTitle: {
+    color: '#D97706',
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  suggestedSubtitle: {
+    color: COLORS.textMuted,
+    fontSize: 13,
+    marginBottom: 12,
+  },
+  suggestedItem: {
+    borderWidth: 1,
+    borderColor: '#D97706',
+  },
+  suggestedIcon: {
+    backgroundColor: '#D9770620',
+  },
+  divider: {
+    marginTop: 16,
+    marginBottom: 8,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  dividerText: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.5,
   },
 });
 
