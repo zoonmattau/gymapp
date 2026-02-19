@@ -28,16 +28,7 @@ import Toast from '../components/Toast';
 import ConfirmModal from '../components/ConfirmModal';
 import { useAuth } from '../contexts/AuthContext';
 import { workoutService } from '../services/workoutService';
-import { setPausedWorkout, clearPausedWorkout } from '../utils/workoutStore';
-
-// Get RPE color on a green to red scale (0-10)
-const getRpeColor = (rpe) => {
-  const value = parseFloat(rpe) || 0;
-  const clamped = Math.min(10, Math.max(0, value));
-  // Green (120°) to Red (0°) in HSL
-  const hue = 120 - (clamped / 10) * 120;
-  return `hsl(${hue}, 70%, 45%)`;
-};
+import { setPausedWorkout } from '../utils/workoutStore';
 
 const ActiveWorkoutScreen = ({ route, navigation }) => {
   const { user, profile } = useAuth();
@@ -83,7 +74,6 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
   const [setToEdit, setSetToEdit] = useState(null); // { exerciseId, setId, ... }
   const [setToDelete, setSetToDelete] = useState(null); // { exerciseId, setId }
   const [isSaving, setIsSaving] = useState(false);
-  const [exerciseHistory, setExerciseHistory] = useState({}); // { exerciseName: { lastWeight, lastReps } }
   const timerRef = useRef(null);
   const restTimerRef = useRef(null);
   const sessionIdRef = useRef(sessionId);
@@ -93,71 +83,6 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
     setToastType(type);
     setToastVisible(true);
   };
-
-  // Auto-save workout progress to localStorage (web only)
-  useEffect(() => {
-    if (Platform.OS === 'web' && exercises.length > 0) {
-      const workoutData = {
-        workoutName,
-        workout,
-        sessionId,
-        exercises,
-        elapsedTime: workoutTime,
-        workoutStartTime,
-        savedAt: Date.now(),
-      };
-      try {
-        localStorage.setItem('activeWorkout', JSON.stringify(workoutData));
-      } catch (e) {
-        console.log('Error auto-saving workout:', e);
-      }
-    }
-  }, [exercises, workoutName, sessionId, workoutTime]);
-
-  // Save before browser closes (web only)
-  useEffect(() => {
-    if (Platform.OS === 'web') {
-      const handleBeforeUnload = (e) => {
-        if (exercises.length > 0) {
-          const workoutData = {
-            workoutName,
-            workout,
-            sessionId: sessionIdRef.current,
-            exercises,
-            elapsedTime: Math.floor((Date.now() - workoutStartTime) / 1000),
-            workoutStartTime,
-            savedAt: Date.now(),
-          };
-          try {
-            localStorage.setItem('activeWorkout', JSON.stringify(workoutData));
-          } catch (err) {
-            console.log('Error saving on unload:', err);
-          }
-        }
-      };
-
-      window.addEventListener('beforeunload', handleBeforeUnload);
-      return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-    }
-  }, [exercises, workoutName, workout, workoutStartTime]);
-
-  // Load exercise history for this user (last weight/reps for each exercise)
-  useEffect(() => {
-    const loadExerciseHistory = async () => {
-      if (user?.id) {
-        try {
-          const { data } = await workoutService.getExerciseHistory(user.id);
-          if (data) {
-            setExerciseHistory(data);
-            console.log('Loaded exercise history:', Object.keys(data).length, 'exercises');
-          }
-        } catch (err) {
-          console.log('Error loading exercise history:', err);
-        }
-      }
-    };
-    loadExerciseHistory();
-  }, [user?.id]);
 
   // Create a workout session on mount if one doesn't exist
   useEffect(() => {
@@ -328,25 +253,15 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
     const exercise = exercises.find(ex => ex.id === exerciseId);
     const nextSetNumber = exercise ? exercise.sets.length + 1 : 1;
 
-    // Get the weight from the last set in this workout (if any)
+    // Get the weight from the last set (if any)
     const lastSet = exercise?.sets?.length > 0 ? exercise.sets[exercise.sets.length - 1] : null;
-
-    // If no sets in current workout, check exercise history from previous workouts
-    let previousWeight = lastSet?.weight || '';
-    let previousReps = lastSet?.reps || '';
-
-    if (!previousWeight && exerciseHistory[exerciseName]) {
-      const history = exerciseHistory[exerciseName];
-      previousWeight = history.lastWeight ? history.lastWeight.toString() : '';
-      previousReps = history.lastReps ? history.lastReps.toString() : '';
-    }
+    const previousWeight = lastSet?.weight || '';
 
     setSelectedSetToLog({
       exerciseId,
       exerciseName,
       setNumber: nextSetNumber,
       weight: previousWeight,
-      reps: previousReps,
       isNewSet: true,
     });
     setShowLogSetModal(true);
@@ -551,9 +466,6 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
       }
     }
 
-    // Clear saved workout from localStorage
-    clearPausedWorkout();
-
     // Navigate AFTER save completes
     if (Platform.OS === 'web') {
       window.location.href = '/';
@@ -572,7 +484,6 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
 
   const handleConfirmCancel = () => {
     setShowCancelModal(false);
-    clearPausedWorkout();
     navigation.goBack();
   };
 
@@ -721,7 +632,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
 
                             {/* RPE Badge */}
                             {set.rpe && (
-                              <View style={[styles.setBadge, { backgroundColor: getRpeColor(set.rpe) }]}>
+                              <View style={[styles.setBadge, styles.rpeBadge]}>
                                 <Text style={styles.setBadgeText}>RPE {set.rpe}</Text>
                               </View>
                             )}
@@ -806,8 +717,6 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
         }}
         onSelect={handleExerciseSelect}
         excludeExercises={exercises.map(ex => ex.name)}
-        isSuperset={!!selectedSetToLog}
-        currentExercise={selectedSetToLog?.exerciseName}
       />
 
       {/* Log Set Modal */}
