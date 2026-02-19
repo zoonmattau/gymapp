@@ -114,7 +114,12 @@ const LogSetModal = ({
   };
 
   const addDrop = () => {
-    setDrops([...drops, { weight: '', reps: '' }]);
+    // Calculate suggested values from previous drop (or main set for first drop)
+    const lastDrop = drops[drops.length - 1];
+    const prevWeight = parseFloat(lastDrop.weight) || parseFloat(weight) || 0;
+    const prevReps = lastDrop.reps || reps || '';
+    const suggestedWeight = Math.round((prevWeight * 0.75) * 2) / 2; // Round to nearest 0.5
+    setDrops([...drops, { weight: suggestedWeight > 0 ? suggestedWeight.toString() : '', reps: prevReps }]);
   };
 
   const handleSave = () => {
@@ -295,7 +300,18 @@ const LogSetModal = ({
                   styles.setTypeButton,
                   setType === 'dropset' && styles.setTypeDropsetSelected,
                 ]}
-                onPress={() => setSetType(setType === 'dropset' ? null : 'dropset')}
+                onPress={() => {
+                  if (setType === 'dropset') {
+                    setSetType(null);
+                  } else {
+                    setSetType('dropset');
+                    // Pre-populate first drop with 75% weight and same reps
+                    const mainWeight = parseFloat(weight) || 0;
+                    const mainReps = reps || '';
+                    const suggestedWeight = Math.round((mainWeight * 0.75) * 2) / 2;
+                    setDrops([{ weight: suggestedWeight > 0 ? suggestedWeight.toString() : '', reps: mainReps }]);
+                  }
+                }}
               >
                 <Text style={[
                   styles.setTypeText,
