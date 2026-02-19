@@ -1109,38 +1109,39 @@ const ProgressScreen = () => {
                 <Text style={styles.targetModalLabel}>
                   What's your goal weight?
                 </Text>
-                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, width: '100%' }}>
                   <div
                     style={{
-                      width: 48,
-                      height: 48,
-                      borderRadius: 12,
+                      width: 44,
+                      height: 44,
+                      borderRadius: 10,
                       backgroundColor: COLORS.surface,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       cursor: 'pointer',
+                      flexShrink: 0,
                     }}
                     onClick={() => {
                       const current = parseFloat(tempTargetWeight) || 0;
                       setTempTargetWeight((current - 0.1).toFixed(1));
                     }}
                   >
-                    <Text style={{ color: COLORS.text, fontSize: 24, fontWeight: 'bold' }}>−</Text>
+                    <span style={{ color: COLORS.text, fontSize: 20, fontWeight: 'bold' }}>−</span>
                   </div>
                   <input
                     type="number"
                     step="0.1"
                     style={{
-                      backgroundColor: COLORS.background,
-                      borderRadius: 12,
-                      padding: '16px 24px',
-                      fontSize: 32,
+                      backgroundColor: COLORS.surface,
+                      borderRadius: 10,
+                      padding: '12px 16px',
+                      fontSize: 28,
                       fontWeight: 'bold',
                       color: COLORS.text,
                       textAlign: 'center',
-                      minWidth: 120,
-                      border: `1px solid ${COLORS.surface}`,
+                      width: 100,
+                      border: 'none',
                       outline: 'none',
                       WebkitAppearance: 'none',
                       MozAppearance: 'textfield',
@@ -1151,25 +1152,26 @@ const ProgressScreen = () => {
                   />
                   <div
                     style={{
-                      width: 48,
-                      height: 48,
-                      borderRadius: 12,
+                      width: 44,
+                      height: 44,
+                      borderRadius: 10,
                       backgroundColor: COLORS.surface,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       cursor: 'pointer',
+                      flexShrink: 0,
                     }}
                     onClick={() => {
                       const current = parseFloat(tempTargetWeight) || 0;
                       setTempTargetWeight((current + 0.1).toFixed(1));
                     }}
                   >
-                    <Text style={{ color: COLORS.text, fontSize: 24, fontWeight: 'bold' }}>+</Text>
+                    <span style={{ color: COLORS.text, fontSize: 20, fontWeight: 'bold' }}>+</span>
                   </div>
-                  <Text style={styles.targetInputUnit}>
+                  <span style={{ color: COLORS.textMuted, fontSize: 20, fontWeight: '600', marginLeft: 4 }}>
                     {weightUnit === 'lbs' ? 'lbs' : 'kg'}
-                  </Text>
+                  </span>
                 </div>
                 {weightData.current > 0 && (
                   <Text style={{ color: COLORS.textMuted, fontSize: 14, marginTop: 16 }}>
