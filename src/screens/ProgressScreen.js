@@ -1076,15 +1076,34 @@ const ProgressScreen = () => {
           currentGoal={currentGoal}
           onSelect={handleSelectGoal}
         />
-        {/* Target Weight Modal */}
-        <Modal
-          visible={showTargetWeightModal}
-          animationType="slide"
-          transparent={true}
-          onRequestClose={() => setShowTargetWeightModal(false)}
-        >
-          <View style={styles.targetModalOverlay}>
-            <View style={styles.targetModalContainer}>
+        {/* Target Weight Modal - Web Version */}
+        {showTargetWeightModal && (
+          <div
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.7)',
+              display: 'flex',
+              alignItems: 'flex-end',
+              justifyContent: 'center',
+              zIndex: 1000,
+            }}
+            onClick={() => setShowTargetWeightModal(false)}
+          >
+            <div
+              style={{
+                backgroundColor: COLORS.background,
+                borderTopLeftRadius: 24,
+                borderTopRightRadius: 24,
+                width: '100%',
+                maxWidth: 500,
+                margin: '0 auto',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
               <View style={styles.targetModalHeader}>
                 <TouchableOpacity onPress={() => setShowTargetWeightModal(false)}>
                   <X size={24} color={COLORS.text} />
@@ -1125,9 +1144,9 @@ const ProgressScreen = () => {
                   <Text style={styles.targetSaveBtnText}>Save Target</Text>
                 </TouchableOpacity>
               </View>
-            </View>
-          </View>
-        </Modal>
+            </div>
+          </div>
+        )}
         <Toast
           visible={toastVisible}
           message={toastMessage}
