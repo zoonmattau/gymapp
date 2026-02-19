@@ -571,7 +571,13 @@ const ProgressScreen = () => {
   // Dynamic chart data based on period - returns actual user data only
   const getChartLabels = () => {
     if (weightHistory.length === 0) return [];
-    return weightHistory.map(w => w.week);
+    return weightHistory.map(w => {
+      if (w.date) {
+        const date = new Date(w.date);
+        return `${date.getMonth() + 1}/${date.getDate()}`;
+      }
+      return w.week;
+    });
   };
 
   const getWeightData = () => {
@@ -882,7 +888,7 @@ const ProgressScreen = () => {
             <LineChart
               data={caloriesChartData}
               width={chartWidth}
-              height={100}
+              height={120}
               chartConfig={{...chartConfig, color: () => COLORS.accent}}
               bezier
               style={styles.miniChart}
@@ -890,6 +896,7 @@ const ProgressScreen = () => {
               withOuterLines={false}
               withVerticalLines={false}
               withHorizontalLines={false}
+              withVerticalLabels={true}
               withDots={true}
               withShadow={false}
             />
@@ -915,7 +922,7 @@ const ProgressScreen = () => {
             <LineChart
               data={proteinChartData}
               width={chartWidth}
-              height={100}
+              height={120}
               chartConfig={{...chartConfig, color: () => '#EC4899'}}
               bezier
               style={styles.miniChart}
@@ -923,6 +930,7 @@ const ProgressScreen = () => {
               withOuterLines={false}
               withVerticalLines={false}
               withHorizontalLines={false}
+              withVerticalLabels={true}
               withDots={true}
               withShadow={false}
             />
@@ -948,7 +956,7 @@ const ProgressScreen = () => {
             <LineChart
               data={waterChartData}
               width={chartWidth}
-              height={100}
+              height={120}
               chartConfig={{...chartConfig, color: () => '#06B6D4'}}
               bezier
               style={styles.miniChart}
@@ -956,6 +964,7 @@ const ProgressScreen = () => {
               withOuterLines={false}
               withVerticalLines={false}
               withHorizontalLines={false}
+              withVerticalLabels={true}
               withDots={true}
               withShadow={false}
             />
@@ -981,7 +990,7 @@ const ProgressScreen = () => {
             <LineChart
               data={sleepChartData}
               width={chartWidth}
-              height={100}
+              height={120}
               chartConfig={{...chartConfig, color: () => '#8B5CF6'}}
               bezier
               style={styles.miniChart}
@@ -989,6 +998,7 @@ const ProgressScreen = () => {
               withOuterLines={false}
               withVerticalLines={false}
               withHorizontalLines={false}
+              withVerticalLabels={true}
               withDots={true}
               withShadow={false}
             />
