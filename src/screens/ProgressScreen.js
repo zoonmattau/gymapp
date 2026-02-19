@@ -1110,10 +1110,29 @@ const ProgressScreen = () => {
                   What's your goal weight?
                 </Text>
                 <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <div
+                    style={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: 12,
+                      backgroundColor: COLORS.surface,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => {
+                      const current = parseFloat(tempTargetWeight) || 0;
+                      setTempTargetWeight((current - 0.1).toFixed(1));
+                    }}
+                  >
+                    <Text style={{ color: COLORS.text, fontSize: 24, fontWeight: 'bold' }}>−</Text>
+                  </div>
                   <input
                     type="number"
+                    step="0.1"
                     style={{
-                      backgroundColor: COLORS.surface,
+                      backgroundColor: COLORS.background,
                       borderRadius: 12,
                       padding: '16px 24px',
                       fontSize: 32,
@@ -1121,13 +1140,33 @@ const ProgressScreen = () => {
                       color: COLORS.text,
                       textAlign: 'center',
                       minWidth: 120,
-                      border: 'none',
+                      border: `1px solid ${COLORS.surface}`,
                       outline: 'none',
+                      WebkitAppearance: 'none',
+                      MozAppearance: 'textfield',
                     }}
                     value={tempTargetWeight}
                     onChange={(e) => setTempTargetWeight(e.target.value)}
                     placeholder="0"
                   />
+                  <div
+                    style={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: 12,
+                      backgroundColor: COLORS.surface,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => {
+                      const current = parseFloat(tempTargetWeight) || 0;
+                      setTempTargetWeight((current + 0.1).toFixed(1));
+                    }}
+                  >
+                    <Text style={{ color: COLORS.text, fontSize: 24, fontWeight: 'bold' }}>+</Text>
+                  </div>
                   <Text style={styles.targetInputUnit}>
                     {weightUnit === 'lbs' ? 'lbs' : 'kg'}
                   </Text>
