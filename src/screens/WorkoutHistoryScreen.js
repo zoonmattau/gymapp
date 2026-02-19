@@ -16,6 +16,14 @@ import { useAuth } from '../contexts/AuthContext';
 import { workoutService } from '../services/workoutService';
 import { supabase } from '../lib/supabase';
 
+// Get RPE color on a green to red scale (0-10)
+const getRpeColor = (rpe) => {
+  const value = parseFloat(rpe) || 0;
+  const clamped = Math.min(10, Math.max(0, value));
+  const hue = 120 - (clamped / 10) * 120;
+  return `hsl(${hue}, 70%, 45%)`;
+};
+
 const WorkoutHistoryScreen = ({ navigation }) => {
   const { user, profile } = useAuth();
   const weightUnit = profile?.weight_unit || 'kg';
@@ -245,7 +253,7 @@ const WorkoutHistoryScreen = ({ navigation }) => {
                         </Text>
                         <Text style={styles.setInfo}>
                           {set.weight > 0 ? `${weightUnit === 'lbs' ? Math.round(set.weight * 2.205) : set.weight} ${weightUnit}` : 'BW'} × {set.reps}
-                          {set.rpe ? ` @${set.rpe}` : ''}
+                          {set.rpe ? <Text style={{ color: getRpeColor(set.rpe) }}> @{set.rpe}</Text> : ''}
                         </Text>
                       </View>
                     ))}

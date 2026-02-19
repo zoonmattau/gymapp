@@ -41,6 +41,14 @@ import { supabase } from '../lib/supabase';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
+// Get RPE color on a green to red scale (0-10)
+const getRpeColor = (rpe) => {
+  const value = parseFloat(rpe) || 0;
+  const clamped = Math.min(10, Math.max(0, value));
+  const hue = 120 - (clamped / 10) * 120;
+  return `hsl(${hue}, 70%, 45%)`;
+};
+
 const WorkoutsScreen = () => {
   const navigation = useNavigation();
   const { user, profile } = useAuth();
@@ -813,7 +821,7 @@ const WorkoutsScreen = () => {
                                   </Text>
                                   <Text style={styles.setInfo}>
                                     {set.weight > 0 ? `${weightUnit === 'lbs' ? Math.round(set.weight * 2.205) : set.weight} ${weightUnit}` : 'BW'} × {set.reps}
-                                    {set.rpe ? ` @${set.rpe}` : ''}
+                                    {set.rpe ? <Text style={{ color: getRpeColor(set.rpe) }}> @{set.rpe}</Text> : ''}
                                   </Text>
                                 </View>
                               ))}

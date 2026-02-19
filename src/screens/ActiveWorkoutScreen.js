@@ -30,6 +30,15 @@ import { useAuth } from '../contexts/AuthContext';
 import { workoutService } from '../services/workoutService';
 import { setPausedWorkout } from '../utils/workoutStore';
 
+// Get RPE color on a green to red scale (0-10)
+const getRpeColor = (rpe) => {
+  const value = parseFloat(rpe) || 0;
+  const clamped = Math.min(10, Math.max(0, value));
+  // Green (120°) to Red (0°) in HSL
+  const hue = 120 - (clamped / 10) * 120;
+  return `hsl(${hue}, 70%, 45%)`;
+};
+
 const ActiveWorkoutScreen = ({ route, navigation }) => {
   const { user, profile } = useAuth();
   const weightUnit = profile?.weight_unit || 'kg';
@@ -632,7 +641,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
 
                             {/* RPE Badge */}
                             {set.rpe && (
-                              <View style={[styles.setBadge, styles.rpeBadge]}>
+                              <View style={[styles.setBadge, { backgroundColor: getRpeColor(set.rpe) }]}>
                                 <Text style={styles.setBadgeText}>RPE {set.rpe}</Text>
                               </View>
                             )}
