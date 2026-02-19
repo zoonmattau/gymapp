@@ -1109,50 +1109,67 @@ const ProgressScreen = () => {
                 borderRadius: 24,
                 width: '90%',
                 maxWidth: 400,
-                padding: 0,
+                paddingBottom: 24,
+                overflow: 'visible',
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              <View style={styles.targetModalHeader}>
-                <TouchableOpacity onPress={() => setShowTargetWeightModal(false)}>
+              <div style={{ padding: 16, borderBottom: `1px solid ${COLORS.surfaceLight}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ cursor: 'pointer' }} onClick={() => setShowTargetWeightModal(false)}>
                   <X size={24} color={COLORS.text} />
-                </TouchableOpacity>
+                </div>
                 <Text style={styles.targetModalTitle}>Set Target Weight</Text>
-                <View style={{ width: 24 }} />
-              </View>
+                <div style={{ width: 24 }} />
+              </div>
 
-              <View style={styles.targetModalContent}>
+              <div style={{ padding: 24, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                 <Text style={styles.targetModalLabel}>
                   What's your goal weight?
                 </Text>
-                <View style={styles.targetInputRow}>
-                  <TextInput
-                    style={styles.targetInput}
+                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <input
+                    type="number"
+                    style={{
+                      backgroundColor: COLORS.surface,
+                      borderRadius: 12,
+                      padding: '16px 24px',
+                      fontSize: 32,
+                      fontWeight: 'bold',
+                      color: COLORS.text,
+                      textAlign: 'center',
+                      minWidth: 120,
+                      border: 'none',
+                      outline: 'none',
+                    }}
                     value={tempTargetWeight}
-                    onChangeText={setTempTargetWeight}
-                    keyboardType="decimal-pad"
+                    onChange={(e) => setTempTargetWeight(e.target.value)}
                     placeholder="0"
-                    placeholderTextColor={COLORS.textMuted}
                   />
                   <Text style={styles.targetInputUnit}>
                     {weightUnit === 'lbs' ? 'lbs' : 'kg'}
                   </Text>
-                </View>
+                </div>
                 {weightData.current > 0 && (
-                  <Text style={styles.targetHint}>
+                  <Text style={{ color: COLORS.textMuted, fontSize: 14, marginTop: 16 }}>
                     Current weight: {formatWeight(weightData.current)}
                   </Text>
                 )}
-              </View>
+              </div>
 
-              <View style={styles.targetModalFooter}>
-                <TouchableOpacity
-                  style={styles.targetSaveBtn}
-                  onPress={handleSaveTargetWeight}
+              <div style={{ padding: '0 16px 16px 16px' }}>
+                <div
+                  style={{
+                    backgroundColor: COLORS.primary,
+                    borderRadius: 12,
+                    padding: 16,
+                    textAlign: 'center',
+                    cursor: 'pointer',
+                  }}
+                  onClick={handleSaveTargetWeight}
                 >
                   <Text style={styles.targetSaveBtnText}>Save Target</Text>
-                </TouchableOpacity>
-              </View>
+                </div>
+              </div>
             </div>
           </div>
         )}
