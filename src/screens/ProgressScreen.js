@@ -467,19 +467,44 @@ const ProgressScreen = () => {
 
     if (user?.id) {
       try {
-        // Use profileService which handles user_goals table correctly
-        const { error } = await profileService.updateGoals(user.id, {
-          target_weight: weight,
-        });
+        // First check if user_goals record exists
+        const { data: existing } = await supabase
+          .from('user_goals')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle();
 
-        // Update local state immediately regardless of DB result
-        setWeightData(prev => ({ ...prev, target: weight }));
-        showToast('Target weight saved', 'success');
+        let saveError = null;
+
+        if (existing) {
+          // Update existing record
+          const { error } = await supabase
+            .from('user_goals')
+            .update({ target_weight: weight })
+            .eq('user_id', user.id);
+          saveError = error;
+        } else {
+          // Insert new record
+          const { error } = await supabase
+            .from('user_goals')
+            .insert({
+              user_id: user.id,
+              target_weight: weight,
+              goal: 'fitness',
+            });
+          saveError = error;
+        }
+
+        if (saveError) {
+          console.log('Error saving target weight:', saveError);
+          showToast('Error saving - please try again', 'error');
+        } else {
+          setWeightData(prev => ({ ...prev, target: weight }));
+          showToast('Target weight saved', 'success');
+        }
       } catch (error) {
         console.log('Error saving target weight:', error);
-        // Still update local state so user sees the change
-        setWeightData(prev => ({ ...prev, target: weight }));
-        showToast('Target weight saved', 'success');
+        showToast('Error saving - please try again', 'error');
       }
     }
   };
