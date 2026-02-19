@@ -91,6 +91,20 @@ const AppNavigator = () => {
       return;
     }
 
+    // Check if profile has data indicating user already set up their profile
+    // This handles users who completed onboarding before the flag was added
+    if (profile && (profile.first_name || profile.height || profile.date_of_birth)) {
+      setOnboardingCompleted(true);
+      // Also update the database so it's properly tracked going forward
+      try {
+        const { profileService } = await import('../services/profileService');
+        await profileService.updateProfile(user.id, { onboarding_completed: true });
+      } catch (e) {
+        console.log('Failed to update onboarding flag:', e);
+      }
+      return;
+    }
+
     // Fall back to local storage for onboarding completion (keyed by user id)
     const storageKey = Platform.OS === 'web'
       ? `onboarding_completed_${user.id}`
@@ -103,6 +117,16 @@ const AppNavigator = () => {
     } else {
       const value = await AsyncStorage.getItem(storageKey);
       completed = value === 'true';
+    }
+
+    // If localStorage says completed, sync to database for cross-device
+    if (completed && user?.id) {
+      try {
+        const { profileService } = await import('../services/profileService');
+        await profileService.updateProfile(user.id, { onboarding_completed: true });
+      } catch (e) {
+        console.log('Failed to sync onboarding to database:', e);
+      }
     }
 
     setOnboardingCompleted(completed);
