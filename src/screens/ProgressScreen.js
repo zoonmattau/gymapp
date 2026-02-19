@@ -1097,7 +1097,7 @@ const ProgressScreen = () => {
               bottom: 0,
               backgroundColor: 'rgba(0, 0, 0, 0.7)',
               display: 'flex',
-              alignItems: 'flex-end',
+              alignItems: 'center',
               justifyContent: 'center',
               zIndex: 1000,
             }}
@@ -1106,11 +1106,10 @@ const ProgressScreen = () => {
             <div
               style={{
                 backgroundColor: COLORS.background,
-                borderTopLeftRadius: 24,
-                borderTopRightRadius: 24,
-                width: '100%',
-                maxWidth: 500,
-                margin: '0 auto',
+                borderRadius: 24,
+                width: '90%',
+                maxWidth: 400,
+                padding: 0,
               }}
               onClick={(e) => e.stopPropagation()}
             >
