@@ -888,11 +888,19 @@ const ProgressScreen = () => {
             <LineChart
               data={caloriesChartData}
               width={chartWidth}
-              height={120}
+              height={140}
               chartConfig={{
-                ...chartConfig,
+                backgroundColor: COLORS.surface,
+                backgroundGradientFrom: COLORS.surface,
+                backgroundGradientTo: COLORS.surface,
+                decimalPlaces: 0,
                 color: () => COLORS.accent,
                 labelColor: () => COLORS.textMuted,
+                propsForDots: {
+                  r: '4',
+                  strokeWidth: '2',
+                  stroke: COLORS.accent,
+                },
               }}
               bezier
               style={styles.miniChart}
@@ -904,6 +912,7 @@ const ProgressScreen = () => {
               withHorizontalLabels={false}
               withDots={true}
               withShadow={false}
+              segments={3}
             />
           ) : (
             <View style={styles.miniChartEmpty}>
@@ -927,11 +936,19 @@ const ProgressScreen = () => {
             <LineChart
               data={proteinChartData}
               width={chartWidth}
-              height={120}
+              height={140}
               chartConfig={{
-                ...chartConfig,
+                backgroundColor: COLORS.surface,
+                backgroundGradientFrom: COLORS.surface,
+                backgroundGradientTo: COLORS.surface,
+                decimalPlaces: 0,
                 color: () => '#EC4899',
                 labelColor: () => COLORS.textMuted,
+                propsForDots: {
+                  r: '4',
+                  strokeWidth: '2',
+                  stroke: '#EC4899',
+                },
               }}
               bezier
               style={styles.miniChart}
@@ -943,6 +960,7 @@ const ProgressScreen = () => {
               withHorizontalLabels={false}
               withDots={true}
               withShadow={false}
+              segments={3}
             />
           ) : (
             <View style={styles.miniChartEmpty}>
@@ -966,11 +984,19 @@ const ProgressScreen = () => {
             <LineChart
               data={waterChartData}
               width={chartWidth}
-              height={120}
+              height={140}
               chartConfig={{
-                ...chartConfig,
+                backgroundColor: COLORS.surface,
+                backgroundGradientFrom: COLORS.surface,
+                backgroundGradientTo: COLORS.surface,
+                decimalPlaces: 0,
                 color: () => '#06B6D4',
                 labelColor: () => COLORS.textMuted,
+                propsForDots: {
+                  r: '4',
+                  strokeWidth: '2',
+                  stroke: '#06B6D4',
+                },
               }}
               bezier
               style={styles.miniChart}
@@ -982,6 +1008,7 @@ const ProgressScreen = () => {
               withHorizontalLabels={false}
               withDots={true}
               withShadow={false}
+              segments={3}
             />
           ) : (
             <View style={styles.miniChartEmpty}>
@@ -1005,11 +1032,19 @@ const ProgressScreen = () => {
             <LineChart
               data={sleepChartData}
               width={chartWidth}
-              height={120}
+              height={140}
               chartConfig={{
-                ...chartConfig,
+                backgroundColor: COLORS.surface,
+                backgroundGradientFrom: COLORS.surface,
+                backgroundGradientTo: COLORS.surface,
+                decimalPlaces: 0,
                 color: () => '#8B5CF6',
                 labelColor: () => COLORS.textMuted,
+                propsForDots: {
+                  r: '4',
+                  strokeWidth: '2',
+                  stroke: '#8B5CF6',
+                },
               }}
               bezier
               style={styles.miniChart}
@@ -1021,6 +1056,7 @@ const ProgressScreen = () => {
               withHorizontalLabels={false}
               withDots={true}
               withShadow={false}
+              segments={3}
             />
           ) : (
             <View style={styles.miniChartEmpty}>
@@ -1699,6 +1735,7 @@ const styles = StyleSheet.create({
   miniChart: {
     marginLeft: -16,
     borderRadius: 8,
+    paddingBottom: 10,
   },
 
   // Body Composition
