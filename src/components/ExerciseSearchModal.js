@@ -7,7 +7,9 @@ import {
   TouchableOpacity,
   TextInput,
   FlatList,
+  ScrollView,
   SafeAreaView,
+  Platform,
 } from 'react-native';
 import { X, Search, Dumbbell } from 'lucide-react-native';
 import { COLORS } from '../constants/colors';
@@ -382,62 +384,69 @@ const ExerciseSearchModal = ({ visible, onClose, onSelect, excludeExercises = []
         />
 
         {/* Exercise List */}
-        <FlatList
-          data={filteredExercises}
-          keyExtractor={(item) => item.name}
-          style={styles.exerciseList}
-          ListHeaderComponent={
-            isSuperset && suggestedExercises.length > 0 && searchQuery === '' ? (
+        <View style={styles.exerciseListContainer}>
+          <ScrollView
+            style={styles.exerciseList}
+            contentContainerStyle={styles.exerciseListContent}
+            showsVerticalScrollIndicator={true}
+            nestedScrollEnabled={true}
+          >
+            {/* Suggested Exercises for Superset */}
+            {isSuperset && suggestedExercises.length > 0 && searchQuery === '' && (
               <View style={styles.suggestedSection}>
-                <Text style={styles.suggestedTitle}>SUGGESTED FOR SUPERSET</Text>
-                <Text style={styles.suggestedSubtitle}>
-                  Other {currentMuscleGroup} exercises
-                </Text>
-                {suggestedExercises.map((item) => (
-                  <TouchableOpacity
-                    key={item.name}
-                    style={[styles.exerciseItem, styles.suggestedItem]}
-                    onPress={() => handleSelect(item)}
-                  >
-                    <View style={[styles.exerciseIcon, styles.suggestedIcon]}>
-                      <Dumbbell size={18} color="#D97706" />
-                    </View>
-                    <View style={styles.exerciseInfo}>
-                      <Text style={styles.exerciseName}>{item.name}</Text>
-                      <Text style={styles.exerciseMeta}>
-                        {item.muscleGroup} • {item.equipment}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-                <View style={styles.divider}>
-                  <Text style={styles.dividerText}>ALL EXERCISES</Text>
-                </View>
+              <Text style={styles.suggestedTitle}>SUGGESTED FOR SUPERSET</Text>
+              <Text style={styles.suggestedSubtitle}>
+                Other {currentMuscleGroup} exercises
+              </Text>
+              {suggestedExercises.map((item) => (
+                <TouchableOpacity
+                  key={item.name}
+                  style={[styles.exerciseItem, styles.suggestedItem]}
+                  onPress={() => handleSelect(item)}
+                >
+                  <View style={[styles.exerciseIcon, styles.suggestedIcon]}>
+                    <Dumbbell size={18} color="#D97706" />
+                  </View>
+                  <View style={styles.exerciseInfo}>
+                    <Text style={styles.exerciseName}>{item.name}</Text>
+                    <Text style={styles.exerciseMeta}>
+                      {item.muscleGroup} • {item.equipment}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+              <View style={styles.divider}>
+                <Text style={styles.dividerText}>ALL EXERCISES</Text>
               </View>
-            ) : null
-          }
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.exerciseItem}
-              onPress={() => handleSelect(item)}
-            >
-              <View style={styles.exerciseIcon}>
-                <Dumbbell size={18} color={COLORS.primary} />
-              </View>
-              <View style={styles.exerciseInfo}>
-                <Text style={styles.exerciseName}>{item.name}</Text>
-                <Text style={styles.exerciseMeta}>
-                  {item.muscleGroup} • {item.equipment}
-                </Text>
-              </View>
-            </TouchableOpacity>
+            </View>
           )}
-          ListEmptyComponent={
+
+          {/* All Exercises */}
+          {filteredExercises.length > 0 ? (
+            filteredExercises.map((item) => (
+              <TouchableOpacity
+                key={item.name}
+                style={styles.exerciseItem}
+                onPress={() => handleSelect(item)}
+              >
+                <View style={styles.exerciseIcon}>
+                  <Dumbbell size={18} color={COLORS.primary} />
+                </View>
+                <View style={styles.exerciseInfo}>
+                  <Text style={styles.exerciseName}>{item.name}</Text>
+                  <Text style={styles.exerciseMeta}>
+                    {item.muscleGroup} • {item.equipment}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))
+          ) : (
             <View style={styles.emptyState}>
               <Text style={styles.emptyText}>No exercises found</Text>
             </View>
-          }
-        />
+            )}
+          </ScrollView>
+        </View>
       </SafeAreaView>
     </Modal>
   );
@@ -510,10 +519,25 @@ const styles = StyleSheet.create({
   filterChipTextActive: {
     color: COLORS.text,
   },
+  exerciseListContainer: {
+    flex: 1,
+    marginTop: 12,
+    ...(Platform.OS === 'web' ? {
+      overflow: 'hidden',
+      position: 'relative',
+    } : {}),
+  },
   exerciseList: {
     flex: 1,
     paddingHorizontal: 16,
-    marginTop: 12,
+    ...(Platform.OS === 'web' ? {
+      overflowY: 'scroll',
+      height: '100%',
+      WebkitOverflowScrolling: 'touch',
+    } : {}),
+  },
+  exerciseListContent: {
+    paddingBottom: 40,
   },
   exerciseItem: {
     flexDirection: 'row',
