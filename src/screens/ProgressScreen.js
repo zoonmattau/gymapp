@@ -187,8 +187,16 @@ const ProgressScreen = () => {
   const loadWeightData = async () => {
     console.log('loadWeightData called for user:', user.id);
     try {
-      const { data: weights, error } = await weightService.getAllWeights(user.id);
-      console.log('getAllWeights result:', { weights, error, count: weights?.length });
+      // Get weights and target weight in parallel
+      const [weightsResult, goalsResult] = await Promise.all([
+        weightService.getAllWeights(user.id),
+        supabase.from('user_goals').select('target_weight').eq('user_id', user.id).maybeSingle()
+      ]);
+
+      const { data: weights, error } = weightsResult;
+      const target = goalsResult.data?.target_weight || 0;
+
+      console.log('getAllWeights result:', { weights, error, count: weights?.length, target });
 
       if (weights && weights.length > 0) {
         const formattedHistory = weights.map((w, idx) => ({
@@ -208,8 +216,6 @@ const ProgressScreen = () => {
 
         const current = lastWeight.weight;
         const start = weights[0].weight;
-        // Get target from profile
-        const target = profile?.target_weight || 0;
 
         console.log('Setting weightData:', { current, start, target });
         setWeightData({
@@ -219,6 +225,10 @@ const ProgressScreen = () => {
         });
       } else {
         console.log('No weights found');
+        // Still set target if we have it
+        if (target > 0) {
+          setWeightData(prev => ({ ...prev, target }));
+        }
       }
     } catch (error) {
       console.log('Error loading weight data:', error);
@@ -456,16 +466,23 @@ const ProgressScreen = () => {
 
     if (user?.id) {
       try {
+        // Save to user_goals table (target_weight column)
         const { error } = await supabase
-          .from('profiles')
-          .update({ target_weight: weight })
-          .eq('id', user.id);
+          .from('user_goals')
+          .upsert({
+            user_id: user.id,
+            target_weight: weight,
+            goal: currentGoal || 'fitness', // goal is required
+          }, { onConflict: 'user_id' })
+          .select();
 
         if (!error) {
-          await refreshProfile();
-          // Update local state
+          // Update local state immediately
           setWeightData(prev => ({ ...prev, target: weight }));
           showToast('Target weight saved', 'success');
+        } else {
+          console.log('Error saving target weight:', error);
+          showToast('Error saving target weight', 'error');
         }
       } catch (error) {
         console.log('Error saving target weight:', error);
