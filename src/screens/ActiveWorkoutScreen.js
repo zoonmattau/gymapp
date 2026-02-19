@@ -571,7 +571,12 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
     };
 
     // Navigate to WorkoutSummaryScreen
-    navigation.replace('WorkoutSummary', { summary: summaryData });
+    if (Platform.OS === 'web') {
+      // For web, use navigate (replace can have issues)
+      navigation.navigate('WorkoutSummary', { summary: summaryData });
+    } else {
+      navigation.replace('WorkoutSummary', { summary: summaryData });
+    }
   };
 
   const handleConfirmFinish = () => {
@@ -640,6 +645,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
           <TouchableOpacity
             style={[styles.finishButton, isSaving && styles.buttonDisabled]}
             onPress={finishWorkout}
+            onClick={finishWorkout}
             disabled={isSaving}
           >
             <Text style={styles.finishButtonText}>Finish</Text>
