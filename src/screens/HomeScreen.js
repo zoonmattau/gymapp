@@ -359,7 +359,7 @@ const HomeScreen = () => {
   const startFreeformWorkout = () => {
     setShowStartWorkoutModal(false);
     navigation.navigate('ActiveWorkout', {
-      workoutName: 'Freeform Workout',
+      workoutName: 'Workout',
       workout: null, // No template - user adds exercises as they go
     });
   };
@@ -568,7 +568,7 @@ const HomeScreen = () => {
             <View style={styles.workoutInfo}>
               <Text style={[styles.workoutBadge, { color: COLORS.textMuted }]}>NO SCHEDULED WORKOUT</Text>
               <Text style={styles.workoutName}>Ready to train?</Text>
-              <Text style={styles.workoutFocus}>Start a freeform or pick a template</Text>
+              <Text style={styles.workoutFocus}>Start blank or pick a template</Text>
             </View>
           </View>
           <TouchableOpacity
@@ -896,7 +896,7 @@ const HomeScreen = () => {
                 <Text style={[
                   styles.toggleButtonText,
                   selectedWorkoutType === 'freeform' && styles.toggleButtonTextActive
-                ]}>Free-form</Text>
+                ]}>Blank</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[
@@ -935,7 +935,7 @@ const HomeScreen = () => {
                 <>
                   <View style={styles.typeDescHeader}>
                     <Dumbbell size={20} color={COLORS.accent} />
-                    <Text style={styles.typeDescTitle}>Free-form Workout</Text>
+                    <Text style={styles.typeDescTitle}>Blank Workout</Text>
                   </View>
                   <Text style={styles.typeDescText}>
                     Start empty and add exercises as you go. Complete flexibility to train however you want today.
@@ -1026,7 +1026,7 @@ const HomeScreen = () => {
                 >
                   <Play size={20} color={COLORS.text} />
                   <Text style={styles.startWorkoutButtonText}>
-                    {selectedWorkoutType === 'scheduled' ? 'Start Scheduled Workout' : 'Start Free-form Workout'}
+                    {selectedWorkoutType === 'scheduled' ? 'Start Scheduled Workout' : 'Start Workout'}
                   </Text>
                 </TouchableOpacity>
               </View>

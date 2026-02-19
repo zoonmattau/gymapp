@@ -710,7 +710,7 @@ const WorkoutsScreen = () => {
           >
             <Play size={18} color={COLORS.text} />
             <Text style={styles.startButtonText}>
-              {pausedWorkout ? 'Continue Workout' : 'Start Freeform Workout'}
+              {pausedWorkout ? 'Continue Workout' : 'Start Workout'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -865,7 +865,7 @@ const WorkoutsScreen = () => {
                   <Play size={24} color={COLORS.primary} />
                 </View>
                 <View style={styles.quickStartInfo}>
-                  <Text style={styles.quickStartTitle}>Freeform Workout</Text>
+                  <Text style={styles.quickStartTitle}>Workout</Text>
                   <Text style={styles.quickStartDesc}>Build your workout as you go</Text>
                 </View>
                 <ChevronRight size={20} color={COLORS.textMuted} />
