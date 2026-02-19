@@ -83,6 +83,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
   const [setToEdit, setSetToEdit] = useState(null); // { exerciseId, setId, ... }
   const [setToDelete, setSetToDelete] = useState(null); // { exerciseId, setId }
   const [isSaving, setIsSaving] = useState(false);
+  const [exerciseHistory, setExerciseHistory] = useState({}); // { exerciseName: { lastWeight, lastReps } }
   const timerRef = useRef(null);
   const restTimerRef = useRef(null);
   const sessionIdRef = useRef(sessionId);
@@ -139,6 +140,24 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
       return () => window.removeEventListener('beforeunload', handleBeforeUnload);
     }
   }, [exercises, workoutName, workout, workoutStartTime]);
+
+  // Load exercise history for this user (last weight/reps for each exercise)
+  useEffect(() => {
+    const loadExerciseHistory = async () => {
+      if (user?.id) {
+        try {
+          const { data } = await workoutService.getExerciseHistory(user.id);
+          if (data) {
+            setExerciseHistory(data);
+            console.log('Loaded exercise history:', Object.keys(data).length, 'exercises');
+          }
+        } catch (err) {
+          console.log('Error loading exercise history:', err);
+        }
+      }
+    };
+    loadExerciseHistory();
+  }, [user?.id]);
 
   // Create a workout session on mount if one doesn't exist
   useEffect(() => {
@@ -309,15 +328,25 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
     const exercise = exercises.find(ex => ex.id === exerciseId);
     const nextSetNumber = exercise ? exercise.sets.length + 1 : 1;
 
-    // Get the weight from the last set (if any)
+    // Get the weight from the last set in this workout (if any)
     const lastSet = exercise?.sets?.length > 0 ? exercise.sets[exercise.sets.length - 1] : null;
-    const previousWeight = lastSet?.weight || '';
+
+    // If no sets in current workout, check exercise history from previous workouts
+    let previousWeight = lastSet?.weight || '';
+    let previousReps = lastSet?.reps || '';
+
+    if (!previousWeight && exerciseHistory[exerciseName]) {
+      const history = exerciseHistory[exerciseName];
+      previousWeight = history.lastWeight ? history.lastWeight.toString() : '';
+      previousReps = history.lastReps ? history.lastReps.toString() : '';
+    }
 
     setSelectedSetToLog({
       exerciseId,
       exerciseName,
       setNumber: nextSetNumber,
       weight: previousWeight,
+      reps: previousReps,
       isNewSet: true,
     });
     setShowLogSetModal(true);

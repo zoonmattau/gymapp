@@ -365,14 +365,16 @@ export const workoutService = {
   // Get exercise history for progressive overload (last weight/reps per exercise)
   async getExerciseHistory(userId) {
     try {
-      // First get user's recent workout sessions
+      // First get user's recent completed workout sessions (ordered by most recent)
       const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
 
       const { data: sessions, error: sessionsError } = await supabase
         .from('workout_sessions')
         .select('id, started_at')
         .eq('user_id', userId)
-        .gte('started_at', ninetyDaysAgo);
+        .not('ended_at', 'is', null)
+        .gte('started_at', ninetyDaysAgo)
+        .order('started_at', { ascending: false });
 
       if (sessionsError || !sessions || sessions.length === 0) {
         return { data: {}, error: null };
@@ -380,13 +382,18 @@ export const workoutService = {
 
       const sessionIds = sessions.map(s => s.id);
 
+      // Create a map of session ID to order (most recent first)
+      const sessionOrder = {};
+      sessions.forEach((s, idx) => {
+        sessionOrder[s.id] = idx;
+      });
+
       // Then get workout sets for those sessions
       const { data, error } = await supabase
         .from('workout_sets')
         .select('*')
         .in('session_id', sessionIds)
-        .eq('is_warmup', false)
-        .order('completed_at', { ascending: false });
+        .eq('is_warmup', false);
 
       if (error) {
         console.warn('Error fetching exercise history:', error?.message);
@@ -396,6 +403,14 @@ export const workoutService = {
       if (!data || data.length === 0) {
         return { data: {}, error: null };
       }
+
+      // Sort sets by session order (most recent session first), then by set_number desc
+      data.sort((a, b) => {
+        const orderA = sessionOrder[a.session_id] ?? 999;
+        const orderB = sessionOrder[b.session_id] ?? 999;
+        if (orderA !== orderB) return orderA - orderB;
+        return (b.set_number || 0) - (a.set_number || 0);
+      });
 
       // Group by exercise name to get the last performed sets
       const exerciseHistory = {};
@@ -408,7 +423,7 @@ export const workoutService = {
             lastWeight: set.weight || 0,
             lastReps: set.reps || 0,
             lastRpe: set.rpe,
-            lastPerformedAt: set.completed_at,
+            sessionId: set.session_id,
           };
         }
       });
