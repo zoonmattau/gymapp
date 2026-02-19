@@ -889,7 +889,11 @@ const ProgressScreen = () => {
               data={caloriesChartData}
               width={chartWidth}
               height={120}
-              chartConfig={{...chartConfig, color: () => COLORS.accent}}
+              chartConfig={{
+                ...chartConfig,
+                color: () => COLORS.accent,
+                labelColor: () => COLORS.textMuted,
+              }}
               bezier
               style={styles.miniChart}
               withInnerLines={false}
@@ -897,6 +901,7 @@ const ProgressScreen = () => {
               withVerticalLines={false}
               withHorizontalLines={false}
               withVerticalLabels={true}
+              withHorizontalLabels={false}
               withDots={true}
               withShadow={false}
             />
@@ -923,7 +928,11 @@ const ProgressScreen = () => {
               data={proteinChartData}
               width={chartWidth}
               height={120}
-              chartConfig={{...chartConfig, color: () => '#EC4899'}}
+              chartConfig={{
+                ...chartConfig,
+                color: () => '#EC4899',
+                labelColor: () => COLORS.textMuted,
+              }}
               bezier
               style={styles.miniChart}
               withInnerLines={false}
@@ -931,6 +940,7 @@ const ProgressScreen = () => {
               withVerticalLines={false}
               withHorizontalLines={false}
               withVerticalLabels={true}
+              withHorizontalLabels={false}
               withDots={true}
               withShadow={false}
             />
@@ -957,7 +967,11 @@ const ProgressScreen = () => {
               data={waterChartData}
               width={chartWidth}
               height={120}
-              chartConfig={{...chartConfig, color: () => '#06B6D4'}}
+              chartConfig={{
+                ...chartConfig,
+                color: () => '#06B6D4',
+                labelColor: () => COLORS.textMuted,
+              }}
               bezier
               style={styles.miniChart}
               withInnerLines={false}
@@ -965,6 +979,7 @@ const ProgressScreen = () => {
               withVerticalLines={false}
               withHorizontalLines={false}
               withVerticalLabels={true}
+              withHorizontalLabels={false}
               withDots={true}
               withShadow={false}
             />
@@ -991,7 +1006,11 @@ const ProgressScreen = () => {
               data={sleepChartData}
               width={chartWidth}
               height={120}
-              chartConfig={{...chartConfig, color: () => '#8B5CF6'}}
+              chartConfig={{
+                ...chartConfig,
+                color: () => '#8B5CF6',
+                labelColor: () => COLORS.textMuted,
+              }}
               bezier
               style={styles.miniChart}
               withInnerLines={false}
@@ -999,6 +1018,7 @@ const ProgressScreen = () => {
               withVerticalLines={false}
               withHorizontalLines={false}
               withVerticalLabels={true}
+              withHorizontalLabels={false}
               withDots={true}
               withShadow={false}
             />
