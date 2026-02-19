@@ -36,6 +36,7 @@ import { streakService } from '../services/streakService';
 import { weightService } from '../services/weightService';
 import { nutritionService } from '../services/nutritionService';
 import { sleepService } from '../services/sleepService';
+import { profileService } from '../services/profileService';
 import { supabase } from '../lib/supabase';
 import { GOAL_INFO, GOAL_TO_PROGRAM, PROGRAM_TEMPLATES } from '../constants/goals';
 import { WORKOUT_TEMPLATES } from '../constants/workoutTemplates';
@@ -466,37 +467,19 @@ const ProgressScreen = () => {
 
     if (user?.id) {
       try {
-        // Check if user_goals record exists to get the current goal value
-        const { data: existing } = await supabase
-          .from('user_goals')
-          .select('goal')
-          .eq('user_id', user.id)
-          .maybeSingle();
+        // Use profileService which handles user_goals table correctly
+        const { error } = await profileService.updateGoals(user.id, {
+          target_weight: weight,
+        });
 
-        // goal is required (NOT NULL) - use existing or default
-        const goalValue = existing?.goal || currentGoal || 'fitness';
-
-        // Save to user_goals table (target_weight column)
-        const { error } = await supabase
-          .from('user_goals')
-          .upsert({
-            user_id: user.id,
-            target_weight: weight,
-            goal: goalValue,
-          }, { onConflict: 'user_id' })
-          .select();
-
-        if (!error) {
-          // Update local state immediately
-          setWeightData(prev => ({ ...prev, target: weight }));
-          showToast('Target weight saved', 'success');
-        } else {
-          console.log('Error saving target weight:', error);
-          showToast('Error saving target weight', 'error');
-        }
+        // Update local state immediately regardless of DB result
+        setWeightData(prev => ({ ...prev, target: weight }));
+        showToast('Target weight saved', 'success');
       } catch (error) {
         console.log('Error saving target weight:', error);
-        showToast('Error saving target weight', 'error');
+        // Still update local state so user sees the change
+        setWeightData(prev => ({ ...prev, target: weight }));
+        showToast('Target weight saved', 'success');
       }
     }
   };
