@@ -41,6 +41,7 @@ import Toast from '../components/Toast';
 const TABS = [
   { id: 'overview', label: 'Overview' },
   { id: 'meals', label: 'Meals' },
+  { id: 'water', label: 'Water' },
   { id: 'supplements', label: 'Supps' },
   { id: 'sleep', label: 'Sleep' },
 ];
@@ -934,7 +935,10 @@ const HealthScreen = () => {
         <View style={styles.recentColumn}>
           <View style={styles.recentHeader}>
             <Text style={styles.recentTitle}>Recent Water</Text>
-            <TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setActiveTab('water')}
+              onClick={() => setActiveTab('water')}
+            >
               <Text style={styles.recentSeeAll}>See all</Text>
             </TouchableOpacity>
           </View>
@@ -1102,6 +1106,103 @@ const HealthScreen = () => {
             </View>
           </View>
         </View>
+      </>
+    );
+  };
+
+  const renderWaterTab = () => {
+    const waterGoalL = (nutritionGoals.water / 1000).toFixed(1);
+    const waterIntakeL = (waterIntake / 1000).toFixed(1);
+    const waterLeftL = Math.max(0, (nutritionGoals.water - waterIntake) / 1000).toFixed(1);
+
+    return (
+      <>
+        {/* Water Progress */}
+        <View style={styles.waterProgressCard}>
+          <View style={styles.waterProgressHeader}>
+            <Droplets size={24} color="#3B82F6" />
+            <Text style={styles.waterProgressTitle}>Today's Water</Text>
+          </View>
+          <View style={styles.waterProgressStats}>
+            <View style={styles.waterProgressStat}>
+              <Text style={[styles.waterProgressValue, { color: '#3B82F6' }]}>{waterIntakeL}L</Text>
+              <Text style={styles.waterProgressLabel}>consumed</Text>
+            </View>
+            <View style={styles.waterProgressStat}>
+              <Text style={styles.waterProgressValue}>{waterLeftL}L</Text>
+              <Text style={styles.waterProgressLabel}>remaining</Text>
+            </View>
+            <View style={styles.waterProgressStat}>
+              <Text style={styles.waterProgressValue}>{waterGoalL}L</Text>
+              <Text style={styles.waterProgressLabel}>goal</Text>
+            </View>
+          </View>
+          <View style={styles.waterProgressBar}>
+            <View
+              style={[
+                styles.waterProgressFill,
+                { width: `${Math.min(100, (waterIntake / nutritionGoals.water) * 100)}%` }
+              ]}
+            />
+          </View>
+        </View>
+
+        {/* Quick Add Buttons */}
+        <Text style={styles.sectionLabel}>QUICK ADD</Text>
+        <View style={styles.waterQuickAddRow}>
+          {[100, 250, 500, 1000].map((amount) => (
+            <TouchableOpacity
+              key={amount}
+              style={styles.waterQuickAddBtn}
+              onPress={() => handleAddWater(amount)}
+              onClick={() => handleAddWater(amount)}
+            >
+              <Plus size={16} color={COLORS.primary} />
+              <Text style={styles.waterQuickAddText}>
+                {amount >= 1000 ? `${amount / 1000}L` : `${amount}ml`}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Custom Add Button */}
+        <TouchableOpacity
+          style={styles.waterCustomAddBtn}
+          onPress={() => setShowWaterEntry(true)}
+          onClick={() => setShowWaterEntry(true)}
+        >
+          <Plus size={20} color={COLORS.text} />
+          <Text style={styles.waterCustomAddText}>Add Custom Amount</Text>
+        </TouchableOpacity>
+
+        {/* Today's Water Log */}
+        <Text style={styles.sectionLabel}>TODAY'S WATER LOG</Text>
+        {waterEntries.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Droplets size={40} color={COLORS.textMuted} />
+            <Text style={styles.emptyStateText}>No water logged today</Text>
+            <Text style={styles.emptyStateSubtext}>Use the quick add buttons above</Text>
+          </View>
+        ) : (
+          waterEntries.map((entry) => (
+            <View key={entry.id} style={styles.waterLogEntry}>
+              <View style={styles.waterLogLeft}>
+                <Droplets size={20} color="#3B82F6" />
+                <View style={styles.waterLogInfo}>
+                  <Text style={styles.waterLogAmount}>{formatWaterAmount(entry.amount)}</Text>
+                  <Text style={styles.waterLogTime}>{formatTime(entry.timestamp)}</Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={styles.waterLogDeleteBtn}
+                onPress={() => handleDeleteWater(entry)}
+                onClick={() => handleDeleteWater(entry)}
+              >
+                <Trash2 size={18} color={COLORS.error} />
+              </TouchableOpacity>
+            </View>
+          ))
+        )}
       </>
     );
   };
@@ -1596,6 +1697,7 @@ const HealthScreen = () => {
         {/* Tab Content */}
         {activeTab === 'overview' && renderOverviewTab()}
         {activeTab === 'meals' && renderMealsTab()}
+        {activeTab === 'water' && renderWaterTab()}
         {activeTab === 'supplements' && renderSupplementsTab()}
         {activeTab === 'sleep' && renderSleepTab()}
 
@@ -2415,6 +2517,119 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     fontSize: 12,
     marginTop: 4,
+  },
+  // Water Tab Styles
+  waterProgressCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+  },
+  waterProgressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
+  waterProgressTitle: {
+    color: COLORS.text,
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  waterProgressStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 16,
+  },
+  waterProgressStat: {
+    alignItems: 'center',
+  },
+  waterProgressValue: {
+    color: COLORS.text,
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  waterProgressLabel: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    marginTop: 4,
+  },
+  waterProgressBar: {
+    height: 8,
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  waterProgressFill: {
+    height: '100%',
+    backgroundColor: '#3B82F6',
+    borderRadius: 4,
+  },
+  waterQuickAddRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  waterQuickAddBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: COLORS.primary + '40',
+  },
+  waterQuickAddText: {
+    color: COLORS.primary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  waterCustomAddBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: COLORS.primary,
+    borderRadius: 12,
+    paddingVertical: 14,
+    marginBottom: 16,
+  },
+  waterCustomAddText: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  waterLogEntry: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 8,
+  },
+  waterLogLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  waterLogInfo: {
+    gap: 2,
+  },
+  waterLogAmount: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  waterLogTime: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+  },
+  waterLogDeleteBtn: {
+    padding: 8,
   },
   mealCard: {
     flexDirection: 'row',
