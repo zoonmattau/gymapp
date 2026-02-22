@@ -52,6 +52,7 @@ const HomeScreen = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [savedWorkout, setSavedWorkout] = useState(null);
+  const [checkingForSavedWorkout, setCheckingForSavedWorkout] = useState(Platform.OS === 'web');
 
   // Today's workout
   const [todayWorkout, setTodayWorkout] = useState(null);
@@ -97,31 +98,34 @@ const HomeScreen = () => {
   // Check for saved workout on initial mount (runs once)
   useEffect(() => {
     if (Platform.OS === 'web') {
-      // Small delay to ensure navigation is ready
-      const timer = setTimeout(() => {
-        const paused = getPausedWorkout();
-        console.log('HomeScreen MOUNT: Checking for saved workout:', paused ? `Found ${paused.exercises?.length} exercises` : 'None');
+      // Check immediately - no delay needed
+      const paused = getPausedWorkout();
+      console.log('HomeScreen MOUNT: Checking for saved workout:', paused ? `Found ${paused.exercises?.length} exercises` : 'None');
 
-        if (paused && paused.exercises?.length > 0) {
-          console.log('HomeScreen MOUNT: Auto-navigating to saved workout');
-          navigation.navigate('ActiveWorkout', {
-            workoutName: paused.workoutName || 'Workout',
-            workout: paused.workout,
-            sessionId: paused.sessionId,
-            resumedExercises: paused.exercises,
-            resumedTime: paused.elapsedTime,
-          });
-        }
-      }, 100);
-      return () => clearTimeout(timer);
+      if (paused && paused.exercises?.length > 0) {
+        console.log('HomeScreen MOUNT: Auto-navigating to saved workout');
+        // Navigate and keep checking state true (we're leaving this screen)
+        navigation.navigate('ActiveWorkout', {
+          workoutName: paused.workoutName || 'Workout',
+          workout: paused.workout,
+          sessionId: paused.sessionId,
+          resumedExercises: paused.exercises,
+          resumedTime: paused.elapsedTime,
+        });
+      } else {
+        // No saved workout, show the home screen
+        setCheckingForSavedWorkout(false);
+      }
     }
   }, []); // Empty deps - only runs once on mount
 
   // Reload data when screen comes into focus
   useFocusEffect(
     useCallback(() => {
-      // Skip the auto-resume check here since we handle it in useEffect above
-      // Just load data when user is available
+      // Reset checking state when returning to this screen
+      setCheckingForSavedWorkout(false);
+
+      // Load data when user is available
       if (user?.id) {
         loadHomeData();
         // Refresh profile to get latest settings (like weight_unit)
@@ -648,6 +652,17 @@ const HomeScreen = () => {
     );
   };
 
+  // Show loading screen while checking for saved workout (prevents flash)
+  if (checkingForSavedWorkout) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          {/* Empty view - will be brief, just prevents flash */}
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
@@ -1120,6 +1135,10 @@ const HomeScreen = () => {
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  loadingContainer: {
     flex: 1,
     backgroundColor: COLORS.background,
   },
