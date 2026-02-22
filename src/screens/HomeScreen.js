@@ -97,9 +97,21 @@ const HomeScreen = () => {
   // Reload data when screen comes into focus
   useFocusEffect(
     useCallback(() => {
-      // Check for saved workout
+      // Check for saved workout and auto-resume
       const paused = getPausedWorkout();
-      setSavedWorkout(paused);
+      if (paused && paused.exercises?.length > 0) {
+        // Auto-navigate to continue the workout
+        // Don't clear here - ActiveWorkout will handle saving/clearing
+        navigation.navigate('ActiveWorkout', {
+          workoutName: paused.workoutName || 'Workout',
+          workout: paused.workout,
+          sessionId: paused.sessionId,
+          resumedExercises: paused.exercises,
+          resumedTime: paused.elapsedTime,
+        });
+        return;
+      }
+      setSavedWorkout(null);
 
       if (user?.id) {
         loadHomeData();
