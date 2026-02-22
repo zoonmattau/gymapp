@@ -975,6 +975,7 @@ const HomeScreen = () => {
         onSave={handleSaveWeight}
         unit={profile?.weight_unit || 'kg'}
         currentWeight={profile?.current_weight || profile?.weight || 0}
+        lastWeighInDate={weightHistory.length > 0 ? weightHistory[0].log_date : null}
       />
 
       <SleepEntryModal
