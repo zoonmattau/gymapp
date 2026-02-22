@@ -11,6 +11,7 @@ import {
   Modal,
   TextInput,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import {
@@ -31,8 +32,11 @@ import {
   X,
   FileText,
   Pencil,
+  GripVertical,
+  Trash2,
+  BarChart2,
 } from 'lucide-react-native';
-import { WORKOUT_TEMPLATES, AVAILABLE_PROGRAMS } from '../constants/workoutTemplates';
+import { WORKOUT_TEMPLATES, AVAILABLE_PROGRAMS, GOAL_TO_PROGRAM } from '../constants/workoutTemplates';
 import { COLORS } from '../constants/colors';
 import { useAuth } from '../contexts/AuthContext';
 import { getPausedWorkout, clearPausedWorkout } from '../utils/workoutStore';
@@ -76,6 +80,22 @@ const WorkoutsScreen = () => {
   const [workoutDetails, setWorkoutDetails] = useState(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
 
+  // History stats
+  const [workoutSetCounts, setWorkoutSetCounts] = useState({});
+  const [mostActiveDay, setMostActiveDay] = useState(null);
+  const [workoutToDelete, setWorkoutToDelete] = useState(null);
+
+  // Program setup modal state
+  const [showProgramModal, setShowProgramModal] = useState(false);
+  const [settingUpProgram, setSettingUpProgram] = useState(false);
+  const [selectedProgram, setSelectedProgram] = useState(null);
+  const [selectedDays, setSelectedDays] = useState([true, false, true, false, true, false, false]);
+  // dayAssignments: { [Mon-Sun index 0-6]: templateId }
+  const [dayAssignments, setDayAssignments] = useState({});
+  const [editingDayIdx, setEditingDayIdx] = useState(null);
+  const [draggingAssignDayIdx, setDraggingAssignDayIdx] = useState(null);
+  const [dragOverAssignDayIdx, setDragOverAssignDayIdx] = useState(null);
+
   // Week data cache for seamless scrolling
   const [weekCache, setWeekCache] = useState({});
   const [weekLoading, setWeekLoading] = useState(false);
@@ -109,6 +129,113 @@ const WorkoutsScreen = () => {
       }
     }
   }, [weekOffset]);
+
+  const formatDateForDB = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  // Assign program templates to active days, cycling/repeating to fill any number of days
+  const buildDefaultAssignments = (days, program) => {
+    const assignments = {};
+    let templateIdx = 0;
+    days.forEach((isActive, dayIdx) => {
+      if (isActive) {
+        // Cycle through the template list — handles more OR fewer days than the program default
+        assignments[dayIdx] = program.schedule[templateIdx % program.schedule.length];
+        templateIdx++;
+      }
+    });
+    return assignments;
+  };
+
+  // Uses selectedProgram, selectedDays, dayAssignments from state
+  const setupProgram = async () => {
+    if (!user?.id || settingUpProgram || !selectedProgram) return;
+    setSettingUpProgram(true);
+    try {
+      const today = new Date();
+      const todayDow = today.getDay();
+      const todayWeekIndex = todayDow === 0 ? 6 : todayDow - 1;
+      const optimisticUpdates = {};
+
+      for (let week = 0; week < 4; week++) {
+        for (let day = 0; day < 7; day++) {
+          const scheduleDate = new Date(today);
+          scheduleDate.setDate(today.getDate() + (week * 7) + day);
+          const dow = scheduleDate.getDay();
+          const weekDayIdx = dow === 0 ? 6 : dow - 1;
+
+          const templateId = dayAssignments[weekDayIdx];
+          if (!templateId) continue;
+
+          const template = WORKOUT_TEMPLATES[templateId];
+          if (!template) continue;
+
+          const dateStr = formatDateForDB(scheduleDate);
+
+          if (week === 0) {
+            const weekIdx = (todayWeekIndex + day) % 7;
+            optimisticUpdates[weekIdx] = {
+              workout: template.name,
+              isRest: false,
+              completed: false,
+              templateId,
+              scheduleId: null,
+            };
+          }
+
+          const { error } = await workoutService.setScheduleForDate(user.id, dateStr, templateId, false);
+          if (error) {
+            console.log('Schedule save error:', error.message, '| date:', dateStr, '| templateId:', templateId);
+          }
+        }
+      }
+
+      setWeekSchedule(prev => ({ ...prev, ...optimisticUpdates }));
+      setWeekCache({});
+
+      // Persist program config locally so it survives screen refreshes
+      // even if the DB write fails
+      try {
+        const key = `uprep_program_${user.id}`;
+        const config = JSON.stringify({ assignments: dayAssignments, savedAt: Date.now() });
+        if (Platform.OS === 'web') {
+          localStorage.setItem(key, config);
+        } else {
+          const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+          await AsyncStorage.setItem(key, config);
+        }
+      } catch (e) {
+        console.log('Could not persist program locally:', e);
+      }
+
+      setSelectedProgram(null);
+      setDayAssignments({});
+      setEditingDayIdx(null);
+      setShowProgramModal(false);
+    } catch (error) {
+      console.log('Error setting up program:', error);
+    } finally {
+      setSettingUpProgram(false);
+    }
+  };
+
+  // Returns a [Mon..Sun] boolean array pre-selecting sensible days for numDays
+  const getDefaultDays = (numDays) => {
+    const presets = {
+      1: [true, false, false, false, false, false, false],
+      2: [true, false, false, true, false, false, false],
+      3: [true, false, true, false, true, false, false],
+      4: [true, true, false, true, true, false, false],
+      5: [true, true, true, true, true, false, false],
+      6: [true, true, true, true, true, true, false],
+      7: [true, true, true, true, true, true, true],
+    };
+    return presets[Math.min(Math.max(numDays, 1), 7)] || presets[4];
+  };
 
   const loadWorkoutData = async (isBackgroundRefresh = false) => {
     // Capture current weekOffset to avoid race conditions
@@ -153,8 +280,9 @@ const WorkoutsScreen = () => {
         const hasCompletedWorkout = daySessions.length > 0;
 
         if (daySchedule) {
+          const localTemplate = daySchedule.template_id ? WORKOUT_TEMPLATES[daySchedule.template_id] : null;
           newSchedule[i] = {
-            workout: daySchedule.is_rest_day ? null : (daySchedule.workout_templates?.name || 'Workout'),
+            workout: daySchedule.is_rest_day ? null : (daySchedule.workout_templates?.name || localTemplate?.name || 'Workout'),
             isRest: daySchedule.is_rest_day,
             completed: daySchedule.is_completed || hasCompletedWorkout,
             templateId: daySchedule.template_id,
@@ -174,6 +302,36 @@ const WorkoutsScreen = () => {
         }
       }
 
+      // If DB returned no schedule at all, fall back to locally persisted program config
+      const hasAnyDbSchedule = Object.values(newSchedule).some(d => d.workout || d.isRest);
+      if (!hasAnyDbSchedule && user?.id) {
+        try {
+          const key = `uprep_program_${user.id}`;
+          const raw = Platform.OS === 'web'
+            ? localStorage.getItem(key)
+            : await require('@react-native-async-storage/async-storage').default.getItem(key);
+          if (raw) {
+            const { assignments } = JSON.parse(raw);
+            // Apply local template assignments to the week
+            for (let i = 0; i < 7; i++) {
+              const dayDate = new Date(weekStart);
+              dayDate.setDate(dayDate.getDate() + i);
+              const dow = dayDate.getDay();
+              const weekDayIdx = dow === 0 ? 6 : dow - 1;
+              const templateId = assignments[weekDayIdx];
+              if (templateId) {
+                const t = WORKOUT_TEMPLATES[templateId];
+                if (t) {
+                  newSchedule[i] = { workout: t.name, isRest: false, completed: false, templateId, scheduleId: null };
+                }
+              }
+            }
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+
       // Only update if still on the same week (avoid race conditions)
       if (currentWeekOffset === weekOffset) {
         setWeekSchedule(newSchedule);
@@ -183,8 +341,40 @@ const WorkoutsScreen = () => {
 
       // Load recent workout history (only on initial load, not background refresh)
       if (!isBackgroundRefresh) {
-        const { data: historyData } = await workoutService.getWorkoutHistory(user.id, 5);
-        setWorkoutHistory(historyData || []);
+        const { data: historyData } = await workoutService.getWorkoutHistory(user.id, 30);
+        const allHistory = historyData || [];
+        const displayHistory = allHistory.slice(0, 5);
+        setWorkoutHistory(displayHistory);
+
+        // Compute most active day of week from full history
+        const dayCount = {};
+        allHistory.forEach(w => {
+          const d = new Date(w.started_at).getDay();
+          dayCount[d] = (dayCount[d] || 0) + 1;
+        });
+        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        let maxDay = null, maxCount = 0;
+        Object.entries(dayCount).forEach(([d, c]) => {
+          if (c > maxCount) { maxCount = c; maxDay = parseInt(d); }
+        });
+        setMostActiveDay(maxDay !== null ? dayNames[maxDay] : null);
+
+        // Fetch set/rep counts for displayed sessions
+        if (displayHistory.length > 0) {
+          const sessionIds = displayHistory.map(w => w.id);
+          const { data: setsData } = await supabase
+            .from('workout_sets')
+            .select('session_id, reps')
+            .in('session_id', sessionIds);
+
+          const counts = {};
+          (setsData || []).forEach(s => {
+            if (!counts[s.session_id]) counts[s.session_id] = { sets: 0, reps: 0 };
+            counts[s.session_id].sets += 1;
+            counts[s.session_id].reps += (s.reps || 0);
+          });
+          setWorkoutSetCounts(counts);
+        }
       }
 
     } catch (error) {
@@ -279,6 +469,29 @@ const WorkoutsScreen = () => {
     setRenameModalVisible(false);
     setWorkoutToRename(null);
     setNewWorkoutName('');
+  };
+
+  const handleDeletePress = (workout, e) => {
+    e?.stopPropagation?.();
+    setWorkoutToDelete(workout);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!workoutToDelete) return;
+    const { error } = await workoutService.deleteWorkoutSession(workoutToDelete.id);
+    if (!error) {
+      setWorkoutHistory(prev => prev.filter(w => w.id !== workoutToDelete.id));
+      setWorkoutSetCounts(prev => {
+        const next = { ...prev };
+        delete next[workoutToDelete.id];
+        return next;
+      });
+      if (selectedWorkout?.id === workoutToDelete.id) {
+        setSelectedWorkout(null);
+        setWorkoutDetails(null);
+      }
+    }
+    setWorkoutToDelete(null);
   };
 
   const handleWorkoutPress = async (workout) => {
@@ -421,15 +634,15 @@ const WorkoutsScreen = () => {
         if (sourceDay.scheduleId && targetDay.scheduleId) {
           // Both have schedule entries - swap the dates
           await Promise.all([
-            supabase.from('workout_schedules').update({ scheduled_date: targetDateStr }).eq('id', sourceDay.scheduleId),
-            supabase.from('workout_schedules').update({ scheduled_date: sourceDateStr }).eq('id', targetDay.scheduleId),
+            supabase.from('workout_schedule').update({ scheduled_date: targetDateStr }).eq('id', sourceDay.scheduleId),
+            supabase.from('workout_schedule').update({ scheduled_date: sourceDateStr }).eq('id', targetDay.scheduleId),
           ]);
         } else if (sourceDay.scheduleId) {
           // Only source has a schedule - move it to target date
-          await supabase.from('workout_schedules').update({ scheduled_date: targetDateStr }).eq('id', sourceDay.scheduleId);
+          await supabase.from('workout_schedule').update({ scheduled_date: targetDateStr }).eq('id', sourceDay.scheduleId);
         } else if (targetDay.scheduleId) {
           // Only target has a schedule - move it to source date
-          await supabase.from('workout_schedules').update({ scheduled_date: sourceDateStr }).eq('id', targetDay.scheduleId);
+          await supabase.from('workout_schedule').update({ scheduled_date: sourceDateStr }).eq('id', targetDay.scheduleId);
         }
 
         // Update the cache
@@ -656,8 +869,11 @@ const WorkoutsScreen = () => {
                       {day.dateNum}
                     </Text>
                     <View style={styles.dayWorkoutRow}>
-                      {isCompleted && (
-                        <Check size={10} color={COLORS.success} strokeWidth={3} />
+                      {day.isPast && (isCompleted || day.isRest) && (
+                        <Text style={{ fontSize: 11 }}>✅</Text>
+                      )}
+                      {day.isPast && !isCompleted && !day.isRest && !!day.workout && (
+                        <Text style={{ fontSize: 11 }}>❌</Text>
                       )}
                       <Text style={[
                         styles.dayWorkout,
@@ -703,8 +919,11 @@ const WorkoutsScreen = () => {
                       {day.dateNum}
                     </Text>
                     <View style={styles.dayWorkoutRow}>
-                      {isCompleted && (
-                        <Check size={10} color={COLORS.success} strokeWidth={3} />
+                      {day.isPast && (isCompleted || day.isRest) && (
+                        <Text style={{ fontSize: 11 }}>✅</Text>
+                      )}
+                      {day.isPast && !isCompleted && !day.isRest && !!day.workout && (
+                        <Text style={{ fontSize: 11 }}>❌</Text>
                       )}
                       <Text style={[
                         styles.dayWorkout,
@@ -749,6 +968,14 @@ const WorkoutsScreen = () => {
                     ? 'Recovery is part of the process'
                     : 'Set up your training program'}
               </Text>
+              {!todaySchedule?.workout && !todaySchedule?.isRest && (
+                <TouchableOpacity
+                  style={styles.setupProgramButton}
+                  onPress={() => setShowProgramModal(true)}
+                >
+                  <Text style={styles.setupProgramButtonText}>Choose Program</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
 
@@ -808,6 +1035,29 @@ const WorkoutsScreen = () => {
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>RECENT ACTIVITY</Text>
 
+          {workoutHistory.length > 0 && (() => {
+            const totalSets = Object.values(workoutSetCounts).reduce((a, c) => a + c.sets, 0);
+            const totalReps = Object.values(workoutSetCounts).reduce((a, c) => a + c.reps, 0);
+            return (
+              <View style={styles.historyStats}>
+                <View style={styles.historyStat}>
+                  <Text style={styles.historyStatValue}>{totalSets || '—'}</Text>
+                  <Text style={styles.historyStatLabel}>Sets</Text>
+                </View>
+                <View style={styles.historyStatDivider} />
+                <View style={styles.historyStat}>
+                  <Text style={styles.historyStatValue}>{totalReps || '—'}</Text>
+                  <Text style={styles.historyStatLabel}>Reps</Text>
+                </View>
+                <View style={styles.historyStatDivider} />
+                <View style={styles.historyStat}>
+                  <Text style={styles.historyStatValue}>{mostActiveDay || '—'}</Text>
+                  <Text style={styles.historyStatLabel}>Best Day</Text>
+                </View>
+              </View>
+            );
+          })()}
+
           {workoutHistory.length === 0 ? (
             <View style={styles.emptyActivityCard}>
               <Dumbbell size={32} color={COLORS.textMuted} />
@@ -817,6 +1067,7 @@ const WorkoutsScreen = () => {
           ) : (
             workoutHistory.map((workout) => {
               const isExpanded = selectedWorkout?.id === workout.id;
+              const counts = workoutSetCounts[workout.id];
               return (
                 <TouchableOpacity
                   key={workout.id}
@@ -831,7 +1082,9 @@ const WorkoutsScreen = () => {
                     <View style={styles.activityInfo}>
                       <Text style={styles.activityTitle}>{workout.workout_name || 'Workout'}</Text>
                       <Text style={styles.activityTime}>
-                        {workout.duration_minutes ? `${workout.duration_minutes} min` : 'Completed'} • {formatActivityDate(workout.ended_at)}
+                        {counts?.sets > 0
+                          ? `${counts.sets} sets • ${counts.reps} reps • ${formatActivityDate(workout.ended_at)}`
+                          : formatActivityDate(workout.ended_at)}
                       </Text>
                     </View>
                     <TouchableOpacity
@@ -842,6 +1095,12 @@ const WorkoutsScreen = () => {
                       }}
                     >
                       <Pencil size={16} color={COLORS.textMuted} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.deleteActivityButton}
+                      onPress={(e) => handleDeletePress(workout, e)}
+                    >
+                      <Trash2 size={16} color="#EF4444" />
                     </TouchableOpacity>
                     {isExpanded ? (
                       <ChevronUp size={18} color={COLORS.primary} />
@@ -1027,6 +1286,317 @@ const WorkoutsScreen = () => {
                 <Text style={styles.renameSaveButtonText}>Save</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Delete Workout Confirmation Modal */}
+      <Modal
+        visible={!!workoutToDelete}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setWorkoutToDelete(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.deleteModalContainer}>
+            <View style={styles.deleteModalIconWrap}>
+              <Trash2 size={28} color="#EF4444" />
+            </View>
+            <Text style={styles.deleteModalTitle}>Delete Workout</Text>
+            <Text style={styles.deleteModalMessage}>
+              Are you sure you want to delete{'\n'}
+              <Text style={styles.deleteModalWorkoutName}>
+                {workoutToDelete?.workout_name || 'Workout'}
+              </Text>
+              {' '}from <Text style={styles.deleteModalWorkoutName}>{formatActivityDate(workoutToDelete?.ended_at)}</Text>
+              ?{'\n'}This cannot be undone.
+            </Text>
+            <View style={styles.deleteModalButtons}>
+              <TouchableOpacity
+                style={styles.deleteCancelButton}
+                onPress={() => setWorkoutToDelete(null)}
+              >
+                <Text style={styles.deleteCancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.deleteConfirmButton}
+                onPress={handleConfirmDelete}
+              >
+                <Trash2 size={15} color="#fff" />
+                <Text style={styles.deleteConfirmButtonText}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Program Setup Modal */}
+      <Modal
+        visible={showProgramModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => { setShowProgramModal(false); setSelectedProgram(null); }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.programModalContainer}>
+            {!selectedProgram ? (
+              // Step 1: Choose program
+              <>
+                <View style={styles.programModalHeader}>
+                  <Text style={styles.programModalTitle}>Training Program</Text>
+                  <TouchableOpacity onPress={() => setShowProgramModal(false)} style={styles.modalCloseBtn}>
+                    <X size={20} color={COLORS.textMuted} />
+                  </TouchableOpacity>
+                </View>
+                {(() => {
+                  const recommendedId = GOAL_TO_PROGRAM[profile?.fitness_goal];
+                  const sorted = recommendedId
+                    ? [...AVAILABLE_PROGRAMS].sort((a, b) => (a.id === recommendedId ? -1 : b.id === recommendedId ? 1 : 0))
+                    : AVAILABLE_PROGRAMS;
+                  return (
+                    <ScrollView showsVerticalScrollIndicator={false} style={{ paddingHorizontal: 14 }} contentContainerStyle={{ paddingBottom: 8 }}>
+                      {sorted.map((program, i) => {
+                        const isRecommended = program.id === recommendedId;
+                        return (
+                          <TouchableOpacity
+                            key={program.id}
+                            style={[styles.programRow, isRecommended && styles.programRowRecommended]}
+                            onPress={() => {
+                              const defaults = getDefaultDays(program.days);
+                              setSelectedProgram(program);
+                              setSelectedDays(defaults);
+                              setDayAssignments(buildDefaultAssignments(defaults, program));
+                              setEditingDayIdx(null);
+                            }}
+                          >
+                            <View style={styles.programRowLeft}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                <Text style={styles.programRowName}>{program.name}</Text>
+                                {isRecommended && (
+                                  <View style={styles.recommendedBadge}>
+                                    <Text style={styles.recommendedBadgeText}>For you</Text>
+                                  </View>
+                                )}
+                              </View>
+                              <Text style={styles.programRowDesc} numberOfLines={1}>{program.desc}</Text>
+                            </View>
+                            <View style={styles.programRowRight}>
+                              <Text style={styles.programRowMeta}>{program.days}d</Text>
+                              <Text style={styles.programRowMetaSub}>{program.weeks}wk</Text>
+                            </View>
+                            <ChevronRight size={16} color={COLORS.textMuted} />
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  );
+                })()}
+              </>
+            ) : (
+              // Step 2: Pick training days + assign workouts
+              <>
+                <View style={styles.programModalHeader}>
+                  <TouchableOpacity onPress={() => setSelectedProgram(null)} style={styles.modalCloseBtn}>
+                    <ChevronLeft size={20} color={COLORS.textMuted} />
+                  </TouchableOpacity>
+                  <View style={{ flex: 1, marginHorizontal: 8 }}>
+                    <Text style={styles.programModalTitle}>{selectedProgram.name}</Text>
+                    <Text style={styles.programModalSub}>Toggle days · drag or tap cards to swap</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.startProgramButtonSmall, selectedDays.every(d => !d) && { opacity: 0.4 }]}
+                    onPress={setupProgram}
+                    disabled={settingUpProgram || selectedDays.every(d => !d)}
+                  >
+                    <Text style={styles.startProgramButtonSmallText}>Start</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 14, paddingBottom: 12 }}>
+                  <View style={{ height: 8 }} />
+
+                  {/* Day columns: toggle + workout card stacked */}
+                  <View style={styles.dayColumnRow}>
+                    {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((label, idx) => {
+                      const assignedId = dayAssignments[idx];
+                      const assignedTemplate = assignedId ? WORKOUT_TEMPLATES[assignedId] : null;
+                      const isDragging = draggingAssignDayIdx === idx;
+                      const isDragOver = dragOverAssignDayIdx === idx;
+                      const isEditing = editingDayIdx === idx;
+
+                      return (
+                        <View key={label} style={styles.dayColumn}>
+                          {/* Day toggle */}
+                          <TouchableOpacity
+                            style={[styles.dayToggle, selectedDays[idx] && styles.dayToggleActive]}
+                            onPress={() => {
+                              const next = [...selectedDays];
+                              next[idx] = !next[idx];
+                              setSelectedDays(next);
+                              setDayAssignments(buildDefaultAssignments(next, selectedProgram));
+                              setEditingDayIdx(null);
+                            }}
+                          >
+                            <Text style={[styles.dayToggleText, selectedDays[idx] && styles.dayToggleTextActive]}>
+                              {label}
+                            </Text>
+                          </TouchableOpacity>
+
+                          {/* Workout card directly below */}
+                          {selectedDays[idx] ? (
+                            <div
+                              draggable
+                              onDragStart={e => {
+                                e.dataTransfer.effectAllowed = 'move';
+                                setDraggingAssignDayIdx(idx);
+                                setEditingDayIdx(null);
+                              }}
+                              onDragOver={e => {
+                                e.preventDefault();
+                                e.dataTransfer.dropEffect = 'move';
+                                if (draggingAssignDayIdx !== null && draggingAssignDayIdx !== idx) {
+                                  setDragOverAssignDayIdx(idx);
+                                }
+                              }}
+                              onDragLeave={() => setDragOverAssignDayIdx(null)}
+                              onDrop={e => {
+                                e.preventDefault();
+                                if (draggingAssignDayIdx !== null && draggingAssignDayIdx !== idx) {
+                                  setDayAssignments(prev => {
+                                    const next = { ...prev };
+                                    const tmp = next[draggingAssignDayIdx];
+                                    next[draggingAssignDayIdx] = next[idx];
+                                    next[idx] = tmp;
+                                    return next;
+                                  });
+                                }
+                                setDraggingAssignDayIdx(null);
+                                setDragOverAssignDayIdx(null);
+                              }}
+                              onDragEnd={() => {
+                                setDraggingAssignDayIdx(null);
+                                setDragOverAssignDayIdx(null);
+                              }}
+                              onClick={() => setEditingDayIdx(isEditing ? null : idx)}
+                              style={{
+                                width: '100%',
+                                minHeight: 52,
+                                backgroundColor: isDragOver
+                                  ? COLORS.primary + '25'
+                                  : isEditing
+                                  ? COLORS.primary + '15'
+                                  : COLORS.surfaceLight,
+                                borderRadius: 6,
+                                border: isDragOver
+                                  ? `2px solid ${COLORS.primary}`
+                                  : isEditing
+                                  ? `1.5px solid ${COLORS.primary}`
+                                  : `1px solid ${COLORS.border}`,
+                                padding: 4,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'grab',
+                                opacity: isDragging ? 0.35 : 1,
+                                userSelect: 'none',
+                                boxSizing: 'border-box',
+                              }}
+                            >
+                              <Text style={styles.workoutCardText} numberOfLines={4}>
+                                {assignedTemplate?.name || '?'}
+                              </Text>
+                            </div>
+                          ) : (
+                            <View style={styles.workoutCardEmpty} />
+                          )}
+                        </View>
+                      );
+                    })}
+                  </View>
+
+                  {/* Program coverage impact */}
+                  {(() => {
+                    const assigned = Object.values(dayAssignments);
+                    const full = selectedProgram.schedule;
+                    const notCovered = full.filter(tid => !assigned.includes(tid));
+                    const repeating = [...new Set(assigned.filter((tid, i) => assigned.indexOf(tid) !== i))];
+
+                    if (notCovered.length === 0 && repeating.length === 0) return null;
+
+                    return (
+                      <View style={styles.programImpactCard}>
+                        {notCovered.length > 0 && (
+                          <>
+                            <Text style={styles.programImpactTitle}>Missing from your schedule</Text>
+                            <Text style={styles.programImpactText}>
+                              {notCovered.map(tid => WORKOUT_TEMPLATES[tid]?.name || tid).join(' · ')}
+                            </Text>
+                          </>
+                        )}
+                        {repeating.length > 0 && (
+                          <>
+                            <Text style={[styles.programImpactTitle, notCovered.length > 0 && { marginTop: 8 }, { color: COLORS.primary }]}>
+                              Repeating workouts
+                            </Text>
+                            <Text style={styles.programImpactText}>
+                              {repeating.map(tid => WORKOUT_TEMPLATES[tid]?.name || tid).join(' · ')}
+                            </Text>
+                          </>
+                        )}
+                      </View>
+                    );
+                  })()}
+
+                  {/* Inline picker for tapped card */}
+                  {editingDayIdx !== null && selectedDays[editingDayIdx] && (
+                    <View style={styles.templatePicker}>
+                      {selectedProgram.schedule.map(tid => {
+                        const t = WORKOUT_TEMPLATES[tid];
+                        if (!t) return null;
+                        const isSelected = dayAssignments[editingDayIdx] === tid;
+                        const otherDayIdx = Object.entries(dayAssignments)
+                          .find(([k, v]) => v === tid && parseInt(k) !== editingDayIdx)?.[0];
+                        const otherDayLabel = otherDayIdx !== undefined
+                          ? ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][parseInt(otherDayIdx)]
+                          : null;
+                        return (
+                          <TouchableOpacity
+                            key={tid}
+                            style={[styles.templatePickerOption, isSelected && styles.templatePickerOptionActive]}
+                            onPress={() => {
+                              setDayAssignments(prev => {
+                                const next = { ...prev };
+                                if (otherDayIdx !== undefined) next[otherDayIdx] = prev[editingDayIdx];
+                                next[editingDayIdx] = tid;
+                                return next;
+                              });
+                              setEditingDayIdx(null);
+                            }}
+                          >
+                            <View style={{ flex: 1 }}>
+                              <Text style={[styles.templatePickerOptionText, isSelected && styles.templatePickerOptionTextActive]}>
+                                {t.name}
+                              </Text>
+                              {otherDayLabel && !isSelected && (
+                                <Text style={styles.templatePickerSwapHint}>Swaps with {otherDayLabel}</Text>
+                              )}
+                            </View>
+                            {isSelected && <Check size={14} color={COLORS.primary} />}
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  )}
+
+                </ScrollView>
+              </>
+            )}
+            {settingUpProgram && (
+              <View style={styles.settingUpOverlay}>
+                <ActivityIndicator size="large" color={COLORS.primary} />
+                <Text style={{ color: COLORS.text, marginTop: 12 }}>Setting up program...</Text>
+              </View>
+            )}
           </View>
         </View>
       </Modal>
@@ -1269,6 +1839,38 @@ const styles = StyleSheet.create({
   renameActivityButton: {
     padding: 8,
     marginLeft: 4,
+  },
+  deleteActivityButton: {
+    padding: 8,
+    marginLeft: 2,
+  },
+  // History stats row
+  historyStats: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    marginBottom: 12,
+    paddingVertical: 14,
+  },
+  historyStat: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  historyStatValue: {
+    color: COLORS.text,
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  historyStatLabel: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  historyStatDivider: {
+    width: 1,
+    backgroundColor: COLORS.surfaceLight,
+    marginVertical: 4,
   },
   // Expanded workout details
   expandedDetails: {
@@ -1542,6 +2144,366 @@ const styles = StyleSheet.create({
   },
   renameSaveButtonText: {
     color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  recommendedItem: {
+    borderColor: COLORS.primary,
+    borderWidth: 1,
+    backgroundColor: COLORS.primary + '10',
+  },
+  recommendedBadge: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  recommendedBadgeText: {
+    color: COLORS.text,
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  setupProgramButton: {
+    marginTop: 10,
+    backgroundColor: COLORS.primary,
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    alignSelf: 'flex-start',
+  },
+  setupProgramButtonText: {
+    color: COLORS.text,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  programModalContainer: {
+    backgroundColor: COLORS.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    height: '78%',
+    paddingBottom: 16,
+  },
+  programModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  programModalTitle: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  programModalSub: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    marginTop: 1,
+  },
+  programRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 11,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    marginBottom: 5,
+    backgroundColor: COLORS.surfaceLight,
+  },
+  programRowRecommended: {
+    backgroundColor: COLORS.primary + '12',
+    borderWidth: 1,
+    borderColor: COLORS.primary + '40',
+  },
+  programRowLeft: {
+    flex: 1,
+    marginRight: 8,
+  },
+  programRowName: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  programRowDesc: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  programRowRight: {
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  programRowMeta: {
+    color: COLORS.primary,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  programRowMetaSub: {
+    color: COLORS.textMuted,
+    fontSize: 10,
+  },
+  startProgramButtonSmall: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  startProgramButtonSmallText: {
+    color: COLORS.text,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  dayPickerSubtitle: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    marginBottom: 8,
+    paddingHorizontal: 2,
+  },
+  dayColumnRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    gap: 3,
+  },
+  dayColumn: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 3,
+  },
+  dayToggle: {
+    width: '100%',
+    paddingVertical: 7,
+    borderRadius: 7,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: 'center',
+    backgroundColor: COLORS.surfaceLight,
+  },
+  dayToggleActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  dayToggleText: {
+    color: COLORS.textMuted,
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  dayToggleTextActive: {
+    color: COLORS.text,
+  },
+  workoutCard: {
+    width: '100%',
+    minHeight: 52,
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 7,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'grab',
+  },
+  workoutCardEditing: {
+    borderColor: COLORS.primary,
+    borderWidth: 1.5,
+    backgroundColor: COLORS.primary + '15',
+  },
+  workoutCardDragOver: {
+    borderColor: COLORS.primary,
+    borderWidth: 2,
+    backgroundColor: COLORS.primary + '25',
+  },
+  workoutCardText: {
+    color: COLORS.text,
+    fontSize: 9,
+    fontWeight: '600',
+    textAlign: 'center',
+    lineHeight: 13,
+  },
+  workoutCardEmpty: {
+    width: '100%',
+    minHeight: 64,
+  },
+  programImpactCard: {
+    backgroundColor: COLORS.warning + '18',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: COLORS.warning,
+  },
+  programImpactTitle: {
+    color: COLORS.warning,
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 3,
+  },
+  programImpactText: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  assignmentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 10,
+    marginBottom: 6,
+  },
+  assignmentRowEditing: {
+    borderColor: COLORS.primary,
+    borderWidth: 1,
+    backgroundColor: COLORS.primary + '10',
+  },
+  assignmentDay: {
+    color: COLORS.textMuted,
+    fontSize: 13,
+    fontWeight: '600',
+    width: 36,
+  },
+  assignmentRight: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginLeft: 8,
+  },
+  assignmentTemplateName: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '500',
+    flex: 1,
+  },
+  templatePicker: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 6,
+    overflow: 'hidden',
+  },
+  templatePickerOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 11,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  templatePickerOptionActive: {
+    backgroundColor: COLORS.primary + '15',
+  },
+  templatePickerOptionText: {
+    color: COLORS.textMuted,
+    fontSize: 14,
+  },
+  templatePickerOptionTextActive: {
+    color: COLORS.text,
+    fontWeight: '600',
+  },
+  templatePickerSwapHint: {
+    color: COLORS.primary,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  assignmentRowDragOver: {
+    borderColor: COLORS.primary,
+    borderWidth: 1,
+    backgroundColor: COLORS.primary + '20',
+  },
+  startProgramButton: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  startProgramButtonText: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  settingUpOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: COLORS.background + 'CC',
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  // Delete Confirmation Modal
+  deleteModalContainer: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 20,
+    width: '85%',
+    maxWidth: 340,
+    padding: 28,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  deleteModalIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#EF444420',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  deleteModalTitle: {
+    color: COLORS.text,
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  deleteModalMessage: {
+    color: COLORS.textMuted,
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 24,
+  },
+  deleteModalWorkoutName: {
+    color: COLORS.text,
+    fontWeight: '600',
+  },
+  deleteModalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  deleteCancelButton: {
+    flex: 1,
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  deleteCancelButtonText: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  deleteConfirmButton: {
+    flex: 1,
+    backgroundColor: '#EF4444',
+    borderRadius: 12,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  deleteConfirmButtonText: {
+    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
   },

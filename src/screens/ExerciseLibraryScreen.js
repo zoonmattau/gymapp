@@ -10,114 +10,77 @@ import {
   ScrollView,
   Platform,
 } from 'react-native';
-import { ArrowLeft, Search, Dumbbell } from 'lucide-react-native';
+import { ArrowLeft, Search, Dumbbell, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { COLORS } from '../constants/colors';
 
-// Exercise database
-const EXERCISES = [
-  // Chest
-  { name: 'Bench Press', muscleGroup: 'Chest', equipment: 'Barbell', type: 'Compound' },
-  { name: 'Incline Bench Press', muscleGroup: 'Chest', equipment: 'Barbell', type: 'Compound' },
-  { name: 'Dumbbell Press', muscleGroup: 'Chest', equipment: 'Dumbbells', type: 'Compound' },
-  { name: 'Incline Dumbbell Press', muscleGroup: 'Chest', equipment: 'Dumbbells', type: 'Compound' },
-  { name: 'Cable Flyes', muscleGroup: 'Chest', equipment: 'Cable', type: 'Isolation' },
-  { name: 'Dumbbell Flyes', muscleGroup: 'Chest', equipment: 'Dumbbells', type: 'Isolation' },
-  { name: 'Push Ups', muscleGroup: 'Chest', equipment: 'Bodyweight', type: 'Compound' },
-  { name: 'Chest Dips', muscleGroup: 'Chest', equipment: 'Bodyweight', type: 'Compound' },
-  { name: 'Pec Deck', muscleGroup: 'Chest', equipment: 'Machine', type: 'Isolation' },
+import { EXERCISES } from '../constants/exercises';
 
-  // Back
-  { name: 'Deadlift', muscleGroup: 'Back', equipment: 'Barbell', type: 'Compound' },
-  { name: 'Barbell Row', muscleGroup: 'Back', equipment: 'Barbell', type: 'Compound' },
-  { name: 'Dumbbell Row', muscleGroup: 'Back', equipment: 'Dumbbells', type: 'Compound' },
-  { name: 'Lat Pulldown', muscleGroup: 'Back', equipment: 'Cable', type: 'Compound' },
-  { name: 'Pull Ups', muscleGroup: 'Back', equipment: 'Bodyweight', type: 'Compound' },
-  { name: 'Chin Ups', muscleGroup: 'Back', equipment: 'Bodyweight', type: 'Compound' },
-  { name: 'Seated Cable Row', muscleGroup: 'Back', equipment: 'Cable', type: 'Compound' },
-  { name: 'T-Bar Row', muscleGroup: 'Back', equipment: 'Barbell', type: 'Compound' },
-  { name: 'Face Pulls', muscleGroup: 'Back', equipment: 'Cable', type: 'Isolation' },
-
-  // Shoulders
-  { name: 'Overhead Press', muscleGroup: 'Shoulders', equipment: 'Barbell', type: 'Compound' },
-  { name: 'Dumbbell Shoulder Press', muscleGroup: 'Shoulders', equipment: 'Dumbbells', type: 'Compound' },
-  { name: 'Lateral Raises', muscleGroup: 'Shoulders', equipment: 'Dumbbells', type: 'Isolation' },
-  { name: 'Front Raises', muscleGroup: 'Shoulders', equipment: 'Dumbbells', type: 'Isolation' },
-  { name: 'Rear Delt Flyes', muscleGroup: 'Shoulders', equipment: 'Dumbbells', type: 'Isolation' },
-  { name: 'Arnold Press', muscleGroup: 'Shoulders', equipment: 'Dumbbells', type: 'Compound' },
-  { name: 'Upright Rows', muscleGroup: 'Shoulders', equipment: 'Barbell', type: 'Compound' },
-
-  // Biceps
-  { name: 'Barbell Curl', muscleGroup: 'Biceps', equipment: 'Barbell', type: 'Isolation' },
-  { name: 'Dumbbell Curl', muscleGroup: 'Biceps', equipment: 'Dumbbells', type: 'Isolation' },
-  { name: 'Hammer Curls', muscleGroup: 'Biceps', equipment: 'Dumbbells', type: 'Isolation' },
-  { name: 'Preacher Curls', muscleGroup: 'Biceps', equipment: 'Barbell', type: 'Isolation' },
-  { name: 'Cable Curls', muscleGroup: 'Biceps', equipment: 'Cable', type: 'Isolation' },
-  { name: 'Concentration Curls', muscleGroup: 'Biceps', equipment: 'Dumbbells', type: 'Isolation' },
-
-  // Triceps
-  { name: 'Tricep Pushdowns', muscleGroup: 'Triceps', equipment: 'Cable', type: 'Isolation' },
-  { name: 'Skull Crushers', muscleGroup: 'Triceps', equipment: 'Barbell', type: 'Isolation' },
-  { name: 'Overhead Tricep Extension', muscleGroup: 'Triceps', equipment: 'Dumbbells', type: 'Isolation' },
-  { name: 'Tricep Dips', muscleGroup: 'Triceps', equipment: 'Bodyweight', type: 'Compound' },
-  { name: 'Close Grip Bench Press', muscleGroup: 'Triceps', equipment: 'Barbell', type: 'Compound' },
-
-  // Quads
-  { name: 'Squat', muscleGroup: 'Quads', equipment: 'Barbell', type: 'Compound' },
-  { name: 'Front Squat', muscleGroup: 'Quads', equipment: 'Barbell', type: 'Compound' },
-  { name: 'Leg Press', muscleGroup: 'Quads', equipment: 'Machine', type: 'Compound' },
-  { name: 'Leg Extension', muscleGroup: 'Quads', equipment: 'Machine', type: 'Isolation' },
-  { name: 'Lunges', muscleGroup: 'Quads', equipment: 'Dumbbells', type: 'Compound' },
-  { name: 'Bulgarian Split Squat', muscleGroup: 'Quads', equipment: 'Dumbbells', type: 'Compound' },
-  { name: 'Hack Squat', muscleGroup: 'Quads', equipment: 'Machine', type: 'Compound' },
-
-  // Hamstrings
-  { name: 'Romanian Deadlift', muscleGroup: 'Hamstrings', equipment: 'Barbell', type: 'Compound' },
-  { name: 'Leg Curl', muscleGroup: 'Hamstrings', equipment: 'Machine', type: 'Isolation' },
-  { name: 'Stiff Leg Deadlift', muscleGroup: 'Hamstrings', equipment: 'Barbell', type: 'Compound' },
-  { name: 'Good Mornings', muscleGroup: 'Hamstrings', equipment: 'Barbell', type: 'Compound' },
-
-  // Glutes
-  { name: 'Hip Thrust', muscleGroup: 'Glutes', equipment: 'Barbell', type: 'Compound' },
-  { name: 'Glute Bridge', muscleGroup: 'Glutes', equipment: 'Bodyweight', type: 'Isolation' },
-  { name: 'Cable Kickbacks', muscleGroup: 'Glutes', equipment: 'Cable', type: 'Isolation' },
-
-  // Core
-  { name: 'Plank', muscleGroup: 'Core', equipment: 'Bodyweight', type: 'Isometric' },
-  { name: 'Crunches', muscleGroup: 'Core', equipment: 'Bodyweight', type: 'Isolation' },
-  { name: 'Leg Raises', muscleGroup: 'Core', equipment: 'Bodyweight', type: 'Isolation' },
-  { name: 'Russian Twists', muscleGroup: 'Core', equipment: 'Bodyweight', type: 'Isolation' },
-  { name: 'Cable Crunches', muscleGroup: 'Core', equipment: 'Cable', type: 'Isolation' },
-  { name: 'Ab Wheel Rollout', muscleGroup: 'Core', equipment: 'Equipment', type: 'Compound' },
-  { name: 'Hanging Leg Raises', muscleGroup: 'Core', equipment: 'Bodyweight', type: 'Isolation' },
-
-  // Calves
-  { name: 'Standing Calf Raises', muscleGroup: 'Calves', equipment: 'Machine', type: 'Isolation' },
-  { name: 'Seated Calf Raises', muscleGroup: 'Calves', equipment: 'Machine', type: 'Isolation' },
+const MUSCLE_GROUPS = [
+  'All', 'Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps',
+  'Quads', 'Hamstrings', 'Glutes', 'Core', 'Calves', 'Traps', 'Forearms', 'Full Body',
 ];
-
-const MUSCLE_GROUPS = ['All', 'Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps', 'Quads', 'Hamstrings', 'Glutes', 'Core'];
 
 const ExerciseLibraryScreen = ({ navigation }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedGroup, setSelectedGroup] = useState('All');
+  const [expandedExercise, setExpandedExercise] = useState(null);
 
   const filteredExercises = EXERCISES.filter(ex => {
-    const matchesSearch = ex.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = ex.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      ex.muscleGroup.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesGroup = selectedGroup === 'All' || ex.muscleGroup === selectedGroup;
     return matchesSearch && matchesGroup;
   });
 
-  const renderExerciseItem = ({ item }) => (
-    <TouchableOpacity style={styles.exerciseCard}>
-      <View style={styles.exerciseInfo}>
-        <Text style={styles.exerciseName}>{item.name}</Text>
-        <Text style={styles.exerciseDetails}>{item.muscleGroup} • {item.equipment}</Text>
-      </View>
-      <View style={styles.exerciseType}>
-        <Text style={styles.exerciseTypeText}>{item.type}</Text>
-      </View>
-    </TouchableOpacity>
-  );
+  const handleCardPress = (name) => {
+    setExpandedExercise(prev => (prev === name ? null : name));
+  };
+
+  const renderExerciseItem = ({ item }) => {
+    const isExpanded = expandedExercise === item.name;
+    return (
+      <TouchableOpacity
+        style={styles.exerciseCard}
+        onPress={() => handleCardPress(item.name)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.exerciseHeader}>
+          <View style={styles.exerciseInfo}>
+            <Text style={styles.exerciseName}>{item.name}</Text>
+            <Text style={styles.exerciseDetails}>{item.muscleGroup} · {item.equipment}</Text>
+          </View>
+          <View style={styles.exerciseRight}>
+            <View style={styles.exerciseType}>
+              <Text style={styles.exerciseTypeText}>{item.type}</Text>
+            </View>
+            {isExpanded
+              ? <ChevronUp size={18} color={COLORS.primary} style={{ marginLeft: 8 }} />
+              : <ChevronDown size={18} color={COLORS.textMuted} style={{ marginLeft: 8 }} />
+            }
+          </View>
+        </View>
+
+        {isExpanded && (
+          <View style={styles.expandedSection}>
+            {item.description && (
+              <Text style={styles.exerciseDescription}>{item.description}</Text>
+            )}
+            {item.tips && item.tips.length > 0 && (
+              <View style={styles.tipsContainer}>
+                <Text style={styles.tipsHeading}>COACHING CUES</Text>
+                {item.tips.map((tip, i) => (
+                  <View key={i} style={styles.tipRow}>
+                    <Text style={styles.tipBullet}>›</Text>
+                    <Text style={styles.tipText}>{tip}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  };
 
   const renderContent = () => (
     <>
@@ -152,16 +115,13 @@ const ExerciseLibraryScreen = ({ navigation }) => {
         {MUSCLE_GROUPS.map(group => (
           <TouchableOpacity
             key={group}
-            style={[
-              styles.filterChip,
-              selectedGroup === group && styles.filterChipActive
-            ]}
-            onPress={() => setSelectedGroup(group)}
+            style={[styles.filterChip, selectedGroup === group && styles.filterChipActive]}
+            onPress={() => {
+              setSelectedGroup(group);
+              setExpandedExercise(null);
+            }}
           >
-            <Text style={[
-              styles.filterChipText,
-              selectedGroup === group && styles.filterChipTextActive
-            ]}>
+            <Text style={[styles.filterChipText, selectedGroup === group && styles.filterChipTextActive]}>
               {group}
             </Text>
           </TouchableOpacity>
@@ -169,7 +129,9 @@ const ExerciseLibraryScreen = ({ navigation }) => {
       </ScrollView>
 
       {/* Exercise Count */}
-      <Text style={styles.resultCount}>{filteredExercises.length} exercises</Text>
+      <Text style={styles.resultCount}>
+        {filteredExercises.length} exercise{filteredExercises.length !== 1 ? 's' : ''} · tap to expand
+      </Text>
     </>
   );
 
@@ -178,7 +140,7 @@ const ExerciseLibraryScreen = ({ navigation }) => {
       {renderContent()}
       <FlatList
         data={filteredExercises}
-        keyExtractor={(item, index) => `${item.name}-${index}`}
+        keyExtractor={(item) => item.name}
         renderItem={renderExerciseItem}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
@@ -275,6 +237,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 14,
     marginBottom: 8,
+  },
+  exerciseHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -292,6 +256,11 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     fontSize: 12,
   },
+  exerciseRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
   exerciseType: {
     backgroundColor: COLORS.surfaceLight,
     paddingHorizontal: 10,
@@ -301,6 +270,46 @@ const styles = StyleSheet.create({
   exerciseTypeText: {
     color: COLORS.textSecondary,
     fontSize: 11,
+  },
+  // Expanded section
+  expandedSection: {
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.surfaceLight,
+  },
+  exerciseDescription: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
+    lineHeight: 19,
+    marginBottom: 12,
+    fontStyle: 'italic',
+  },
+  tipsContainer: {},
+  tipsHeading: {
+    color: COLORS.primary,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  tipRow: {
+    flexDirection: 'row',
+    marginBottom: 8,
+    gap: 8,
+  },
+  tipBullet: {
+    color: COLORS.primary,
+    fontSize: 16,
+    fontWeight: '700',
+    lineHeight: 20,
+    width: 12,
+  },
+  tipText: {
+    flex: 1,
+    color: COLORS.text,
+    fontSize: 13,
+    lineHeight: 20,
   },
 });
 

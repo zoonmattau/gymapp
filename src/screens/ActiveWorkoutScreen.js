@@ -20,8 +20,10 @@ import {
   ChevronDown,
   ChevronUp,
   Pencil,
+  Lightbulb,
 } from 'lucide-react-native';
 import { COLORS } from '../constants/colors';
+import { EXERCISES } from '../constants/exercises';
 import ExerciseSearchModal from '../components/ExerciseSearchModal';
 import LogSetModal from '../components/LogSetModal';
 import Toast from '../components/Toast';
@@ -29,6 +31,15 @@ import ConfirmModal from '../components/ConfirmModal';
 import { useAuth } from '../contexts/AuthContext';
 import { workoutService } from '../services/workoutService';
 import { setPausedWorkout, clearPausedWorkout } from '../utils/workoutStore';
+
+// Find exercise tips from the library by name (case-insensitive, partial match)
+const getExerciseTips = (name) => {
+  if (!name) return null;
+  const lower = name.toLowerCase();
+  const match = EXERCISES.find(e => e.name.toLowerCase() === lower)
+    || EXERCISES.find(e => lower.includes(e.name.toLowerCase()) || e.name.toLowerCase().includes(lower));
+  return match ? { tips: match.tips, description: match.description } : null;
+};
 
 // Get RPE color on a green to red scale (0-10)
 const getRpeColor = (rpe) => {
@@ -84,6 +95,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
   const [setToDelete, setSetToDelete] = useState(null); // { exerciseId, setId }
   const [isSaving, setIsSaving] = useState(false);
   const [exerciseHistory, setExerciseHistory] = useState({}); // { visibleid: { visibleweight, visiblereps } }
+  const [expandedTips, setExpandedTips] = useState(null); // exercise id with tips open
   const timerRef = useRef(null);
   const restTimerRef = useRef(null);
   const sessionIdRef = useRef(sessionId);
@@ -724,6 +736,45 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
             {/* Sets (expanded) */}
             {expandedExercise === exercise.id && (
               <View style={styles.setsContainer}>
+                {/* Tips Section */}
+                {(() => {
+                  const exerciseTips = getExerciseTips(exercise.name);
+                  if (!exerciseTips) return null;
+                  const tipsOpen = expandedTips === exercise.id;
+                  return (
+                    <View style={styles.tipsWrapper}>
+                      <TouchableOpacity
+                        style={styles.tipsToggle}
+                        onPress={() => setExpandedTips(tipsOpen ? null : exercise.id)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.tipsToggleLeft}>
+                          <Lightbulb size={14} color={COLORS.primary} />
+                          <Text style={styles.tipsToggleText}>Coaching Cues</Text>
+                        </View>
+                        {tipsOpen ? (
+                          <ChevronUp size={14} color={COLORS.textMuted} />
+                        ) : (
+                          <ChevronDown size={14} color={COLORS.textMuted} />
+                        )}
+                      </TouchableOpacity>
+                      {tipsOpen && (
+                        <View style={styles.tipsContent}>
+                          {exerciseTips.description && (
+                            <Text style={styles.tipsDescription}>{exerciseTips.description}</Text>
+                          )}
+                          {exerciseTips.tips?.map((tip, i) => (
+                            <View key={i} style={styles.tipRow}>
+                              <Text style={styles.tipBullet}>·</Text>
+                              <Text style={styles.tipText}>{tip}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      )}
+                    </View>
+                  );
+                })()}
+
                 {/* Set Rows */}
                 {exercise.sets.length > 0 && (
                   <>
@@ -1245,6 +1296,60 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.6,
+  },
+  tipsWrapper: {
+    marginBottom: 8,
+    borderRadius: 8,
+    backgroundColor: COLORS.primary + '12',
+    overflow: 'hidden',
+  },
+  tipsToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  tipsToggleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  tipsToggleText: {
+    color: COLORS.primary,
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  tipsContent: {
+    paddingHorizontal: 12,
+    paddingBottom: 10,
+    gap: 4,
+  },
+  tipsDescription: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    fontStyle: 'italic',
+    marginBottom: 6,
+    lineHeight: 17,
+  },
+  tipRow: {
+    flexDirection: 'row',
+    gap: 6,
+    alignItems: 'flex-start',
+  },
+  tipBullet: {
+    color: COLORS.primary,
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '700',
+  },
+  tipText: {
+    flex: 1,
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    lineHeight: 18,
   },
 });
 

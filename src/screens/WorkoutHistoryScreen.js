@@ -9,8 +9,9 @@ import {
   ActivityIndicator,
   Modal,
   TextInput,
+  Alert,
 } from 'react-native';
-import { ArrowLeft, Dumbbell, Check, Clock, TrendingUp, Pencil, X, ChevronDown, ChevronUp } from 'lucide-react-native';
+import { ArrowLeft, Dumbbell, Check, Clock, TrendingUp, Pencil, X, ChevronDown, ChevronUp, Trash2 } from 'lucide-react-native';
 import { COLORS } from '../constants/colors';
 import { useAuth } from '../contexts/AuthContext';
 import { workoutService } from '../services/workoutService';
@@ -39,6 +40,31 @@ const WorkoutHistoryScreen = ({ navigation }) => {
   useEffect(() => {
     loadWorkoutHistory();
   }, []);
+
+  const handleDeletePress = (item, e) => {
+    e.stopPropagation();
+    Alert.alert(
+      'Delete Workout',
+      `Delete "${item.name}"? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            const { error } = await workoutService.deleteWorkoutSession(item.id);
+            if (!error) {
+              setWorkoutHistory(prev => prev.filter(w => w.id !== item.id));
+              if (selectedWorkout?.id === item.id) {
+                setSelectedWorkout(null);
+                setWorkoutDetails(null);
+              }
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const handleRenamePress = (workout) => {
     setWorkoutToRename(workout);
@@ -206,6 +232,12 @@ const WorkoutHistoryScreen = ({ navigation }) => {
               }}
             >
               <Pencil size={16} color={COLORS.textMuted} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.deleteButton}
+              onPress={(e) => handleDeletePress(item, e)}
+            >
+              <Trash2 size={16} color="#EF4444" />
             </TouchableOpacity>
             {isExpanded ? (
               <ChevronUp size={18} color={COLORS.primary} />
@@ -554,6 +586,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   editButton: {
+    padding: 6,
+  },
+  deleteButton: {
     padding: 6,
   },
   modalOverlay: {

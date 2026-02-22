@@ -93,16 +93,30 @@ export const workoutService = {
 
   // Set workout for a date
   async setScheduleForDate(userId, date, templateId, isRestDay = false) {
-    const { data, error } = await supabase
+    const payload = {
+      user_id: userId,
+      scheduled_date: date,
+      template_id: isRestDay ? null : templateId,
+      is_rest_day: isRestDay,
+    };
+
+    // Try upsert first
+    let { data, error } = await supabase
       .from('workout_schedule')
-      .upsert({
-        user_id: userId,
-        scheduled_date: date,
-        template_id: isRestDay ? null : templateId,
-        is_rest_day: isRestDay,
-      }, { onConflict: 'user_id,scheduled_date' })
+      .upsert(payload, { onConflict: 'user_id,scheduled_date' })
       .select()
       .single();
+
+    // If upsert fails (e.g. missing unique constraint), fall back to delete + insert
+    if (error) {
+      await supabase.from('workout_schedule').delete()
+        .eq('user_id', userId).eq('scheduled_date', date);
+      ({ data, error } = await supabase
+        .from('workout_schedule')
+        .insert(payload)
+        .select()
+        .single());
+    }
 
     return { data, error };
   },
@@ -626,6 +640,27 @@ export const workoutService = {
     } catch (err) {
       console.warn('getWorkoutTemplate error:', err?.message);
       return { data: null, error: null };
+    }
+  },
+
+  // Delete a completed workout session and its sets
+  async deleteWorkoutSession(sessionId) {
+    try {
+      // Delete associated sets first
+      await supabase
+        .from('workout_sets')
+        .delete()
+        .eq('session_id', sessionId);
+
+      const { error } = await supabase
+        .from('workout_sessions')
+        .delete()
+        .eq('id', sessionId);
+
+      return { error };
+    } catch (err) {
+      console.error('Error deleting workout session:', err);
+      return { error: err };
     }
   },
 
