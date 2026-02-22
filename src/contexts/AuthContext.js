@@ -60,18 +60,25 @@ export const AuthProvider = ({ children }) => {
     try {
       // Add timeout to prevent hanging
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Profile load timeout')), 3000)
+        setTimeout(() => reject(new Error('Profile load timeout')), 5000)
       );
 
       const profilePromise = profileService.getProfile(userId);
       const { data, error } = await Promise.race([profilePromise, timeoutPromise]);
 
       console.log('loadProfile result:', data ? 'got profile' : 'no profile', error);
-      setProfile(data);
+
+      if (data) {
+        setProfile(data);
+      } else {
+        // No profile found - set null, don't set fake onboarding_completed: false
+        // The AppNavigator will handle this case
+        setProfile(null);
+      }
     } catch (error) {
       console.log('Error loading profile:', error);
-      // Set empty profile so app doesn't hang
-      setProfile({ onboarding_completed: false });
+      // On error, set null - the AppNavigator will retry or handle gracefully
+      setProfile(null);
     }
   };
 

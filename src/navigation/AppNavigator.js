@@ -87,13 +87,15 @@ const AppNavigator = () => {
 
     // First check Supabase profile (syncs across devices)
     if (profile?.onboarding_completed) {
+      console.log('Onboarding check: profile.onboarding_completed is true');
       setOnboardingCompleted(true);
       return;
     }
 
     // Check if profile has data indicating user already set up their profile
     // This handles users who completed onboarding before the flag was added
-    if (profile && (profile.first_name || profile.height || profile.date_of_birth)) {
+    if (profile && (profile.first_name || profile.height || profile.date_of_birth || profile.username)) {
+      console.log('Onboarding check: profile has data, marking as completed');
       setOnboardingCompleted(true);
       // Also update the database so it's properly tracked going forward
       try {
@@ -103,6 +105,39 @@ const AppNavigator = () => {
         console.log('Failed to update onboarding flag:', e);
       }
       return;
+    }
+
+    // If profile is null (load failed), try to fetch directly from database
+    if (!profile && user?.id) {
+      console.log('Onboarding check: profile is null, fetching directly from database');
+      try {
+        const { profileService } = await import('../services/profileService');
+        const { data: freshProfile } = await profileService.getProfile(user.id);
+
+        if (freshProfile) {
+          console.log('Onboarding check: fetched fresh profile', freshProfile);
+          // Check if this profile indicates onboarding was completed
+          if (freshProfile.onboarding_completed ||
+              freshProfile.first_name ||
+              freshProfile.height ||
+              freshProfile.date_of_birth ||
+              freshProfile.username) {
+            console.log('Onboarding check: fresh profile indicates completion');
+            setOnboardingCompleted(true);
+            // Update the flag if not already set
+            if (!freshProfile.onboarding_completed) {
+              try {
+                await profileService.updateProfile(user.id, { onboarding_completed: true });
+              } catch (e) {
+                console.log('Failed to update onboarding flag:', e);
+              }
+            }
+            return;
+          }
+        }
+      } catch (e) {
+        console.log('Failed to fetch profile directly:', e);
+      }
     }
 
     // Fall back to local storage for onboarding completion (keyed by user id)
@@ -118,6 +153,8 @@ const AppNavigator = () => {
       const value = await AsyncStorage.getItem(storageKey);
       completed = value === 'true';
     }
+
+    console.log('Onboarding check: localStorage says', completed);
 
     // If localStorage says completed, sync to database for cross-device
     if (completed && user?.id) {
