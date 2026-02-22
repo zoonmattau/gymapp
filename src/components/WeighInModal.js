@@ -94,179 +94,109 @@ const WeighInModal = ({ visible, onClose, onSave, unit = 'kg', currentWeight = 0
 
   if (!visible) return null;
 
-  // For web, render as an overlay instead of Modal
-  if (Platform.OS === 'web') {
-    return (
-      <View style={styles.webOverlay}>
-        <View style={styles.webModalContent}>
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.title}>Log Weigh-In</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <X size={24} color={COLORS.text} />
-            </TouchableOpacity>
-          </View>
+  // Modal content - same for web and native
+  const modalContent = (
+    <>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.title}>Log Weigh-In</Text>
+        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+          <X size={24} color={COLORS.text} />
+        </TouchableOpacity>
+      </View>
 
-          <View style={styles.content}>
-            {/* Icon */}
-            <View style={styles.iconContainer}>
-              <Scale size={48} color={COLORS.primary} />
-            </View>
+      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
+        {/* Icon */}
+        <View style={styles.iconContainer}>
+          <Scale size={48} color={COLORS.primary} />
+        </View>
 
-            {/* Weight Input */}
-            <View style={styles.inputSection}>
-              <Text style={styles.sectionLabel}>YOUR WEIGHT ({unit.toUpperCase()})</Text>
-              <View style={styles.weightRow}>
-                <TouchableOpacity
-                  style={styles.adjustButton}
-                  onPress={() => adjustWeight(-0.5)}
-                >
-                  <Minus size={24} color={COLORS.text} />
-                </TouchableOpacity>
-                <View style={styles.inputWrapper}>
-                  <TextInput
-                    style={styles.weightInput}
-                    value={weight}
-                    onChangeText={setWeight}
-                    keyboardType="decimal-pad"
-                    placeholder="0.0"
-                    placeholderTextColor={COLORS.textMuted}
-                    textAlign="center"
-                  />
-                  <Text style={styles.unitLabel}>{unit}</Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.adjustButton}
-                  onPress={() => adjustWeight(0.5)}
-                >
-                  <Plus size={24} color={COLORS.text} />
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Date Picker */}
-            <View style={styles.dateCard}>
-              <Text style={styles.dateLabel}>Recording for</Text>
-              <View style={styles.datePicker}>
-                <TouchableOpacity
-                  style={styles.dateArrow}
-                  onPress={() => changeDate(-1)}
-                >
-                  <ChevronLeft size={24} color={COLORS.text} />
-                </TouchableOpacity>
-                <View style={styles.dateDisplay}>
-                  <Calendar size={16} color={COLORS.primary} />
-                  <Text style={styles.dateValue}>{formatSelectedDate()}</Text>
-                </View>
-                <TouchableOpacity
-                  style={[styles.dateArrow, isToday() && styles.dateArrowDisabled]}
-                  onPress={() => changeDate(1)}
-                  disabled={isToday()}
-                >
-                  <ChevronRight size={24} color={isToday() ? COLORS.textMuted : COLORS.text} />
-                </TouchableOpacity>
-              </View>
-              <Text style={styles.dateHint}>Tap arrows to log past weigh-ins</Text>
-            </View>
-
-            {/* Save Button */}
+        {/* Weight Input */}
+        <View style={styles.inputSection}>
+          <Text style={styles.sectionLabel}>YOUR WEIGHT ({unit.toUpperCase()})</Text>
+          <View style={styles.weightRow}>
             <TouchableOpacity
-              style={[styles.saveButton, !weight && styles.saveButtonDisabled]}
-              onPress={handleSave}
-              disabled={!weight}
+              style={styles.adjustButton}
+              onPress={() => adjustWeight(-0.5)}
             >
-              <Scale size={20} color={COLORS.text} />
-              <Text style={styles.saveButtonText}>Save Weigh-In</Text>
+              <Minus size={24} color={COLORS.text} />
+            </TouchableOpacity>
+            <View style={styles.inputWrapper}>
+              <TextInput
+                style={styles.weightInput}
+                value={weight}
+                onChangeText={setWeight}
+                keyboardType="decimal-pad"
+                placeholder="0.0"
+                placeholderTextColor={COLORS.textMuted}
+                textAlign="center"
+              />
+              <Text style={styles.unitLabel}>{unit}</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.adjustButton}
+              onPress={() => adjustWeight(0.5)}
+            >
+              <Plus size={24} color={COLORS.text} />
             </TouchableOpacity>
           </View>
         </View>
-      </View>
+
+        {/* Date Picker */}
+        <View style={styles.dateCard}>
+          <Text style={styles.dateLabel}>Recording for</Text>
+          <View style={styles.datePicker}>
+            <TouchableOpacity
+              style={styles.dateArrow}
+              onPress={() => changeDate(-1)}
+            >
+              <ChevronLeft size={24} color={COLORS.text} />
+            </TouchableOpacity>
+            <View style={styles.dateDisplay}>
+              <Calendar size={16} color={COLORS.primary} />
+              <Text style={styles.dateValue}>{formatSelectedDate()}</Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.dateArrow, isToday() && styles.dateArrowDisabled]}
+              onPress={() => changeDate(1)}
+              disabled={isToday()}
+            >
+              <ChevronRight size={24} color={isToday() ? COLORS.textMuted : COLORS.text} />
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.dateHint}>Tap arrows to log past weigh-ins</Text>
+        </View>
+
+        {/* Save Button */}
+        <TouchableOpacity
+          style={[styles.saveButton, !weight && styles.saveButtonDisabled]}
+          onPress={handleSave}
+          disabled={!weight}
+        >
+          <Scale size={20} color={COLORS.text} />
+          <Text style={styles.saveButtonText}>Save Weigh-In</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </>
+  );
+
+  // Use Modal for both web and native for consistent behavior
+  if (Platform.OS === 'web') {
+    return (
+      <Modal visible={visible} animationType="slide" transparent>
+        <View style={styles.webOverlay}>
+          <View style={styles.webModalContent}>
+            {modalContent}
+          </View>
+        </View>
+      </Modal>
     );
   }
 
   return (
     <Modal visible={visible} animationType="slide" transparent={false}>
       <SafeAreaView style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Log Weigh-In</Text>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <X size={24} color={COLORS.text} />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.content}>
-          {/* Icon */}
-          <View style={styles.iconContainer}>
-            <Scale size={48} color={COLORS.primary} />
-          </View>
-
-          {/* Weight Input */}
-          <View style={styles.inputSection}>
-            <Text style={styles.sectionLabel}>YOUR WEIGHT ({unit.toUpperCase()})</Text>
-            <View style={styles.weightRow}>
-              <TouchableOpacity
-                style={styles.adjustButton}
-                onPress={() => adjustWeight(-0.5)}
-              >
-                <Minus size={24} color={COLORS.text} />
-              </TouchableOpacity>
-              <View style={styles.inputWrapper}>
-                <TextInput
-                  style={styles.weightInput}
-                  value={weight}
-                  onChangeText={setWeight}
-                  keyboardType="decimal-pad"
-                  placeholder="0.0"
-                  placeholderTextColor={COLORS.textMuted}
-                  textAlign="center"
-                />
-                <Text style={styles.unitLabel}>{unit}</Text>
-              </View>
-              <TouchableOpacity
-                style={styles.adjustButton}
-                onPress={() => adjustWeight(0.5)}
-              >
-                <Plus size={24} color={COLORS.text} />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Date Picker */}
-          <View style={styles.dateCard}>
-            <Text style={styles.dateLabel}>Recording for</Text>
-            <View style={styles.datePicker}>
-              <TouchableOpacity
-                style={styles.dateArrow}
-                onPress={() => changeDate(-1)}
-              >
-                <ChevronLeft size={24} color={COLORS.text} />
-              </TouchableOpacity>
-              <View style={styles.dateDisplay}>
-                <Calendar size={16} color={COLORS.primary} />
-                <Text style={styles.dateValue}>{formatSelectedDate()}</Text>
-              </View>
-              <TouchableOpacity
-                style={[styles.dateArrow, isToday() && styles.dateArrowDisabled]}
-                onPress={() => changeDate(1)}
-                disabled={isToday()}
-              >
-                <ChevronRight size={24} color={isToday() ? COLORS.textMuted : COLORS.text} />
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.dateHint}>Tap arrows to log past weigh-ins</Text>
-          </View>
-
-          {/* Save Button */}
-          <TouchableOpacity
-            style={[styles.saveButton, !weight && styles.saveButtonDisabled]}
-            onPress={handleSave}
-            disabled={!weight}
-          >
-            <Scale size={20} color={COLORS.text} />
-            <Text style={styles.saveButtonText}>Save Weigh-In</Text>
-          </TouchableOpacity>
-        </View>
+        {modalContent}
       </SafeAreaView>
     </Modal>
   );
@@ -316,7 +246,10 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 16,
+  },
+  contentContainer: {
     paddingTop: 24,
+    paddingBottom: 20,
   },
   iconContainer: {
     alignItems: 'center',
@@ -418,8 +351,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
-    marginTop: 'auto',
-    marginBottom: 20,
+    marginTop: 24,
   },
   saveButtonDisabled: {
     opacity: 0.5,
