@@ -1119,18 +1119,24 @@ const ProgressScreen = () => {
       <Text style={styles.sectionLabel}>WEIGH-IN HISTORY</Text>
       <View style={styles.historyCard}>
         {weightHistory.length > 0 ? (
-          weightHistory.slice().reverse().map((entry, index) => (
-            <View key={index} style={[styles.historyRow, index < weightHistory.length - 1 && styles.historyRowBorder]}>
-              <Text style={styles.historyDate}>
-                {entry.date ? new Date(entry.date).toLocaleDateString('en-US', {
-                  weekday: 'short',
-                  day: 'numeric',
-                  month: 'short',
-                }) : entry.week}
-              </Text>
-              <Text style={styles.historyWeight}>{formatWeight(entry.weight)}</Text>
-            </View>
-          ))
+          <ScrollView
+            style={styles.historyScrollView}
+            nestedScrollEnabled={true}
+            showsVerticalScrollIndicator={true}
+          >
+            {weightHistory.slice().reverse().map((entry, index) => (
+              <View key={index} style={[styles.historyRow, index < weightHistory.length - 1 && styles.historyRowBorder]}>
+                <Text style={styles.historyDate}>
+                  {entry.date ? new Date(entry.date).toLocaleDateString('en-US', {
+                    weekday: 'short',
+                    day: 'numeric',
+                    month: 'short',
+                  }) : entry.week}
+                </Text>
+                <Text style={styles.historyWeight}>{formatWeight(entry.weight)}</Text>
+              </View>
+            ))}
+          </ScrollView>
         ) : (
           <Text style={styles.historyEmptyText}>Log your weigh-ins to track progress</Text>
         )}
@@ -1811,6 +1817,11 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     borderRadius: 16,
     padding: 16,
+    maxHeight: 300,
+  },
+  historyScrollView: {
+    maxHeight: 268,
+    ...(Platform.OS === 'web' ? { overflow: 'auto' } : {}),
   },
   historyRow: {
     flexDirection: 'row',

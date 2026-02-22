@@ -192,6 +192,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
+    ...(Platform.OS === 'web' ? { height: '100vh', overflow: 'hidden' } : {}),
   },
   header: {
     flexDirection: 'row',
@@ -263,6 +264,7 @@ const styles = StyleSheet.create({
   },
   exerciseList: {
     flex: 1,
+    ...(Platform.OS === 'web' ? { overflow: 'auto' } : {}),
   },
   listContent: {
     paddingHorizontal: 16,
