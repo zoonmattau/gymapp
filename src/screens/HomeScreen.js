@@ -38,6 +38,7 @@ import { streakService } from '../services/streakService';
 import { weightService } from '../services/weightService';
 import { sleepService } from '../services/sleepService';
 import { publishedWorkoutService } from '../services/publishedWorkoutService';
+import { getPausedWorkout, clearPausedWorkout } from '../utils/workoutStore';
 import { useAuth } from '../contexts/AuthContext';
 import AddMealModal from '../components/AddMealModal';
 import WaterEntryModal from '../components/WaterEntryModal';
@@ -50,6 +51,7 @@ const HomeScreen = () => {
   const { user, profile, refreshProfile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [savedWorkout, setSavedWorkout] = useState(null);
 
   // Today's workout
   const [todayWorkout, setTodayWorkout] = useState(null);
@@ -95,6 +97,10 @@ const HomeScreen = () => {
   // Reload data when screen comes into focus
   useFocusEffect(
     useCallback(() => {
+      // Check for saved workout
+      const paused = getPausedWorkout();
+      setSavedWorkout(paused);
+
       if (user?.id) {
         loadHomeData();
         // Refresh profile to get latest settings (like weight_unit)
@@ -362,6 +368,25 @@ const HomeScreen = () => {
       workoutName: 'Workout',
       workout: null, // No template - user adds exercises as they go
     });
+  };
+
+  const resumeSavedWorkout = () => {
+    if (savedWorkout) {
+      navigation.navigate('ActiveWorkout', {
+        workoutName: savedWorkout.workoutName || 'Workout',
+        workout: savedWorkout.workout,
+        sessionId: savedWorkout.sessionId,
+        resumedExercises: savedWorkout.exercises,
+        resumedTime: savedWorkout.elapsedTime,
+      });
+      clearPausedWorkout();
+      setSavedWorkout(null);
+    }
+  };
+
+  const dismissSavedWorkout = () => {
+    clearPausedWorkout();
+    setSavedWorkout(null);
   };
 
   const startScheduledWorkout = () => {
@@ -651,6 +676,40 @@ const HomeScreen = () => {
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* Saved Workout Banner */}
+        {savedWorkout && savedWorkout.exercises?.length > 0 && (
+          <View style={styles.savedWorkoutBanner}>
+            <View style={styles.savedWorkoutInfo}>
+              <View style={styles.savedWorkoutIcon}>
+                <Pause size={20} color={COLORS.warning} />
+              </View>
+              <View style={styles.savedWorkoutText}>
+                <Text style={styles.savedWorkoutTitle}>Workout in Progress</Text>
+                <Text style={styles.savedWorkoutSubtitle}>
+                  {savedWorkout.workoutName || 'Workout'} • {savedWorkout.exercises?.length || 0} exercises
+                </Text>
+              </View>
+            </View>
+            <View style={styles.savedWorkoutButtons}>
+              <TouchableOpacity
+                style={styles.savedWorkoutDismiss}
+                onPress={dismissSavedWorkout}
+                onClick={dismissSavedWorkout}
+              >
+                <X size={18} color={COLORS.textMuted} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.savedWorkoutResume}
+                onPress={resumeSavedWorkout}
+                onClick={resumeSavedWorkout}
+              >
+                <Play size={16} color={COLORS.text} />
+                <Text style={styles.savedWorkoutResumeText}>Resume</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         {/* Today's Workout Section */}
         <View style={styles.section}>
@@ -1045,6 +1104,68 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  // Saved Workout Banner
+  savedWorkoutBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: COLORS.warning + '20',
+    borderRadius: 12,
+    padding: 12,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: COLORS.warning + '40',
+  },
+  savedWorkoutInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  savedWorkoutIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: COLORS.warning + '30',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  savedWorkoutText: {
+    flex: 1,
+  },
+  savedWorkoutTitle: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  savedWorkoutSubtitle: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  savedWorkoutButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  savedWorkoutDismiss: {
+    padding: 8,
+  },
+  savedWorkoutResume: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: COLORS.warning,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  savedWorkoutResumeText: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '600',
   },
   header: {
     flexDirection: 'row',
