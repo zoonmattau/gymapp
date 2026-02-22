@@ -5,7 +5,7 @@ import {
   StyleSheet,
   SafeAreaView,
   TouchableOpacity,
-  FlatList,
+  ScrollView,
   ActivityIndicator,
   Modal,
   TextInput,
@@ -377,13 +377,17 @@ const WorkoutHistoryScreen = ({ navigation }) => {
           </View>
 
           {/* History List */}
-          <FlatList
-            data={workoutHistory}
-            keyExtractor={(item) => item.id?.toString() || Math.random().toString()}
-            renderItem={renderHistoryItem}
+          <ScrollView
+            style={{ flex: 1 }}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
-          />
+          >
+            {workoutHistory.map((item) => (
+              <View key={item.id?.toString() || Math.random().toString()}>
+                {renderHistoryItem({ item })}
+              </View>
+            ))}
+          </ScrollView>
         </View>
       )}
 
