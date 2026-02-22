@@ -576,7 +576,7 @@ const HomeScreen = () => {
               onPress={resumeSavedWorkout}
             >
               <Play size={18} color={COLORS.text} />
-              <Text style={styles.workoutButtonText}>Resume Workout</Text>
+              <Text style={styles.workoutButtonText}>Continue Workout</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.discardButton}
