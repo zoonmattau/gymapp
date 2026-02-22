@@ -98,24 +98,15 @@ const HomeScreen = () => {
   // Check for saved workout on initial mount (runs once)
   useEffect(() => {
     if (Platform.OS === 'web') {
-      // Check immediately - no delay needed
       const paused = getPausedWorkout();
       console.log('HomeScreen MOUNT: Checking for saved workout:', paused ? `Found ${paused.exercises?.length} exercises` : 'None');
 
       if (paused && paused.exercises?.length > 0) {
-        console.log('HomeScreen MOUNT: Auto-navigating to saved workout');
-        // Navigate and keep checking state true (we're leaving this screen)
-        navigation.navigate('ActiveWorkout', {
-          workoutName: paused.workoutName || 'Workout',
-          workout: paused.workout,
-          sessionId: paused.sessionId,
-          resumedExercises: paused.exercises,
-          resumedTime: paused.elapsedTime,
-        });
-      } else {
-        // No saved workout, show the home screen
-        setCheckingForSavedWorkout(false);
+        // Set saved workout state to show resume option
+        setSavedWorkout(paused);
       }
+      // Show the home screen
+      setCheckingForSavedWorkout(false);
     }
   }, []); // Empty deps - only runs once on mount
 
@@ -124,6 +115,16 @@ const HomeScreen = () => {
     useCallback(() => {
       // Reset checking state when returning to this screen
       setCheckingForSavedWorkout(false);
+
+      // Check for saved workout
+      if (Platform.OS === 'web') {
+        const paused = getPausedWorkout();
+        if (paused && paused.exercises?.length > 0) {
+          setSavedWorkout(paused);
+        } else {
+          setSavedWorkout(null);
+        }
+      }
 
       // Load data when user is available
       if (user?.id) {
@@ -545,6 +546,49 @@ const HomeScreen = () => {
   };
 
   const renderTodayWorkout = () => {
+    // Show resume workout card if there's a saved workout
+    if (savedWorkout && savedWorkout.exercises?.length > 0) {
+      const exerciseCount = savedWorkout.exercises.length;
+      const completedSets = savedWorkout.exercises.reduce(
+        (acc, ex) => acc + (ex.sets?.filter(s => s.completed)?.length || 0), 0
+      );
+      const totalSets = savedWorkout.exercises.reduce(
+        (acc, ex) => acc + (ex.sets?.length || 0), 0
+      );
+
+      return (
+        <View style={[styles.workoutCard, { borderLeftColor: COLORS.warning }]}>
+          <View style={styles.workoutRow}>
+            <View style={[styles.workoutIconBox, { backgroundColor: COLORS.warning + '20' }]}>
+              <Pause size={28} color={COLORS.warning} />
+            </View>
+            <View style={styles.workoutInfo}>
+              <Text style={[styles.workoutBadge, { color: COLORS.warning }]}>WORKOUT IN PROGRESS</Text>
+              <Text style={styles.workoutName}>{savedWorkout.workoutName || 'Workout'}</Text>
+              <Text style={styles.workoutFocus}>
+                {exerciseCount} exercise{exerciseCount !== 1 ? 's' : ''} • {completedSets}/{totalSets} sets done
+              </Text>
+            </View>
+          </View>
+          <View style={styles.savedWorkoutActions}>
+            <TouchableOpacity
+              style={[styles.workoutButton, { backgroundColor: COLORS.warning, flex: 1 }]}
+              onPress={resumeSavedWorkout}
+            >
+              <Play size={18} color={COLORS.text} />
+              <Text style={styles.workoutButtonText}>Resume Workout</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.discardButton}
+              onPress={dismissSavedWorkout}
+            >
+              <X size={20} color={COLORS.textMuted} />
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+    }
+
     if (isPaused) {
       return (
         <View style={[styles.workoutCard, { borderLeftColor: COLORS.warning }]}>
@@ -1345,6 +1389,19 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontSize: 16,
     fontWeight: '600',
+  },
+  savedWorkoutActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  discardButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: COLORS.surfaceLight,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   statsContainer: {
     flexDirection: 'row',
