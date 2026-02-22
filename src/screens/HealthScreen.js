@@ -1125,12 +1125,14 @@ const HealthScreen = () => {
         {/* Water Progress */}
         <View style={styles.waterProgressCard}>
           <View style={styles.waterProgressHeader}>
-            <Droplets size={24} color="#3B82F6" />
-            <Text style={styles.waterProgressTitle}>Today's Water</Text>
+            <Droplets size={24} color={waterComplete ? COLORS.success : '#3B82F6'} />
+            <Text style={[styles.waterProgressTitle, waterComplete && { color: COLORS.success }]}>
+              {waterComplete ? "Goal Reached!" : "Today's Water"}
+            </Text>
           </View>
           <View style={styles.waterProgressStats}>
             <View style={styles.waterProgressStat}>
-              <Text style={[styles.waterProgressValue, { color: '#3B82F6' }]}>{waterIntakeL}L</Text>
+              <Text style={[styles.waterProgressValue, { color: waterComplete ? COLORS.success : '#3B82F6' }]}>{waterIntakeL}L</Text>
               <Text style={styles.waterProgressLabel}>consumed</Text>
             </View>
             <View style={styles.waterProgressStat}>

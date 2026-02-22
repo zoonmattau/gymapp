@@ -71,52 +71,109 @@ const MainStack = () => (
   </Stack.Navigator>
 );
 
+// Check localStorage synchronously on module load (web only)
+const getInitialOnboardingState = () => {
+  if (Platform.OS === 'web') {
+    // Check all possible user keys in localStorage
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith('onboarding_completed_') && localStorage.getItem(key) === 'true') {
+        return true;
+      }
+    }
+  }
+  return null;
+};
+
 const AppNavigator = () => {
   const { user, profile, loading } = useAuth();
-  const [onboardingCompleted, setOnboardingCompleted] = useState(null);
+  // Initialize from localStorage synchronously to prevent flash
+  const [onboardingCompleted, setOnboardingCompleted] = useState(getInitialOnboardingState);
+  const checkedUserIdRef = React.useRef(null);
+
+  // Helper to save onboarding status to localStorage
+  const saveOnboardingToStorage = (userId) => {
+    if (Platform.OS === 'web') {
+      localStorage.setItem(`onboarding_completed_${userId}`, 'true');
+    } else {
+      AsyncStorage.setItem(`@onboarding_completed_${userId}`, 'true').catch(() => {});
+    }
+  };
 
   useEffect(() => {
     checkOnboarding();
-  }, [user, profile]);
+  }, [user, profile, loading]);
 
   const checkOnboarding = async () => {
-    if (!user) {
-      setOnboardingCompleted(false);
+    // Still loading auth - wait, don't change anything
+    if (loading) {
       return;
     }
 
-    // First check Supabase profile (syncs across devices)
-    if (profile?.onboarding_completed) {
-      console.log('Onboarding check: profile.onboarding_completed is true');
-      setOnboardingCompleted(true);
+    // Not logged in - only set false if we don't already have a positive result
+    if (!user) {
+      // Don't override a positive localStorage result
+      if (onboardingCompleted !== true) {
+        setOnboardingCompleted(false);
+      }
+      checkedUserIdRef.current = null;
       return;
+    }
+
+    // If we already confirmed this user is onboarded, don't re-check
+    if (checkedUserIdRef.current === user.id && onboardingCompleted === true) {
+      return;
+    }
+
+    // If we got a positive result from initial localStorage check, verify it's for this user
+    if (onboardingCompleted === true && Platform.OS === 'web') {
+      const localValue = localStorage.getItem(`onboarding_completed_${user.id}`);
+      if (localValue === 'true') {
+        checkedUserIdRef.current = user.id;
+        return; // Confirmed for this user
+      }
+      // Not for this user, need to check further
+    }
+
+    // FIRST: Check localStorage immediately (instant, no network) - WEB ONLY
+    if (Platform.OS === 'web') {
+      const localValue = localStorage.getItem(`onboarding_completed_${user.id}`);
+      if (localValue === 'true') {
+        console.log('Onboarding check: localStorage says completed');
+        setOnboardingCompleted(true);
+        checkedUserIdRef.current = user.id;
+        return;
+      }
     }
 
     // Check if profile has data indicating user already set up their profile
-    // This handles users who completed onboarding before the flag was added
-    if (profile && (profile.first_name || profile.height || profile.date_of_birth || profile.username)) {
-      console.log('Onboarding check: profile has data, marking as completed');
+    if (profile?.onboarding_completed) {
+      console.log('Onboarding check: profile.onboarding_completed is true');
       setOnboardingCompleted(true);
-      // Also update the database so it's properly tracked going forward
-      try {
-        const { profileService } = await import('../services/profileService');
-        await profileService.updateProfile(user.id, { onboarding_completed: true });
-      } catch (e) {
-        console.log('Failed to update onboarding flag:', e);
-      }
+      saveOnboardingToStorage(user.id);
+      checkedUserIdRef.current = user.id;
       return;
     }
 
-    // If profile is null (load failed), try to fetch directly from database
-    if (!profile && user?.id) {
+    if (profile && (profile.first_name || profile.height || profile.date_of_birth || profile.username)) {
+      console.log('Onboarding check: profile has data, marking as completed');
+      setOnboardingCompleted(true);
+      saveOnboardingToStorage(user.id);
+      checkedUserIdRef.current = user.id;
+      return;
+    }
+
+    // Profile is null - need to fetch directly (but only once per user)
+    if (!profile && user?.id && checkedUserIdRef.current !== user.id) {
+      checkedUserIdRef.current = user.id;
       console.log('Onboarding check: profile is null, fetching directly from database');
+
       try {
         const { profileService } = await import('../services/profileService');
         const { data: freshProfile } = await profileService.getProfile(user.id);
 
         if (freshProfile) {
-          console.log('Onboarding check: fetched fresh profile', freshProfile);
-          // Check if this profile indicates onboarding was completed
+          console.log('Onboarding check: fetched fresh profile');
           if (freshProfile.onboarding_completed ||
               freshProfile.first_name ||
               freshProfile.height ||
@@ -124,49 +181,33 @@ const AppNavigator = () => {
               freshProfile.username) {
             console.log('Onboarding check: fresh profile indicates completion');
             setOnboardingCompleted(true);
-            // Update the flag if not already set
-            if (!freshProfile.onboarding_completed) {
-              try {
-                await profileService.updateProfile(user.id, { onboarding_completed: true });
-              } catch (e) {
-                console.log('Failed to update onboarding flag:', e);
-              }
-            }
+            saveOnboardingToStorage(user.id);
             return;
           }
         }
       } catch (e) {
         console.log('Failed to fetch profile directly:', e);
       }
-    }
 
-    // Fall back to local storage for onboarding completion (keyed by user id)
-    const storageKey = Platform.OS === 'web'
-      ? `onboarding_completed_${user.id}`
-      : `@onboarding_completed_${user.id}`;
-
-    let completed = false;
-
-    if (Platform.OS === 'web') {
-      completed = localStorage.getItem(storageKey) === 'true';
-    } else {
-      const value = await AsyncStorage.getItem(storageKey);
-      completed = value === 'true';
-    }
-
-    console.log('Onboarding check: localStorage says', completed);
-
-    // If localStorage says completed, sync to database for cross-device
-    if (completed && user?.id) {
-      try {
-        const { profileService } = await import('../services/profileService');
-        await profileService.updateProfile(user.id, { onboarding_completed: true });
-      } catch (e) {
-        console.log('Failed to sync onboarding to database:', e);
+      // For native, also check AsyncStorage
+      if (Platform.OS !== 'web') {
+        try {
+          const value = await AsyncStorage.getItem(`@onboarding_completed_${user.id}`);
+          if (value === 'true') {
+            console.log('Onboarding check: AsyncStorage says completed');
+            setOnboardingCompleted(true);
+            return;
+          }
+        } catch (e) {
+          console.log('AsyncStorage check failed:', e);
+        }
       }
-    }
 
-    setOnboardingCompleted(completed);
+      // Only set false after all checks are done
+      console.log('Onboarding check: all checks done, user needs onboarding');
+      setOnboardingCompleted(false);
+      return;
+    }
   };
 
   if (loading || onboardingCompleted === null) {

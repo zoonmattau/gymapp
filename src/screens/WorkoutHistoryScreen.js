@@ -359,7 +359,7 @@ const WorkoutHistoryScreen = ({ navigation }) => {
       {workoutHistory.length === 0 ? (
         renderEmptyState()
       ) : (
-        <>
+        <View style={{ flex: 1 }}>
           {/* Summary Stats */}
           <View style={styles.summaryRow}>
             <View style={styles.summaryCard}>
@@ -384,7 +384,7 @@ const WorkoutHistoryScreen = ({ navigation }) => {
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
           />
-        </>
+        </View>
       )}
 
       {/* Rename Modal */}

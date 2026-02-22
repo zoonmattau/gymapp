@@ -20,8 +20,12 @@ const WeighInModal = ({ visible, onClose, onSave, unit = 'kg', currentWeight = 0
   // Set initial weight and date when modal opens
   useEffect(() => {
     if (visible) {
+      console.log('WeighInModal opened with currentWeight:', currentWeight, 'unit:', unit);
+      // Always set weight when modal opens (even if 0, user can adjust)
       if (currentWeight > 0) {
         setWeight(currentWeight.toString());
+      } else {
+        setWeight(''); // Reset to empty if no current weight
       }
 
       // Set date to day after last weigh-in, or today if none/future

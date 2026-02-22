@@ -901,15 +901,19 @@ const ProgressScreen = () => {
                   strokeWidth: '2',
                   stroke: COLORS.accent,
                 },
+                propsForBackgroundLines: {
+                  strokeDasharray: '3 3',
+                  stroke: COLORS.surfaceLight,
+                },
               }}
               bezier
               style={styles.miniChart}
-              withInnerLines={false}
+              withInnerLines={true}
               withOuterLines={false}
               withVerticalLines={false}
-              withHorizontalLines={false}
+              withHorizontalLines={true}
               withVerticalLabels={true}
-              withHorizontalLabels={false}
+              withHorizontalLabels={true}
               withDots={true}
               withShadow={false}
               segments={3}
@@ -949,15 +953,19 @@ const ProgressScreen = () => {
                   strokeWidth: '2',
                   stroke: '#EC4899',
                 },
+                propsForBackgroundLines: {
+                  strokeDasharray: '3 3',
+                  stroke: COLORS.surfaceLight,
+                },
               }}
               bezier
               style={styles.miniChart}
-              withInnerLines={false}
+              withInnerLines={true}
               withOuterLines={false}
               withVerticalLines={false}
-              withHorizontalLines={false}
+              withHorizontalLines={true}
               withVerticalLabels={true}
-              withHorizontalLabels={false}
+              withHorizontalLabels={true}
               withDots={true}
               withShadow={false}
               segments={3}
@@ -997,15 +1005,19 @@ const ProgressScreen = () => {
                   strokeWidth: '2',
                   stroke: '#06B6D4',
                 },
+                propsForBackgroundLines: {
+                  strokeDasharray: '3 3',
+                  stroke: COLORS.surfaceLight,
+                },
               }}
               bezier
               style={styles.miniChart}
-              withInnerLines={false}
+              withInnerLines={true}
               withOuterLines={false}
               withVerticalLines={false}
-              withHorizontalLines={false}
+              withHorizontalLines={true}
               withVerticalLabels={true}
-              withHorizontalLabels={false}
+              withHorizontalLabels={true}
               withDots={true}
               withShadow={false}
               segments={3}
@@ -1045,15 +1057,19 @@ const ProgressScreen = () => {
                   strokeWidth: '2',
                   stroke: '#8B5CF6',
                 },
+                propsForBackgroundLines: {
+                  strokeDasharray: '3 3',
+                  stroke: COLORS.surfaceLight,
+                },
               }}
               bezier
               style={styles.miniChart}
-              withInnerLines={false}
+              withInnerLines={true}
               withOuterLines={false}
               withVerticalLines={false}
-              withHorizontalLines={false}
+              withHorizontalLines={true}
               withVerticalLabels={true}
-              withHorizontalLabels={false}
+              withHorizontalLabels={true}
               withDots={true}
               withShadow={false}
               segments={3}

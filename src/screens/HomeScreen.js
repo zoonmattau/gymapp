@@ -136,14 +136,17 @@ const HomeScreen = () => {
   );
 
   const loadHomeData = async () => {
+    console.log('loadHomeData starting...');
     try {
-      await Promise.all([
+      // Run all in parallel but don't let one failure block others
+      await Promise.allSettled([
         loadTodayNutrition(),
         loadTodayWorkout(),
         loadStreaks(),
         loadSleepStatus(),
         loadWeightHistory(),
       ]);
+      console.log('loadHomeData completed');
     } catch (error) {
       console.log('Error loading home data:', error);
     } finally {
@@ -161,15 +164,53 @@ const HomeScreen = () => {
     }
   };
 
+  const [lastWeight, setLastWeight] = useState(0);
+
   const loadWeightHistory = async () => {
     try {
       const { data } = await weightService.getRecentWeights(user.id, 30);
       // Sort by date descending (most recent first)
       const sorted = (data || []).sort((a, b) => new Date(b.log_date) - new Date(a.log_date));
+      console.log('Weight history loaded:', sorted.length, 'entries');
+      console.log('Latest entry full object:', JSON.stringify(sorted[0]));
       setWeightHistory(sorted);
+
+      // Store the last weight in user's preferred unit
+      if (sorted.length > 0 && sorted[0]?.weight) {
+        const weightKg = sorted[0].weight;
+        const userUnit = profile?.weight_unit || 'kg';
+        const converted = userUnit === 'lbs'
+          ? Math.round(weightKg * 2.205 * 10) / 10
+          : Math.round(weightKg * 10) / 10;
+        console.log('Setting lastWeight:', converted, userUnit);
+        setLastWeight(converted);
+      }
     } catch (error) {
       console.log('Error loading weight history:', error);
     }
+  };
+
+  // Compute the last recorded weight in user's preferred unit
+  const getLastWeightInUserUnit = () => {
+    if (weightHistory.length === 0) {
+      console.log('getLastWeightInUserUnit: no weight history');
+      return profile?.current_weight || profile?.weight || 0;
+    }
+
+    const latestEntry = weightHistory[0];
+    console.log('getLastWeightInUserUnit: latest entry:', JSON.stringify(latestEntry));
+
+    // The weight might be stored under different property names
+    const weightKg = latestEntry?.weight ?? latestEntry?.value ?? 0;
+    console.log('weightKg extracted:', weightKg);
+
+    if (!weightKg || weightKg <= 0) return 0;
+
+    const userUnit = profile?.weight_unit || 'kg';
+    if (userUnit === 'lbs') {
+      return Math.round(weightKg * 2.205 * 10) / 10;
+    }
+    return Math.round(weightKg * 10) / 10;
   };
 
   const loadTodayNutrition = async () => {
@@ -974,7 +1015,7 @@ const HomeScreen = () => {
         onClose={() => setShowWeighInModal(false)}
         onSave={handleSaveWeight}
         unit={profile?.weight_unit || 'kg'}
-        currentWeight={profile?.current_weight || profile?.weight || 0}
+        currentWeight={lastWeight}
         lastWeighInDate={weightHistory.length > 0 ? weightHistory[0].log_date : null}
       />
 
