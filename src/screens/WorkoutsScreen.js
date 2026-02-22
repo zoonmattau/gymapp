@@ -388,11 +388,14 @@ const WorkoutsScreen = () => {
     setDragOverDay(null);
   };
 
-  const handleDrop = (e, targetDayIndex) => {
+  const handleDrop = async (e, targetDayIndex) => {
     e.preventDefault();
     // Only allow drop on non-completed days
     if (draggedDay !== null && targetDayIndex !== draggedDay && !weekSchedule[targetDayIndex]?.completed) {
-      // Swap workouts between dragged and target day
+      const sourceDay = weekSchedule[draggedDay];
+      const targetDay = weekSchedule[targetDayIndex];
+
+      // Swap workouts between dragged and target day in UI
       setWeekSchedule(prev => {
         const newSchedule = { ...prev };
         const temp = { ...newSchedule[draggedDay] };
@@ -400,6 +403,48 @@ const WorkoutsScreen = () => {
         newSchedule[targetDayIndex] = temp;
         return newSchedule;
       });
+
+      // Save the swap to the database
+      try {
+        const weekStart = getWeekStartDate(weekOffset);
+
+        // Calculate the actual dates for both days
+        const sourceDate = new Date(weekStart);
+        sourceDate.setDate(sourceDate.getDate() + draggedDay);
+        const targetDate = new Date(weekStart);
+        targetDate.setDate(targetDate.getDate() + targetDayIndex);
+
+        const sourceDateStr = formatDate(sourceDate);
+        const targetDateStr = formatDate(targetDate);
+
+        // Update both schedule entries in the database
+        if (sourceDay.scheduleId && targetDay.scheduleId) {
+          // Both have schedule entries - swap the dates
+          await Promise.all([
+            supabase.from('workout_schedules').update({ scheduled_date: targetDateStr }).eq('id', sourceDay.scheduleId),
+            supabase.from('workout_schedules').update({ scheduled_date: sourceDateStr }).eq('id', targetDay.scheduleId),
+          ]);
+        } else if (sourceDay.scheduleId) {
+          // Only source has a schedule - move it to target date
+          await supabase.from('workout_schedules').update({ scheduled_date: targetDateStr }).eq('id', sourceDay.scheduleId);
+        } else if (targetDay.scheduleId) {
+          // Only target has a schedule - move it to source date
+          await supabase.from('workout_schedules').update({ scheduled_date: sourceDateStr }).eq('id', targetDay.scheduleId);
+        }
+
+        // Update the cache
+        setWeekCache(prev => ({ ...prev, [weekOffset]: undefined }));
+      } catch (error) {
+        console.log('Error saving schedule swap:', error);
+        // Revert the UI change on error
+        setWeekSchedule(prev => {
+          const newSchedule = { ...prev };
+          const temp = { ...newSchedule[targetDayIndex] };
+          newSchedule[targetDayIndex] = { ...newSchedule[draggedDay] };
+          newSchedule[draggedDay] = temp;
+          return newSchedule;
+        });
+      }
     }
     setDraggedDay(null);
     setDragOverDay(null);
@@ -542,7 +587,7 @@ const WorkoutsScreen = () => {
 
           {/* Week Days */}
           {Platform.OS === 'web' ? (
-            <div style={{ display: 'flex', flexDirection: 'row', gap: 6 }}>
+            <div style={{ display: 'flex', flexDirection: 'row', gap: 6, width: '100%' }}>
               {weekDates.map((day) => {
                 const isCompleted = day.completed;
                 const isMissed = day.isPast && !day.isRest && !isCompleted;
@@ -552,7 +597,9 @@ const WorkoutsScreen = () => {
                 const isHovered = hoveredDay === day.dayIndex && canDrag;
 
                 const baseStyle = {
-                  flex: 1,
+                  flex: '1 1 0',
+                  minWidth: 0,
+                  width: 'calc((100% - 36px) / 7)',
                   backgroundColor: (isDragOver || isHovered) ? 'rgba(155, 89, 182, 0.2)' :
                                    isCompleted ? 'rgba(34, 197, 94, 0.08)' :
                                    isMissed ? 'rgba(239, 68, 68, 0.12)' :
@@ -563,6 +610,7 @@ const WorkoutsScreen = () => {
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
+                  justifyContent: 'center',
                   border: `2px solid ${
                     isDragOver || isHovered ? '#9b59b6' :
                     isCompleted ? '#22c55e' :
@@ -571,12 +619,13 @@ const WorkoutsScreen = () => {
                     'transparent'
                   }`,
                   opacity: isDragging ? 0.5 : 1,
-                  transform: (isDragOver || isHovered) ? 'scale(1.08)' : isDragging ? 'scale(0.95)' : 'scale(1)',
+                  transform: (isDragOver || isHovered) ? 'scale(1.05)' : isDragging ? 'scale(0.95)' : 'scale(1)',
                   boxShadow: (isDragOver || isHovered) ? '0 4px 16px rgba(155, 89, 182, 0.6)' : 'none',
                   cursor: canDrag ? 'grab' : 'default',
                   transition: 'transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease, background-color 0.15s ease',
                   userSelect: 'none',
                   zIndex: (isDragOver || isHovered) ? 10 : 1,
+                  boxSizing: 'border-box',
                 };
 
                 return (
@@ -1034,13 +1083,16 @@ const styles = StyleSheet.create({
   weekDays: {
     flexDirection: 'row',
     gap: 6,
+    width: '100%',
   },
   dayCard: {
     flex: 1,
+    minWidth: 0,
     backgroundColor: COLORS.surface,
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 2,
     borderColor: 'transparent',
   },
