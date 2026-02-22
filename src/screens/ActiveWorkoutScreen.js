@@ -87,12 +87,33 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
   const timerRef = useRef(null);
   const restTimerRef = useRef(null);
   const sessionIdRef = useRef(sessionId);
+  const exercisesRef = useRef(exercises);
+  const workoutNameRef = useRef(workoutName);
+  const workoutRef = useRef(workout);
+  const workoutTimeRef = useRef(workoutTime);
 
   const showToast = (message, type = 'success') => {
     setToastMessage(message);
     setToastType(type);
     setToastVisible(true);
   };
+
+  // Keep refs up to date for beforeunload handler
+  useEffect(() => {
+    exercisesRef.current = exercises;
+  }, [exercises]);
+
+  useEffect(() => {
+    workoutNameRef.current = workoutName;
+  }, [workoutName]);
+
+  useEffect(() => {
+    workoutRef.current = workout;
+  }, [workout]);
+
+  useEffect(() => {
+    workoutTimeRef.current = workoutTime;
+  }, [workoutTime]);
 
   // Auto-save workout progress to localStorage (web only)
   useEffect(() => {
@@ -108,28 +129,32 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
       };
       try {
         localStorage.setItem('activeWorkout', JSON.stringify(workoutData));
+        console.log('Auto-saved workout:', workoutData.exercises.length, 'exercises');
       } catch (e) {
         console.log('Error auto-saving workout:', e);
       }
     }
   }, [exercises, workoutName, sessionId, workoutTime]);
 
-  // Save before browser closes (web only)
+  // Save before browser closes (web only) - uses refs to avoid stale closures
   useEffect(() => {
     if (Platform.OS === 'web') {
       const handleBeforeUnload = (e) => {
-        if (exercises.length > 0) {
+        const currentExercises = exercisesRef.current;
+        console.log('beforeunload: exercises count:', currentExercises?.length);
+        if (currentExercises && currentExercises.length > 0) {
           const workoutData = {
-            workoutName,
-            workout,
+            workoutName: workoutNameRef.current,
+            workout: workoutRef.current,
             sessionId: sessionIdRef.current,
-            exercises,
-            elapsedTime: Math.floor((Date.now() - workoutStartTime) / 1000),
+            exercises: currentExercises,
+            elapsedTime: workoutTimeRef.current,
             workoutStartTime,
             savedAt: Date.now(),
           };
           try {
             localStorage.setItem('activeWorkout', JSON.stringify(workoutData));
+            console.log('beforeunload: Saved workout with', currentExercises.length, 'exercises');
           } catch (err) {
             console.log('Error saving on unload:', err);
           }
@@ -139,7 +164,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
       window.addEventListener('beforeunload', handleBeforeUnload);
       return () => window.removeEventListener('beforeunload', handleBeforeUnload);
     }
-  }, [exercises, workoutName, workout, workoutStartTime]);
+  }, [workoutStartTime]); // Only need workoutStartTime as it's stable
 
   // Load exercise history for this user (last weight/reps for each exercise)
   useEffect(() => {

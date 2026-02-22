@@ -94,25 +94,34 @@ const HomeScreen = () => {
     water: profile?.water_goal || 2500,
   };
 
+  // Check for saved workout on initial mount (runs once)
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      // Small delay to ensure navigation is ready
+      const timer = setTimeout(() => {
+        const paused = getPausedWorkout();
+        console.log('HomeScreen MOUNT: Checking for saved workout:', paused ? `Found ${paused.exercises?.length} exercises` : 'None');
+
+        if (paused && paused.exercises?.length > 0) {
+          console.log('HomeScreen MOUNT: Auto-navigating to saved workout');
+          navigation.navigate('ActiveWorkout', {
+            workoutName: paused.workoutName || 'Workout',
+            workout: paused.workout,
+            sessionId: paused.sessionId,
+            resumedExercises: paused.exercises,
+            resumedTime: paused.elapsedTime,
+          });
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, []); // Empty deps - only runs once on mount
+
   // Reload data when screen comes into focus
   useFocusEffect(
     useCallback(() => {
-      // Check for saved workout and auto-resume
-      const paused = getPausedWorkout();
-      if (paused && paused.exercises?.length > 0) {
-        // Auto-navigate to continue the workout
-        // Don't clear here - ActiveWorkout will handle saving/clearing
-        navigation.navigate('ActiveWorkout', {
-          workoutName: paused.workoutName || 'Workout',
-          workout: paused.workout,
-          sessionId: paused.sessionId,
-          resumedExercises: paused.exercises,
-          resumedTime: paused.elapsedTime,
-        });
-        return;
-      }
-      setSavedWorkout(null);
-
+      // Skip the auto-resume check here since we handle it in useEffect above
+      // Just load data when user is available
       if (user?.id) {
         loadHomeData();
         // Refresh profile to get latest settings (like weight_unit)
