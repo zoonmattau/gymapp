@@ -893,6 +893,7 @@ const HealthScreen = () => {
       </View>
 
       {/* Recent Meals & Recent Water */}
+      <Text style={styles.sectionLabel}>TODAY'S LOG</Text>
       <View style={styles.recentRow}>
         {/* Recent Meals Column */}
         <View style={styles.recentColumn}>
@@ -906,25 +907,25 @@ const HealthScreen = () => {
             </TouchableOpacity>
           </View>
           {meals.length === 0 ? (
-            <Text style={styles.recentEmpty}>No meals yet</Text>
+            <View style={styles.recentEmptyCard}>
+              <Utensils size={20} color={COLORS.textMuted} />
+              <Text style={styles.recentEmpty}>No meals logged</Text>
+            </View>
           ) : (
             meals.slice(-3).reverse().map((meal) => (
               <View key={meal.id} style={styles.recentEntryCard}>
                 <View style={styles.recentEntryInfo}>
-                  <Text style={styles.recentEntryTitle}>{meal.name}</Text>
-                  <Text style={styles.recentEntryTime}>
-                    {new Date(meal.logged_at).toLocaleTimeString('en-US', {
-                      hour: 'numeric',
-                      minute: '2-digit',
-                      hour12: true,
-                    })}
+                  <Text style={styles.recentEntryTitle} numberOfLines={1}>{meal.name}</Text>
+                  <Text style={styles.recentEntrySubtext}>
+                    {meal.calories} kcal • {meal.protein}g protein
                   </Text>
                 </View>
                 <TouchableOpacity
+                  style={styles.recentDeleteBtn}
                   onPress={() => handleDeleteMeal(meal)}
                   onClick={() => handleDeleteMeal(meal)}
                 >
-                  <X size={16} color={COLORS.error} />
+                  <Trash2 size={16} color={COLORS.error} />
                 </TouchableOpacity>
               </View>
             ))
@@ -943,19 +944,23 @@ const HealthScreen = () => {
             </TouchableOpacity>
           </View>
           {waterEntries.length === 0 ? (
-            <Text style={styles.recentEmpty}>No water yet</Text>
+            <View style={styles.recentEmptyCard}>
+              <Droplets size={20} color={COLORS.textMuted} />
+              <Text style={styles.recentEmpty}>No water logged</Text>
+            </View>
           ) : (
             waterEntries.slice(0, 3).map((entry) => (
               <View key={entry.id} style={styles.recentEntryCard}>
                 <View style={styles.recentEntryInfo}>
                   <Text style={styles.recentEntryTitle}>{formatWaterAmount(entry.amount)}</Text>
-                  <Text style={styles.recentEntryTime}>{formatTime(entry.timestamp)}</Text>
+                  <Text style={styles.recentEntrySubtext}>{formatTime(entry.timestamp)}</Text>
                 </View>
                 <TouchableOpacity
+                  style={styles.recentDeleteBtn}
                   onPress={() => handleDeleteWater(entry)}
                   onClick={() => handleDeleteWater(entry)}
                 >
-                  <X size={16} color={COLORS.error} />
+                  <Trash2 size={16} color={COLORS.error} />
                 </TouchableOpacity>
               </View>
             ))
@@ -2262,9 +2267,16 @@ const styles = StyleSheet.create({
   },
   recentEmpty: {
     color: COLORS.textMuted,
-    fontSize: 14,
-    textAlign: 'center',
-    paddingVertical: 20,
+    fontSize: 13,
+    marginTop: 6,
+  },
+  recentEmptyCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
   },
   recentEntryCard: {
     flexDirection: 'row',
@@ -2272,21 +2284,32 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     backgroundColor: COLORS.surface,
     borderRadius: 12,
-    padding: 14,
+    padding: 12,
     marginBottom: 8,
   },
   recentEntryInfo: {
     flex: 1,
+    marginRight: 8,
   },
   recentEntryTitle: {
     color: COLORS.text,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
+  },
+  recentEntrySubtext: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    marginTop: 2,
   },
   recentEntryTime: {
     color: COLORS.textMuted,
     fontSize: 12,
     marginTop: 2,
+  },
+  recentDeleteBtn: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: COLORS.error + '15',
   },
 
   // Legacy styles for other tabs
