@@ -30,7 +30,7 @@ import {
   Dumbbell,
   X,
 } from 'lucide-react-native';
-import { COLORS } from '../constants/colors';
+import { useColors } from '../contexts/ThemeContext';
 import { WORKOUT_TEMPLATES } from '../constants/workoutTemplates';
 import { nutritionService } from '../services/nutritionService';
 import { workoutService } from '../services/workoutService';
@@ -47,6 +47,8 @@ import SleepEntryModal from '../components/SleepEntryModal';
 import RepertoireModal from '../components/RepertoireModal';
 
 const HomeScreen = () => {
+  const COLORS = useColors();
+  const styles = getStyles(COLORS);
   const navigation = useNavigation();
   const { user, profile, refreshProfile } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -1219,7 +1221,7 @@ const HomeScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (COLORS) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,

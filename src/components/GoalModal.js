@@ -8,10 +8,13 @@ import {
   ScrollView,
 } from 'react-native';
 import { X, Check } from 'lucide-react-native';
-import { COLORS } from '../constants/colors';
+import { useColors } from '../contexts/ThemeContext';
 import { GOAL_INFO } from '../constants/goals';
 
 const GoalModal = ({ visible, onClose, currentGoal, onSelect }) => {
+  const COLORS = useColors();
+  const styles = getStyles(COLORS);
+
   const goals = Object.entries(GOAL_INFO);
 
   return (
@@ -79,7 +82,7 @@ const GoalModal = ({ visible, onClose, currentGoal, onSelect }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (COLORS) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',

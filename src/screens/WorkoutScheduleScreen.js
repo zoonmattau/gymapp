@@ -17,26 +17,29 @@ import {
   X,
   Check,
 } from 'lucide-react-native';
-import { COLORS } from '../constants/colors';
+import { useColors } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { workoutService } from '../services/workoutService';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-const WORKOUT_TEMPLATES = [
-  { id: 'push_a', name: 'Push Day A', focus: 'Chest, Shoulders, Triceps', color: COLORS.primary },
-  { id: 'pull_a', name: 'Pull Day A', focus: 'Back, Biceps', color: COLORS.success },
-  { id: 'legs_a', name: 'Legs Day A', focus: 'Quads, Hamstrings, Calves', color: COLORS.warning },
-  { id: 'push_b', name: 'Push Day B', focus: 'Chest, Shoulders, Triceps', color: COLORS.primary },
-  { id: 'pull_b', name: 'Pull Day B', focus: 'Back, Biceps', color: COLORS.success },
-  { id: 'legs_b', name: 'Legs Day B', focus: 'Quads, Hamstrings, Calves', color: COLORS.warning },
-  { id: 'upper', name: 'Upper Body', focus: 'Chest, Back, Shoulders, Arms', color: COLORS.accent },
-  { id: 'lower', name: 'Lower Body', focus: 'Quads, Hamstrings, Glutes', color: COLORS.error },
-  { id: 'rest', name: 'Rest Day', focus: 'Recovery', color: COLORS.textMuted, isRest: true },
-];
-
 const WorkoutScheduleScreen = ({ navigation }) => {
+  const COLORS = useColors();
+  const styles = getStyles(COLORS);
+
+  const WORKOUT_TEMPLATES = [
+    { id: 'push_a', name: 'Push Day A', focus: 'Chest, Shoulders, Triceps', color: COLORS.primary },
+    { id: 'pull_a', name: 'Pull Day A', focus: 'Back, Biceps', color: COLORS.success },
+    { id: 'legs_a', name: 'Legs Day A', focus: 'Quads, Hamstrings, Calves', color: COLORS.warning },
+    { id: 'push_b', name: 'Push Day B', focus: 'Chest, Shoulders, Triceps', color: COLORS.primary },
+    { id: 'pull_b', name: 'Pull Day B', focus: 'Back, Biceps', color: COLORS.success },
+    { id: 'legs_b', name: 'Legs Day B', focus: 'Quads, Hamstrings, Calves', color: COLORS.warning },
+    { id: 'upper', name: 'Upper Body', focus: 'Chest, Back, Shoulders, Arms', color: COLORS.accent },
+    { id: 'lower', name: 'Lower Body', focus: 'Quads, Hamstrings, Glutes', color: COLORS.error },
+    { id: 'rest', name: 'Rest Day', focus: 'Recovery', color: COLORS.textMuted, isRest: true },
+  ];
+
   const { user } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
@@ -324,7 +327,7 @@ const WorkoutScheduleScreen = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (COLORS) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,

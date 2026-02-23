@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import { ActivityIndicator, View, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { COLORS } from '../constants/colors';
+import { useColors } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 
 // Auth Screens
@@ -86,6 +86,7 @@ const getInitialOnboardingState = () => {
 };
 
 const AppNavigator = () => {
+  const COLORS = useColors();
   const { user, profile, loading } = useAuth();
   // Initialize from localStorage synchronously to prevent flash
   const [onboardingCompleted, setOnboardingCompleted] = useState(getInitialOnboardingState);

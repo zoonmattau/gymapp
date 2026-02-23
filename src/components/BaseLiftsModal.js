@@ -9,7 +9,7 @@ import {
   TextInput,
 } from 'react-native';
 import { X } from 'lucide-react-native';
-import { COLORS } from '../constants/colors';
+import { useColors } from '../contexts/ThemeContext';
 
 const LIFT_GROUPS = [
   {
@@ -50,6 +50,8 @@ const calculate1RM = (weight, reps) => {
 };
 
 const BaseLiftsModal = ({ visible, onClose, initialData = {}, onSave }) => {
+  const COLORS = useColors();
+  const styles = getStyles(COLORS);
   const [localLifts, setLocalLifts] = useState({
     bench: { weight: '', reps: '' },
     dbPress: { weight: '', reps: '' },
@@ -193,7 +195,7 @@ const BaseLiftsModal = ({ visible, onClose, initialData = {}, onSave }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (COLORS) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',

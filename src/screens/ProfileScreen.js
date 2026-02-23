@@ -37,8 +37,10 @@ import {
   Flame,
   X,
   Lock,
+  Moon,
+  Sun,
 } from 'lucide-react-native';
-import { COLORS } from '../constants/colors';
+import { useColors, useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
@@ -53,6 +55,9 @@ import Toast from '../components/Toast';
 const ProfileScreen = () => {
   const navigation = useNavigation();
   const { user, profile, signOut, refreshProfile } = useAuth();
+  const COLORS = useColors();
+  const { isDark, toggleTheme } = useTheme();
+  const styles = getStyles(COLORS);
 
   // Settings states
   const [restTimerEnabled, setRestTimerEnabled] = useState(true);
@@ -540,6 +545,23 @@ const ProfileScreen = () => {
         {/* SETTINGS Section */}
         <Text style={styles.sectionLabel}>SETTINGS</Text>
         <View style={styles.settingsCard}>
+          {/* Dark Mode Toggle */}
+          <View style={styles.settingsItem}>
+            <View style={[styles.settingsIcon, { backgroundColor: COLORS.primary + '20' }]}>
+              {isDark ? <Moon size={18} color={COLORS.primary} /> : <Sun size={18} color={COLORS.primary} />}
+            </View>
+            <View style={styles.settingsLabelContainer}>
+              <Text style={styles.settingsLabel}>Dark Mode</Text>
+              <Text style={styles.settingsSubLabel}>{isDark ? 'Dark theme active' : 'Light theme active'}</Text>
+            </View>
+            <Switch
+              value={isDark}
+              onValueChange={toggleTheme}
+              trackColor={{ false: COLORS.surfaceLight, true: COLORS.success }}
+              thumbColor={COLORS.text}
+            />
+          </View>
+
           {/* Units */}
           <TouchableOpacity style={styles.settingsItem} onPress={() => setShowUnitsModal(true)} activeOpacity={0.7}>
             <View style={[styles.settingsIcon, { backgroundColor: COLORS.primary + '20' }]}>
@@ -876,7 +898,7 @@ const ProfileScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (COLORS) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,

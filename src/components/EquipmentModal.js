@@ -18,7 +18,7 @@ import {
   Minus,
   Square,
 } from 'lucide-react-native';
-import { COLORS } from '../constants/colors';
+import { useColors } from '../contexts/ThemeContext';
 import { EQUIPMENT_OPTIONS } from '../constants/experience';
 
 const ICONS = {
@@ -32,6 +32,9 @@ const ICONS = {
 };
 
 const EquipmentModal = ({ visible, onClose, selectedEquipment = [], onToggle, onSave }) => {
+  const COLORS = useColors();
+  const styles = getStyles(COLORS);
+
   return (
     <Modal
       visible={visible}
@@ -117,7 +120,7 @@ const EquipmentModal = ({ visible, onClose, selectedEquipment = [], onToggle, on
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (COLORS) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',

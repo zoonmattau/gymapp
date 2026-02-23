@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   Platform,
 } from 'react-native';
-import { COLORS } from '../constants/colors';
+import { useColors } from '../contexts/ThemeContext';
 
 const ConfirmModal = ({
   visible,
@@ -20,6 +20,8 @@ const ConfirmModal = ({
   onCancel,
   showCancel = true,
 }) => {
+  const COLORS = useColors();
+  const styles = getStyles(COLORS);
   const getConfirmColor = () => {
     switch (confirmStyle) {
       case 'danger':
@@ -71,7 +73,7 @@ const ConfirmModal = ({
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (COLORS) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',

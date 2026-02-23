@@ -29,6 +29,7 @@ import {
   ChevronUp,
 } from 'lucide-react-native';
 import { COLORS } from '../constants/colors';
+import { useColors } from '../contexts/ThemeContext';
 import { GOAL_INFO, GOAL_TO_PROGRAM, PROGRAM_TEMPLATES } from '../constants/goals';
 import { EXPERIENCE_LEVELS } from '../constants/experience';
 import { WORKOUT_TEMPLATES } from '../constants/workoutTemplates';
@@ -136,6 +137,8 @@ const EQUIPMENT = [
 ];
 
 const OnboardingScreen = ({ navigation }) => {
+  const COLORS = useColors();
+  const styles = getStyles(COLORS);
   const { user, refreshProfile, signOut } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [saving, setSaving] = useState(false);
@@ -860,7 +863,7 @@ const OnboardingScreen = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (COLORS) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,

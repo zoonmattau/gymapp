@@ -32,7 +32,7 @@ import {
   X,
   Check,
 } from 'lucide-react-native';
-import { COLORS } from '../constants/colors';
+import { useColors } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { socialService } from '../services/socialService';
 import { publishedWorkoutService } from '../services/publishedWorkoutService';
@@ -49,6 +49,8 @@ const TABS = [
 ];
 
 const CommunityScreen = ({ route }) => {
+  const COLORS = useColors();
+  const styles = getStyles(COLORS);
   const { user, profile } = useAuth();
   const weightUnit = profile?.weight_unit || 'kg';
   const initialTab = route?.params?.initialTab || 'feed';
@@ -1524,7 +1526,7 @@ const CommunityScreen = ({ route }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (COLORS) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,

@@ -11,9 +11,11 @@ import {
   ScrollView,
 } from 'react-native';
 import { X, Scale, Plus, Minus, ChevronLeft, ChevronRight, Calendar } from 'lucide-react-native';
-import { COLORS } from '../constants/colors';
+import { useColors } from '../contexts/ThemeContext';
 
 const WeighInModal = ({ visible, onClose, onSave, unit = 'kg', currentWeight = 0, lastWeighInDate = null }) => {
+  const COLORS = useColors();
+  const styles = getStyles(COLORS);
   const [weight, setWeight] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date());
 
@@ -206,7 +208,7 @@ const WeighInModal = ({ visible, onClose, onSave, unit = 'kg', currentWeight = 0
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (COLORS) => StyleSheet.create({
   webOverlay: {
     position: 'absolute',
     top: 0,

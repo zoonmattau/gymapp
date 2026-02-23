@@ -12,10 +12,12 @@ import {
   Alert,
 } from 'react-native';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
-import { COLORS } from '../constants/colors';
+import { useColors } from '../contexts/ThemeContext';
 import { supabase } from '../lib/supabase';
 
 const LoginScreen = ({ navigation }) => {
+  const COLORS = useColors();
+  const styles = getStyles(COLORS);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -131,7 +133,7 @@ const LoginScreen = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (COLORS) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,

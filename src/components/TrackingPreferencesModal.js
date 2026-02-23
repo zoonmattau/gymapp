@@ -9,47 +9,50 @@ import {
   Switch,
 } from 'react-native';
 import { X, Flame, Droplets, Moon, Zap, Apple } from 'lucide-react-native';
-import { COLORS } from '../constants/colors';
-
-const TRACKING_OPTIONS = [
-  {
-    id: 'calories',
-    label: 'Calories',
-    desc: 'Track daily calorie intake',
-    icon: Flame,
-    color: COLORS.warning,
-  },
-  {
-    id: 'macros',
-    label: 'Macros',
-    desc: 'Track protein, carbs, and fats',
-    icon: Apple,
-    color: COLORS.protein,
-  },
-  {
-    id: 'water',
-    label: 'Water',
-    desc: 'Track daily water intake',
-    icon: Droplets,
-    color: COLORS.water,
-  },
-  {
-    id: 'sleep',
-    label: 'Sleep',
-    desc: 'Track sleep duration and quality',
-    icon: Moon,
-    color: COLORS.sleep,
-  },
-  {
-    id: 'supplements',
-    label: 'Supplements',
-    desc: 'Track daily supplement intake',
-    icon: Zap,
-    color: COLORS.supplements,
-  },
-];
+import { useColors } from '../contexts/ThemeContext';
 
 const TrackingPreferencesModal = ({ visible, onClose, preferences, onToggle }) => {
+  const COLORS = useColors();
+  const styles = getStyles(COLORS);
+
+  const TRACKING_OPTIONS = [
+    {
+      id: 'calories',
+      label: 'Calories',
+      desc: 'Track daily calorie intake',
+      icon: Flame,
+      color: COLORS.warning,
+    },
+    {
+      id: 'macros',
+      label: 'Macros',
+      desc: 'Track protein, carbs, and fats',
+      icon: Apple,
+      color: COLORS.protein,
+    },
+    {
+      id: 'water',
+      label: 'Water',
+      desc: 'Track daily water intake',
+      icon: Droplets,
+      color: COLORS.water,
+    },
+    {
+      id: 'sleep',
+      label: 'Sleep',
+      desc: 'Track sleep duration and quality',
+      icon: Moon,
+      color: COLORS.sleep,
+    },
+    {
+      id: 'supplements',
+      label: 'Supplements',
+      desc: 'Track daily supplement intake',
+      icon: Zap,
+      color: COLORS.supplements,
+    },
+  ];
+
   return (
     <Modal
       visible={visible}
@@ -119,7 +122,7 @@ const TrackingPreferencesModal = ({ visible, onClose, preferences, onToggle }) =
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (COLORS) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',

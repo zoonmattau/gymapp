@@ -11,9 +11,12 @@ import {
   Platform,
 } from 'react-native';
 import { X, Moon, Clock, Star, ChevronLeft, ChevronRight, Calendar } from 'lucide-react-native';
-import { COLORS } from '../constants/colors';
+import { useColors } from '../contexts/ThemeContext';
 
 const SleepEntryModal = ({ visible, onClose, onSave, existingData }) => {
+  const COLORS = useColors();
+  const styles = getStyles(COLORS);
+
   const [bedTime, setBedTime] = useState('22:00');
   const [wakeTime, setWakeTime] = useState('06:00');
   const [hoursSlept, setHoursSlept] = useState('8');
@@ -289,7 +292,7 @@ const SleepEntryModal = ({ visible, onClose, onSave, existingData }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (COLORS) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,

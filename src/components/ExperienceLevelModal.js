@@ -8,7 +8,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { X, Check, Sprout, TrendingUp, Dumbbell, Crown } from 'lucide-react-native';
-import { COLORS } from '../constants/colors';
+import { useColors } from '../contexts/ThemeContext';
 import { EXPERIENCE_LEVELS } from '../constants/experience';
 
 const ICONS = {
@@ -19,6 +19,9 @@ const ICONS = {
 };
 
 const ExperienceLevelModal = ({ visible, onClose, currentLevel, onSelect }) => {
+  const COLORS = useColors();
+  const styles = getStyles(COLORS);
+
   return (
     <Modal
       visible={visible}
@@ -88,7 +91,7 @@ const ExperienceLevelModal = ({ visible, onClose, currentLevel, onSelect }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (COLORS) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',

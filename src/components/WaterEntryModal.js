@@ -9,9 +9,11 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { X, Droplets, Plus, Minus } from 'lucide-react-native';
-import { COLORS } from '../constants/colors';
+import { useColors } from '../contexts/ThemeContext';
 
 const WaterEntryModal = ({ visible, onClose, onAdd, currentIntake = 0 }) => {
+  const COLORS = useColors();
+  const styles = getStyles(COLORS);
   const [amount, setAmount] = useState('250');
 
   const quickAmounts = [100, 200, 250, 300, 400, 500, 750, 1000];
@@ -115,7 +117,7 @@ const WaterEntryModal = ({ visible, onClose, onAdd, currentIntake = 0 }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (COLORS) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,

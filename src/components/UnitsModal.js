@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { X, Check } from 'lucide-react-native';
-import { COLORS } from '../constants/colors';
+import { useColors } from '../contexts/ThemeContext';
 
 const UNIT_OPTIONS = [
   { id: 'metric', label: 'Metric', desc: 'Kilograms, centimeters' },
@@ -15,6 +15,9 @@ const UNIT_OPTIONS = [
 ];
 
 const UnitsModal = ({ visible, onClose, currentUnit, onSelect }) => {
+  const COLORS = useColors();
+  const styles = getStyles(COLORS);
+
   return (
     <Modal
       visible={visible}
@@ -78,7 +81,7 @@ const UnitsModal = ({ visible, onClose, currentUnit, onSelect }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (COLORS) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',

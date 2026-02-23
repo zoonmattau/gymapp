@@ -11,13 +11,16 @@ import {
   Platform,
 } from 'react-native';
 import { ArrowLeft, Save, User, Mail, FileText } from 'lucide-react-native';
-import { COLORS } from '../constants/colors';
+import { useColors } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import Toast from '../components/Toast';
 
 const EditProfileScreen = () => {
+  const COLORS = useColors();
+  const styles = getStyles(COLORS);
+
   const navigation = useNavigation();
   const { user, profile, refreshProfile } = useAuth();
 
@@ -218,7 +221,7 @@ const EditProfileScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (COLORS) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,

@@ -25,11 +25,13 @@ import {
   Pencil,
   X,
 } from 'lucide-react-native';
-import { COLORS } from '../constants/colors';
+import { useColors } from '../contexts/ThemeContext';
 import { workoutService } from '../services/workoutService';
 import { useAuth } from '../contexts/AuthContext';
 
 const WorkoutSummaryScreen = ({ route, navigation }) => {
+  const COLORS = useColors();
+  const styles = getStyles(COLORS);
   const { profile } = useAuth();
   const weightUnit = profile?.weight_unit || 'kg';
   const { summary } = route?.params || {};
@@ -357,7 +359,7 @@ const WorkoutSummaryScreen = ({ route, navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (COLORS) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,

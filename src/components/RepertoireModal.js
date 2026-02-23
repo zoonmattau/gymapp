@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { X, Dumbbell, Play, User, Star, Clock } from 'lucide-react-native';
-import { COLORS } from '../constants/colors';
+import { useColors } from '../contexts/ThemeContext';
 
 const RepertoireModal = ({
   visible,
@@ -18,6 +18,9 @@ const RepertoireModal = ({
   loading,
   onStartWorkout,
 }) => {
+  const COLORS = useColors();
+  const styles = getStyles(COLORS);
+
   const formatDuration = (minutes) => {
     if (!minutes) return '';
     if (minutes < 60) return `${minutes} min`;
@@ -143,7 +146,7 @@ const RepertoireModal = ({
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (COLORS) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',

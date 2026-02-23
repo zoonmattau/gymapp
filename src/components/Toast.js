@@ -1,9 +1,11 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, Platform } from 'react-native';
 import { Check, X, AlertCircle } from 'lucide-react-native';
-import { COLORS } from '../constants/colors';
+import { useColors } from '../contexts/ThemeContext';
 
 const Toast = ({ visible, message, type = 'success', duration = 3000, onHide }) => {
+  const COLORS = useColors();
+  const styles = getStyles(COLORS);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(-100)).current;
 
@@ -92,7 +94,7 @@ const Toast = ({ visible, message, type = 'success', duration = 3000, onHide }) 
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (COLORS) => StyleSheet.create({
   container: {
     position: 'absolute',
     top: Platform.OS === 'web' ? 20 : 60,

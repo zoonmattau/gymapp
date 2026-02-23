@@ -13,7 +13,7 @@ import {
   Platform,
 } from 'react-native';
 import { ArrowLeft, Dumbbell, Check, Clock, TrendingUp, Pencil, X, ChevronDown, ChevronUp, Trash2 } from 'lucide-react-native';
-import { COLORS } from '../constants/colors';
+import { useColors } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { workoutService } from '../services/workoutService';
 import { supabase } from '../lib/supabase';
@@ -27,6 +27,9 @@ const getRpeColor = (rpe) => {
 };
 
 const WorkoutHistoryScreen = ({ navigation }) => {
+  const COLORS = useColors();
+  const styles = getStyles(COLORS);
+
   const { user, profile } = useAuth();
   const weightUnit = profile?.weight_unit || 'kg';
   const [workoutHistory, setWorkoutHistory] = useState([]);
@@ -531,7 +534,7 @@ const WorkoutHistoryScreen = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (COLORS) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,

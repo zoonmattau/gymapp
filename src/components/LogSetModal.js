@@ -11,7 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { X, Plus, Minus, Check } from 'lucide-react-native';
-import { COLORS } from '../constants/colors';
+import { useColors } from '../contexts/ThemeContext';
 
 const LogSetModal = ({
   visible,
@@ -27,6 +27,9 @@ const LogSetModal = ({
   isReturningFromSuperset = false,
   isEdit = false,
 }) => {
+  const COLORS = useColors();
+  const styles = getStyles(COLORS);
+
   const [weight, setWeight] = useState(initialWeight);
   const [reps, setReps] = useState(initialReps);
   const [rpe, setRpe] = useState(null);
@@ -537,7 +540,7 @@ const LogSetModal = ({
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (COLORS) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,

@@ -30,7 +30,7 @@ import {
 } from 'lucide-react-native';
 import { LineChart } from 'react-native-chart-kit';
 import { Dimensions } from 'react-native';
-import { COLORS } from '../constants/colors';
+import { useColors } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { nutritionService } from '../services/nutritionService';
 import { sleepService } from '../services/sleepService';
@@ -56,6 +56,8 @@ const getLocalDateString = (date = new Date()) => {
 const screenWidth = Dimensions.get('window').width;
 
 const HealthScreen = () => {
+  const COLORS = useColors();
+  const styles = getStyles(COLORS);
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -1733,7 +1735,7 @@ const HealthScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (COLORS) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,

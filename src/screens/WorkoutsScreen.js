@@ -37,7 +37,7 @@ import {
   BarChart2,
 } from 'lucide-react-native';
 import { WORKOUT_TEMPLATES, AVAILABLE_PROGRAMS, GOAL_TO_PROGRAM } from '../constants/workoutTemplates';
-import { COLORS } from '../constants/colors';
+import { useColors } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { getPausedWorkout, clearPausedWorkout } from '../utils/workoutStore';
 import { workoutService } from '../services/workoutService';
@@ -54,6 +54,8 @@ const getRpeColor = (rpe) => {
 };
 
 const WorkoutsScreen = () => {
+  const COLORS = useColors();
+  const styles = getStyles(COLORS);
   const navigation = useNavigation();
   const { user, profile } = useAuth();
   const weightUnit = profile?.weight_unit || 'kg';
@@ -1604,7 +1606,7 @@ const WorkoutsScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (COLORS) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,

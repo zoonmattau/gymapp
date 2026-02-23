@@ -12,7 +12,7 @@ import {
   Platform,
 } from 'react-native';
 import { X, Search, Dumbbell } from 'lucide-react-native';
-import { COLORS } from '../constants/colors';
+import { useColors } from '../contexts/ThemeContext';
 
 // Comprehensive exercise database (250+ exercises)
 const EXERCISES = [
@@ -281,6 +281,8 @@ const SUPERSET_PAIRS = {
 };
 
 const ExerciseSearchModal = ({ visible, onClose, onSelect, excludeExercises = [], isSuperset = false, currentExercise = null }) => {
+  const COLORS = useColors();
+  const styles = getStyles(COLORS);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMuscle, setSelectedMuscle] = useState('All');
 
@@ -452,7 +454,7 @@ const ExerciseSearchModal = ({ visible, onClose, onSelect, excludeExercises = []
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (COLORS) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,

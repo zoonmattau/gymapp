@@ -29,7 +29,7 @@ import {
   ChevronRight,
 } from 'lucide-react-native';
 import { LineChart } from 'react-native-chart-kit';
-import { COLORS } from '../constants/colors';
+import { useColors } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { workoutService } from '../services/workoutService';
 import { streakService } from '../services/streakService';
@@ -46,6 +46,8 @@ import GoalModal from '../components/GoalModal';
 import Toast from '../components/Toast';
 
 const ProgressScreen = () => {
+  const COLORS = useColors();
+  const styles = getStyles(COLORS);
   const { user, profile, refreshProfile } = useAuth();
   const [chartPeriod, setChartPeriod] = useState('All');
   const [showWeighInModal, setShowWeighInModal] = useState(false);
@@ -1407,7 +1409,7 @@ const ProgressScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (COLORS) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,

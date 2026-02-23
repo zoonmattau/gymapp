@@ -13,7 +13,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { X, Search, Plus, Utensils, Star, Clock } from 'lucide-react-native';
-import { COLORS } from '../constants/colors';
+import { useColors } from '../contexts/ThemeContext';
 import { nutritionService } from '../services/nutritionService';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -37,6 +37,8 @@ const QUICK_FOODS = [
 ];
 
 const AddMealModal = ({ visible, onClose, onAdd }) => {
+  const COLORS = useColors();
+  const styles = getStyles(COLORS);
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('quick');
   const [searchQuery, setSearchQuery] = useState('');
@@ -303,7 +305,7 @@ const AddMealModal = ({ visible, onClose, onAdd }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (COLORS) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,

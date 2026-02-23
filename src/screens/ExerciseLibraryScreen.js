@@ -11,7 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { ArrowLeft, Search, Dumbbell, ChevronDown, ChevronUp } from 'lucide-react-native';
-import { COLORS } from '../constants/colors';
+import { useColors } from '../contexts/ThemeContext';
 
 import { EXERCISES } from '../constants/exercises';
 
@@ -21,6 +21,9 @@ const MUSCLE_GROUPS = [
 ];
 
 const ExerciseLibraryScreen = ({ navigation }) => {
+  const COLORS = useColors();
+  const styles = getStyles(COLORS);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedGroup, setSelectedGroup] = useState('All');
   const [expandedExercise, setExpandedExercise] = useState(null);
@@ -172,7 +175,7 @@ const ExerciseLibraryScreen = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (COLORS) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,

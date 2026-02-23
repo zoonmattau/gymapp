@@ -10,11 +10,14 @@ import {
   Platform,
 } from 'react-native';
 import { ArrowLeft, Trophy, Dumbbell } from 'lucide-react-native';
-import { COLORS } from '../constants/colors';
+import { useColors } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { workoutService } from '../services/workoutService';
 
 const PersonalRecordsScreen = ({ navigation }) => {
+  const COLORS = useColors();
+  const styles = getStyles(COLORS);
+
   const { user, profile } = useAuth();
   const weightUnit = profile?.weight_unit || 'kg';
   const [personalRecords, setPersonalRecords] = useState([]);
@@ -155,7 +158,7 @@ const PersonalRecordsScreen = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (COLORS) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,

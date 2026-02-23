@@ -3,7 +3,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Home, Dumbbell, Apple, User, TrendingUp, Users } from 'lucide-react-native';
-import { COLORS } from '../constants/colors';
+import { useColors } from '../contexts/ThemeContext';
 
 // Screens
 import HomeScreen from '../screens/HomeScreen';
@@ -16,6 +16,7 @@ import CommunityScreen from '../screens/CommunityScreen';
 const Tab = createBottomTabNavigator();
 
 const TabNavigator = () => {
+  const COLORS = useColors();
   const insets = useSafeAreaInsets();
 
   // For web, use compact height with minimal padding
