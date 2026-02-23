@@ -10,6 +10,7 @@ import {
   Modal,
   TextInput,
   Alert,
+  Platform,
 } from 'react-native';
 import { ArrowLeft, Dumbbell, Check, Clock, TrendingUp, Pencil, X, ChevronDown, ChevronUp, Trash2 } from 'lucide-react-native';
 import { COLORS } from '../constants/colors';
@@ -378,7 +379,7 @@ const WorkoutHistoryScreen = ({ navigation }) => {
 
           {/* History List */}
           <ScrollView
-            style={{ flex: 1 }}
+            style={styles.scrollView}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
           >
@@ -442,6 +443,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
+    ...(Platform.OS === 'web' ? { height: '100vh', overflow: 'hidden' } : {}),
+  },
+  scrollView: {
+    flex: 1,
+    ...(Platform.OS === 'web' ? { overflow: 'auto' } : {}),
   },
   header: {
     flexDirection: 'row',
