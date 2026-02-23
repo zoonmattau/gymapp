@@ -360,7 +360,11 @@ const WorkoutHistoryScreen = ({ navigation }) => {
       {workoutHistory.length === 0 ? (
         renderEmptyState()
       ) : (
-        <View style={{ flex: 1 }}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+        >
           {/* Summary Stats */}
           <View style={styles.summaryRow}>
             <View style={styles.summaryCard}>
@@ -378,18 +382,12 @@ const WorkoutHistoryScreen = ({ navigation }) => {
           </View>
 
           {/* History List */}
-          <ScrollView
-            style={styles.scrollView}
-            contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
-          >
-            {workoutHistory.map((item) => (
-              <View key={item.id?.toString() || Math.random().toString()}>
-                {renderHistoryItem({ item })}
-              </View>
-            ))}
-          </ScrollView>
-        </View>
+          {workoutHistory.map((item) => (
+            <View key={item.id?.toString() || Math.random().toString()} style={{ paddingHorizontal: 16 }}>
+              {renderHistoryItem({ item })}
+            </View>
+          ))}
+        </ScrollView>
       )}
 
       {/* Rename Modal */}
@@ -495,7 +493,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   listContent: {
-    paddingHorizontal: 16,
     paddingBottom: 20,
   },
   historyCard: {
