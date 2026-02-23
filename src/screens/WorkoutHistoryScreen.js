@@ -198,10 +198,7 @@ const WorkoutHistoryScreen = ({ navigation }) => {
 
   const formatVolume = (volume) => {
     const displayVolume = weightUnit === 'lbs' ? Math.round(volume * 2.205) : volume;
-    if (displayVolume >= 1000) {
-      return `${(displayVolume / 1000).toFixed(1)}k ${weightUnit}`;
-    }
-    return `${displayVolume} ${weightUnit}`;
+    return `${displayVolume.toLocaleString()} ${weightUnit}`;
   };
 
   const renderHistoryItem = ({ item }) => {

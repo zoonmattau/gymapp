@@ -135,6 +135,28 @@ const ExerciseLibraryScreen = ({ navigation }) => {
     </>
   );
 
+  if (Platform.OS === 'web') {
+    return (
+      <div style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        overflowY: 'auto',
+        backgroundColor: COLORS.background,
+      }}>
+        {renderContent()}
+        {filteredExercises.map((item) => (
+          <View key={item.name} style={{ paddingHorizontal: 16 }}>
+            {renderExerciseItem({ item })}
+          </View>
+        ))}
+        <View style={{ height: 20 }} />
+      </div>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       {renderContent()}
