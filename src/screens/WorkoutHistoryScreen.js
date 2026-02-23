@@ -360,7 +360,7 @@ const WorkoutHistoryScreen = ({ navigation }) => {
       {workoutHistory.length === 0 ? (
         renderEmptyState()
       ) : Platform.OS === 'web' ? (
-        <div style={{ flex: 1, overflowY: 'auto', height: '100%' }}>
+        <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
           {/* Summary Stats */}
           <View style={styles.summaryRow}>
             <View style={styles.summaryCard}>
@@ -467,7 +467,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
-    ...(Platform.OS === 'web' ? { height: '100vh', overflow: 'hidden' } : {}),
+    ...(Platform.OS === 'web' ? { height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' } : {}),
   },
   scrollView: {
     flex: 1,
