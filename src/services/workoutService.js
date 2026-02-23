@@ -449,6 +449,75 @@ export const workoutService = {
     }
   },
 
+  // Get detailed exercise history (last N sessions with full set data for a specific exercise)
+  async getDetailedExerciseHistory(userId, exerciseName, sessionLimit = 5) {
+    try {
+      const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+
+      // Get user's recent completed sessions
+      const { data: sessions, error: sessionsError } = await supabase
+        .from('workout_sessions')
+        .select('id, started_at')
+        .eq('user_id', userId)
+        .not('ended_at', 'is', null)
+        .gte('started_at', ninetyDaysAgo)
+        .order('started_at', { ascending: false });
+
+      if (sessionsError || !sessions || sessions.length === 0) {
+        return { data: [], error: null };
+      }
+
+      const sessionIds = sessions.map(s => s.id);
+
+      // Get sets for this specific exercise across those sessions
+      const { data: sets, error: setsError } = await supabase
+        .from('workout_sets')
+        .select('*')
+        .in('session_id', sessionIds)
+        .eq('exercise_name', exerciseName)
+        .eq('is_warmup', false);
+
+      if (setsError || !sets || sets.length === 0) {
+        return { data: [], error: null };
+      }
+
+      // Build a map of session ID -> date
+      const sessionDateMap = {};
+      sessions.forEach(s => {
+        sessionDateMap[s.id] = s.started_at;
+      });
+
+      // Group sets by session
+      const sessionSetsMap = {};
+      sets.forEach(set => {
+        if (!sessionSetsMap[set.session_id]) {
+          sessionSetsMap[set.session_id] = [];
+        }
+        sessionSetsMap[set.session_id].push({
+          weight: set.weight,
+          reps: set.reps,
+          rpe: set.rpe,
+          setNumber: set.set_number,
+        });
+      });
+
+      // Build result array, ordered by most recent, limited to sessionLimit
+      const result = sessions
+        .filter(s => sessionSetsMap[s.id])
+        .slice(0, sessionLimit)
+        .map(s => ({
+          sessionId: s.id,
+          date: s.started_at,
+          sets: sessionSetsMap[s.id].sort((a, b) => (a.setNumber || 0) - (b.setNumber || 0)),
+        }));
+
+      return { data: result, error: null };
+    } catch (err) {
+      console.warn('getDetailedExerciseHistory error:', err?.message);
+      return { data: [], error: null };
+    }
+  },
+
   // Check and create PR if applicable
   async checkAndCreatePR(userId, exerciseId, exerciseName, weight, reps, sessionId = null) {
     // Calculate estimated 1RM using Epley formula

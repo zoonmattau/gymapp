@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   TextInput,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -22,7 +23,7 @@ import {
   Pencil,
   Lightbulb,
 } from 'lucide-react-native';
-import { COLORS } from '../constants/colors';
+import { useColors } from '../contexts/ThemeContext';
 import { EXERCISES } from '../constants/exercises';
 import ExerciseSearchModal from '../components/ExerciseSearchModal';
 import LogSetModal from '../components/LogSetModal';
@@ -50,7 +51,24 @@ const getRpeColor = (rpe) => {
   return `hsl(${hue}, 70%, 45%)`;
 };
 
+// Format a date as relative ("2 days ago") or short date ("Feb 20")
+const formatRelativeDate = (dateString) => {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return `${diffDays} days ago`;
+
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${months[date.getMonth()]} ${date.getDate()}`;
+};
+
 const ActiveWorkoutScreen = ({ route, navigation }) => {
+  const COLORS = useColors();
+  const styles = getStyles(COLORS);
   const { user, profile } = useAuth();
   const weightUnit = profile?.weight_unit || 'kg';
   const {
@@ -96,6 +114,8 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [exerciseHistory, setExerciseHistory] = useState({}); // { visibleid: { visibleweight, visiblereps } }
   const [expandedTips, setExpandedTips] = useState(null); // exercise id with tips open
+  const [expandedHistory, setExpandedHistory] = useState(null); // exercise id with history open
+  const [historyCache, setHistoryCache] = useState({}); // { exerciseName: { loading, data } }
   const timerRef = useRef(null);
   const restTimerRef = useRef(null);
   const sessionIdRef = useRef(sessionId);
@@ -185,15 +205,8 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
         try {
           const { data } = await workoutService.getExerciseHistory(user.id);
           if (data) {
-            // Convert array to object keyed by exercise name
-            const historyMap = {};
-            data.forEach(item => {
-              historyMap[item.exercise_name] = {
-                lastWeight: item.weight,
-                lastReps: item.reps,
-              };
-            });
-            setExerciseHistory(historyMap);
+            // data is already an object keyed by exercise name
+            setExerciseHistory(data);
           }
         } catch (error) {
           console.log('Error loading exercise history:', error);
@@ -690,6 +703,30 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
     }, 1500);
   };
 
+  const toggleExerciseHistory = async (exerciseId, exerciseName) => {
+    // If already open, just close
+    if (expandedHistory === exerciseId) {
+      setExpandedHistory(null);
+      return;
+    }
+
+    setExpandedHistory(exerciseId);
+
+    // If already cached, don't re-fetch
+    if (historyCache[exerciseName]) return;
+
+    // Mark as loading
+    setHistoryCache(prev => ({ ...prev, [exerciseName]: { loading: true, data: [] } }));
+
+    try {
+      const { data } = await workoutService.getDetailedExerciseHistory(user?.id, exerciseName, 5);
+      setHistoryCache(prev => ({ ...prev, [exerciseName]: { loading: false, data: data || [] } }));
+    } catch (err) {
+      console.log('Error fetching exercise history:', err);
+      setHistoryCache(prev => ({ ...prev, [exerciseName]: { loading: false, data: [] } }));
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -813,6 +850,56 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
                     </View>
                   );
                 })()}
+
+                {/* Last Sessions History Toggle */}
+                <View style={styles.historyWrapper}>
+                  <TouchableOpacity
+                    style={styles.historyToggle}
+                    onPress={() => toggleExerciseHistory(exercise.id, exercise.name)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.historyToggleLeft}>
+                      <Clock size={14} color="#D97706" />
+                      <Text style={styles.historyToggleText}>Last Sessions</Text>
+                    </View>
+                    {expandedHistory === exercise.id ? (
+                      <ChevronUp size={14} color={COLORS.textMuted} />
+                    ) : (
+                      <ChevronDown size={14} color={COLORS.textMuted} />
+                    )}
+                  </TouchableOpacity>
+                  {expandedHistory === exercise.id && (
+                    <View style={styles.historyContent}>
+                      {historyCache[exercise.name]?.loading ? (
+                        <ActivityIndicator size="small" color="#D97706" style={{ paddingVertical: 8 }} />
+                      ) : historyCache[exercise.name]?.data?.length > 0 ? (
+                        historyCache[exercise.name].data.map((session, sIdx) => (
+                          <View key={session.sessionId || sIdx} style={styles.historySession}>
+                            <Text style={styles.historySessionDate}>
+                              {formatRelativeDate(session.date)}
+                            </Text>
+                            <View style={styles.historyPills}>
+                              {session.sets.map((s, idx) => (
+                                <View key={idx} style={styles.historyPill}>
+                                  <Text style={styles.historyPillText}>
+                                    {s.weight}{weightUnit} × {s.reps}
+                                  </Text>
+                                  {s.rpe && (
+                                    <View style={[styles.historyRpeBadge, { backgroundColor: getRpeColor(s.rpe) }]}>
+                                      <Text style={styles.historyRpeText}>{s.rpe}</Text>
+                                    </View>
+                                  )}
+                                </View>
+                              ))}
+                            </View>
+                          </View>
+                        ))
+                      ) : (
+                        <Text style={styles.historyEmpty}>No history found</Text>
+                      )}
+                    </View>
+                  )}
+                </View>
 
                 {/* Set Rows */}
                 {exercise.sets.length > 0 && (
@@ -1035,7 +1122,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (COLORS) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
@@ -1389,6 +1476,82 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontSize: 12,
     lineHeight: 18,
+  },
+  // History toggle styles
+  historyWrapper: {
+    marginBottom: 8,
+    borderRadius: 8,
+    backgroundColor: '#D97706' + '12',
+    overflow: 'hidden',
+  },
+  historyToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  historyToggleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  historyToggleText: {
+    color: '#D97706',
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  historyContent: {
+    paddingHorizontal: 12,
+    paddingBottom: 10,
+    gap: 8,
+  },
+  historySession: {
+    gap: 4,
+  },
+  historySessionDate: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  historyPills: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  historyPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    gap: 4,
+  },
+  historyPillText: {
+    color: COLORS.text,
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  historyRpeBadge: {
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+  },
+  historyRpeText: {
+    color: COLORS.text,
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  historyEmpty: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    fontStyle: 'italic',
+    paddingVertical: 4,
   },
 });
 
