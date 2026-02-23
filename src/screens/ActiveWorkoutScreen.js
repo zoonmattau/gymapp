@@ -209,7 +209,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
     const createSession = async () => {
       if (!sessionId && user?.id) {
         try {
-          console.log('Creating workout session...');
+          console.log('Creating workout session for user:', user.id, 'workout:', workoutName);
           const { data, error } = await workoutService.startWorkout(
             user.id,
             workout?.id || null,
@@ -220,12 +220,14 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
             console.log('Session created:', data.id);
             setSessionId(data.id);
             sessionIdRef.current = data.id;
-          } else if (error) {
-            console.error('Failed to create session:', error);
+          } else {
+            console.error('Failed to create session. Error:', error, 'Data:', data);
           }
         } catch (err) {
           console.error('Error creating session:', err);
         }
+      } else {
+        console.log('Skipping session creation - sessionId:', sessionId, 'user:', user?.id);
       }
     };
     createSession();
@@ -545,10 +547,35 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
 
   const finishWorkout = async () => {
     // Capture values first
-    const currentSessionId = sessionIdRef.current;
+    let currentSessionId = sessionIdRef.current;
     const currentExercises = JSON.parse(JSON.stringify(exercises));
     const currentWorkoutTime = workoutTime;
     const currentUserId = user?.id;
+
+    // If session was never created, try creating it now as a fallback
+    if (!currentSessionId && currentUserId) {
+      console.log('No session ID at finish time - creating session now...');
+      try {
+        const { data, error } = await workoutService.startWorkout(
+          currentUserId,
+          workout?.id || null,
+          null,
+          workoutName
+        );
+        if (data?.id) {
+          console.log('Late session created:', data.id);
+          currentSessionId = data.id;
+          sessionIdRef.current = data.id;
+          setSessionId(data.id);
+        } else {
+          console.error('Failed to create late session:', error);
+        }
+      } catch (err) {
+        console.error('Error creating late session:', err);
+      }
+    }
+
+    console.log('Finishing workout - sessionId:', currentSessionId, 'userId:', currentUserId);
 
     const totalSetsCount = currentExercises.reduce(
       (acc, ex) => acc + ex.sets.length, 0
@@ -568,21 +595,31 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
 
     // Save data FIRST, then navigate
     if (currentSessionId && currentUserId) {
+      // Log sets - don't let failures prevent completing the session
       try {
         for (const exercise of currentExercises) {
           for (const set of exercise.sets) {
             if (set.completed) {
-              await workoutService.logSet(currentSessionId, null, exercise.name, {
-                setNumber: set.id,
-                weight: set.weight === 'BW' ? 0 : parseFloat(set.weight) || 0,
-                reps: parseInt(set.reps) || 0,
-                rpe: set.rpe || null,
-                isWarmup: false,
-              });
+              try {
+                await workoutService.logSet(currentSessionId, null, exercise.name, {
+                  setNumber: set.id,
+                  weight: set.weight === 'BW' ? 0 : parseFloat(set.weight) || 0,
+                  reps: parseInt(set.reps) || 0,
+                  rpe: set.rpe || null,
+                  isWarmup: false,
+                });
+              } catch (setErr) {
+                console.error('Error logging set:', exercise.name, setErr);
+              }
             }
           }
         }
+      } catch (err) {
+        console.error('Error in set logging loop:', err);
+      }
 
+      // Always mark the session as complete, even if sets failed
+      try {
         await workoutService.completeWorkout(currentSessionId, {
           durationMinutes: Math.floor(currentWorkoutTime / 60),
           totalVolume,
@@ -590,8 +627,10 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
           totalSets: completedSetsCount,
         });
       } catch (err) {
-        console.error('Error saving workout:', err);
+        console.error('Error completing workout:', err);
       }
+    } else {
+      console.error('Cannot save workout - missing sessionId:', currentSessionId, 'or userId:', currentUserId);
     }
 
     // Clear saved workout from localStorage
