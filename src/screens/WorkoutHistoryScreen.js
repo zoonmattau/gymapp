@@ -346,6 +346,103 @@ const WorkoutHistoryScreen = ({ navigation }) => {
 
   const stats = getTotalStats();
 
+  if (Platform.OS === 'web') {
+    return (
+      <div style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        overflowY: 'auto',
+        backgroundColor: COLORS.background,
+      }}>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <ArrowLeft size={24} color={COLORS.text} />
+          </TouchableOpacity>
+          <Text style={styles.title}>Workout History</Text>
+          <View style={{ width: 24 }} />
+        </View>
+
+        {workoutHistory.length === 0 ? (
+          renderEmptyState()
+        ) : (
+          <>
+            {/* Summary Stats */}
+            <View style={styles.summaryRow}>
+              <View style={styles.summaryCard}>
+                <Text style={styles.summaryValue}>{stats.totalWorkouts}</Text>
+                <Text style={styles.summaryLabel}>Workouts</Text>
+              </View>
+              <View style={styles.summaryCard}>
+                <Text style={styles.summaryValue}>{Math.round(stats.totalDuration / 60)}h</Text>
+                <Text style={styles.summaryLabel}>Total Time</Text>
+              </View>
+              <View style={styles.summaryCard}>
+                <Text style={styles.summaryValue}>{formatVolume(stats.totalVolume)}</Text>
+                <Text style={styles.summaryLabel}>Volume</Text>
+              </View>
+            </View>
+
+            {/* History List */}
+            {workoutHistory.map((item) => (
+              <View key={item.id?.toString() || Math.random().toString()} style={{ paddingHorizontal: 16 }}>
+                {renderHistoryItem({ item })}
+              </View>
+            ))}
+            <View style={{ height: 20 }} />
+          </>
+        )}
+
+        {/* Rename Modal */}
+        <Modal
+          visible={renameModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setRenameModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContainer}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Rename Workout</Text>
+                <TouchableOpacity
+                  onPress={() => setRenameModalVisible(false)}
+                  style={styles.modalCloseButton}
+                >
+                  <X size={20} color={COLORS.textMuted} />
+                </TouchableOpacity>
+              </View>
+              <TextInput
+                style={styles.renameInput}
+                value={newWorkoutName}
+                onChangeText={setNewWorkoutName}
+                placeholder="Workout name"
+                placeholderTextColor={COLORS.textMuted}
+                autoFocus
+              />
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={() => setRenameModalVisible(false)}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.saveButton}
+                  onPress={handleRenameSubmit}
+                >
+                  <Text style={styles.saveButtonText}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      </div>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -359,32 +456,6 @@ const WorkoutHistoryScreen = ({ navigation }) => {
 
       {workoutHistory.length === 0 ? (
         renderEmptyState()
-      ) : Platform.OS === 'web' ? (
-        <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-          {/* Summary Stats */}
-          <View style={styles.summaryRow}>
-            <View style={styles.summaryCard}>
-              <Text style={styles.summaryValue}>{stats.totalWorkouts}</Text>
-              <Text style={styles.summaryLabel}>Workouts</Text>
-            </View>
-            <View style={styles.summaryCard}>
-              <Text style={styles.summaryValue}>{Math.round(stats.totalDuration / 60)}h</Text>
-              <Text style={styles.summaryLabel}>Total Time</Text>
-            </View>
-            <View style={styles.summaryCard}>
-              <Text style={styles.summaryValue}>{formatVolume(stats.totalVolume)}</Text>
-              <Text style={styles.summaryLabel}>Volume</Text>
-            </View>
-          </View>
-
-          {/* History List */}
-          {workoutHistory.map((item) => (
-            <View key={item.id?.toString() || Math.random().toString()} style={{ paddingHorizontal: 16 }}>
-              {renderHistoryItem({ item })}
-            </View>
-          ))}
-          <View style={{ height: 20 }} />
-        </div>
       ) : (
         <ScrollView
           style={styles.scrollView}
@@ -467,11 +538,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
-    ...(Platform.OS === 'web' ? { height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' } : {}),
   },
   scrollView: {
     flex: 1,
-    ...(Platform.OS === 'web' ? { overflow: 'auto' } : {}),
   },
   header: {
     flexDirection: 'row',
