@@ -315,7 +315,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     alignItems: 'center',
   },
   saveButtonText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 16,
     fontWeight: '600',
   },

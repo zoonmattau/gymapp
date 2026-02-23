@@ -1129,7 +1129,7 @@ const ProgressScreen = () => {
         style={styles.logWeighInBtn}
         onPress={() => setShowWeighInModal(true)}
       >
-        <Plus size={20} color={COLORS.text} />
+        <Plus size={20} color={COLORS.textOnPrimary} />
         <Text style={styles.logWeighInText}>Log Weigh-In</Text>
       </TouchableOpacity>
 
@@ -1825,7 +1825,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     marginTop: 20,
   },
   logWeighInText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -2025,7 +2025,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     alignItems: 'center',
   },
   targetSaveBtnText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 16,
     fontWeight: '600',
   },

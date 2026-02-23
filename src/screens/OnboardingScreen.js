@@ -504,7 +504,7 @@ const OnboardingScreen = ({ navigation }) => {
                 </View>
                 {isSelected && (
                   <View style={[styles.goalCheck, { backgroundColor: goal.color }]}>
-                    <Check size={14} color={COLORS.text} />
+                    <Check size={14} color={COLORS.textOnPrimary} />
                   </View>
                 )}
                 <TouchableOpacity
@@ -616,7 +616,7 @@ const OnboardingScreen = ({ navigation }) => {
                 </View>
                 {isSelected && (
                   <View style={styles.experienceCheck}>
-                    <Check size={14} color={COLORS.text} />
+                    <Check size={14} color={COLORS.textOnPrimary} />
                   </View>
                 )}
               </View>
@@ -762,7 +762,7 @@ const OnboardingScreen = ({ navigation }) => {
               </Text>
               {isSelected && (
                 <View style={styles.equipmentCheck}>
-                  <Check size={12} color={COLORS.text} />
+                  <Check size={12} color={COLORS.textOnPrimary} />
                 </View>
               )}
             </TouchableOpacity>
@@ -855,7 +855,7 @@ const OnboardingScreen = ({ navigation }) => {
             <Text style={styles.nextButtonText}>
               {saving ? 'Saving...' : currentStep === 7 ? 'Complete Setup' : 'Continue'}
             </Text>
-            {!saving && <ArrowRight size={20} color={COLORS.text} />}
+            {!saving && <ArrowRight size={20} color={COLORS.textOnPrimary} />}
           </TouchableOpacity>
         </View>
       </View>
@@ -1366,7 +1366,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     flex: 1,
   },
   nextButtonText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 16,
     fontWeight: '600',
   },

@@ -348,7 +348,7 @@ const LogSetModal = ({
                 {Platform.OS === 'web' ? (
                   <div
                     style={{
-                      backgroundColor: '#1E2024',
+                      backgroundColor: COLORS.surfaceLight,
                       borderRadius: 8,
                       padding: 14,
                       cursor: 'pointer',
@@ -531,7 +531,7 @@ const LogSetModal = ({
             onPress={handleSave}
             disabled={!canSave}
           >
-            <Check size={20} color={COLORS.text} />
+            <Check size={20} color={COLORS.textOnPrimary} />
             <Text style={styles.logButtonText}>{isEdit ? 'Update Set' : 'Log Set'}</Text>
           </TouchableOpacity>
         </View>
@@ -642,7 +642,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     fontWeight: '600',
   },
   bodyweightTextSelected: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
   },
 
   // RPE
@@ -667,7 +667,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     fontWeight: '600',
   },
   rpeTextSelected: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
   },
   rpeDescriptionContainer: {
     marginTop: 12,
@@ -712,7 +712,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     fontWeight: '600',
   },
   setTypeTextSelected: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
   },
 
   // Superset
@@ -804,7 +804,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     opacity: 0.5,
   },
   logButtonText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 18,
     fontWeight: '600',
   },

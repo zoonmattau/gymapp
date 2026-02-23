@@ -309,7 +309,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     borderRadius: 12,
   },
   emptyButtonText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 16,
     fontWeight: '600',
   },

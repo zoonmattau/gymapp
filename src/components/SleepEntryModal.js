@@ -383,7 +383,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     fontWeight: '600',
   },
   quickButtonTextActive: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
   },
   timeInputRow: {
     flexDirection: 'row',
@@ -452,7 +452,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     marginTop: 32,
   },
   saveButtonText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 16,
     fontWeight: '600',
   },

@@ -179,7 +179,7 @@ const WeighInModal = ({ visible, onClose, onSave, unit = 'kg', currentWeight = 0
           onPress={handleSave}
           disabled={!weight}
         >
-          <Scale size={20} color={COLORS.text} />
+          <Scale size={20} color={COLORS.textOnPrimary} />
           <Text style={styles.saveButtonText}>Save Weigh-In</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -363,7 +363,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     opacity: 0.5,
   },
   saveButtonText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 18,
     fontWeight: '600',
   },

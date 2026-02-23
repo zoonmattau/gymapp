@@ -103,7 +103,7 @@ const EditProfileScreen = () => {
           onPress={handleSave}
           disabled={saving}
         >
-          <Save size={20} color={COLORS.text} />
+          <Save size={20} color={COLORS.textOnPrimary} />
         </TouchableOpacity>
       </View>
 
@@ -357,7 +357,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     opacity: 0.5,
   },
   saveBtnText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 16,
     fontWeight: '600',
   },

@@ -91,7 +91,7 @@ const RepertoireModal = ({
                       style={styles.startButton}
                       onPress={() => onStartWorkout(workout)}
                     >
-                      <Play size={16} color={COLORS.text} />
+                      <Play size={16} color={COLORS.textOnPrimary} />
                     </TouchableOpacity>
                   </View>
 
@@ -314,7 +314,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     alignItems: 'center',
   },
   doneButtonText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 16,
     fontWeight: '600',
   },

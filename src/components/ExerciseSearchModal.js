@@ -519,7 +519,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     fontWeight: '500',
   },
   filterChipTextActive: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
   },
   exerciseListContainer: {
     flex: 1,

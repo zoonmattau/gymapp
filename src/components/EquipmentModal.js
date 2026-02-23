@@ -99,7 +99,7 @@ const EquipmentModal = ({ visible, onClose, selectedEquipment = [], onToggle, on
                       isSelected && styles.checkboxSelected,
                     ]}
                   >
-                    {isSelected && <Check size={16} color={COLORS.text} />}
+                    {isSelected && <Check size={16} color={COLORS.textOnPrimary} />}
                   </View>
                 </TouchableOpacity>
               );
@@ -231,7 +231,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     alignItems: 'center',
   },
   saveButtonText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 16,
     fontWeight: '600',
   },

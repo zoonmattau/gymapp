@@ -217,7 +217,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     alignItems: 'center',
   },
   doneButtonText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 16,
     fontWeight: '600',
   },

@@ -129,7 +129,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     fontWeight: '600',
   },
   confirmText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 15,
     fontWeight: '600',
   },

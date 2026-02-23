@@ -476,7 +476,7 @@ const ProfileScreen = () => {
           onPress={() => setShowExperienceModal(true)}
           activeOpacity={0.7}
         >
-          <View style={[styles.menuIcon, { backgroundColor: '#1a237e' }]}>
+          <View style={[styles.menuIcon, { backgroundColor: COLORS.primary + '20' }]}>
             <TrendingUp size={20} color={COLORS.primary} />
           </View>
           <View style={styles.menuInfo}>
@@ -497,7 +497,7 @@ const ProfileScreen = () => {
           onPress={openEquipmentModal}
           activeOpacity={0.7}
         >
-          <View style={[styles.menuIcon, { backgroundColor: '#3d2914' }]}>
+          <View style={[styles.menuIcon, { backgroundColor: COLORS.warning + '20' }]}>
             <Dumbbell size={20} color={COLORS.warning} />
           </View>
           <View style={styles.menuInfo}>
@@ -1144,7 +1144,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     fontWeight: '600',
   },
   toggleTextActive: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
   },
   rateCard: {
     backgroundColor: COLORS.surface,
@@ -1299,7 +1299,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     alignItems: 'center',
   },
   modalDoneBtnText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 16,
     fontWeight: '600',
   },

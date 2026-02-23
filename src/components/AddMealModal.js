@@ -348,7 +348,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     fontWeight: '600',
   },
   tabTextActive: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
   },
   searchContainer: {
     flexDirection: 'row',
@@ -468,7 +468,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     opacity: 0.5,
   },
   addButtonText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 16,
     fontWeight: '600',
   },

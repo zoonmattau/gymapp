@@ -108,7 +108,7 @@ const WaterEntryModal = ({ visible, onClose, onAdd, currentIntake = 0 }) => {
 
           {/* Add Button */}
           <TouchableOpacity style={styles.addButton} onPress={handleAdd}>
-            <Droplets size={20} color={COLORS.text} />
+            <Droplets size={20} color={COLORS.textOnPrimary} />
             <Text style={styles.addButtonText}>Add {amount}ml</Text>
           </TouchableOpacity>
         </View>
@@ -221,7 +221,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     fontWeight: '600',
   },
   quickButtonTextActive: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
   },
   addButton: {
     backgroundColor: COLORS.water,
@@ -235,7 +235,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     marginBottom: 20,
   },
   addButtonText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 18,
     fontWeight: '600',
   },

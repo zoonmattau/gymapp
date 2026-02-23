@@ -198,7 +198,7 @@ const RegisterScreen = ({ navigation }) => {
               disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator color={COLORS.text} />
+                <ActivityIndicator color={COLORS.textOnPrimary} />
               ) : (
                 <Text style={styles.registerButtonText}>Continue</Text>
               )}
@@ -313,7 +313,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     opacity: 0.7,
   },
   registerButtonText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 18,
     fontWeight: '600',
   },

@@ -816,9 +816,9 @@ const WorkoutsScreen = () => {
                   minWidth: 0,
                   width: 'calc((100% - 36px) / 7)',
                   backgroundColor: (isDragOver || isHovered) ? 'rgba(155, 89, 182, 0.2)' :
-                                   isCompleted ? 'rgba(34, 197, 94, 0.08)' :
-                                   isMissed ? 'rgba(239, 68, 68, 0.12)' :
-                                   day.isToday ? 'rgba(6, 182, 212, 0.08)' : '#1a1a2e',
+                                   isCompleted ? COLORS.success + '15' :
+                                   isMissed ? COLORS.error + '15' :
+                                   day.isToday ? COLORS.primary + '15' : COLORS.surface,
                   borderRadius: 12,
                   paddingTop: 12,
                   paddingBottom: 12,
@@ -828,9 +828,9 @@ const WorkoutsScreen = () => {
                   justifyContent: 'center',
                   border: `2px solid ${
                     isDragOver || isHovered ? '#9b59b6' :
-                    isCompleted ? '#22c55e' :
-                    isMissed ? '#EF4444' :
-                    day.isToday ? '#06B6D4' :
+                    isCompleted ? COLORS.success :
+                    isMissed ? COLORS.error :
+                    day.isToday ? COLORS.primary :
                     'transparent'
                   }`,
                   opacity: isDragging ? 0.5 : 1,
@@ -986,7 +986,7 @@ const WorkoutsScreen = () => {
             onPress={startWorkout}
             onClick={startWorkout}
           >
-            <Play size={18} color={COLORS.text} />
+            <Play size={18} color={COLORS.textOnPrimary} />
             <Text style={styles.startButtonText}>
               {pausedWorkout ? 'Continue Workout' : 'Start Workout'}
             </Text>
@@ -1775,7 +1775,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     backgroundColor: '#D97706',
   },
   startButtonText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -2145,7 +2145,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     alignItems: 'center',
   },
   renameSaveButtonText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -2161,7 +2161,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     paddingVertical: 2,
   },
   recommendedBadgeText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 10,
     fontWeight: '700',
   },
@@ -2174,7 +2174,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     alignSelf: 'flex-start',
   },
   setupProgramButtonText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 13,
     fontWeight: '600',
   },
@@ -2251,7 +2251,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     paddingVertical: 8,
   },
   startProgramButtonSmallText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 13,
     fontWeight: '700',
   },
@@ -2291,7 +2291,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     fontWeight: '600',
   },
   dayToggleTextActive: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
   },
   workoutCard: {
     width: '100%',
@@ -2425,7 +2425,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     marginBottom: 8,
   },
   startProgramButtonText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 16,
     fontWeight: '700',
   },

@@ -529,7 +529,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     alignItems: 'center',
   },
   doneButtonText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 18,
     fontWeight: '600',
   },
@@ -596,7 +596,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     alignItems: 'center',
   },
   renameSubmitButtonText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 16,
     fontWeight: '600',
   },

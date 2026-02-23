@@ -34,6 +34,9 @@ export const DARK_COLORS = {
   carbs: '#FB923C',
   supplements: '#FBBF24',
 
+  // On-primary text (text on primary/success/error backgrounds)
+  textOnPrimary: '#F3F4F6',
+
   // Borders
   border: '#2A2D32',
   borderLight: '#3D4A5C',
@@ -41,24 +44,24 @@ export const DARK_COLORS = {
 
 // Light Mode
 export const LIGHT_COLORS = {
-  // Primary - Cyan theme (slightly deeper for contrast on white)
-  primary: '#0891B2',
-  primaryDark: '#0E7490',
-  primaryLight: '#06B6D4',
+  // Primary - Deep indigo/blue for strong contrast on white
+  primary: '#4F46E5',
+  primaryDark: '#4338CA',
+  primaryLight: '#6366F1',
 
   // Accent
-  accent: '#06B6D4',
-  accentLight: '#22D3EE',
+  accent: '#6366F1',
+  accentLight: '#818CF8',
 
   // Background
-  background: '#F5F5F5',
+  background: '#F8FAFC',
   surface: '#FFFFFF',
-  surfaceLight: '#E5E7EB',
+  surfaceLight: '#F1F5F9',
 
   // Text
-  text: '#111827',
-  textSecondary: '#374151',
-  textMuted: '#6B7280',
+  text: '#0F172A',
+  textSecondary: '#475569',
+  textMuted: '#94A3B8',
 
   // Status
   success: '#16A34A',
@@ -73,9 +76,12 @@ export const LIGHT_COLORS = {
   carbs: '#EA580C',
   supplements: '#D97706',
 
+  // On-primary text (text on primary/success/error backgrounds)
+  textOnPrimary: '#FFFFFF',
+
   // Borders
-  border: '#D1D5DB',
-  borderLight: '#E5E7EB',
+  border: '#E2E8F0',
+  borderLight: '#F1F5F9',
 };
 
 export const themes = {

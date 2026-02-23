@@ -910,7 +910,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
                           {/* Left side: Checkmark + Set number */}
                           <View style={styles.setRowLeft}>
                             <View style={[styles.setCheckmark, set.completed && styles.setCheckmarkDone]}>
-                              <Check size={14} color={set.completed ? COLORS.text : COLORS.textMuted} />
+                              <Check size={14} color={set.completed ? COLORS.textOnPrimary : COLORS.textMuted} />
                             </View>
                             <Text style={styles.setLabel}>Set {set.id}</Text>
                           </View>
@@ -1405,7 +1405,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     borderRadius: 8,
   },
   resumeLaterText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 13,
     fontWeight: '600',
   },
@@ -1416,7 +1416,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     borderRadius: 8,
   },
   finishButtonText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 13,
     fontWeight: '600',
   },

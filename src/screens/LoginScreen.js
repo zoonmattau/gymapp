@@ -113,7 +113,7 @@ const LoginScreen = ({ navigation }) => {
               disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator color={COLORS.text} />
+                <ActivityIndicator color={COLORS.textOnPrimary} />
               ) : (
                 <Text style={styles.loginButtonText}>Sign In</Text>
               )}
@@ -201,7 +201,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     opacity: 0.7,
   },
   loginButtonText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 18,
     fontWeight: '600',
   },

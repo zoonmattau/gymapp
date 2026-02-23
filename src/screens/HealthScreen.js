@@ -1018,7 +1018,7 @@ const HealthScreen = () => {
           style={styles.addMealWithMacrosBtn}
           onPress={() => setShowAddMeal(true)}
         >
-          <Plus size={20} color={COLORS.text} />
+          <Plus size={20} color={COLORS.textOnPrimary} />
           <Text style={styles.addMealWithMacrosText}>Add Meal with Macros</Text>
         </TouchableOpacity>
 
@@ -1180,7 +1180,7 @@ const HealthScreen = () => {
           onPress={() => setShowWaterEntry(true)}
           onClick={() => setShowWaterEntry(true)}
         >
-          <Plus size={20} color={COLORS.text} />
+          <Plus size={20} color={COLORS.textOnPrimary} />
           <Text style={styles.waterCustomAddText}>Add Custom Amount</Text>
         </TouchableOpacity>
 
@@ -1798,17 +1798,17 @@ const getStyles = (COLORS) => StyleSheet.create({
     fontWeight: '600',
   },
   tabTextActive: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
   },
 
   // Mode Card (Fat Loss Mode)
   modeCard: {
-    backgroundColor: '#3D1F1F',
+    backgroundColor: COLORS.surface,
     borderRadius: 16,
     padding: 16,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#5C2E2E',
+    borderColor: COLORS.border,
   },
   modeHeader: {
     flexDirection: 'row',
@@ -1819,7 +1819,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#5C2E2E',
+    backgroundColor: COLORS.error + '20',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -1840,7 +1840,7 @@ const getStyles = (COLORS) => StyleSheet.create({
   modeStats: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#2D1515',
+    backgroundColor: COLORS.surfaceLight,
     borderRadius: 12,
     padding: 14,
   },
@@ -2386,7 +2386,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     borderRadius: 8,
   },
   addMealBtnText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 12,
     fontWeight: '600',
   },
@@ -2466,7 +2466,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     marginBottom: 24,
   },
   addMealWithMacrosText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -2625,7 +2625,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     marginBottom: 16,
   },
   waterCustomAddText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -2912,7 +2912,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     alignItems: 'center',
   },
   sleepLogBtnText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -2983,7 +2983,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     marginTop: 20,
   },
   modalButtonText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -3150,7 +3150,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     marginBottom: 20,
   },
   sleepLogBtnTextNew: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -3244,7 +3244,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     fontWeight: '600',
   },
   sleepChartPeriodTextActive: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
   },
   sleepChartCard: {
     backgroundColor: COLORS.surface,

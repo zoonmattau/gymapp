@@ -618,7 +618,7 @@ const HomeScreen = () => {
               style={[styles.workoutButton, { backgroundColor: COLORS.warning, flex: 1 }]}
               onPress={resumeSavedWorkout}
             >
-              <Play size={18} color={COLORS.text} />
+              <Play size={18} color={COLORS.textOnPrimary} />
               <Text style={styles.workoutButtonText}>Continue Workout</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -688,7 +688,7 @@ const HomeScreen = () => {
             style={[styles.workoutButton, { backgroundColor: COLORS.primary }]}
             onPress={openStartWorkoutModal}
           >
-            <Play size={18} color={COLORS.text} />
+            <Play size={18} color={COLORS.textOnPrimary} />
             <Text style={styles.workoutButtonText}>Start Workout Anyway</Text>
           </TouchableOpacity>
         </View>
@@ -712,7 +712,7 @@ const HomeScreen = () => {
             style={[styles.workoutButton, { backgroundColor: COLORS.primary }]}
             onPress={openStartWorkoutModal}
           >
-            <Play size={18} color={COLORS.text} />
+            <Play size={18} color={COLORS.textOnPrimary} />
             <Text style={styles.workoutButtonText}>Start Workout</Text>
           </TouchableOpacity>
         </View>
@@ -732,7 +732,7 @@ const HomeScreen = () => {
           style={[styles.workoutButton, { backgroundColor: COLORS.primary }]}
           onPress={openStartWorkoutModal}
         >
-          <Play size={18} color={COLORS.text} />
+          <Play size={18} color={COLORS.textOnPrimary} />
           <Text style={styles.workoutButtonText}>Start Workout</Text>
         </TouchableOpacity>
       </View>
@@ -827,7 +827,7 @@ const HomeScreen = () => {
                 onPress={resumeSavedWorkout}
                 onClick={resumeSavedWorkout}
               >
-                <Play size={16} color={COLORS.text} />
+                <Play size={16} color={COLORS.textOnPrimary} />
                 <Text style={styles.savedWorkoutResumeText}>Resume</Text>
               </TouchableOpacity>
             </View>
@@ -892,7 +892,7 @@ const HomeScreen = () => {
                   style={styles.waterAddBtn}
                   onPress={() => setShowWaterModal(true)}
                 >
-                  <Plus size={18} color={COLORS.text} />
+                  <Plus size={18} color={COLORS.textOnPrimary} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -941,7 +941,7 @@ const HomeScreen = () => {
             style={styles.weighInButton}
             onPress={() => setShowWeighInModal(true)}
           >
-            <Plus size={20} color={COLORS.text} />
+            <Plus size={20} color={COLORS.textOnPrimary} />
             <Text style={styles.weighInButtonText}>Log Weigh-In</Text>
           </TouchableOpacity>
 
@@ -989,7 +989,7 @@ const HomeScreen = () => {
               style={styles.sleepButton}
               onPress={() => setShowSleepModal(true)}
             >
-              <Moon size={20} color={COLORS.text} />
+              <Moon size={20} color={COLORS.textOnPrimary} />
               <Text style={styles.sleepButtonText}>Log Last Night's Sleep</Text>
             </TouchableOpacity>
           )}
@@ -1207,7 +1207,7 @@ const HomeScreen = () => {
                     }
                   }}
                 >
-                  <Play size={20} color={COLORS.text} />
+                  <Play size={20} color={COLORS.textOnPrimary} />
                   <Text style={styles.startWorkoutButtonText}>
                     {selectedWorkoutType === 'scheduled' ? 'Start Scheduled Workout' : 'Start Workout'}
                   </Text>
@@ -1291,7 +1291,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     borderRadius: 8,
   },
   savedWorkoutResumeText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -1430,7 +1430,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     borderRadius: 12,
   },
   workoutButtonText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -1608,7 +1608,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     borderRadius: 8,
   },
   discoverButtonText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -1648,7 +1648,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     borderRadius: 10,
   },
   exploreCommunityText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 15,
     fontWeight: '600',
   },
@@ -1664,7 +1664,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     gap: 8,
   },
   weighInButtonText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -1704,7 +1704,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     gap: 8,
   },
   sleepButtonText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -1776,7 +1776,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     fontWeight: '600',
   },
   toggleButtonTextActive: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
   },
   typeDescription: {
     marginHorizontal: 16,
@@ -1829,7 +1829,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     borderRadius: 12,
   },
   startWorkoutButtonText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 16,
     fontWeight: '600',
   },

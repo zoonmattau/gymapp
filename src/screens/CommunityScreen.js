@@ -639,7 +639,7 @@ const CommunityScreen = ({ route }) => {
         onPress={handleShareWorkout}
         onClick={handleShareWorkout}
       >
-        <Share2 size={20} color={COLORS.text} />
+        <Share2 size={20} color={COLORS.textOnPrimary} />
         <Text style={styles.shareWorkoutBtnText}>Share Your Workout</Text>
       </TouchableOpacity>
 
@@ -742,7 +742,7 @@ const CommunityScreen = ({ route }) => {
         style={styles.findUsersBtn}
         onPress={() => setActiveTab('discover')}
       >
-        <Plus size={20} color={COLORS.text} />
+        <Plus size={20} color={COLORS.textOnPrimary} />
         <Text style={styles.findUsersBtnText}>Find Users to Follow</Text>
       </TouchableOpacity>
 
@@ -789,7 +789,7 @@ const CommunityScreen = ({ route }) => {
                 {isFollowingUser ? (
                   <UserCheck size={16} color={COLORS.text} />
                 ) : (
-                  <UserPlus size={16} color={COLORS.text} />
+                  <UserPlus size={16} color={COLORS.textOnPrimary} />
                 )}
               </TouchableOpacity>
             </View>
@@ -847,7 +847,7 @@ const CommunityScreen = ({ route }) => {
                     {isFollowingUser ? (
                       <UserCheck size={16} color={COLORS.text} />
                     ) : (
-                      <UserPlus size={16} color={COLORS.text} />
+                      <UserPlus size={16} color={COLORS.textOnPrimary} />
                     )}
                   </TouchableOpacity>
                 </View>
@@ -899,7 +899,7 @@ const CommunityScreen = ({ route }) => {
                   {isFollowingUser ? (
                     <UserCheck size={16} color={COLORS.text} />
                   ) : (
-                    <UserPlus size={16} color={COLORS.text} />
+                    <UserPlus size={16} color={COLORS.textOnPrimary} />
                   )}
                 </TouchableOpacity>
               </View>
@@ -952,7 +952,7 @@ const CommunityScreen = ({ route }) => {
                   {isFollowingUser ? (
                     <UserCheck size={16} color={COLORS.text} />
                   ) : (
-                    <UserPlus size={16} color={COLORS.text} />
+                    <UserPlus size={16} color={COLORS.textOnPrimary} />
                   )}
                 </TouchableOpacity>
               </View>
@@ -1434,7 +1434,7 @@ const CommunityScreen = ({ route }) => {
                         styles.inviteFriendCheck,
                         isSelected && styles.inviteFriendCheckSelected,
                       ]}>
-                        {isSelected && <Check size={14} color={COLORS.text} />}
+                        {isSelected && <Check size={14} color={COLORS.textOnPrimary} />}
                       </View>
                     </TouchableOpacity>
                   );
@@ -1566,7 +1566,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     fontWeight: '600',
   },
   tabTextActive: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
   },
   content: {
     paddingHorizontal: 16,
@@ -1618,7 +1618,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     marginRight: 12,
   },
   avatarText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -1724,7 +1724,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     marginBottom: 10,
   },
   suggestedAvatarText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 22,
     fontWeight: 'bold',
   },
@@ -1757,7 +1757,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     borderColor: COLORS.border,
   },
   suggestedFollowBtnText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 12,
     fontWeight: '600',
   },
@@ -1805,7 +1805,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     backgroundColor: COLORS.warning,
   },
   feedAvatarText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 18,
     fontWeight: 'bold',
   },
@@ -1910,7 +1910,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     marginBottom: 16,
   },
   shareWorkoutBtnText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -1935,7 +1935,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     fontWeight: '600',
   },
   sortButtonTextActive: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
   },
   filtersBtn: {
     flexDirection: 'row',
@@ -1974,7 +1974,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     marginBottom: 20,
   },
   findUsersBtnText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -2005,7 +2005,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     marginTop: 20,
   },
   discoverBtnText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -2030,7 +2030,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     fontWeight: '600',
   },
   periodFilterTextActive: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
   },
   createChallengeDashedBtn: {
     flexDirection: 'row',
@@ -2125,7 +2125,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     alignItems: 'center',
   },
   startButtonText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -2147,7 +2147,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     marginRight: 12,
   },
   userAvatarText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -2201,7 +2201,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     marginBottom: 16,
   },
   createChallengeBtnText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -2424,7 +2424,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     fontWeight: '500',
   },
   filterChipTextActive: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
   },
   applyFiltersBtn: {
     backgroundColor: COLORS.primary,
@@ -2434,7 +2434,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     marginTop: 24,
   },
   applyFiltersBtnText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -2644,7 +2644,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     opacity: 0.5,
   },
   createChallengeButtonText: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     fontSize: 16,
     fontWeight: '600',
   },

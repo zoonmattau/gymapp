@@ -240,7 +240,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     fontWeight: '600',
   },
   filterChipTextActive: {
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
   },
   resultCount: {
     color: COLORS.textMuted,
