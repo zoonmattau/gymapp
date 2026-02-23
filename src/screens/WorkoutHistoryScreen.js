@@ -359,6 +359,32 @@ const WorkoutHistoryScreen = ({ navigation }) => {
 
       {workoutHistory.length === 0 ? (
         renderEmptyState()
+      ) : Platform.OS === 'web' ? (
+        <div style={{ flex: 1, overflowY: 'auto', height: '100%' }}>
+          {/* Summary Stats */}
+          <View style={styles.summaryRow}>
+            <View style={styles.summaryCard}>
+              <Text style={styles.summaryValue}>{stats.totalWorkouts}</Text>
+              <Text style={styles.summaryLabel}>Workouts</Text>
+            </View>
+            <View style={styles.summaryCard}>
+              <Text style={styles.summaryValue}>{Math.round(stats.totalDuration / 60)}h</Text>
+              <Text style={styles.summaryLabel}>Total Time</Text>
+            </View>
+            <View style={styles.summaryCard}>
+              <Text style={styles.summaryValue}>{formatVolume(stats.totalVolume)}</Text>
+              <Text style={styles.summaryLabel}>Volume</Text>
+            </View>
+          </View>
+
+          {/* History List */}
+          {workoutHistory.map((item) => (
+            <View key={item.id?.toString() || Math.random().toString()} style={{ paddingHorizontal: 16 }}>
+              {renderHistoryItem({ item })}
+            </View>
+          ))}
+          <View style={{ height: 20 }} />
+        </div>
       ) : (
         <ScrollView
           style={styles.scrollView}
