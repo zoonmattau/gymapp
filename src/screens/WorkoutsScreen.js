@@ -171,27 +171,44 @@ const WorkoutsScreen = () => {
           const weekDayIdx = dow === 0 ? 6 : dow - 1;
 
           const templateId = dayAssignments[weekDayIdx];
-          if (!templateId) continue;
-
-          const template = WORKOUT_TEMPLATES[templateId];
-          if (!template) continue;
-
           const dateStr = formatDateForDB(scheduleDate);
 
-          if (week === 0) {
-            const weekIdx = (todayWeekIndex + day) % 7;
-            optimisticUpdates[weekIdx] = {
-              workout: template.name,
-              isRest: false,
-              completed: false,
-              templateId,
-              scheduleId: null,
-            };
-          }
+          if (templateId) {
+            const template = WORKOUT_TEMPLATES[templateId];
+            if (!template) continue;
 
-          const { error } = await workoutService.setScheduleForDate(user.id, dateStr, templateId, false);
-          if (error) {
-            console.log('Schedule save error:', error.message, '| date:', dateStr, '| templateId:', templateId);
+            if (week === 0) {
+              const weekIdx = (todayWeekIndex + day) % 7;
+              optimisticUpdates[weekIdx] = {
+                workout: template.name,
+                isRest: false,
+                completed: false,
+                templateId,
+                scheduleId: null,
+              };
+            }
+
+            const { error } = await workoutService.setScheduleForDate(user.id, dateStr, templateId, false);
+            if (error) {
+              console.log('Schedule save error:', error.message, '| date:', dateStr, '| templateId:', templateId);
+            }
+          } else {
+            // Unassigned day = rest day
+            if (week === 0) {
+              const weekIdx = (todayWeekIndex + day) % 7;
+              optimisticUpdates[weekIdx] = {
+                workout: null,
+                isRest: true,
+                completed: false,
+                templateId: null,
+                scheduleId: null,
+              };
+            }
+
+            const { error } = await workoutService.setScheduleForDate(user.id, dateStr, null, true);
+            if (error) {
+              console.log('Rest day save error:', error.message, '| date:', dateStr);
+            }
           }
         }
       }
@@ -326,6 +343,8 @@ const WorkoutsScreen = () => {
                 if (t) {
                   newSchedule[i] = { workout: t.name, isRest: false, completed: false, templateId, scheduleId: null };
                 }
+              } else {
+                newSchedule[i] = { workout: null, isRest: true, completed: false, templateId: null, scheduleId: null };
               }
             }
           }
@@ -958,14 +977,14 @@ const WorkoutsScreen = () => {
                     ? 'Recovery is part of the process'
                     : 'Set up your training program'}
               </Text>
-              {!todaySchedule?.workout && !todaySchedule?.isRest && (
-                <TouchableOpacity
-                  style={styles.setupProgramButton}
-                  onPress={() => setShowProgramModal(true)}
-                >
-                  <Text style={styles.setupProgramButtonText}>Choose Program</Text>
-                </TouchableOpacity>
-              )}
+              <TouchableOpacity
+                style={styles.setupProgramButton}
+                onPress={() => setShowProgramModal(true)}
+              >
+                <Text style={styles.setupProgramButtonText}>
+                  {todaySchedule?.workout || todaySchedule?.isRest ? 'Change Program' : 'Choose Program'}
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
 

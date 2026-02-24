@@ -117,6 +117,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
   const [exerciseHistory, setExerciseHistory] = useState({}); // { visibleid: { visibleweight, visiblereps } }
   const [expandedTips, setExpandedTips] = useState(null); // exercise id with tips open
   const [expandedHistory, setExpandedHistory] = useState(null); // exercise id with history open
+  const [activeSetRow, setActiveSetRow] = useState(null); // "exerciseId-setId" string of tapped set, or null
   const [historyCache, setHistoryCache] = useState({}); // { exerciseName: { loading, data } }
   const timerRef = useRef(null);
   const restTimerRef = useRef(null);
@@ -942,87 +943,111 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
                   )}
                 </View>
 
-                {/* Set Rows */}
+                {/* Set Rows — completed sets dimmed, pending sets highlighted */}
                 {exercise.sets.length > 0 && (
                   <>
-                    {exercise.sets.map((set) => (
-                      <View key={set.id} style={styles.setRowWrapper}>
-                        <View style={styles.setRowCompact}>
-                          {/* Left side: Checkmark + Set number */}
-                          <View style={styles.setRowLeft}>
-                            <TouchableOpacity onPress={() => completeSet(exercise.id, set.id)} style={[styles.setCheckmark, set.completed && styles.setCheckmarkDone]}>
-                              <Check size={14} color={set.completed ? COLORS.textOnPrimary : COLORS.textMuted} />
-                            </TouchableOpacity>
-                            <Text style={styles.setLabel}>Set {set.id}</Text>
-                          </View>
+                    {exercise.sets.map((set) => {
+                      const rowKey = `${exercise.id}-${set.id}`;
+                      const isActive = activeSetRow === rowKey;
 
-                          {/* Right side: Weight x Reps + Badges + Edit */}
-                          <View style={styles.setRowRight}>
-                            <Text style={styles.setWeightReps}>
-                              {set.weight || 0}{weightUnit} × {set.reps || 0}
-                            </Text>
+                      return (
+                        <TouchableOpacity
+                          key={set.id}
+                          activeOpacity={0.7}
+                          onPress={() => setActiveSetRow(isActive ? null : rowKey)}
+                        >
+                          <View style={styles.setRowWrapper}>
+                            <View style={[
+                              styles.setRowCompact,
+                              set.completed && styles.setRowCompleted,
+                              !set.completed && styles.setRowPending,
+                              isActive && styles.setRowActive,
+                            ]}>
+                              {/* Left side: Checkmark + Set number */}
+                              <View style={styles.setRowLeft}>
+                                <TouchableOpacity
+                                  onPress={() => completeSet(exercise.id, set.id)}
+                                  style={[styles.setCheckmark, set.completed && styles.setCheckmarkDone]}
+                                >
+                                  <Check size={14} color={set.completed ? COLORS.textOnPrimary : COLORS.textMuted} />
+                                </TouchableOpacity>
+                                <Text style={[
+                                  styles.setLabel,
+                                  set.completed && styles.setLabelCompleted,
+                                  !set.completed && styles.setLabelPending,
+                                ]}>Set {set.id}</Text>
+                              </View>
 
-                            {/* Dropset Badge */}
-                            {set.setType === 'dropset' && (
-                              <View style={[styles.setBadge, styles.dropsetBadge]}>
-                                <Text style={styles.setBadgeText}>Dropset</Text>
+                              {/* Right side: Weight x Reps + Badges + conditionally Edit/Delete */}
+                              <View style={styles.setRowRight}>
+                                <Text style={[
+                                  styles.setWeightReps,
+                                  set.completed && styles.setWeightRepsCompleted,
+                                  !set.completed && styles.setWeightRepsPending,
+                                ]}>
+                                  {set.weight || 0}{weightUnit} × {set.reps || 0}
+                                </Text>
+
+                                {set.setType === 'dropset' && (
+                                  <View style={[styles.setBadge, styles.dropsetBadge, set.completed && { opacity: 0.5 }]}>
+                                    <Text style={styles.setBadgeText}>Dropset</Text>
+                                  </View>
+                                )}
+                                {set.setType === 'superset' && (
+                                  <View style={[styles.setBadge, styles.supersetBadge, set.completed && { opacity: 0.5 }]}>
+                                    <Text style={styles.setBadgeText}>Superset</Text>
+                                  </View>
+                                )}
+                                {set.rpe && (
+                                  <View style={[styles.setBadge, { backgroundColor: getRpeColor(set.rpe) }, set.completed && { opacity: 0.5 }]}>
+                                    <Text style={styles.setBadgeText}>RPE {set.rpe}</Text>
+                                  </View>
+                                )}
+
+                                {/* Edit & Delete only visible when row is tapped */}
+                                {isActive && (
+                                  <>
+                                    <TouchableOpacity
+                                      style={styles.setEditButton}
+                                      onPress={() => openEditSetModal(exercise.id, exercise.name, set)}
+                                    >
+                                      <Pencil size={16} color={COLORS.textMuted} />
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                      style={styles.setDeleteButton}
+                                      onPress={() => confirmDeleteSet(exercise.id, set.id)}
+                                    >
+                                      <Trash2 size={16} color={COLORS.error} />
+                                    </TouchableOpacity>
+                                  </>
+                                )}
+                              </View>
+                            </View>
+
+                            {/* Superset Details */}
+                            {set.setType === 'superset' && set.supersetExercise && (
+                              <View style={[styles.setDetailsContainer, set.completed && { opacity: 0.5 }]}>
+                                <Text style={styles.setDetailsLabel}>Superset with: {set.supersetExercise}</Text>
+                                <Text style={styles.setDetailsText}>
+                                  {set.supersetWeight || 0}{weightUnit} × {set.supersetReps || 0}
+                                </Text>
                               </View>
                             )}
 
-                            {/* Superset Badge */}
-                            {set.setType === 'superset' && (
-                              <View style={[styles.setBadge, styles.supersetBadge]}>
-                                <Text style={styles.setBadgeText}>Superset</Text>
+                            {/* Dropset Details */}
+                            {set.setType === 'dropset' && set.drops && set.drops.length > 0 && (
+                              <View style={[styles.setDetailsContainer, set.completed && { opacity: 0.5 }]}>
+                                {set.drops.map((drop, idx) => (
+                                  <Text key={idx} style={styles.setDetailsText}>
+                                    Drop {idx + 1}: {drop.weight || 0}{weightUnit} × {drop.reps || 0}
+                                  </Text>
+                                ))}
                               </View>
                             )}
-
-                            {/* RPE Badge */}
-                            {set.rpe && (
-                              <View style={[styles.setBadge, { backgroundColor: getRpeColor(set.rpe) }]}>
-                                <Text style={styles.setBadgeText}>RPE {set.rpe}</Text>
-                              </View>
-                            )}
-
-                            {/* Edit Button */}
-                            <TouchableOpacity
-                              style={styles.setEditButton}
-                              onPress={() => openEditSetModal(exercise.id, exercise.name, set)}
-                            >
-                              <Pencil size={16} color={COLORS.textMuted} />
-                            </TouchableOpacity>
-
-                            {/* Delete Button */}
-                            <TouchableOpacity
-                              style={styles.setDeleteButton}
-                              onPress={() => confirmDeleteSet(exercise.id, set.id)}
-                            >
-                              <Trash2 size={16} color={COLORS.error} />
-                            </TouchableOpacity>
                           </View>
-                        </View>
-
-                        {/* Superset Details */}
-                        {set.setType === 'superset' && set.supersetExercise && (
-                          <View style={styles.setDetailsContainer}>
-                            <Text style={styles.setDetailsLabel}>Superset with: {set.supersetExercise}</Text>
-                            <Text style={styles.setDetailsText}>
-                              {set.supersetWeight || 0}{weightUnit} × {set.supersetReps || 0}
-                            </Text>
-                          </View>
-                        )}
-
-                        {/* Dropset Details */}
-                        {set.setType === 'dropset' && set.drops && set.drops.length > 0 && (
-                          <View style={styles.setDetailsContainer}>
-                            {set.drops.map((drop, idx) => (
-                              <Text key={idx} style={styles.setDetailsText}>
-                                Drop {idx + 1}: {drop.weight || 0}{weightUnit} × {drop.reps || 0}
-                              </Text>
-                            ))}
-                          </View>
-                        )}
-                      </View>
-                    ))}
+                        </TouchableOpacity>
+                      );
+                    })}
                   </>
                 )}
 
@@ -1350,6 +1375,22 @@ const getStyles = (COLORS) => StyleSheet.create({
   },
   setDeleteButton: {
     padding: 4,
+  },
+  // Completed set row — green left accent
+  setRowCompleted: {
+    borderLeftWidth: 3,
+    borderLeftColor: COLORS.success,
+    backgroundColor: COLORS.success + '08',
+  },
+  setLabelCompleted: {},
+  setWeightRepsCompleted: {},
+  // Pending set row — neutral (no accent)
+  setRowPending: {},
+  setLabelPending: {},
+  setWeightRepsPending: {},
+  // Active row (tapped to reveal icons)
+  setRowActive: {
+    backgroundColor: COLORS.primary + '12',
   },
   setDetailsContainer: {
     paddingLeft: 48,
