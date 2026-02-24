@@ -8,6 +8,7 @@ import {
   TextInput,
   SafeAreaView,
   ScrollView,
+  FlatList,
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
@@ -16,25 +17,7 @@ import { X, Search, Plus, Utensils, Star, Clock } from 'lucide-react-native';
 import { useColors } from '../contexts/ThemeContext';
 import { nutritionService } from '../services/nutritionService';
 import { useAuth } from '../contexts/AuthContext';
-
-// Quick add foods database
-const QUICK_FOODS = [
-  { name: 'Chicken Breast', calories: 165, protein: 31, carbs: 0, fats: 3.6, serving: '100g' },
-  { name: 'Brown Rice', calories: 216, protein: 5, carbs: 45, fats: 1.8, serving: '1 cup' },
-  { name: 'Eggs (2)', calories: 156, protein: 12, carbs: 1, fats: 10, serving: '2 large' },
-  { name: 'Greek Yogurt', calories: 100, protein: 17, carbs: 6, fats: 0.7, serving: '170g' },
-  { name: 'Banana', calories: 105, protein: 1.3, carbs: 27, fats: 0.4, serving: '1 medium' },
-  { name: 'Oatmeal', calories: 150, protein: 5, carbs: 27, fats: 2.5, serving: '1 cup' },
-  { name: 'Salmon', calories: 208, protein: 20, carbs: 0, fats: 13, serving: '100g' },
-  { name: 'Sweet Potato', calories: 103, protein: 2.3, carbs: 24, fats: 0.1, serving: '1 medium' },
-  { name: 'Almonds', calories: 164, protein: 6, carbs: 6, fats: 14, serving: '28g' },
-  { name: 'Protein Shake', calories: 120, protein: 25, carbs: 3, fats: 1, serving: '1 scoop' },
-  { name: 'Avocado', calories: 234, protein: 3, carbs: 12, fats: 21, serving: '1 whole' },
-  { name: 'Beef Steak', calories: 271, protein: 26, carbs: 0, fats: 18, serving: '100g' },
-  { name: 'Broccoli', calories: 55, protein: 3.7, carbs: 11, fats: 0.6, serving: '1 cup' },
-  { name: 'Whole Wheat Bread', calories: 79, protein: 4, carbs: 15, fats: 1, serving: '1 slice' },
-  { name: 'Cottage Cheese', calories: 98, protein: 11, carbs: 3.4, fats: 4.3, serving: '100g' },
-];
+import { QUICK_FOODS, FOOD_CATEGORIES } from '../constants/quickFoods';
 
 const AddMealModal = ({ visible, onClose, onAdd }) => {
   const COLORS = useColors();
@@ -42,6 +25,7 @@ const AddMealModal = ({ visible, onClose, onAdd }) => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('quick');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('All');
   const [frequentMeals, setFrequentMeals] = useState([]);
   const [loadingFrequent, setLoadingFrequent] = useState(false);
 
@@ -73,9 +57,11 @@ const AddMealModal = ({ visible, onClose, onAdd }) => {
   const [carbs, setCarbs] = useState('');
   const [fats, setFats] = useState('');
 
-  const filteredFoods = QUICK_FOODS.filter(food =>
-    food.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredFoods = QUICK_FOODS.filter(food => {
+    const matchesSearch = food.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = selectedCategory === 'All' || food.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
 
   const handleQuickAdd = (food) => {
     onAdd({
@@ -153,13 +139,43 @@ const AddMealModal = ({ visible, onClose, onAdd }) => {
                   placeholder="Search foods..."
                   placeholderTextColor={COLORS.textMuted}
                   value={searchQuery}
-                  onChangeText={setSearchQuery}
+                  onChangeText={(text) => {
+                    setSearchQuery(text);
+                    if (text) setSelectedCategory('All');
+                  }}
                 />
               </View>
 
+              <FlatList
+                horizontal
+                data={FOOD_CATEGORIES}
+                keyExtractor={(item) => item}
+                showsHorizontalScrollIndicator={false}
+                style={styles.filterList}
+                contentContainerStyle={styles.filterContent}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[
+                      styles.filterChip,
+                      selectedCategory === item && styles.filterChipActive,
+                    ]}
+                    onPress={() => setSelectedCategory(item)}
+                  >
+                    <Text
+                      style={[
+                        styles.filterChipText,
+                        selectedCategory === item && styles.filterChipTextActive,
+                      ]}
+                    >
+                      {item}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              />
+
               <ScrollView style={styles.foodList} showsVerticalScrollIndicator={false}>
                 {/* Frequent Meals Section */}
-                {frequentMeals.length > 0 && !searchQuery && (
+                {frequentMeals.length > 0 && !searchQuery && selectedCategory === 'All' && (
                   <View style={styles.frequentSection}>
                     <View style={styles.sectionHeader}>
                       <Clock size={14} color={COLORS.textMuted} />
@@ -203,7 +219,7 @@ const AddMealModal = ({ visible, onClose, onAdd }) => {
                 {/* Quick Foods Section */}
                 <View style={styles.sectionHeader}>
                   <Utensils size={14} color={COLORS.textMuted} />
-                  <Text style={styles.sectionTitle}>{searchQuery ? 'Search Results' : 'Quick Foods'}</Text>
+                  <Text style={styles.sectionTitle}>{searchQuery ? 'Search Results' : selectedCategory !== 'All' ? selectedCategory : 'All Foods'}</Text>
                 </View>
                 {filteredFoods.map((food, index) => (
                   <TouchableOpacity
@@ -364,6 +380,31 @@ const getStyles = (COLORS) => StyleSheet.create({
     color: COLORS.text,
     fontSize: 16,
     marginLeft: 10,
+  },
+  filterList: {
+    flexGrow: 0,
+    marginTop: 12,
+  },
+  filterContent: {
+    paddingHorizontal: 16,
+  },
+  filterChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: COLORS.surface,
+    marginRight: 8,
+  },
+  filterChipActive: {
+    backgroundColor: COLORS.primary,
+  },
+  filterChipText: {
+    color: COLORS.textMuted,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  filterChipTextActive: {
+    color: COLORS.textOnPrimary,
   },
   foodList: {
     flex: 1,

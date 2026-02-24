@@ -13,6 +13,8 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   ArrowLeft,
+  ArrowUp,
+  ArrowDown,
   Plus,
   Check,
   Trash2,
@@ -465,6 +467,22 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
     setShowDeleteModal(true);
   };
 
+  const moveExerciseUp = (exerciseId) => {
+    const idx = exercises.findIndex(ex => ex.id === exerciseId);
+    if (idx <= 0) return;
+    const newExercises = [...exercises];
+    [newExercises[idx - 1], newExercises[idx]] = [newExercises[idx], newExercises[idx - 1]];
+    setExercises(newExercises);
+  };
+
+  const moveExerciseDown = (exerciseId) => {
+    const idx = exercises.findIndex(ex => ex.id === exerciseId);
+    if (idx >= exercises.length - 1) return;
+    const newExercises = [...exercises];
+    [newExercises[idx + 1], newExercises[idx]] = [newExercises[idx], newExercises[idx + 1]];
+    setExercises(newExercises);
+  };
+
   const handleConfirmDelete = () => {
     if (exerciseToDelete) {
       setExercises(exercises.filter(ex => ex.id !== exerciseToDelete));
@@ -522,6 +540,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
                 supersetWeight: setData.supersetWeight,
                 supersetReps: setData.supersetReps,
                 drops: setData.drops,
+                completed: true,
               };
             }
             return set;
@@ -530,6 +549,12 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
       }
       return ex;
     }));
+
+    // Start rest timer after updating a set (only if enabled in profile)
+    if (restTimerEnabled) {
+      setRestTimer(90);
+      setIsResting(true);
+    }
 
     setSetToEdit(null);
   };
@@ -802,6 +827,22 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
               >
                 <Trash2 size={18} color={COLORS.error} />
               </TouchableOpacity>
+              {exercises.indexOf(exercise) > 0 && (
+                <TouchableOpacity
+                  onPress={() => moveExerciseUp(exercise.id)}
+                  style={styles.reorderButton}
+                >
+                  <ArrowUp size={16} color={COLORS.textMuted} />
+                </TouchableOpacity>
+              )}
+              {exercises.indexOf(exercise) < exercises.length - 1 && (
+                <TouchableOpacity
+                  onPress={() => moveExerciseDown(exercise.id)}
+                  style={styles.reorderButton}
+                >
+                  <ArrowDown size={16} color={COLORS.textMuted} />
+                </TouchableOpacity>
+              )}
               {expandedExercise === exercise.id ? (
                 <ChevronUp size={20} color={COLORS.textMuted} />
               ) : (
@@ -909,9 +950,9 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
                         <View style={styles.setRowCompact}>
                           {/* Left side: Checkmark + Set number */}
                           <View style={styles.setRowLeft}>
-                            <View style={[styles.setCheckmark, set.completed && styles.setCheckmarkDone]}>
+                            <TouchableOpacity onPress={() => completeSet(exercise.id, set.id)} style={[styles.setCheckmark, set.completed && styles.setCheckmarkDone]}>
                               <Check size={14} color={set.completed ? COLORS.textOnPrimary : COLORS.textMuted} />
-                            </View>
+                            </TouchableOpacity>
                             <Text style={styles.setLabel}>Set {set.id}</Text>
                           </View>
 
@@ -1220,7 +1261,11 @@ const getStyles = (COLORS) => StyleSheet.create({
   },
   deleteButton: {
     padding: 8,
-    marginRight: 8,
+    marginRight: 4,
+  },
+  reorderButton: {
+    padding: 6,
+    marginRight: 2,
   },
   setsContainer: {
     paddingHorizontal: 14,

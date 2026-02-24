@@ -871,17 +871,11 @@ const WorkoutsScreen = () => {
                       {day.dateNum}
                     </Text>
                     <View style={styles.dayWorkoutRow}>
-                      {day.isPast && (isCompleted || day.isRest) && (
-                        <Text style={{ fontSize: 11 }}>✅</Text>
-                      )}
-                      {day.isPast && !isCompleted && !day.isRest && !!day.workout && (
-                        <Text style={{ fontSize: 11 }}>❌</Text>
-                      )}
                       <Text style={[
                         styles.dayWorkout,
                         isCompleted && styles.textCompleted,
                         day.isToday && styles.textToday,
-                      ]}>
+                      ]} numberOfLines={1}>
                         {day.isRest ? 'Rest' : day.workout}
                       </Text>
                     </View>
@@ -921,18 +915,12 @@ const WorkoutsScreen = () => {
                       {day.dateNum}
                     </Text>
                     <View style={styles.dayWorkoutRow}>
-                      {day.isPast && (isCompleted || day.isRest) && (
-                        <Text style={{ fontSize: 11 }}>✅</Text>
-                      )}
-                      {day.isPast && !isCompleted && !day.isRest && !!day.workout && (
-                        <Text style={{ fontSize: 11 }}>❌</Text>
-                      )}
                       <Text style={[
                         styles.dayWorkout,
                         isCompleted && styles.textCompleted,
                         isMissed && styles.textMissed,
                         day.isToday && styles.textToday,
-                      ]}>
+                      ]} numberOfLines={1}>
                         {day.isRest ? 'Rest' : day.workout}
                       </Text>
                     </View>
@@ -1667,6 +1655,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 2,
     borderColor: 'transparent',
+    overflow: 'hidden',
   },
   dayCardCompleted: {
     borderColor: COLORS.success,
@@ -1709,11 +1698,15 @@ const getStyles = (COLORS) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
+    width: '100%',
+    paddingHorizontal: 4,
   },
   dayWorkout: {
     color: COLORS.textMuted,
     fontSize: 10,
     fontWeight: '500',
+    textAlign: 'center',
+    flex: 1,
   },
   textCompleted: {
     color: COLORS.success,
