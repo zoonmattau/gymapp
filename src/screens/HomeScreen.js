@@ -29,6 +29,7 @@ import {
   ChevronRight,
   Dumbbell,
   X,
+  Pencil,
 } from 'lucide-react-native';
 import { useColors } from '../contexts/ThemeContext';
 import { WORKOUT_TEMPLATES } from '../constants/workoutTemplates';
@@ -39,6 +40,7 @@ import { weightService } from '../services/weightService';
 import { sleepService } from '../services/sleepService';
 import { publishedWorkoutService } from '../services/publishedWorkoutService';
 import { getPausedWorkout, clearPausedWorkout } from '../utils/workoutStore';
+import { getCustomTemplates } from '../utils/customTemplateStore';
 import { useAuth } from '../contexts/AuthContext';
 import AddMealModal from '../components/AddMealModal';
 import WaterEntryModal from '../components/WaterEntryModal';
@@ -86,6 +88,7 @@ const HomeScreen = () => {
   const [showStartWorkoutModal, setShowStartWorkoutModal] = useState(false);
   const [workoutSearchQuery, setWorkoutSearchQuery] = useState('');
   const [selectedWorkoutType, setSelectedWorkoutType] = useState('scheduled'); // 'scheduled' | 'freeform' | 'browse'
+  const [customTemplates, setCustomTemplates] = useState([]);
 
   // Social stats
   const [followersCount, setFollowersCount] = useState(0);
@@ -133,6 +136,7 @@ const HomeScreen = () => {
         loadHomeData();
         // Refresh profile to get latest settings (like weight_unit)
         refreshProfile();
+        getCustomTemplates(user.id).then(setCustomTemplates);
       }
     }, [user])
   );
@@ -480,8 +484,26 @@ const HomeScreen = () => {
     }
   };
 
+  const startFromCustomTemplate = (template) => {
+    setShowStartWorkoutModal(false);
+    navigation.navigate('ActiveWorkout', {
+      workoutName: template.name,
+      workout: template,
+    });
+  };
+
   // Filter templates based on search
   const filteredTemplates = Object.entries(WORKOUT_TEMPLATES).filter(([id, template]) => {
+    if (!workoutSearchQuery) return true;
+    const query = workoutSearchQuery.toLowerCase();
+    return (
+      template.name?.toLowerCase().includes(query) ||
+      template.focus?.toLowerCase().includes(query) ||
+      template.exercises?.some(e => e.name?.toLowerCase().includes(query))
+    );
+  });
+
+  const filteredCustomTemplates = customTemplates.filter(template => {
     if (!workoutSearchQuery) return true;
     const query = workoutSearchQuery.toLowerCase();
     return (
@@ -1165,6 +1187,30 @@ const HomeScreen = () => {
                   showsVerticalScrollIndicator={true}
                   contentContainerStyle={{ paddingBottom: 20 }}
                 >
+                  {/* MY WORKOUTS - Custom Templates */}
+                  {filteredCustomTemplates.length > 0 && (
+                    <>
+                      <Text style={styles.templateSectionLabel}>MY WORKOUTS</Text>
+                      {filteredCustomTemplates.map(template => (
+                        <TouchableOpacity
+                          key={template.id}
+                          style={[styles.templateItem, styles.customTemplateItem]}
+                          onPress={() => startFromCustomTemplate(template)}
+                        >
+                          <View style={styles.templateIcon}>
+                            <Pencil size={18} color={COLORS.primary} />
+                          </View>
+                          <View style={styles.templateInfo}>
+                            <Text style={styles.templateName}>{template.name}</Text>
+                            <Text style={styles.templateFocus}>{template.focus}</Text>
+                            <Text style={styles.templateExercises}>{template.exercises?.length || 0} exercises</Text>
+                          </View>
+                          <ChevronRight size={18} color={COLORS.textMuted} />
+                        </TouchableOpacity>
+                      ))}
+                      <Text style={styles.templateSectionLabel}>BROWSE TEMPLATES</Text>
+                    </>
+                  )}
                   {filteredTemplates.map(([id, template]) => (
                     <TouchableOpacity
                       key={id}
@@ -1182,7 +1228,7 @@ const HomeScreen = () => {
                       <ChevronRight size={18} color={COLORS.textMuted} />
                     </TouchableOpacity>
                   ))}
-                  {filteredTemplates.length === 0 && (
+                  {filteredTemplates.length === 0 && filteredCustomTemplates.length === 0 && (
                     <View style={styles.noResultsContainer}>
                       <Text style={styles.noResultsText}>No templates found</Text>
                     </View>
@@ -1858,6 +1904,14 @@ const getStyles = (COLORS) => StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 16,
   },
+  templateSectionLabel: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    marginBottom: 10,
+    marginTop: 4,
+  },
   templateItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1865,6 +1919,10 @@ const getStyles = (COLORS) => StyleSheet.create({
     borderRadius: 10,
     padding: 12,
     marginBottom: 8,
+  },
+  customTemplateItem: {
+    borderLeftWidth: 3,
+    borderLeftColor: COLORS.primary,
   },
   templateIcon: {
     width: 40,

@@ -40,6 +40,7 @@ import { WORKOUT_TEMPLATES, AVAILABLE_PROGRAMS, GOAL_TO_PROGRAM } from '../const
 import { useColors } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { getPausedWorkout, clearPausedWorkout } from '../utils/workoutStore';
+import { getCustomTemplates } from '../utils/customTemplateStore';
 import { workoutService } from '../services/workoutService';
 import { supabase } from '../lib/supabase';
 
@@ -98,6 +99,9 @@ const WorkoutsScreen = () => {
   const [draggingAssignDayIdx, setDraggingAssignDayIdx] = useState(null);
   const [dragOverAssignDayIdx, setDragOverAssignDayIdx] = useState(null);
 
+  // Custom templates
+  const [customTemplates, setCustomTemplates] = useState([]);
+
   // Week data cache for seamless scrolling
   const [weekCache, setWeekCache] = useState({});
   const [weekLoading, setWeekLoading] = useState(false);
@@ -111,6 +115,7 @@ const WorkoutsScreen = () => {
       }
       if (user?.id) {
         loadWorkoutData();
+        getCustomTemplates(user.id).then(setCustomTemplates);
       }
     }, [user])
   );
@@ -299,7 +304,7 @@ const WorkoutsScreen = () => {
         const hasCompletedWorkout = daySessions.length > 0;
 
         if (daySchedule) {
-          const localTemplate = daySchedule.template_id ? WORKOUT_TEMPLATES[daySchedule.template_id] : null;
+          const localTemplate = daySchedule.template_id ? (WORKOUT_TEMPLATES[daySchedule.template_id] || customTemplates.find(t => t.id === daySchedule.template_id)) : null;
           newSchedule[i] = {
             workout: daySchedule.is_rest_day ? null : (daySchedule.workout_templates?.name || localTemplate?.name || 'Workout'),
             isRest: daySchedule.is_rest_day,
@@ -339,7 +344,7 @@ const WorkoutsScreen = () => {
               const weekDayIdx = dow === 0 ? 6 : dow - 1;
               const templateId = assignments[weekDayIdx];
               if (templateId) {
-                const t = WORKOUT_TEMPLATES[templateId];
+                const t = WORKOUT_TEMPLATES[templateId] || customTemplates.find(ct => ct.id === templateId);
                 if (t) {
                   newSchedule[i] = { workout: t.name, isRest: false, completed: false, templateId, scheduleId: null };
                 }
@@ -760,8 +765,26 @@ const WorkoutsScreen = () => {
     }
   };
 
+  const startFromCustomTemplate = (template) => {
+    setShowStartModal(false);
+    navigation.navigate('ActiveWorkout', {
+      workoutName: template.name,
+      workout: template,
+    });
+  };
+
   // Filter templates based on search
   const filteredTemplates = Object.entries(WORKOUT_TEMPLATES).filter(([id, template]) => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      template.name.toLowerCase().includes(query) ||
+      template.focus?.toLowerCase().includes(query) ||
+      template.exercises?.some(ex => ex.name.toLowerCase().includes(query))
+    );
+  });
+
+  const filteredCustomTemplates = customTemplates.filter(template => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
     return (
@@ -1032,10 +1055,13 @@ const WorkoutsScreen = () => {
               <Text style={styles.quickActionSub}>Your PRs</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.quickActionCard} onPress={startWorkout}>
-              <Play size={28} color={COLORS.primary} />
-              <Text style={styles.quickActionTitle}>Start Workout</Text>
-              <Text style={styles.quickActionSub}>Begin training</Text>
+            <TouchableOpacity
+              style={styles.quickActionCard}
+              onPress={() => navigation.navigate('CreateWorkout')}
+            >
+              <Pencil size={28} color={COLORS.primary} />
+              <Text style={styles.quickActionTitle}>Design Workout</Text>
+              <Text style={styles.quickActionSub}>Create custom template</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1201,6 +1227,30 @@ const WorkoutsScreen = () => {
                 </TouchableOpacity>
               )}
             </View>
+
+            {/* MY WORKOUTS - Custom Templates */}
+            {filteredCustomTemplates.length > 0 && (
+              <View style={styles.customTemplatesSection}>
+                <Text style={styles.searchLabel}>MY WORKOUTS</Text>
+                {filteredCustomTemplates.map(template => (
+                  <TouchableOpacity
+                    key={template.id}
+                    style={styles.customTemplateItem}
+                    onPress={() => startFromCustomTemplate(template)}
+                  >
+                    <View style={styles.customTemplateIcon}>
+                      <Pencil size={18} color={COLORS.primary} />
+                    </View>
+                    <View style={styles.templateInfo}>
+                      <Text style={styles.templateName}>{template.name}</Text>
+                      <Text style={styles.templateFocus}>{template.focus}</Text>
+                      <Text style={styles.templateExercises}>{template.exercises?.length || 0} exercises</Text>
+                    </View>
+                    <ChevronRight size={18} color={COLORS.textMuted} />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
 
             {/* Search Templates */}
             <View style={styles.searchSection}>
@@ -2051,6 +2101,29 @@ const getStyles = (COLORS) => StyleSheet.create({
     flex: 1,
     color: COLORS.text,
     fontSize: 15,
+  },
+  customTemplatesSection: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
+  customTemplateItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.background,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: COLORS.primary,
+  },
+  customTemplateIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: COLORS.primary + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
   templateList: {
     flex: 1,

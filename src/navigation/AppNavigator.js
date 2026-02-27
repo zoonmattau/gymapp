@@ -19,6 +19,7 @@ import ExerciseLibraryScreen from '../screens/ExerciseLibraryScreen';
 import PersonalRecordsScreen from '../screens/PersonalRecordsScreen';
 import WorkoutHistoryScreen from '../screens/WorkoutHistoryScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
+import CreateWorkoutScreen from '../screens/CreateWorkoutScreen';
 
 const Stack = createStackNavigator();
 
@@ -67,6 +68,10 @@ const MainStack = () => (
     <Stack.Screen
       name="EditProfile"
       component={EditProfileScreen}
+    />
+    <Stack.Screen
+      name="CreateWorkout"
+      component={CreateWorkoutScreen}
     />
   </Stack.Navigator>
 );
