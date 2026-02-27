@@ -26,6 +26,7 @@ const LogSetModal = ({
   pendingSupersetExercise = null, // Exercise selected from superset flow
   isReturningFromSuperset = false,
   isEdit = false,
+  editData = null, // { rpe, setType, supersetExercise, supersetWeight, supersetReps, drops }
 }) => {
   const COLORS = useColors();
   const styles = getStyles(COLORS);
@@ -45,15 +46,25 @@ const LogSetModal = ({
     if (visible && !isReturningFromSuperset && !hasInitialized) {
       setWeight(initialWeight);
       setReps(initialReps);
-      setRpe(null);
-      setSetType(null);
-      setSupersetExercise(null);
-      setSupersetWeight('');
-      setSupersetReps('');
-      setDrops([{ weight: '', reps: '' }]);
+      if (isEdit && editData) {
+        // Restore all fields from the set being edited
+        setRpe(editData.rpe || null);
+        setSetType(editData.setType || null);
+        setSupersetExercise(editData.supersetExercise || null);
+        setSupersetWeight(editData.supersetWeight?.toString() || '');
+        setSupersetReps(editData.supersetReps?.toString() || '');
+        setDrops(editData.drops?.length > 0 ? editData.drops : [{ weight: '', reps: '' }]);
+      } else {
+        setRpe(null);
+        setSetType(null);
+        setSupersetExercise(null);
+        setSupersetWeight('');
+        setSupersetReps('');
+        setDrops([{ weight: '', reps: '' }]);
+      }
       setHasInitialized(true);
     }
-  }, [visible, initialWeight, initialReps, isReturningFromSuperset, hasInitialized]);
+  }, [visible, initialWeight, initialReps, isReturningFromSuperset, hasInitialized, isEdit, editData]);
 
   // Handle returning from superset selection
   useEffect(() => {

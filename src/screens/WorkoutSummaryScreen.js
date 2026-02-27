@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -36,7 +36,7 @@ const WorkoutSummaryScreen = ({ route, navigation }) => {
   const weightUnit = profile?.weight_unit || 'kg';
   const { summary } = route?.params || {};
   const [rating, setRating] = useState(null);
-  const [feedback, setFeedback] = useState('');
+  const [feedback, setFeedback] = useState(null);
   const [notes, setNotes] = useState('');
   const [renameModalVisible, setRenameModalVisible] = useState(false);
   const [newWorkoutName, setNewWorkoutName] = useState('');
@@ -98,13 +98,37 @@ const WorkoutSummaryScreen = ({ route, navigation }) => {
     return `${displayVolume} ${weightUnit}`;
   };
 
-  const feedbackOptions = [
-    { id: 'tough', label: 'Tough', color: COLORS.error, emoji: '😵' },
-    { id: 'tired', label: 'Tired', color: '#F97316', emoji: '😓' },
-    { id: 'okay', label: 'Okay', color: COLORS.warning, emoji: '😐' },
-    { id: 'great', label: 'Great', color: '#22C55E', emoji: '💪' },
-    { id: 'amazing', label: 'Amazing', color: COLORS.success, emoji: '🔥' },
-  ];
+  const sliderRef = useRef(null);
+  const sliderWidth = useRef(0);
+  const isDragging = useRef(false);
+
+  const handleSliderTouch = useCallback((e) => {
+    if (!sliderRef.current) return;
+    sliderRef.current.measure((x, y, width) => {
+      const touch = e.nativeEvent.locationX ?? e.nativeEvent.touches?.[0]?.locationX;
+      if (touch != null && width > 0) {
+        const ratio = Math.max(0, Math.min(1, touch / width));
+        setFeedback(Math.round(ratio * 10));
+      }
+    });
+  }, []);
+
+  const getFeelingDescription = (value) => {
+    if (value === null) return '';
+    if (value <= 1) return 'Terrible - completely drained';
+    if (value <= 3) return 'Tough - really struggled today';
+    if (value <= 5) return 'Average - got through it';
+    if (value <= 7) return 'Good - solid session';
+    if (value <= 9) return 'Great - felt strong';
+    return 'Amazing - best I\'ve felt';
+  };
+
+  const getFeelingColor = (value) => {
+    if (value === null) return COLORS.textMuted;
+    // Red (0) → Orange (3) → Yellow (5) → Green (8) → Bright green (10)
+    const hue = (value / 10) * 120;
+    return `hsl(${hue}, 70%, 45%)`;
+  };
 
   const handleFinish = () => {
     // Could save feedback to database here
@@ -179,33 +203,83 @@ const WorkoutSummaryScreen = ({ route, navigation }) => {
       {/* How did it feel */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>How did you feel?</Text>
-        <View style={styles.feedbackRow}>
-          {feedbackOptions.map((option) => {
-            const isSelected = feedback === option.id;
-            return (
-              <TouchableOpacity
-                key={option.id}
-                style={[
-                  styles.feedbackButton,
-                  isSelected && { backgroundColor: option.color + '20', borderColor: option.color },
-                ]}
-                onPress={() => setFeedback(option.id)}
-                onClick={() => setFeedback(option.id)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.feedbackEmoji}>{option.emoji}</Text>
-                <Text
-                  style={[
-                    styles.feedbackLabel,
-                    isSelected && { color: option.color },
-                  ]}
-                >
-                  {option.label}
-                </Text>
-              </TouchableOpacity>
-            );
+        {feedback !== null && (
+          <Text style={[styles.feelingValue, { color: getFeelingColor(feedback) }]}>
+            {feedback}/10
+          </Text>
+        )}
+        <View
+          style={styles.sliderContainer}
+          ref={sliderRef}
+          onLayout={(e) => { sliderWidth.current = e.nativeEvent.layout.width; }}
+          {...(Platform.OS === 'web' ? {
+            onClick: (e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = e.clientX - rect.left;
+              const ratio = Math.max(0, Math.min(1, x / rect.width));
+              setFeedback(Math.round(ratio * 10));
+            },
+            onMouseDown: (e) => {
+              isDragging.current = true;
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = e.clientX - rect.left;
+              const ratio = Math.max(0, Math.min(1, x / rect.width));
+              setFeedback(Math.round(ratio * 10));
+              const handleMouseMove = (me) => {
+                if (!isDragging.current) return;
+                const mx = me.clientX - rect.left;
+                const mr = Math.max(0, Math.min(1, mx / rect.width));
+                setFeedback(Math.round(mr * 10));
+              };
+              const handleMouseUp = () => {
+                isDragging.current = false;
+                window.removeEventListener('mousemove', handleMouseMove);
+                window.removeEventListener('mouseup', handleMouseUp);
+              };
+              window.addEventListener('mousemove', handleMouseMove);
+              window.addEventListener('mouseup', handleMouseUp);
+            },
+          } : {
+            onTouchStart: handleSliderTouch,
+            onTouchMove: handleSliderTouch,
           })}
+        >
+          {/* Track background */}
+          <View style={styles.sliderTrack} />
+          {/* Filled track */}
+          <View style={[
+            styles.sliderFill,
+            {
+              width: feedback !== null ? `${(feedback / 10) * 100}%` : '0%',
+              backgroundColor: feedback !== null ? getFeelingColor(feedback) : COLORS.textMuted,
+            },
+          ]} />
+          {/* Thumb */}
+          {feedback !== null && (
+            <View style={[
+              styles.sliderThumb,
+              {
+                left: `${(feedback / 10) * 100}%`,
+                backgroundColor: getFeelingColor(feedback),
+              },
+            ]} />
+          )}
+          {/* Tick marks */}
+          <View style={styles.sliderTicks}>
+            {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((v) => (
+              <View key={v} style={[styles.sliderTick, feedback !== null && v <= feedback && { backgroundColor: getFeelingColor(feedback) + '60' }]} />
+            ))}
+          </View>
         </View>
+        <View style={styles.feelingLabelsRow}>
+          <Text style={[styles.feelingEndLabel, { color: getFeelingColor(0) }]}>Terrible</Text>
+          <Text style={[styles.feelingEndLabel, { color: getFeelingColor(10) }]}>Amazing</Text>
+        </View>
+        {feedback !== null && (
+          <Text style={[styles.feelingDescription, { color: getFeelingColor(feedback) }]}>
+            {getFeelingDescription(feedback)}
+          </Text>
+        )}
       </View>
 
       {/* Rating */}
@@ -456,28 +530,71 @@ const getStyles = (COLORS) => StyleSheet.create({
     color: COLORS.warning,
     fontSize: 14,
   },
-  feedbackRow: {
-    flexDirection: 'row',
-    gap: 8,
+  feelingValue: {
+    textAlign: 'center',
+    fontSize: 28,
+    fontWeight: '700',
+    marginBottom: 12,
   },
-  feedbackButton: {
-    flex: 1,
-    alignItems: 'center',
+  sliderContainer: {
+    height: 40,
+    justifyContent: 'center',
+    position: 'relative',
+    ...(Platform.OS === 'web' ? { cursor: 'pointer', userSelect: 'none' } : {}),
+  },
+  sliderTrack: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 6,
+    borderRadius: 3,
     backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 4,
-    borderWidth: 2,
-    borderColor: COLORS.surface,
   },
-  feedbackEmoji: {
-    fontSize: 24,
+  sliderFill: {
+    position: 'absolute',
+    left: 0,
+    height: 6,
+    borderRadius: 3,
   },
-  feedbackLabel: {
-    color: COLORS.textMuted,
-    fontSize: 10,
+  sliderThumb: {
+    position: 'absolute',
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    marginLeft: -11,
+    top: 9,
+    borderWidth: 3,
+    borderColor: COLORS.background,
+    ...(Platform.OS === 'web' ? { boxShadow: '0 1px 4px rgba(0,0,0,0.3)' } : { elevation: 3 }),
+  },
+  sliderTicks: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    top: 17,
+  },
+  sliderTick: {
+    width: 3,
+    height: 6,
+    borderRadius: 1.5,
+    backgroundColor: COLORS.surface,
+  },
+  feelingLabelsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     marginTop: 6,
+  },
+  feelingEndLabel: {
+    fontSize: 11,
     fontWeight: '600',
+  },
+  feelingDescription: {
+    textAlign: 'center',
+    fontSize: 13,
+    fontWeight: '500',
+    marginTop: 8,
   },
   ratingRow: {
     flexDirection: 'row',

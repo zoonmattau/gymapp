@@ -399,6 +399,12 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
     const lastSet = exercise?.sets?.length > 0 ? exercise.sets[exercise.sets.length - 1] : null;
     const previousWeight = lastSet?.weight || '';
 
+    // If the last set was a superset, pre-populate the superset exercise
+    if (lastSet?.setType === 'superset' && lastSet?.supersetExercise) {
+      setPendingSupersetExercise(lastSet.supersetExercise);
+      setIsReturningFromSuperset(true);
+    }
+
     setSelectedSetToLog({
       exerciseId,
       exerciseName,
@@ -989,17 +995,17 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
                                 </Text>
 
                                 {set.setType === 'dropset' && (
-                                  <View style={[styles.setBadge, styles.dropsetBadge, set.completed && { opacity: 0.5 }]}>
+                                  <View style={[styles.setBadge, styles.dropsetBadge]}>
                                     <Text style={styles.setBadgeText}>Dropset</Text>
                                   </View>
                                 )}
                                 {set.setType === 'superset' && (
-                                  <View style={[styles.setBadge, styles.supersetBadge, set.completed && { opacity: 0.5 }]}>
+                                  <View style={[styles.setBadge, styles.supersetBadge]}>
                                     <Text style={styles.setBadgeText}>Superset</Text>
                                   </View>
                                 )}
                                 {set.rpe && (
-                                  <View style={[styles.setBadge, { backgroundColor: getRpeColor(set.rpe) }, set.completed && { opacity: 0.5 }]}>
+                                  <View style={[styles.setBadge, { backgroundColor: getRpeColor(set.rpe) }]}>
                                     <Text style={styles.setBadgeText}>RPE {set.rpe}</Text>
                                   </View>
                                 )}
@@ -1026,7 +1032,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
 
                             {/* Superset Details */}
                             {set.setType === 'superset' && set.supersetExercise && (
-                              <View style={[styles.setDetailsContainer, set.completed && { opacity: 0.5 }]}>
+                              <View style={styles.setDetailsContainer}>
                                 <Text style={styles.setDetailsLabel}>Superset with: {set.supersetExercise}</Text>
                                 <Text style={styles.setDetailsText}>
                                   {set.supersetWeight || 0}{weightUnit} × {set.supersetReps || 0}
@@ -1036,7 +1042,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
 
                             {/* Dropset Details */}
                             {set.setType === 'dropset' && set.drops && set.drops.length > 0 && (
-                              <View style={[styles.setDetailsContainer, set.completed && { opacity: 0.5 }]}>
+                              <View style={styles.setDetailsContainer}>
                                 {set.drops.map((drop, idx) => (
                                   <Text key={idx} style={styles.setDetailsText}>
                                     Drop {idx + 1}: {drop.weight || 0}{weightUnit} × {drop.reps || 0}
@@ -1120,6 +1126,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
         pendingSupersetExercise={pendingSupersetExercise}
         isReturningFromSuperset={isReturningFromSuperset}
         isEdit={!!setToEdit}
+        editData={setToEdit}
       />
 
       {/* Toast Notification */}

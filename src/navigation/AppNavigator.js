@@ -156,11 +156,14 @@ const AppNavigator = () => {
       return;
     }
 
-    if (profile && (profile.first_name || profile.height || profile.date_of_birth || profile.username)) {
-      console.log('Onboarding check: profile has data, marking as completed');
-      setOnboardingCompleted(true);
-      saveOnboardingToStorage(user.id);
+    // Only trust the explicit onboarding_completed flag — don't infer from profile fields
+    // since username/email get set during registration before onboarding runs
+
+    // Profile exists but onboarding_completed is not set — user needs onboarding
+    if (profile && !profile.onboarding_completed) {
+      console.log('Onboarding check: profile exists but onboarding_completed is false');
       checkedUserIdRef.current = user.id;
+      setOnboardingCompleted(false);
       return;
     }
 
@@ -175,14 +178,14 @@ const AppNavigator = () => {
 
         if (freshProfile) {
           console.log('Onboarding check: fetched fresh profile');
-          if (freshProfile.onboarding_completed ||
-              freshProfile.first_name ||
-              freshProfile.height ||
-              freshProfile.date_of_birth ||
-              freshProfile.username) {
+          if (freshProfile.onboarding_completed) {
             console.log('Onboarding check: fresh profile indicates completion');
             setOnboardingCompleted(true);
             saveOnboardingToStorage(user.id);
+            return;
+          } else {
+            console.log('Onboarding check: fresh profile has no onboarding_completed');
+            setOnboardingCompleted(false);
             return;
           }
         }
