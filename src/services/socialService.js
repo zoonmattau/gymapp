@@ -182,6 +182,44 @@ export const socialService = {
   },
 
   // =====================================================
+  // USER SEARCH
+  // =====================================================
+
+  // Search users by username or name
+  async searchUsers(query, limit = 20) {
+    try {
+      if (!query?.trim()) return { data: [], error: null };
+
+      const q = query.trim().toLowerCase();
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, username, first_name, last_name, avatar_url, bio')
+        .or(`username.ilike.%${q}%,first_name.ilike.%${q}%,last_name.ilike.%${q}%`)
+        .limit(limit);
+
+      if (error) {
+        console.warn('searchUsers query error:', error?.message);
+        return { data: [], error };
+      }
+
+      return {
+        data: (data || []).map(u => ({
+          id: u.id,
+          username: u.username || 'user',
+          name: `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.username || 'User',
+          avatar: u.avatar_url,
+          bio: u.bio,
+        })),
+        error: null,
+      };
+    } catch (err) {
+      console.warn('Error searching users:', err?.message);
+      return { data: [], error: err };
+    }
+  },
+
+  // =====================================================
   // ORIGINAL METHODS
   // =====================================================
 
@@ -272,17 +310,32 @@ export const socialService = {
     }
   },
 
-  // Follow a user
+  // Follow a user (checks target's privacy setting)
   async followUser(subscriberId, targetUserId) {
     try {
+      // Check target user's privacy setting
+      const { data: targetProfile, error: profileError } = await supabase
+        .from('profiles')
+        .select('private_account')
+        .eq('id', targetUserId)
+        .single();
+
+      if (profileError) {
+        console.warn('Error fetching target profile:', profileError?.message);
+        return { data: null, error: profileError };
+      }
+
+      const isPrivate = targetProfile?.private_account !== false;
+      const now = new Date().toISOString();
+
       const { data, error } = await supabase
         .from('friendships')
         .upsert({
           user_id: subscriberId,
           friend_id: targetUserId,
-          status: 'accepted',
-          requested_at: new Date().toISOString(),
-          accepted_at: new Date().toISOString(),
+          status: isPrivate ? 'pending' : 'accepted',
+          requested_at: now,
+          ...(isPrivate ? {} : { accepted_at: now }),
         }, { onConflict: 'user_id,friend_id' })
         .select()
         .single();
@@ -291,6 +344,105 @@ export const socialService = {
     } catch (err) {
       console.warn('Error following user:', err?.message);
       return { data: null, error: err };
+    }
+  },
+
+  // Get pending follow requests for the current user (people requesting to follow them)
+  async getPendingFollowRequests(userId) {
+    try {
+      if (!userId) return { data: [], error: null };
+
+      const { data, error } = await supabase
+        .from('friendships')
+        .select(`
+          id,
+          user_id,
+          requested_at,
+          requester:profiles!friendships_user_id_fkey(id, username, first_name, last_name, avatar_url, bio)
+        `)
+        .eq('friend_id', userId)
+        .eq('status', 'pending')
+        .order('requested_at', { ascending: false });
+
+      if (error) {
+        console.warn('getPendingFollowRequests error:', error?.message);
+        return { data: [], error: null };
+      }
+
+      return {
+        data: (data || []).map(item => ({
+          id: item.id,
+          requesterId: item.user_id,
+          requestedAt: item.requested_at,
+          requester: item.requester,
+        })),
+        error: null,
+      };
+    } catch (err) {
+      console.warn('Error getting pending follow requests:', err?.message);
+      return { data: [], error: null };
+    }
+  },
+
+  // Accept a follow request
+  async acceptFollowRequest(friendshipId) {
+    try {
+      if (!friendshipId) return { error: new Error('Missing friendship ID') };
+
+      const { data, error } = await supabase
+        .from('friendships')
+        .update({
+          status: 'accepted',
+          accepted_at: new Date().toISOString(),
+        })
+        .eq('id', friendshipId)
+        .select()
+        .single();
+
+      return { data, error };
+    } catch (err) {
+      console.warn('Error accepting follow request:', err?.message);
+      return { data: null, error: err };
+    }
+  },
+
+  // Reject a follow request (deletes the friendship row)
+  async rejectFollowRequest(friendshipId) {
+    try {
+      if (!friendshipId) return { error: new Error('Missing friendship ID') };
+
+      const { error } = await supabase
+        .from('friendships')
+        .delete()
+        .eq('id', friendshipId);
+
+      return { error };
+    } catch (err) {
+      console.warn('Error rejecting follow request:', err?.message);
+      return { error: err };
+    }
+  },
+
+  // Get IDs of users this user has sent pending requests to
+  async getPendingRequestIds(userId) {
+    try {
+      if (!userId) return { data: [], error: null };
+
+      const { data, error } = await supabase
+        .from('friendships')
+        .select('friend_id')
+        .eq('user_id', userId)
+        .eq('status', 'pending');
+
+      if (error) {
+        console.warn('getPendingRequestIds error:', error?.message);
+        return { data: [], error: null };
+      }
+
+      return { data: (data || []).map(f => f.friend_id), error: null };
+    } catch (err) {
+      console.warn('Error getting pending request IDs:', err?.message);
+      return { data: [], error: null };
     }
   },
 
@@ -310,29 +462,70 @@ export const socialService = {
     }
   },
 
-  // Get users the current user is following
+  // Get users the current user is following (with profile details)
   async getFollowing(userId) {
     try {
       if (!userId) return { data: [], error: null };
 
       const { data, error } = await supabase
         .from('friendships')
-        .select('friend_id')
+        .select(`
+          id,
+          friend_id,
+          following:profiles!friendships_friend_id_fkey(id, username, first_name, last_name, avatar_url, bio)
+        `)
         .eq('user_id', userId)
         .eq('status', 'accepted');
 
       if (error) {
-        // Table might not exist or query error
         console.warn('getFollowing query error:', error?.message);
         return { data: [], error: null };
       }
 
       return {
-        data: (data || []).map(s => s.friend_id),
+        data: (data || []).map(item => ({
+          id: item.id,
+          following_id: item.friend_id,
+          following: item.following,
+        })),
         error: null
       };
     } catch (err) {
       console.warn('Error getting following:', err?.message);
+      return { data: [], error: null };
+    }
+  },
+
+  // Get users who follow the current user (with profile details)
+  async getFollowers(userId) {
+    try {
+      if (!userId) return { data: [], error: null };
+
+      const { data, error } = await supabase
+        .from('friendships')
+        .select(`
+          id,
+          user_id,
+          follower:profiles!friendships_user_id_fkey(id, username, first_name, last_name, avatar_url, bio)
+        `)
+        .eq('friend_id', userId)
+        .eq('status', 'accepted');
+
+      if (error) {
+        console.warn('getFollowers query error:', error?.message);
+        return { data: [], error: null };
+      }
+
+      return {
+        data: (data || []).map(item => ({
+          id: item.id,
+          follower_id: item.user_id,
+          follower: item.follower,
+        })),
+        error: null
+      };
+    } catch (err) {
+      console.warn('Error getting followers:', err?.message);
       return { data: [], error: null };
     }
   },

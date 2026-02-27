@@ -102,6 +102,7 @@ const ProfileScreen = () => {
     showActivity: true,
     showProgress: false,
   });
+  const [privateAccount, setPrivateAccount] = useState(true);
 
   // Toast
   const [toastVisible, setToastVisible] = useState(false);
@@ -121,6 +122,13 @@ const ProfileScreen = () => {
     prs: 0,
     badges: 0,
   });
+
+  // Load private_account from profile
+  useEffect(() => {
+    if (profile) {
+      setPrivateAccount(profile.private_account !== false);
+    }
+  }, [profile]);
 
   // Load settings from storage
   useEffect(() => {
@@ -352,6 +360,26 @@ const ProfileScreen = () => {
   // Count base lifts set
   const countBaseLifts = () => {
     return Object.values(baseLifts).filter(l => l.weight && l.reps).length;
+  };
+
+  const handlePrivateAccountToggle = async (value) => {
+    setPrivateAccount(value);
+    if (user?.id) {
+      try {
+        const { error } = await supabase
+          .from('profiles')
+          .update({ private_account: value })
+          .eq('id', user.id);
+
+        if (!error) {
+          await refreshProfile();
+          showToast(value ? 'Account set to private' : 'Account set to public', 'success');
+        }
+      } catch (error) {
+        console.log('Error updating private account:', error);
+        setPrivateAccount(!value);
+      }
+    }
   };
 
   const handleRestTimerToggle = async (value) => {
@@ -846,6 +874,23 @@ const ProfileScreen = () => {
             <Text style={styles.modalDescription}>
               Control who can see your profile and activity
             </Text>
+
+            {/* Private Account Toggle */}
+            <View style={styles.notifItem}>
+              <View style={styles.notifInfo}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Lock size={18} color={COLORS.primary} />
+                  <Text style={styles.notifLabel}>Private Account</Text>
+                </View>
+                <Text style={styles.notifDesc}>When enabled, people must request to follow you</Text>
+              </View>
+              <Switch
+                value={privateAccount}
+                onValueChange={handlePrivateAccountToggle}
+                trackColor={{ false: COLORS.surfaceLight, true: COLORS.success }}
+                thumbColor={COLORS.text}
+              />
+            </View>
 
             {[
               { id: 'profileVisible', label: 'Public Profile', desc: 'Allow others to find and view your profile' },

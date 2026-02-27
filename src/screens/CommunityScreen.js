@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -35,9 +35,11 @@ import {
 import { useColors } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { socialService } from '../services/socialService';
+import { profileService } from '../services/profileService';
 import { publishedWorkoutService } from '../services/publishedWorkoutService';
 import { competitionService } from '../services/competitionService';
 import { workoutService } from '../services/workoutService';
+import { supabase } from '../lib/supabase';
 
 const TABS = [
   { id: 'feed', label: 'Feed' },
@@ -74,7 +76,12 @@ const CommunityScreen = ({ route }) => {
   const [suggestedUsers, setSuggestedUsers] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
+  const [searchStatus, setSearchStatus] = useState(''); // debug
   const [followingIds, setFollowingIds] = useState(new Set());
+  const [pendingIds, setPendingIds] = useState(new Set());
+
+  // Follow Requests (for Followers tab)
+  const [pendingRequests, setPendingRequests] = useState([]);
 
   // Following search
   const [followingSearchQuery, setFollowingSearchQuery] = useState('');
@@ -108,6 +115,9 @@ const CommunityScreen = ({ route }) => {
   const [savedWorkoutsWithDetails, setSavedWorkoutsWithDetails] = useState([]);
   const [loadingRepertoire, setLoadingRepertoire] = useState(false);
 
+  const searchTimerRef = useRef(null);
+  const followingSearchTimerRef = useRef(null);
+
   useEffect(() => {
     if (user?.id) {
       loadInitialData();
@@ -120,15 +130,47 @@ const CommunityScreen = ({ route }) => {
     }
   }, [activeTab, workoutSort]);
 
+  // Auto-search on Discover tab when query changes
+  useEffect(() => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    searchTimerRef.current = setTimeout(() => {
+      searchUsers();
+    }, 400);
+    return () => clearTimeout(searchTimerRef.current);
+  }, [searchQuery]);
+
+  // Auto-search on Following tab when query changes
+  useEffect(() => {
+    if (followingSearchTimerRef.current) clearTimeout(followingSearchTimerRef.current);
+    if (!followingSearchQuery.trim()) {
+      setFollowingSearchResults([]);
+      return;
+    }
+    followingSearchTimerRef.current = setTimeout(() => {
+      searchUsersFromFollowing();
+    }, 400);
+    return () => clearTimeout(followingSearchTimerRef.current);
+  }, [followingSearchQuery]);
+
   const loadInitialData = async () => {
     loadFollowingIds();
   };
 
   const loadFollowingIds = async () => {
     try {
-      const { data } = await socialService.getFollowing(user.id);
-      if (data) {
-        setFollowingIds(new Set(data.map(f => f.following_id)));
+      const [followingResult, pendingResult] = await Promise.all([
+        socialService.getFollowing(user.id),
+        socialService.getPendingRequestIds(user.id),
+      ]);
+      if (followingResult.data) {
+        setFollowingIds(new Set(followingResult.data.map(f => f.following_id)));
+      }
+      if (pendingResult.data) {
+        setPendingIds(new Set(pendingResult.data));
       }
     } catch (error) {
       console.log('Error loading following:', error);
@@ -212,9 +254,15 @@ const CommunityScreen = ({ route }) => {
 
   const loadFollowers = async () => {
     try {
-      const { data } = await socialService.getFollowers(user.id);
-      if (data) {
-        setFollowers(data);
+      const [followersResult, requestsResult] = await Promise.all([
+        socialService.getFollowers(user.id),
+        socialService.getPendingFollowRequests(user.id),
+      ]);
+      if (followersResult.data) {
+        setFollowers(followersResult.data);
+      }
+      if (requestsResult.data) {
+        setPendingRequests(requestsResult.data);
       }
     } catch (error) {
       console.log('Error loading followers:', error);
@@ -278,34 +326,61 @@ const CommunityScreen = ({ route }) => {
 
   const handleFollowUser = async (targetUserId) => {
     const isFollowing = followingIds.has(targetUserId);
+    const isPending = pendingIds.has(targetUserId);
 
-    setFollowingIds(prev => {
-      const next = new Set(prev);
+    if (isFollowing || isPending) {
+      // Unfollow or cancel pending request
       if (isFollowing) {
-        next.delete(targetUserId);
+        setFollowingIds(prev => { const next = new Set(prev); next.delete(targetUserId); return next; });
       } else {
-        next.add(targetUserId);
+        setPendingIds(prev => { const next = new Set(prev); next.delete(targetUserId); return next; });
       }
-      return next;
-    });
 
-    try {
-      if (isFollowing) {
+      try {
         await socialService.unfollowUser(user.id, targetUserId);
-      } else {
-        await socialService.followUser(user.id, targetUserId);
-      }
-    } catch (error) {
-      setFollowingIds(prev => {
-        const next = new Set(prev);
+      } catch (error) {
+        // Revert on error
         if (isFollowing) {
-          next.add(targetUserId);
+          setFollowingIds(prev => { const next = new Set(prev); next.add(targetUserId); return next; });
         } else {
-          next.delete(targetUserId);
+          setPendingIds(prev => { const next = new Set(prev); next.add(targetUserId); return next; });
         }
-        return next;
-      });
-      console.log('Error toggling follow:', error);
+        console.log('Error unfollowing:', error);
+      }
+    } else {
+      // Follow - result depends on target's privacy setting
+      try {
+        const { data } = await socialService.followUser(user.id, targetUserId);
+        if (data?.status === 'accepted') {
+          setFollowingIds(prev => { const next = new Set(prev); next.add(targetUserId); return next; });
+        } else if (data?.status === 'pending') {
+          setPendingIds(prev => { const next = new Set(prev); next.add(targetUserId); return next; });
+        }
+      } catch (error) {
+        console.log('Error following:', error);
+      }
+    }
+  };
+
+  const handleAcceptRequest = async (request) => {
+    setPendingRequests(prev => prev.filter(r => r.id !== request.id));
+    try {
+      await socialService.acceptFollowRequest(request.id);
+      // Reload followers to show new follower
+      loadFollowers();
+    } catch (error) {
+      console.log('Error accepting request:', error);
+      setPendingRequests(prev => [...prev, request]);
+    }
+  };
+
+  const handleRejectRequest = async (request) => {
+    setPendingRequests(prev => prev.filter(r => r.id !== request.id));
+    try {
+      await socialService.rejectFollowRequest(request.id);
+    } catch (error) {
+      console.log('Error rejecting request:', error);
+      setPendingRequests(prev => [...prev, request]);
     }
   };
 
@@ -367,16 +442,37 @@ const CommunityScreen = ({ route }) => {
   const searchUsers = async () => {
     if (!searchQuery.trim()) {
       setSearchResults([]);
+      setSearchStatus('');
       return;
     }
 
+    const q = searchQuery.trim();
+    if (q.length < 2) {
+      setSearchStatus('Type at least 2 characters');
+      return;
+    }
+
+    setSearchStatus('searching');
+
     try {
-      const { data } = await socialService.searchUsers(searchQuery);
-      if (data) {
-        setSearchResults(data.filter(u => u.id !== user.id));
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, username, first_name, last_name, avatar_url, bio')
+        .or(`username.ilike.%${q}%,first_name.ilike.%${q}%,last_name.ilike.%${q}%`)
+        .neq('id', user.id)
+        .limit(20);
+
+      if (error) {
+        console.log('Search error:', error);
+        setSearchStatus('');
+        return;
       }
-    } catch (error) {
-      console.log('Error searching:', error);
+
+      setSearchResults(data || []);
+      setSearchStatus(data && data.length > 0 ? '' : 'no_results');
+    } catch (err) {
+      console.log('Search exception:', err);
+      setSearchStatus('');
     }
   };
 
@@ -386,13 +482,22 @@ const CommunityScreen = ({ route }) => {
       return;
     }
 
+    const q = followingSearchQuery.trim();
+    if (q.length < 2) return;
+
     try {
-      const { data } = await socialService.searchUsers(followingSearchQuery);
-      if (data) {
-        setFollowingSearchResults(data.filter(u => u.id !== user.id));
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, username, first_name, last_name, avatar_url, bio')
+        .or(`username.ilike.%${q}%,first_name.ilike.%${q}%,last_name.ilike.%${q}%`)
+        .neq('id', user.id)
+        .limit(20);
+
+      if (!error && data) {
+        setFollowingSearchResults(data);
       }
-    } catch (error) {
-      console.log('Error searching from following:', error);
+    } catch (err) {
+      console.log('Error searching from following:', err);
     }
   };
 
@@ -488,15 +593,15 @@ const CommunityScreen = ({ route }) => {
                 <TouchableOpacity
                   style={[
                     styles.suggestedFollowBtn,
-                    followingIds.has(suggestedUser.id) && styles.suggestedFollowingBtn,
+                    (followingIds.has(suggestedUser.id) || pendingIds.has(suggestedUser.id)) && styles.suggestedFollowingBtn,
                   ]}
                   onPress={() => handleFollowUser(suggestedUser.id)}
                 >
                   <Text style={[
                     styles.suggestedFollowBtnText,
-                    followingIds.has(suggestedUser.id) && styles.suggestedFollowingBtnText,
+                    (followingIds.has(suggestedUser.id) || pendingIds.has(suggestedUser.id)) && styles.suggestedFollowingBtnText,
                   ]}>
-                    {followingIds.has(suggestedUser.id) ? 'Following' : 'Follow'}
+                    {followingIds.has(suggestedUser.id) ? 'Following' : pendingIds.has(suggestedUser.id) ? 'Requested' : 'Follow'}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -746,6 +851,45 @@ const CommunityScreen = ({ route }) => {
         <Text style={styles.findUsersBtnText}>Find Users to Follow</Text>
       </TouchableOpacity>
 
+      {/* Follow Requests Section */}
+      {pendingRequests.length > 0 && (
+        <>
+          <Text style={styles.sectionLabel}>FOLLOW REQUESTS ({pendingRequests.length})</Text>
+          {pendingRequests.map((request) => {
+            const reqProfile = request.requester;
+            return (
+              <View key={request.id} style={styles.userCard}>
+                <View style={styles.userAvatar}>
+                  <Text style={styles.userAvatarText}>
+                    {reqProfile?.username?.[0]?.toUpperCase() || 'U'}
+                  </Text>
+                </View>
+                <View style={styles.userInfo}>
+                  <Text style={styles.userName}>@{reqProfile?.username || 'user'}</Text>
+                  <Text style={styles.userBio}>
+                    {reqProfile?.first_name || ''} {reqProfile?.last_name || ''}
+                  </Text>
+                </View>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TouchableOpacity
+                    style={styles.acceptButton}
+                    onPress={() => handleAcceptRequest(request)}
+                  >
+                    <Check size={16} color={COLORS.textOnPrimary} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.rejectButton}
+                    onPress={() => handleRejectRequest(request)}
+                  >
+                    <X size={16} color={COLORS.error} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            );
+          })}
+        </>
+      )}
+
       {/* Followers Section */}
       <Text style={styles.sectionLabel}>FOLLOWERS ({followers.length})</Text>
 
@@ -768,6 +912,7 @@ const CommunityScreen = ({ route }) => {
           const userProfile = item.follower;
           const userId = item.follower_id;
           const isFollowingUser = followingIds.has(userId);
+          const isPendingUser = pendingIds.has(userId);
 
           return (
             <View key={item.id} style={styles.userCard}>
@@ -783,11 +928,13 @@ const CommunityScreen = ({ route }) => {
                 )}
               </View>
               <TouchableOpacity
-                style={[styles.followButton, isFollowingUser && styles.followingButton]}
+                style={[styles.followButton, (isFollowingUser || isPendingUser) && styles.followingButton]}
                 onPress={() => handleFollowUser(userId)}
               >
                 {isFollowingUser ? (
                   <UserCheck size={16} color={COLORS.text} />
+                ) : isPendingUser ? (
+                  <Clock size={16} color={COLORS.text} />
                 ) : (
                   <UserPlus size={16} color={COLORS.textOnPrimary} />
                 )}
@@ -827,6 +974,7 @@ const CommunityScreen = ({ route }) => {
             <Text style={styles.sectionLabel}>SEARCH RESULTS</Text>
             {followingSearchResults.map((userProfile) => {
               const isFollowingUser = followingIds.has(userProfile.id);
+              const isPendingUser = pendingIds.has(userProfile.id);
               return (
                 <View key={userProfile.id} style={styles.userCard}>
                   <View style={styles.userAvatar}>
@@ -841,11 +989,13 @@ const CommunityScreen = ({ route }) => {
                     )}
                   </View>
                   <TouchableOpacity
-                    style={[styles.followButton, isFollowingUser && styles.followingButton]}
+                    style={[styles.followButton, (isFollowingUser || isPendingUser) && styles.followingButton]}
                     onPress={() => handleFollowUser(userProfile.id)}
                   >
                     {isFollowingUser ? (
                       <UserCheck size={16} color={COLORS.text} />
+                    ) : isPendingUser ? (
+                      <Clock size={16} color={COLORS.text} />
                     ) : (
                       <UserPlus size={16} color={COLORS.textOnPrimary} />
                     )}
@@ -896,11 +1046,7 @@ const CommunityScreen = ({ route }) => {
                   style={[styles.followButton, isFollowingUser && styles.followingButton]}
                   onPress={() => handleFollowUser(userId)}
                 >
-                  {isFollowingUser ? (
-                    <UserCheck size={16} color={COLORS.text} />
-                  ) : (
-                    <UserPlus size={16} color={COLORS.textOnPrimary} />
-                  )}
+                  <UserCheck size={16} color={COLORS.text} />
                 </TouchableOpacity>
               </View>
             );
@@ -932,6 +1078,7 @@ const CommunityScreen = ({ route }) => {
           <Text style={styles.sectionLabel}>SEARCH RESULTS</Text>
           {searchResults.map((userProfile) => {
             const isFollowingUser = followingIds.has(userProfile.id);
+            const isPendingUser = pendingIds.has(userProfile.id);
             return (
               <View key={userProfile.id} style={styles.userCard}>
                 <View style={styles.userAvatar}>
@@ -946,11 +1093,13 @@ const CommunityScreen = ({ route }) => {
                   )}
                 </View>
                 <TouchableOpacity
-                  style={[styles.followButton, isFollowingUser && styles.followingButton]}
+                  style={[styles.followButton, (isFollowingUser || isPendingUser) && styles.followingButton]}
                   onPress={() => handleFollowUser(userProfile.id)}
                 >
                   {isFollowingUser ? (
                     <UserCheck size={16} color={COLORS.text} />
+                  ) : isPendingUser ? (
+                    <Clock size={16} color={COLORS.text} />
                   ) : (
                     <UserPlus size={16} color={COLORS.textOnPrimary} />
                   )}
@@ -959,6 +1108,16 @@ const CommunityScreen = ({ route }) => {
             );
           })}
         </>
+      )}
+
+      {/* No Results Message */}
+      {searchStatus === 'no_results' && (
+        <View style={{ alignItems: 'center', paddingVertical: 20 }}>
+          <Search size={32} color={COLORS.textMuted} />
+          <Text style={{ color: COLORS.textMuted, fontSize: 14, marginTop: 8 }}>
+            No users found for "{searchQuery}"
+          </Text>
+        </View>
       )}
 
       {/* TOP FOLLOWED Section */}
@@ -2174,6 +2333,22 @@ const getStyles = (COLORS) => StyleSheet.create({
   },
   followingButton: {
     backgroundColor: COLORS.surfaceLight,
+  },
+  acceptButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.success,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  rejectButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.surfaceLight,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   searchContainer: {
     flexDirection: 'row',
