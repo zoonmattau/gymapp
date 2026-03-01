@@ -248,22 +248,27 @@ export const socialService = {
         .eq('user_id', userId)
         .eq('status', 'accepted');
 
-      const followingIds = new Set((following || []).map(f => f.friend_id));
+      const followingIds = (following || []).map(f => f.friend_id);
+      const excludeIds = [userId, ...followingIds];
 
-      // Get profiles excluding self and already following
-      const { data, error } = await supabase
+      // Get profiles excluding self and already following directly in the query
+      let query = supabase
         .from('profiles')
-        .select('id, username, first_name, last_name, avatar_url, bio')
-        .neq('id', userId)
-        .limit(limit + followingIds.size);
+        .select('id, username, first_name, last_name, avatar_url, bio');
+
+      // Supabase .not('id', 'in', ...) to exclude followed users at DB level
+      if (excludeIds.length > 0) {
+        query = query.not('id', 'in', `(${excludeIds.join(',')})`);
+      }
+
+      const { data, error } = await query.limit(limit);
 
       if (error) {
         console.warn('getSuggestedUsers query error:', error?.message);
         return { data: [], error };
       }
 
-      // Filter out already following and limit
-      const filtered = (data || []).filter(u => !followingIds.has(u.id)).slice(0, limit);
+      const filtered = data || [];
 
       // Get follower counts for each suggested user
       const enriched = await Promise.all(filtered.map(async (user) => {
@@ -662,6 +667,68 @@ export const socialService = {
     } catch (err) {
       console.warn('Error getting following list:', err?.message);
       return { data: [], error: null };
+    }
+  },
+
+  // Get activity feed for a single user (for public profile)
+  async getUserActivityFeed(targetUserId, limit = 20) {
+    try {
+      if (!targetUserId) return { data: [], error: null };
+
+      const [workoutsResult, prsResult] = await Promise.all([
+        supabase
+          .from('workout_sessions')
+          .select('id, user_id, workout_name, duration_minutes, ended_at')
+          .eq('user_id', targetUserId)
+          .not('ended_at', 'is', null)
+          .order('ended_at', { ascending: false })
+          .limit(limit),
+        supabase
+          .from('personal_records')
+          .select('id, user_id, exercise_name, weight, reps, achieved_at')
+          .eq('user_id', targetUserId)
+          .order('achieved_at', { ascending: false })
+          .limit(limit)
+      ]);
+
+      const workouts = workoutsResult.data || [];
+      const prs = prsResult.data || [];
+
+      const workoutActivities = workouts.map(workout => ({
+        id: `workout_${workout.id}`,
+        type: 'workout',
+        userId: workout.user_id,
+        title: workout.workout_name || 'Workout',
+        subtitle: `${workout.duration_minutes || 0} min workout`,
+        timestamp: workout.ended_at,
+        data: {
+          duration: workout.duration_minutes,
+          workoutName: workout.workout_name,
+        }
+      }));
+
+      const prActivities = prs.map(pr => ({
+        id: `pr_${pr.id}`,
+        type: 'pr',
+        userId: pr.user_id,
+        title: `New PR: ${pr.exercise_name}`,
+        subtitle: `${pr.weight} kg × ${pr.reps} reps`,
+        timestamp: pr.achieved_at,
+        data: {
+          exerciseName: pr.exercise_name,
+          weight: pr.weight,
+          reps: pr.reps,
+        }
+      }));
+
+      const allActivities = [...workoutActivities, ...prActivities]
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+        .slice(0, limit);
+
+      return { data: allActivities, error: null };
+    } catch (err) {
+      console.warn('Error getting user activity feed:', err?.message);
+      return { data: [], error: err };
     }
   },
 

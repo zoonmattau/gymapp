@@ -317,7 +317,9 @@ const ExerciseSearchModal = ({ visible, onClose, onSelect, excludeExercises = []
   })();
 
   const filteredExercises = EXERCISES.filter(ex => {
-    const matchesSearch = ex.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const name = ex.name.toLowerCase();
+    const queryWords = searchQuery.toLowerCase().split(/\s+/).filter(w => w.length > 0);
+    const matchesSearch = queryWords.length === 0 || queryWords.every(word => name.includes(word));
     const matchesMuscle = selectedMuscle === 'All' || ex.muscleGroup === selectedMuscle;
     const notExcluded = !excludeExercises.includes(ex.name);
     return matchesSearch && matchesMuscle && notExcluded;

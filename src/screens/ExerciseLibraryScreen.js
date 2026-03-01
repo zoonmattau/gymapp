@@ -29,8 +29,10 @@ const ExerciseLibraryScreen = ({ navigation }) => {
   const [expandedExercise, setExpandedExercise] = useState(null);
 
   const filteredExercises = EXERCISES.filter(ex => {
-    const matchesSearch = ex.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      ex.muscleGroup.toLowerCase().includes(searchQuery.toLowerCase());
+    const name = ex.name.toLowerCase();
+    const muscle = ex.muscleGroup.toLowerCase();
+    const queryWords = searchQuery.toLowerCase().split(/\s+/).filter(w => w.length > 0);
+    const matchesSearch = queryWords.length === 0 || queryWords.every(word => name.includes(word) || muscle.includes(word));
     const matchesGroup = selectedGroup === 'All' || ex.muscleGroup === selectedGroup;
     return matchesSearch && matchesGroup;
   });

@@ -46,6 +46,7 @@ import { supabase } from '../lib/supabase';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
+
 // Get RPE color on a green to red scale (0-10)
 const getRpeColor = (rpe) => {
   const value = parseFloat(rpe) || 0;
@@ -2594,6 +2595,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+
 });
 
 export default WorkoutsScreen;

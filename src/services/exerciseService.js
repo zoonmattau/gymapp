@@ -64,9 +64,11 @@ export const exerciseService = {
   // Search exercises by name
   async searchExercises(searchTerm, muscleGroup = null) {
     const { data } = await this.getAllExercises();
-    let filtered = data.filter(ex =>
-      ex.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const queryWords = searchTerm.toLowerCase().split(/\s+/).filter(w => w.length > 0);
+    let filtered = data.filter(ex => {
+      const name = ex.name.toLowerCase();
+      return queryWords.every(word => name.includes(word));
+    });
 
     if (muscleGroup) {
       filtered = filtered.filter(ex => ex.muscleGroup === muscleGroup);

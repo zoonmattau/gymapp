@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,10 @@ import {
   Alert,
   Platform,
   Modal,
+  Image,
+  ActivityIndicator,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   User,
@@ -39,12 +42,15 @@ import {
   Lock,
   Moon,
   Sun,
+  Plus,
+  Camera,
 } from 'lucide-react-native';
 import { useColors, useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { EXPERIENCE_LEVELS, EQUIPMENT_OPTIONS } from '../constants/experience';
+import { workoutService } from '../services/workoutService';
 import ExperienceLevelModal from '../components/ExperienceLevelModal';
 import EquipmentModal from '../components/EquipmentModal';
 import BaseLiftsModal from '../components/BaseLiftsModal';
@@ -115,13 +121,149 @@ const ProfileScreen = () => {
     setToastVisible(true);
   };
 
+  // Avatar upload
+  const fileInputRef = useRef(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  const uploadAvatar = async (file) => {
+    if (!user?.id) return;
+    setUploadingAvatar(true);
+    try {
+      const ext = file.name?.split('.').pop() || 'jpg';
+      const filePath = `${user.id}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, { upsert: true, contentType: file.type || 'image/jpeg' });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      const publicUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('id', user.id);
+
+      if (updateError) throw updateError;
+
+      await refreshProfile();
+      showToast('Profile photo updated', 'success');
+    } catch (err) {
+      console.log('Avatar upload error:', err);
+      showToast('Failed to upload photo', 'error');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const handleAvatarPress = async () => {
+    if (Platform.OS === 'web') {
+      fileInputRef.current?.click();
+    } else {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Please allow access to your photos to upload an avatar.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
+      if (!result.canceled && result.assets?.[0]) {
+        const asset = result.assets[0];
+        const response = await fetch(asset.uri);
+        const blob = await response.blob();
+        const ext = asset.uri.split('.').pop() || 'jpg';
+        blob.name = `avatar.${ext}`;
+        await uploadAvatar(blob);
+      }
+    }
+  };
+
+  const handleWebFileSelect = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    await uploadAvatar(file);
+    event.target.value = '';
+  };
+
   // Stats
   const [stats, setStats] = useState({
-    workouts: 31,
+    workouts: 0,
     weekStreak: 0,
     prs: 0,
     badges: 0,
   });
+
+  // Load real stats from database
+  useEffect(() => {
+    const loadStats = async () => {
+      if (!user?.id) return;
+      try {
+        const [workoutCountResult, prsResult, sessionsResult] = await Promise.all([
+          workoutService.getWorkoutCount(user.id),
+          workoutService.getPersonalRecords(user.id),
+          supabase
+            .from('workout_sessions')
+            .select('started_at')
+            .eq('user_id', user.id)
+            .not('ended_at', 'is', null)
+            .order('started_at', { ascending: false }),
+        ]);
+
+        // Calculate week streak: consecutive weeks with at least 1 workout
+        let weekStreak = 0;
+        const sessions = sessionsResult.data || [];
+        if (sessions.length > 0) {
+          const getWeekKey = (date) => {
+            const d = new Date(date);
+            const day = d.getDay();
+            const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Monday
+            const monday = new Date(d.setDate(diff));
+            return `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`;
+          };
+
+          const weeksWithWorkouts = new Set(sessions.map(s => getWeekKey(s.started_at)));
+          const now = new Date();
+          let checkDate = new Date(now);
+
+          // Start from current week, count backwards
+          const currentWeekKey = getWeekKey(now);
+          if (!weeksWithWorkouts.has(currentWeekKey)) {
+            // Check if last week had one (allow 1 week grace)
+            checkDate.setDate(checkDate.getDate() - 7);
+          }
+
+          while (true) {
+            const weekKey = getWeekKey(checkDate);
+            if (weeksWithWorkouts.has(weekKey)) {
+              weekStreak++;
+              checkDate.setDate(checkDate.getDate() - 7);
+            } else {
+              break;
+            }
+          }
+        }
+
+        setStats({
+          workouts: workoutCountResult.count || 0,
+          weekStreak,
+          prs: prsResult.data?.length || 0,
+          badges: 0,
+        });
+      } catch (error) {
+        console.log('Error loading stats:', error);
+      }
+    };
+    loadStats();
+  }, [user?.id]);
 
   // Load private_account from profile
   useEffect(() => {
@@ -449,9 +591,29 @@ const ProfileScreen = () => {
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Profile Header */}
         <View style={styles.profileHeader}>
-          <View style={styles.avatarLarge}>
-            <User size={50} color={COLORS.primary} />
-          </View>
+          <TouchableOpacity onPress={handleAvatarPress} activeOpacity={0.7} style={styles.avatarWrapper}>
+            <View style={styles.avatarLarge}>
+              {uploadingAvatar ? (
+                <ActivityIndicator size="large" color={COLORS.primary} />
+              ) : profile?.avatar_url ? (
+                <Image source={{ uri: profile.avatar_url }} style={styles.avatarImage} />
+              ) : (
+                <User size={50} color={COLORS.primary} />
+              )}
+            </View>
+            <View style={styles.avatarPlusBadge}>
+              <Camera size={14} color={COLORS.textOnPrimary} />
+            </View>
+          </TouchableOpacity>
+          {Platform.OS === 'web' && (
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleWebFileSelect}
+              style={{ display: 'none' }}
+            />
+          )}
 
           <Text style={styles.username}>@{profile?.username || 'test'}</Text>
           <Text style={styles.displayName}>{getDisplayName()}</Text>
@@ -626,31 +788,6 @@ const ProfileScreen = () => {
             <Text style={styles.settingsLabel}>Tracking Preferences</Text>
             <ChevronRight size={18} color={COLORS.textMuted} />
           </TouchableOpacity>
-
-          {/* Core Exercises */}
-          <View style={styles.settingsItem}>
-            <View style={[styles.settingsIcon, { backgroundColor: COLORS.warning + '20' }]}>
-              <Dumbbell size={18} color={COLORS.warning} />
-            </View>
-            <View style={styles.settingsLabelContainer}>
-              <Text style={styles.settingsLabel}>Core Exercises</Text>
-              <Text style={styles.settingsSubLabel}>Position in workout</Text>
-            </View>
-            <View style={styles.toggleGroup}>
-              <TouchableOpacity
-                style={[styles.toggleBtn, coreExercisesPosition === 'first' && styles.toggleBtnActive]}
-                onPress={() => handleCoreExercisesToggle('first')}
-              >
-                <Text style={[styles.toggleText, coreExercisesPosition === 'first' && styles.toggleTextActive]}>First</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.toggleBtn, coreExercisesPosition === 'last' && styles.toggleBtnActive]}
-                onPress={() => handleCoreExercisesToggle('last')}
-              >
-                <Text style={[styles.toggleText, coreExercisesPosition === 'last' && styles.toggleTextActive]}>Last</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
 
           {/* Suggested Rest Timer */}
           <View style={styles.settingsItem}>
@@ -959,6 +1096,10 @@ const getStyles = (COLORS) => StyleSheet.create({
     borderBottomColor: COLORS.surfaceLight,
     marginBottom: 20,
   },
+  avatarWrapper: {
+    position: 'relative',
+    marginBottom: 16,
+  },
   avatarLarge: {
     width: 100,
     height: 100,
@@ -968,7 +1109,25 @@ const getStyles = (COLORS) => StyleSheet.create({
     borderColor: COLORS.surfaceLight,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+  },
+  avatarPlusBadge: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.background,
   },
   username: {
     color: COLORS.text,

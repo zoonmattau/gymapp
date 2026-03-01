@@ -33,6 +33,8 @@ import {
 } from 'lucide-react-native';
 import { useColors } from '../contexts/ThemeContext';
 import { WORKOUT_TEMPLATES } from '../constants/workoutTemplates';
+import { EXERCISES } from '../constants/exercises';
+import { supabase } from '../lib/supabase';
 import { nutritionService } from '../services/nutritionService';
 import { workoutService } from '../services/workoutService';
 import { streakService } from '../services/streakService';
@@ -47,6 +49,22 @@ import WaterEntryModal from '../components/WaterEntryModal';
 import WeighInModal from '../components/WeighInModal';
 import SleepEntryModal from '../components/SleepEntryModal';
 import RepertoireModal from '../components/RepertoireModal';
+
+// Muscle group display configuration
+const MUSCLE_DISPLAY_GROUPS = [
+  { key: 'chest', label: 'Chest', defaultTarget: 16, color: '#EF4444', sourceGroups: ['Chest'] },
+  { key: 'back', label: 'Back', defaultTarget: 16, color: '#3B82F6', sourceGroups: ['Back', 'Traps'] },
+  { key: 'shoulders', label: 'Shoulders', defaultTarget: 14, color: '#F59E0B', sourceGroups: ['Shoulders'] },
+  { key: 'legs', label: 'Legs', defaultTarget: 16, color: '#10B981', sourceGroups: ['Quads', 'Hamstrings', 'Glutes', 'Calves'] },
+  { key: 'arms', label: 'Arms', defaultTarget: 14, color: '#8B5CF6', sourceGroups: ['Biceps', 'Triceps', 'Forearms'] },
+  { key: 'core', label: 'Core', defaultTarget: 10, color: '#EC4899', sourceGroups: ['Core', 'Full Body'] },
+];
+
+const exerciseToGroupMap = {};
+EXERCISES.forEach(ex => {
+  const group = MUSCLE_DISPLAY_GROUPS.find(g => g.sourceGroups.includes(ex.muscleGroup));
+  if (group) exerciseToGroupMap[ex.name] = group.key;
+});
 
 const HomeScreen = () => {
   const COLORS = useColors();
@@ -93,6 +111,26 @@ const HomeScreen = () => {
   // Social stats
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
+
+  // Weekly muscle sets tracking
+  const [weeklyMuscleSets, setWeeklyMuscleSets] = useState({});
+  const [muscleTargets, setMuscleTargets] = useState(() => {
+    const defaults = {};
+    MUSCLE_DISPLAY_GROUPS.forEach(g => { defaults[g.key] = g.defaultTarget; });
+    return defaults;
+  });
+  const [showMuscleTargetModal, setShowMuscleTargetModal] = useState(false);
+  const [tempTargets, setTempTargets] = useState({});
+
+  // Load saved muscle targets
+  useEffect(() => {
+    try {
+      if (Platform.OS === 'web') {
+        const saved = localStorage.getItem('uprep_muscle_targets');
+        if (saved) setMuscleTargets(JSON.parse(saved));
+      }
+    } catch (e) { /* ignore */ }
+  }, []);
 
   const nutritionGoals = {
     calories: profile?.calorie_goal || 2200,
@@ -151,6 +189,7 @@ const HomeScreen = () => {
         loadStreaks(),
         loadSleepStatus(),
         loadWeightHistory(),
+        loadWeeklyMuscleSets(),
       ]);
       console.log('loadHomeData completed');
     } catch (error) {
@@ -286,6 +325,41 @@ const HomeScreen = () => {
       console.log('Error loading workout:', error);
       setIsRestDay(false);
       setTodayWorkout(null);
+    }
+  };
+
+  const loadWeeklyMuscleSets = async () => {
+    try {
+      const today = new Date();
+      const dow = today.getDay();
+      const diff = dow === 0 ? -6 : 1 - dow;
+      const weekStart = new Date(today);
+      weekStart.setDate(today.getDate() + diff);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekEnd.getDate() + 6);
+
+      const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const { data: sessionsData } = await workoutService.getCompletedSessionsForDateRange(user.id, fmt(weekStart), fmt(weekEnd));
+
+      const completedIds = (sessionsData || []).filter(s => s.ended_at).map(s => s.id);
+      const counts = {};
+      MUSCLE_DISPLAY_GROUPS.forEach(g => { counts[g.key] = 0; });
+
+      if (completedIds.length > 0) {
+        const { data: setsData } = await supabase
+          .from('workout_sets')
+          .select('exercise_name')
+          .in('session_id', completedIds)
+          .eq('is_warmup', false);
+
+        (setsData || []).forEach(s => {
+          const groupKey = exerciseToGroupMap[s.exercise_name];
+          if (groupKey) counts[groupKey] += 1;
+        });
+      }
+      setWeeklyMuscleSets(counts);
+    } catch (error) {
+      console.log('Error loading weekly muscle sets:', error);
     }
   };
 
@@ -920,6 +994,128 @@ const HomeScreen = () => {
             </View>
           </View>
         </View>
+
+        {/* Weekly Sets by Muscle */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>WEEKLY SETS BY MUSCLE</Text>
+          <View style={styles.muscleCard}>
+            {MUSCLE_DISPLAY_GROUPS.map(group => {
+              const done = weeklyMuscleSets[group.key] || 0;
+              const target = muscleTargets[group.key] || group.defaultTarget;
+              const pct = target > 0 ? Math.min(done / target, 1) : 0;
+              const met = done >= target;
+              const barColor = met ? COLORS.success : group.color;
+
+              return (
+                <View key={group.key} style={styles.muscleRow}>
+                  <Text style={styles.muscleLabel}>{group.label}</Text>
+                  <View style={styles.muscleBarTrack}>
+                    <View style={[styles.muscleBarFill, { width: `${pct * 100}%`, backgroundColor: barColor }]} />
+                  </View>
+                  <Text style={[styles.muscleCount, met && { color: COLORS.success }]}>
+                    {done}/{target}
+                  </Text>
+                  {met && <Check size={14} color={COLORS.success} />}
+                </View>
+              );
+            })}
+            {(() => {
+              const totalDone = Object.values(weeklyMuscleSets).reduce((a, b) => a + b, 0);
+              const totalTarget = MUSCLE_DISPLAY_GROUPS.reduce((sum, g) => sum + (muscleTargets[g.key] || g.defaultTarget), 0);
+              return (
+                <View style={styles.muscleTotalRow}>
+                  <Text style={styles.muscleTotalLabel}>Total</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Text style={styles.muscleTotalCount}>{totalDone}/{totalTarget} sets</Text>
+                    <TouchableOpacity
+                      style={styles.muscleEditBtn}
+                      onPress={() => {
+                        const current = {};
+                        MUSCLE_DISPLAY_GROUPS.forEach(g => {
+                          current[g.key] = String(muscleTargets[g.key] || g.defaultTarget);
+                        });
+                        setTempTargets(current);
+                        setShowMuscleTargetModal(true);
+                      }}
+                    >
+                      <Pencil size={12} color={COLORS.textMuted} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            })()}
+          </View>
+        </View>
+
+        {/* Edit muscle targets modal */}
+        <Modal
+          visible={showMuscleTargetModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowMuscleTargetModal(false)}
+        >
+          <View style={styles.targetModalOverlay}>
+            <View style={styles.targetModalContent}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: 4 }}>
+                <Text style={styles.targetModalTitle}>Weekly Set Targets</Text>
+                <TouchableOpacity onPress={() => setShowMuscleTargetModal(false)} style={{ padding: 4 }}>
+                  <X size={18} color={COLORS.textMuted} />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.targetModalRow}>
+                <Text style={[styles.targetModalRowLabel, { fontSize: 11, color: COLORS.textMuted }]}>Muscle</Text>
+                <Text style={{ width: 70, textAlign: 'center', fontSize: 11, color: COLORS.textMuted, fontWeight: '600' }}>Target</Text>
+                <Text style={{ width: 36, textAlign: 'center', fontSize: 11, color: COLORS.textMuted, fontWeight: '600' }}>Rec.</Text>
+              </View>
+              {MUSCLE_DISPLAY_GROUPS.map(group => (
+                <View key={group.key} style={styles.targetModalRow}>
+                  <Text style={styles.targetModalRowLabel}>{group.label}</Text>
+                  <TextInput
+                    style={styles.targetModalRowInput}
+                    value={tempTargets[group.key] || ''}
+                    onChangeText={(v) => setTempTargets(prev => ({ ...prev, [group.key]: v }))}
+                    keyboardType="number-pad"
+                    selectTextOnFocus
+                    placeholder={String(group.defaultTarget)}
+                    placeholderTextColor={COLORS.textMuted}
+                  />
+                  <Text style={styles.targetModalRowRec}>{group.defaultTarget}</Text>
+                </View>
+              ))}
+              <View style={styles.targetModalButtons}>
+                <TouchableOpacity
+                  style={styles.targetModalResetBtn}
+                  onPress={() => {
+                    const defaults = {};
+                    MUSCLE_DISPLAY_GROUPS.forEach(g => { defaults[g.key] = String(g.defaultTarget); });
+                    setTempTargets(defaults);
+                  }}
+                >
+                  <Text style={styles.targetModalResetText}>Reset All</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.targetModalSaveBtn}
+                  onPress={() => {
+                    const updated = {};
+                    MUSCLE_DISPLAY_GROUPS.forEach(g => {
+                      const val = parseInt(tempTargets[g.key]) || g.defaultTarget;
+                      updated[g.key] = Math.max(1, val);
+                    });
+                    setMuscleTargets(updated);
+                    try {
+                      if (Platform.OS === 'web') {
+                        localStorage.setItem('uprep_muscle_targets', JSON.stringify(updated));
+                      }
+                    } catch (e) { /* ignore */ }
+                    setShowMuscleTargetModal(false);
+                  }}
+                >
+                  <Text style={styles.targetModalSaveText}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
 
         {/* My Rep-Ertoire Section */}
         <View style={styles.section}>
@@ -1958,6 +2154,148 @@ const getStyles = (COLORS) => StyleSheet.create({
   noResultsText: {
     color: COLORS.textMuted,
     fontSize: 14,
+  },
+
+  // Weekly Sets by Muscle
+  muscleCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 16,
+    gap: 10,
+  },
+  muscleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  muscleLabel: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    fontWeight: '600',
+    width: 72,
+  },
+  muscleBarTrack: {
+    flex: 1,
+    height: 10,
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 5,
+    overflow: 'hidden',
+  },
+  muscleBarFill: {
+    height: '100%',
+    borderRadius: 5,
+    minWidth: 0,
+  },
+  muscleCount: {
+    color: COLORS.text,
+    fontSize: 12,
+    fontWeight: '600',
+    width: 40,
+    textAlign: 'right',
+  },
+  muscleEditBtn: {
+    padding: 6,
+    borderRadius: 6,
+    backgroundColor: COLORS.surfaceLight,
+  },
+  muscleTotalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: COLORS.surfaceLight,
+    paddingTop: 10,
+    marginTop: 2,
+  },
+  muscleTotalLabel: {
+    color: COLORS.text,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  muscleTotalCount: {
+    color: COLORS.textMuted,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  targetModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  targetModalContent: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    padding: 24,
+    width: '85%',
+    maxWidth: 360,
+    alignItems: 'center',
+    gap: 12,
+  },
+  targetModalTitle: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  targetModalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    width: '100%',
+  },
+  targetModalRowLabel: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '500',
+    flex: 1,
+  },
+  targetModalRowInput: {
+    width: 70,
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  targetModalRowRec: {
+    color: COLORS.textMuted,
+    fontSize: 14,
+    fontWeight: '500',
+    width: 36,
+    textAlign: 'center',
+  },
+  targetModalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+    marginTop: 4,
+  },
+  targetModalResetBtn: {
+    flex: 1,
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  targetModalResetText: {
+    color: COLORS.textMuted,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  targetModalSaveBtn: {
+    flex: 1,
+    backgroundColor: COLORS.primary,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  targetModalSaveText: {
+    color: COLORS.textOnPrimary,
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 

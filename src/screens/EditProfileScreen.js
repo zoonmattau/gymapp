@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,8 +9,11 @@ import {
   TextInput,
   Alert,
   Platform,
+  Image,
+  ActivityIndicator,
 } from 'react-native';
-import { ArrowLeft, Save, User, Mail, FileText } from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { ArrowLeft, Save, User, Mail, FileText, Camera } from 'lucide-react-native';
 import { useColors } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigation } from '@react-navigation/native';
@@ -39,6 +42,79 @@ const EditProfileScreen = () => {
     setToastMessage(message);
     setToastType(type);
     setToastVisible(true);
+  };
+
+  // Avatar upload
+  const fileInputRef = useRef(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  const uploadAvatar = async (file) => {
+    if (!user?.id) return;
+    setUploadingAvatar(true);
+    try {
+      const ext = file.name?.split('.').pop() || 'jpg';
+      const filePath = `${user.id}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, { upsert: true, contentType: file.type || 'image/jpeg' });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      const publicUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('id', user.id);
+
+      if (updateError) throw updateError;
+
+      await refreshProfile();
+      showToast('Profile photo updated', 'success');
+    } catch (err) {
+      console.log('Avatar upload error:', err);
+      showToast('Failed to upload photo', 'error');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const handleAvatarPress = async () => {
+    if (Platform.OS === 'web') {
+      fileInputRef.current?.click();
+    } else {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Please allow access to your photos to upload an avatar.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
+      if (!result.canceled && result.assets?.[0]) {
+        const asset = result.assets[0];
+        const response = await fetch(asset.uri);
+        const blob = await response.blob();
+        const ext = asset.uri.split('.').pop() || 'jpg';
+        blob.name = `avatar.${ext}`;
+        await uploadAvatar(blob);
+      }
+    }
+  };
+
+  const handleWebFileSelect = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    await uploadAvatar(file);
+    event.target.value = '';
   };
 
   useEffect(() => {
@@ -90,6 +166,164 @@ const EditProfileScreen = () => {
     }
   };
 
+  const renderFormContent = () => (
+    <View style={styles.content}>
+      {/* Avatar */}
+      <View style={styles.avatarSection}>
+        <TouchableOpacity onPress={handleAvatarPress} activeOpacity={0.7} style={styles.avatarWrapper}>
+          <View style={styles.avatar}>
+            {uploadingAvatar ? (
+              <ActivityIndicator size="large" color={COLORS.primary} />
+            ) : profile?.avatar_url ? (
+              <Image source={{ uri: profile.avatar_url }} style={styles.avatarImage} />
+            ) : (
+              <User size={50} color={COLORS.primary} />
+            )}
+          </View>
+          <View style={styles.avatarPlusBadge}>
+            <Camera size={14} color={COLORS.textOnPrimary} />
+          </View>
+        </TouchableOpacity>
+        {Platform.OS === 'web' && (
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleWebFileSelect}
+            style={{ display: 'none' }}
+          />
+        )}
+        <TouchableOpacity style={styles.changePhotoBtn} onPress={handleAvatarPress}>
+          <Text style={styles.changePhotoText}>Change Photo</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Form */}
+      <View style={styles.formSection}>
+        <Text style={styles.sectionLabel}>PERSONAL INFO</Text>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>First Name</Text>
+          <View style={styles.inputContainer}>
+            <User size={18} color={COLORS.textMuted} />
+            <TextInput
+              style={styles.input}
+              value={firstName}
+              onChangeText={setFirstName}
+              placeholder="Enter first name"
+              placeholderTextColor={COLORS.textMuted}
+            />
+          </View>
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Last Name</Text>
+          <View style={styles.inputContainer}>
+            <User size={18} color={COLORS.textMuted} />
+            <TextInput
+              style={styles.input}
+              value={lastName}
+              onChangeText={setLastName}
+              placeholder="Enter last name"
+              placeholderTextColor={COLORS.textMuted}
+            />
+          </View>
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Username</Text>
+          <View style={styles.inputContainer}>
+            <Text style={styles.atSymbol}>@</Text>
+            <TextInput
+              style={styles.input}
+              value={username}
+              onChangeText={setUsername}
+              placeholder="Enter username"
+              placeholderTextColor={COLORS.textMuted}
+              autoCapitalize="none"
+            />
+          </View>
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Bio</Text>
+          <View style={[styles.inputContainer, styles.bioContainer]}>
+            <TextInput
+              style={[styles.input, styles.bioInput]}
+              value={bio}
+              onChangeText={setBio}
+              placeholder="Tell us about yourself..."
+              placeholderTextColor={COLORS.textMuted}
+              multiline
+              numberOfLines={3}
+            />
+          </View>
+          <Text style={styles.charCount}>{bio.length}/150</Text>
+        </View>
+      </View>
+
+      {/* Email (read-only) */}
+      <View style={styles.formSection}>
+        <Text style={styles.sectionLabel}>ACCOUNT</Text>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Email</Text>
+          <View style={[styles.inputContainer, styles.readOnlyContainer]}>
+            <Mail size={18} color={COLORS.textMuted} />
+            <Text style={styles.readOnlyText}>{user?.email || 'Not set'}</Text>
+          </View>
+          <Text style={styles.helperText}>Contact support to change your email</Text>
+        </View>
+      </View>
+
+      {/* Save Button */}
+      <TouchableOpacity
+        style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
+        onPress={handleSave}
+        disabled={saving}
+      >
+        <Text style={styles.saveBtnText}>
+          {saving ? 'Saving...' : 'Save Changes'}
+        </Text>
+      </TouchableOpacity>
+
+      <View style={{ height: 100 }} />
+    </View>
+  );
+
+  if (Platform.OS === 'web') {
+    return (
+      <SafeAreaView style={styles.container}>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <ArrowLeft size={24} color={COLORS.text} />
+          </TouchableOpacity>
+          <Text style={styles.title}>Edit Profile</Text>
+          <TouchableOpacity
+            style={[styles.saveButton, saving && styles.saveButtonDisabled]}
+            onPress={handleSave}
+            disabled={saving}
+          >
+            <Save size={20} color={COLORS.textOnPrimary} />
+          </TouchableOpacity>
+        </View>
+
+        <div style={{ position: 'absolute', top: 60, left: 0, right: 0, bottom: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
+          {renderFormContent()}
+        </div>
+
+        {/* Toast */}
+        <Toast
+          visible={toastVisible}
+          message={toastMessage}
+          type={toastType}
+          onDismiss={() => setToastVisible(false)}
+        />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -107,107 +341,8 @@ const EditProfileScreen = () => {
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Avatar */}
-        <View style={styles.avatarSection}>
-          <View style={styles.avatar}>
-            <User size={50} color={COLORS.primary} />
-          </View>
-          <TouchableOpacity style={styles.changePhotoBtn}>
-            <Text style={styles.changePhotoText}>Change Photo</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Form */}
-        <View style={styles.formSection}>
-          <Text style={styles.sectionLabel}>PERSONAL INFO</Text>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>First Name</Text>
-            <View style={styles.inputContainer}>
-              <User size={18} color={COLORS.textMuted} />
-              <TextInput
-                style={styles.input}
-                value={firstName}
-                onChangeText={setFirstName}
-                placeholder="Enter first name"
-                placeholderTextColor={COLORS.textMuted}
-              />
-            </View>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Last Name</Text>
-            <View style={styles.inputContainer}>
-              <User size={18} color={COLORS.textMuted} />
-              <TextInput
-                style={styles.input}
-                value={lastName}
-                onChangeText={setLastName}
-                placeholder="Enter last name"
-                placeholderTextColor={COLORS.textMuted}
-              />
-            </View>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Username</Text>
-            <View style={styles.inputContainer}>
-              <Text style={styles.atSymbol}>@</Text>
-              <TextInput
-                style={styles.input}
-                value={username}
-                onChangeText={setUsername}
-                placeholder="Enter username"
-                placeholderTextColor={COLORS.textMuted}
-                autoCapitalize="none"
-              />
-            </View>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Bio</Text>
-            <View style={[styles.inputContainer, styles.bioContainer]}>
-              <TextInput
-                style={[styles.input, styles.bioInput]}
-                value={bio}
-                onChangeText={setBio}
-                placeholder="Tell us about yourself..."
-                placeholderTextColor={COLORS.textMuted}
-                multiline
-                numberOfLines={3}
-              />
-            </View>
-            <Text style={styles.charCount}>{bio.length}/150</Text>
-          </View>
-        </View>
-
-        {/* Email (read-only) */}
-        <View style={styles.formSection}>
-          <Text style={styles.sectionLabel}>ACCOUNT</Text>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Email</Text>
-            <View style={[styles.inputContainer, styles.readOnlyContainer]}>
-              <Mail size={18} color={COLORS.textMuted} />
-              <Text style={styles.readOnlyText}>{user?.email || 'Not set'}</Text>
-            </View>
-            <Text style={styles.helperText}>Contact support to change your email</Text>
-          </View>
-        </View>
-
-        {/* Save Button */}
-        <TouchableOpacity
-          style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
-          onPress={handleSave}
-          disabled={saving}
-        >
-          <Text style={styles.saveBtnText}>
-            {saving ? 'Saving...' : 'Save Changes'}
-          </Text>
-        </TouchableOpacity>
-
-        <View style={{ height: 100 }} />
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        {renderFormContent()}
       </ScrollView>
 
       {/* Toast */}
@@ -251,13 +386,18 @@ const getStyles = (COLORS) => StyleSheet.create({
   saveButtonDisabled: {
     opacity: 0.5,
   },
-  content: {
+  scrollView: {
     flex: 1,
+  },
+  content: {
     paddingHorizontal: 16,
   },
   avatarSection: {
     alignItems: 'center',
     paddingVertical: 24,
+  },
+  avatarWrapper: {
+    position: 'relative',
   },
   avatar: {
     width: 100,
@@ -268,6 +408,25 @@ const getStyles = (COLORS) => StyleSheet.create({
     borderColor: COLORS.surfaceLight,
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+  },
+  avatarPlusBadge: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.background,
   },
   changePhotoBtn: {
     marginTop: 12,

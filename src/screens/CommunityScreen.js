@@ -11,6 +11,7 @@ import {
   Alert,
   Platform,
   Modal,
+  Image,
 } from 'react-native';
 import {
   Users,
@@ -32,6 +33,7 @@ import {
   X,
   Check,
 } from 'lucide-react-native';
+import { useNavigation } from '@react-navigation/native';
 import { useColors } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { socialService } from '../services/socialService';
@@ -51,6 +53,7 @@ const TABS = [
 ];
 
 const CommunityScreen = ({ route }) => {
+  const navigation = useNavigation();
   const COLORS = useColors();
   const styles = getStyles(COLORS);
   const { user, profile } = useAuth();
@@ -211,7 +214,7 @@ const CommunityScreen = ({ route }) => {
       // Load feed and suggested users in parallel
       const [feedResult, suggestedResult, likesResult] = await Promise.all([
         socialService.getActivityFeed(user.id, 30),
-        socialService.getSuggestedUsers(user.id, 5),
+        socialService.getSuggestedUsers(user.id, 15),
         socialService.getUserLikes(user.id),
       ]);
 
@@ -282,7 +285,7 @@ const CommunityScreen = ({ route }) => {
 
   const loadSuggestedUsers = async () => {
     try {
-      const { data } = await socialService.getSuggestedUsers(user.id, 10);
+      const { data } = await socialService.getSuggestedUsers(user.id, 30);
       if (data) {
         setSuggestedUsers(data);
       }
@@ -575,11 +578,15 @@ const CommunityScreen = ({ route }) => {
             contentContainerStyle={styles.suggestedScrollContent}
           >
             {suggestedUsers.map((suggestedUser) => (
-              <View key={suggestedUser.id} style={styles.suggestedCard}>
+              <TouchableOpacity key={suggestedUser.id} style={styles.suggestedCard} onPress={() => navigation.navigate('PublicProfile', { userId: suggestedUser.id, username: suggestedUser.username, name: suggestedUser.name })} activeOpacity={0.7}>
                 <View style={styles.suggestedAvatar}>
-                  <Text style={styles.suggestedAvatarText}>
-                    {suggestedUser.username?.[0]?.toUpperCase() || 'U'}
-                  </Text>
+                  {suggestedUser.avatar ? (
+                    <Image source={{ uri: suggestedUser.avatar }} style={styles.suggestedAvatarImage} />
+                  ) : (
+                    <Text style={styles.suggestedAvatarText}>
+                      {suggestedUser.username?.[0]?.toUpperCase() || 'U'}
+                    </Text>
+                  )}
                 </View>
                 <Text style={styles.suggestedName} numberOfLines={1}>
                   {suggestedUser.name || suggestedUser.username}
@@ -604,7 +611,7 @@ const CommunityScreen = ({ route }) => {
                     {followingIds.has(suggestedUser.id) ? 'Following' : pendingIds.has(suggestedUser.id) ? 'Requested' : 'Follow'}
                   </Text>
                 </TouchableOpacity>
-              </View>
+              </TouchableOpacity>
             ))}
           </ScrollView>
         ) : (
@@ -638,14 +645,18 @@ const CommunityScreen = ({ route }) => {
           <View key={activity.id} style={styles.feedCard}>
             {/* Header with avatar and username */}
             <View style={styles.feedHeader}>
-              <TouchableOpacity style={styles.feedUserRow}>
+              <TouchableOpacity style={styles.feedUserRow} onPress={() => navigation.navigate('PublicProfile', { userId: activity.userId, username: activity.profile?.username })}>
                 <View style={[
                   styles.feedAvatar,
                   activity.type === 'pr' && styles.feedAvatarPR,
                 ]}>
-                  <Text style={styles.feedAvatarText}>
-                    {activity.profile?.username?.[0]?.toUpperCase() || 'U'}
-                  </Text>
+                  {activity.profile?.avatar_url ? (
+                    <Image source={{ uri: activity.profile.avatar_url }} style={styles.feedAvatarImage} />
+                  ) : (
+                    <Text style={styles.feedAvatarText}>
+                      {activity.profile?.username?.[0]?.toUpperCase() || 'U'}
+                    </Text>
+                  )}
                 </View>
                 <View style={styles.feedUserInfo}>
                   <Text style={styles.feedUsername}>
@@ -860,9 +871,13 @@ const CommunityScreen = ({ route }) => {
             return (
               <View key={request.id} style={styles.userCard}>
                 <View style={styles.userAvatar}>
-                  <Text style={styles.userAvatarText}>
-                    {reqProfile?.username?.[0]?.toUpperCase() || 'U'}
-                  </Text>
+                  {reqProfile?.avatar_url ? (
+                    <Image source={{ uri: reqProfile.avatar_url }} style={styles.userAvatarImage} />
+                  ) : (
+                    <Text style={styles.userAvatarText}>
+                      {reqProfile?.username?.[0]?.toUpperCase() || 'U'}
+                    </Text>
+                  )}
                 </View>
                 <View style={styles.userInfo}>
                   <Text style={styles.userName}>@{reqProfile?.username || 'user'}</Text>
@@ -916,17 +931,23 @@ const CommunityScreen = ({ route }) => {
 
           return (
             <View key={item.id} style={styles.userCard}>
-              <View style={styles.userAvatar}>
-                <Text style={styles.userAvatarText}>
-                  {userProfile?.username?.[0]?.toUpperCase() || 'U'}
-                </Text>
-              </View>
-              <View style={styles.userInfo}>
-                <Text style={styles.userName}>@{userProfile?.username || 'user'}</Text>
-                {userProfile?.bio && (
-                  <Text style={styles.userBio} numberOfLines={1}>{userProfile.bio}</Text>
-                )}
-              </View>
+              <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }} onPress={() => navigation.navigate('PublicProfile', { userId, username: userProfile?.username })}>
+                <View style={styles.userAvatar}>
+                  {userProfile?.avatar_url ? (
+                    <Image source={{ uri: userProfile.avatar_url }} style={styles.userAvatarImage} />
+                  ) : (
+                    <Text style={styles.userAvatarText}>
+                      {userProfile?.username?.[0]?.toUpperCase() || 'U'}
+                    </Text>
+                  )}
+                </View>
+                <View style={styles.userInfo}>
+                  <Text style={styles.userName}>@{userProfile?.username || 'user'}</Text>
+                  {userProfile?.bio && (
+                    <Text style={styles.userBio} numberOfLines={1}>{userProfile.bio}</Text>
+                  )}
+                </View>
+              </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.followButton, (isFollowingUser || isPendingUser) && styles.followingButton]}
                 onPress={() => handleFollowUser(userId)}
@@ -977,17 +998,23 @@ const CommunityScreen = ({ route }) => {
               const isPendingUser = pendingIds.has(userProfile.id);
               return (
                 <View key={userProfile.id} style={styles.userCard}>
-                  <View style={styles.userAvatar}>
-                    <Text style={styles.userAvatarText}>
-                      {userProfile.username?.[0]?.toUpperCase() || 'U'}
-                    </Text>
-                  </View>
-                  <View style={styles.userInfo}>
-                    <Text style={styles.userName}>@{userProfile.username || 'user'}</Text>
-                    {userProfile.bio && (
-                      <Text style={styles.userBio} numberOfLines={1}>{userProfile.bio}</Text>
-                    )}
-                  </View>
+                  <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }} onPress={() => navigation.navigate('PublicProfile', { userId: userProfile.id, username: userProfile.username })}>
+                    <View style={styles.userAvatar}>
+                      {userProfile.avatar_url ? (
+                        <Image source={{ uri: userProfile.avatar_url }} style={styles.userAvatarImage} />
+                      ) : (
+                        <Text style={styles.userAvatarText}>
+                          {userProfile.username?.[0]?.toUpperCase() || 'U'}
+                        </Text>
+                      )}
+                    </View>
+                    <View style={styles.userInfo}>
+                      <Text style={styles.userName}>@{userProfile.username || 'user'}</Text>
+                      {userProfile.bio && (
+                        <Text style={styles.userBio} numberOfLines={1}>{userProfile.bio}</Text>
+                      )}
+                    </View>
+                  </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.followButton, (isFollowingUser || isPendingUser) && styles.followingButton]}
                     onPress={() => handleFollowUser(userProfile.id)}
@@ -1031,17 +1058,23 @@ const CommunityScreen = ({ route }) => {
 
             return (
               <View key={item.id} style={styles.userCard}>
-                <View style={styles.userAvatar}>
-                  <Text style={styles.userAvatarText}>
-                    {userProfile?.username?.[0]?.toUpperCase() || 'U'}
-                  </Text>
-                </View>
-                <View style={styles.userInfo}>
-                  <Text style={styles.userName}>@{userProfile?.username || 'user'}</Text>
-                  {userProfile?.bio && (
-                    <Text style={styles.userBio} numberOfLines={1}>{userProfile.bio}</Text>
-                  )}
-                </View>
+                <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }} onPress={() => navigation.navigate('PublicProfile', { userId, username: userProfile?.username })}>
+                  <View style={styles.userAvatar}>
+                    {userProfile?.avatar_url ? (
+                      <Image source={{ uri: userProfile.avatar_url }} style={styles.userAvatarImage} />
+                    ) : (
+                      <Text style={styles.userAvatarText}>
+                        {userProfile?.username?.[0]?.toUpperCase() || 'U'}
+                      </Text>
+                    )}
+                  </View>
+                  <View style={styles.userInfo}>
+                    <Text style={styles.userName}>@{userProfile?.username || 'user'}</Text>
+                    {userProfile?.bio && (
+                      <Text style={styles.userBio} numberOfLines={1}>{userProfile.bio}</Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.followButton, isFollowingUser && styles.followingButton]}
                   onPress={() => handleFollowUser(userId)}
@@ -1081,17 +1114,23 @@ const CommunityScreen = ({ route }) => {
             const isPendingUser = pendingIds.has(userProfile.id);
             return (
               <View key={userProfile.id} style={styles.userCard}>
-                <View style={styles.userAvatar}>
-                  <Text style={styles.userAvatarText}>
-                    {userProfile.username?.[0]?.toUpperCase() || 'U'}
-                  </Text>
-                </View>
-                <View style={styles.userInfo}>
-                  <Text style={styles.userName}>@{userProfile.username || 'user'}</Text>
-                  {userProfile.bio && (
-                    <Text style={styles.userBio} numberOfLines={1}>{userProfile.bio}</Text>
-                  )}
-                </View>
+                <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }} onPress={() => navigation.navigate('PublicProfile', { userId: userProfile.id, username: userProfile.username })}>
+                  <View style={styles.userAvatar}>
+                    {userProfile.avatar_url ? (
+                      <Image source={{ uri: userProfile.avatar_url }} style={styles.userAvatarImage} />
+                    ) : (
+                      <Text style={styles.userAvatarText}>
+                        {userProfile.username?.[0]?.toUpperCase() || 'U'}
+                      </Text>
+                    )}
+                  </View>
+                  <View style={styles.userInfo}>
+                    <Text style={styles.userName}>@{userProfile.username || 'user'}</Text>
+                    {userProfile.bio && (
+                      <Text style={styles.userBio} numberOfLines={1}>{userProfile.bio}</Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.followButton, (isFollowingUser || isPendingUser) && styles.followingButton]}
                   onPress={() => handleFollowUser(userProfile.id)}
@@ -1246,7 +1285,7 @@ const CommunityScreen = ({ route }) => {
         }
       >
         <View style={styles.header}>
-          <Text style={styles.title}>Community 👥</Text>
+          <Text style={styles.title}>Community</Text>
         </View>
 
         <ScrollView
@@ -1504,10 +1543,10 @@ const CommunityScreen = ({ route }) => {
               <Text style={styles.createChallengeSectionTitle}>Challenge Type</Text>
               <View style={styles.challengeTypeGrid}>
                 {[
-                  { id: 'workouts', label: 'Most Workouts', icon: '🏋️', desc: 'Complete the most workouts' },
-                  { id: 'streak', label: 'Longest Streak', icon: '🔥', desc: 'Maintain the longest streak' },
-                  { id: 'volume', label: 'Total Volume', icon: '💪', desc: 'Lift the most total weight' },
-                  { id: 'reps', label: 'Total Reps', icon: '🔄', desc: 'Complete the most reps' },
+                  { id: 'workouts', label: 'Most Workouts', icon: 'W', desc: 'Complete the most workouts' },
+                  { id: 'streak', label: 'Longest Streak', icon: 'S', desc: 'Maintain the longest streak' },
+                  { id: 'volume', label: 'Total Volume', icon: 'V', desc: 'Lift the most total weight' },
+                  { id: 'reps', label: 'Total Reps', icon: 'R', desc: 'Complete the most reps' },
                 ].map((type) => (
                   <TouchableOpacity
                     key={type.id}
@@ -1582,9 +1621,13 @@ const CommunityScreen = ({ route }) => {
                       }}
                     >
                       <View style={styles.inviteFriendAvatar}>
-                        <Text style={styles.inviteFriendAvatarText}>
-                          {friend?.username?.[0]?.toUpperCase() || 'U'}
-                        </Text>
+                        {friend?.avatar_url ? (
+                          <Image source={{ uri: friend.avatar_url }} style={styles.inviteFriendAvatarImage} />
+                        ) : (
+                          <Text style={styles.inviteFriendAvatarText}>
+                            {friend?.username?.[0]?.toUpperCase() || 'U'}
+                          </Text>
+                        )}
                       </View>
                       <View style={styles.inviteFriendInfo}>
                         <Text style={styles.inviteFriendName}>@{friend?.username || 'user'}</Text>
@@ -1873,10 +1916,16 @@ const getStyles = (COLORS) => StyleSheet.create({
     alignItems: 'center',
     width: 130,
   },
+  suggestedAvatarImage: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+  },
   suggestedAvatar: {
     width: 56,
     height: 56,
     borderRadius: 28,
+    overflow: 'hidden',
     backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
@@ -1951,10 +2000,16 @@ const getStyles = (COLORS) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  feedAvatarImage: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+  },
   feedAvatar: {
     width: 44,
     height: 44,
     borderRadius: 22,
+    overflow: 'hidden',
     backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
@@ -2296,10 +2351,16 @@ const getStyles = (COLORS) => StyleSheet.create({
     padding: 14,
     marginBottom: 8,
   },
+  userAvatarImage: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+  },
   userAvatar: {
     width: 44,
     height: 44,
     borderRadius: 22,
+    overflow: 'hidden',
     backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
@@ -2727,10 +2788,16 @@ const getStyles = (COLORS) => StyleSheet.create({
     backgroundColor: COLORS.primary + '20',
     borderColor: COLORS.primary,
   },
+  inviteFriendAvatarImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
   inviteFriendAvatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
+    overflow: 'hidden',
     backgroundColor: COLORS.surfaceLight,
     justifyContent: 'center',
     alignItems: 'center',

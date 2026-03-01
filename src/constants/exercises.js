@@ -875,6 +875,71 @@ export const EXERCISES = [
       'Keeps both arms working independently for balance.',
     ],
   },
+  {
+    name: 'Dumbbell Pullover (Back)',
+    muscleGroup: 'Back',
+    equipment: 'Dumbbells',
+    type: 'Compound',
+    description: 'Back-focused pullover emphasising the lats through a deep stretch and pull. Unlike the chest version, focus on driving with the lats.',
+    tips: [
+      'Lie across a bench with only your upper back supported. Let your hips drop slightly.',
+      'Lower the dumbbell behind your head with a slight elbow bend — feel the lat stretch.',
+      'Pull the dumbbell back over using your lats, not your chest. Think "pull with your elbows."',
+      'Keep the arc wide and controlled — this is about the lat stretch, not pressing.',
+    ],
+  },
+  {
+    name: 'Machine Pullover',
+    muscleGroup: 'Back',
+    equipment: 'Machine',
+    type: 'Isolation',
+    description: 'Lat pullover on a dedicated machine. Constant tension through the full range isolates the lats.',
+    tips: [
+      'Adjust the seat so the pivot aligns with your shoulder joints.',
+      'Drive the bar down with your elbows, keeping arms relatively straight.',
+      'Get a full stretch overhead — that\'s where the lats are loaded most.',
+      'Great for building the mind-muscle connection with stubborn lats.',
+    ],
+  },
+  {
+    name: 'Yates Row',
+    muscleGroup: 'Back',
+    equipment: 'Barbell',
+    type: 'Compound',
+    description: 'Underhand barbell row with a more upright torso (around 30°). Named after Dorian Yates.',
+    tips: [
+      'Use an underhand (supinated) grip, roughly shoulder-width.',
+      'Torso is more upright than a standard barbell row — about 30° from vertical.',
+      'Pull to your lower abs and squeeze your lats hard at the top.',
+      'The more upright angle allows heavier loading and emphasises the lower lats.',
+    ],
+  },
+  {
+    name: 'Smith Machine Row',
+    muscleGroup: 'Back',
+    equipment: 'Smith Machine',
+    type: 'Compound',
+    description: 'Barbell row performed on the Smith machine. The fixed path lets you focus on the back contraction.',
+    tips: [
+      'Hinge forward and row the bar to your belly button or lower chest.',
+      'The fixed bar path removes stabiliser demand — focus on squeezing the back.',
+      'Great for high-rep burnout sets after heavy free-weight rows.',
+      'Try both overhand and underhand grips for variety.',
+    ],
+  },
+  {
+    name: 'Neutral Grip Lat Pulldown',
+    muscleGroup: 'Back',
+    equipment: 'Cable',
+    type: 'Compound',
+    description: 'Lat pulldown using a wide neutral-grip handle. Shoulder-friendly and targets the lats with reduced bicep involvement.',
+    tips: [
+      'Use a long neutral-grip handle on the lat pulldown.',
+      'Pull to your upper chest, driving elbows down and back.',
+      'The neutral grip is easier on the shoulders than pronated.',
+      'Get a full stretch at the top — let your lats extend completely each rep.',
+    ],
+  },
 
   // ─── SHOULDERS ────────────────────────────────────────────────────────────
   {
@@ -1246,6 +1311,45 @@ export const EXERCISES = [
       'The cable provides tension at all points — better than dumbbells for rear delts.',
     ],
   },
+  {
+    name: 'Barbell Shoulder Press (Seated)',
+    muscleGroup: 'Shoulders',
+    equipment: 'Barbell',
+    type: 'Compound',
+    description: 'Seated barbell overhead press. The back support allows heavier loading and stricter form than standing.',
+    tips: [
+      'Set an adjustable bench to 85–90° in a squat rack or Smith machine.',
+      'Unrack the bar at chin height and press straight up to lockout.',
+      'Keep your back firmly against the pad — don\'t arch excessively.',
+      'Allows heavier weight than standing OHP since leg drive and core stability are less of a factor.',
+    ],
+  },
+  {
+    name: 'Behind the Neck Press',
+    muscleGroup: 'Shoulders',
+    equipment: 'Barbell',
+    type: 'Compound',
+    description: 'Overhead press lowering the bar behind the head. Greater medial delt involvement but requires good shoulder mobility.',
+    tips: [
+      'Only attempt this if you have healthy shoulders and good overhead mobility.',
+      'Lower the bar to the base of your neck — don\'t go too deep.',
+      'Use lighter weight than regular OHP and control the movement throughout.',
+      'Stop immediately if you feel any pinching or sharp pain in your shoulders.',
+    ],
+  },
+  {
+    name: 'Smith Machine Shoulder Press',
+    muscleGroup: 'Shoulders',
+    equipment: 'Smith Machine',
+    type: 'Compound',
+    description: 'Seated overhead press on the Smith machine. Fixed path allows you to push heavier and train to failure safely.',
+    tips: [
+      'Set a bench at about 85° inside the Smith machine.',
+      'Lower the bar to chin level and press straight up to lockout.',
+      'The fixed path removes stabiliser demand — focus on pushing hard.',
+      'Great for drop sets and training to failure without a spotter.',
+    ],
+  },
 
   // ─── BICEPS ───────────────────────────────────────────────────────────────
   {
@@ -1549,6 +1653,32 @@ export const EXERCISES = [
       'Final 7 reps: full range of motion. Burns like nothing else.',
     ],
   },
+  {
+    name: 'Cable Concentration Curl',
+    muscleGroup: 'Biceps',
+    equipment: 'Cable',
+    type: 'Isolation',
+    description: 'Single-arm curl using a low cable while in a concentration curl position. Constant tension for peak contraction.',
+    tips: [
+      'Set a cable at the lowest position with a single handle.',
+      'Brace your elbow against your inner thigh like a standard concentration curl.',
+      'The cable provides tension through the full range — even at the top.',
+      'Squeeze hard at the peak for 1–2 seconds before lowering.',
+    ],
+  },
+  {
+    name: 'Chin Up (Close Grip)',
+    muscleGroup: 'Biceps',
+    equipment: 'Bodyweight',
+    type: 'Compound',
+    description: 'Chin up with hands very close together. Shifts more emphasis onto the biceps and inner back.',
+    tips: [
+      'Grip the bar with hands 4–6 inches apart, palms facing you.',
+      'Pull your chin above the bar, driving through your biceps.',
+      'The close grip increases bicep recruitment compared to standard chin ups.',
+      'Add weight with a dip belt once bodyweight becomes manageable.',
+    ],
+  },
 
   // ─── TRICEPS ──────────────────────────────────────────────────────────────
   {
@@ -1824,6 +1954,32 @@ export const EXERCISES = [
       'Push the handles down by extending your elbows.',
       'Keep your torso upright to emphasise triceps over chest.',
       'Great for drop sets and training to failure.',
+    ],
+  },
+  {
+    name: 'Incline Dumbbell Tricep Extension',
+    muscleGroup: 'Triceps',
+    equipment: 'Dumbbells',
+    type: 'Isolation',
+    description: 'Lying on an incline bench, extend dumbbells overhead. The incline increases the stretch on the long head.',
+    tips: [
+      'Set an incline bench to 30–45°. Hold dumbbells above your chest with arms extended.',
+      'Lower the dumbbells behind your head by bending at the elbows.',
+      'The incline angle puts the long head under a greater stretch than flat.',
+      'Keep elbows close to your ears — don\'t let them flare out wide.',
+    ],
+  },
+  {
+    name: 'EZ Bar Skullcrusher',
+    muscleGroup: 'Triceps',
+    equipment: 'Barbell',
+    type: 'Isolation',
+    description: 'Skull crusher using an EZ curl bar. The angled grip reduces wrist strain while targeting the triceps.',
+    tips: [
+      'Lie flat on a bench. Lower the EZ bar toward your forehead or slightly behind your head.',
+      'The angled grip is easier on the wrists than a straight barbell.',
+      'Keep elbows pointing at the ceiling — don\'t let them flare wide.',
+      'Control the descent over 2–3 seconds for maximum tricep time under tension.',
     ],
   },
 
@@ -2211,6 +2367,71 @@ export const EXERCISES = [
       'Higher box = more glute. Lower box = more quad.',
     ],
   },
+  {
+    name: 'Dumbbell Squat',
+    muscleGroup: 'Quads',
+    equipment: 'Dumbbells',
+    type: 'Compound',
+    description: 'Squat holding dumbbells at your sides. Accessible alternative to barbell squats for home or beginners.',
+    tips: [
+      'Hold dumbbells at your sides with a neutral grip.',
+      'Squat down with the same mechanics as a barbell squat — chest up, knees out.',
+      'Great option when you don\'t have access to a barbell or squat rack.',
+      'Grip strength may limit the weight — use straps for heavier loads.',
+    ],
+  },
+  {
+    name: 'Sissy Squat Machine',
+    muscleGroup: 'Quads',
+    equipment: 'Machine',
+    type: 'Isolation',
+    description: 'Machine-assisted sissy squat. Locks your lower legs in place for extreme quad isolation with stability.',
+    tips: [
+      'Lock your calves behind the pads. Lean back as your knees travel forward.',
+      'The machine provides stability so you can focus entirely on the quad stretch.',
+      'Go deep for maximum quad stretch — the bottom position is where the magic happens.',
+      'Hold a plate at your chest for added resistance once bodyweight is easy.',
+    ],
+  },
+  {
+    name: 'Smith Machine Lunges',
+    muscleGroup: 'Quads',
+    equipment: 'Smith Machine',
+    type: 'Compound',
+    description: 'Lunges performed under the Smith machine bar. The fixed path provides stability for heavier loading.',
+    tips: [
+      'Position the bar on your upper back. Step one foot forward, one back.',
+      'Lower your rear knee toward the floor while keeping your front shin vertical.',
+      'The fixed bar path removes balance from the equation — focus on the legs.',
+      'Great for training to failure on single-leg movements safely.',
+    ],
+  },
+  {
+    name: 'Pistol Squat',
+    muscleGroup: 'Quads',
+    equipment: 'Bodyweight',
+    type: 'Compound',
+    description: 'Single-leg squat with the non-working leg extended in front. Demands strength, balance, and mobility.',
+    tips: [
+      'Stand on one leg, extend the other leg straight out in front of you.',
+      'Squat all the way down on one leg while keeping the other leg off the floor.',
+      'Hold your arms out front for counterbalance.',
+      'Start with assisted versions (holding a post or using a TRX) and progress to freestanding.',
+    ],
+  },
+  {
+    name: 'Jump Squat',
+    muscleGroup: 'Quads',
+    equipment: 'Bodyweight',
+    type: 'Compound',
+    description: 'Explosive squat jumping off the ground at the top. Builds lower body power and athleticism.',
+    tips: [
+      'Squat down to parallel, then explode upward as high as possible.',
+      'Land softly with bent knees to absorb the impact — don\'t land stiff-legged.',
+      'Use bodyweight only or hold light dumbbells. This is about speed, not load.',
+      'Great for developing explosive power and as a conditioning finisher.',
+    ],
+  },
 
   // ─── HAMSTRINGS ───────────────────────────────────────────────────────────
   {
@@ -2461,6 +2682,19 @@ export const EXERCISES = [
       'Curl your heel toward your glute against the band resistance.',
       'Control the eccentric — don\'t let the band snap your leg back.',
       'Great warm-up or finisher for hamstrings.',
+    ],
+  },
+  {
+    name: 'B-Stance RDL',
+    muscleGroup: 'Hamstrings',
+    equipment: 'Dumbbells',
+    type: 'Compound',
+    description: 'Romanian deadlift with one foot staggered behind for a semi-unilateral emphasis. Bridges the gap between bilateral and single-leg RDLs.',
+    tips: [
+      'Stagger one foot slightly behind — the heel of the back foot lifts, toes stay down for balance.',
+      'About 80% of the load goes through the front leg, 20% through the back.',
+      'Same hip hinge cue as standard RDL — push hips back, feel the hamstring stretch.',
+      'Easier to balance than a true single-leg RDL while still addressing imbalances.',
     ],
   },
 
@@ -2755,6 +2989,45 @@ export const EXERCISES = [
       'Squeeze the glute hard at full extension.',
       'Don\'t arch your lower back — the movement is at the hip.',
       'Great for targeting each glute independently.',
+    ],
+  },
+  {
+    name: 'Cable Hip Extension',
+    muscleGroup: 'Glutes',
+    equipment: 'Cable',
+    type: 'Isolation',
+    description: 'Standing hip extension using a cable ankle strap. Isolates the glutes through a hip hinge pattern.',
+    tips: [
+      'Attach an ankle strap to a low cable. Face the machine and step back slightly.',
+      'Drive your working leg straight back by extending at the hip — keep your back flat.',
+      'Squeeze the glute hard at full extension and lower with control.',
+      'Don\'t swing or use momentum — slow, controlled reps for maximum glute activation.',
+    ],
+  },
+  {
+    name: 'Sumo Squat',
+    muscleGroup: 'Glutes',
+    equipment: 'Barbell',
+    type: 'Compound',
+    description: 'Wide stance squat with toes pointed out. Targets the glutes, adductors, and inner thighs more than standard squats.',
+    tips: [
+      'Take a very wide stance (2x shoulder-width) with toes pointed out 45° or more.',
+      'Squat straight down, keeping your torso upright.',
+      'Push your knees out over your toes throughout the movement.',
+      'The wide stance shifts emphasis from quads to glutes and adductors.',
+    ],
+  },
+  {
+    name: 'Goblet Sumo Squat',
+    muscleGroup: 'Glutes',
+    equipment: 'Dumbbells',
+    type: 'Compound',
+    description: 'Wide stance goblet squat holding a dumbbell at your chest. Accessible glute and adductor builder.',
+    tips: [
+      'Hold a dumbbell vertically at your chest. Take a wide stance with toes out.',
+      'Squat down until the dumbbell nearly touches the floor between your legs.',
+      'The counterbalance of the dumbbell helps you stay upright in the deep position.',
+      'Great for beginners or as a warm-up before heavier barbell glute work.',
     ],
   },
 
@@ -3165,6 +3438,45 @@ export const EXERCISES = [
       'Great for athletes who need rotational power.',
     ],
   },
+  {
+    name: 'Weighted Plank',
+    muscleGroup: 'Core',
+    equipment: 'Bodyweight',
+    type: 'Isolation',
+    description: 'Plank with a weight plate on your back for added resistance. Progresses the standard plank.',
+    tips: [
+      'Set up in a standard plank position. Have a partner place a plate on your upper back.',
+      'Maintain perfect form — don\'t let your hips sag or pike under the load.',
+      'Start with a 10–20 lb plate and progress from there.',
+      'Hold for 30–60 seconds — the added weight makes shorter holds effective.',
+    ],
+  },
+  {
+    name: 'Standing Cable Crunch',
+    muscleGroup: 'Core',
+    equipment: 'Cable',
+    type: 'Isolation',
+    description: 'Cable crunch performed standing upright. Targets the abs through spinal flexion with constant tension.',
+    tips: [
+      'Set a rope attachment at the high cable. Hold it behind your head.',
+      'Standing tall, crunch your rib cage down toward your hips.',
+      'Don\'t bend at the hips — the movement is spinal flexion, not a bow.',
+      'Great alternative if kneeling cable crunches bother your knees.',
+    ],
+  },
+  {
+    name: 'Barbell Rollout',
+    muscleGroup: 'Core',
+    equipment: 'Barbell',
+    type: 'Compound',
+    description: 'Ab rollout using a barbell with round plates. Same anti-extension challenge as an ab wheel with heavier loading.',
+    tips: [
+      'Load small round plates on a barbell. Kneel and grip the bar at shoulder width.',
+      'Roll the barbell forward by extending your arms and hips while keeping your core braced.',
+      'Only go as far as you can without your lower back arching — pull back with your abs.',
+      'Wider than an ab wheel, which some find more stable and allows heavier progression.',
+    ],
+  },
 
   // ─── CALVES ───────────────────────────────────────────────────────────────
   {
@@ -3441,6 +3753,19 @@ export const EXERCISES = [
       'Squeeze your shoulder blades together and slightly up.',
       'This isolates the mid and lower traps without upper trap dominance.',
       'Great for posture and scapular control.',
+    ],
+  },
+  {
+    name: 'Snatch Grip High Pull',
+    muscleGroup: 'Traps',
+    equipment: 'Barbell',
+    type: 'Compound',
+    description: 'Explosive pull from the hang or floor with a wide snatch grip. Loads the traps and upper back heavily.',
+    tips: [
+      'Take a very wide (snatch-width) grip on the barbell.',
+      'Explosively pull the bar from your hips to chest height, driving your elbows high and wide.',
+      'This is a power movement — use controlled aggression, not sloppy form.',
+      'Great for building traps, rear delts, and overall pulling power.',
     ],
   },
 
