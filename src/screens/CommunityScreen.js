@@ -45,6 +45,7 @@ import { supabase } from '../lib/supabase';
 
 const TABS = [
   { id: 'feed', label: 'Feed' },
+  { id: 'myprofile', label: 'My Profile' },
   { id: 'discover', label: 'Discover' },
   { id: 'workouts', label: 'Workouts' },
   { id: 'following', label: 'Following' },
@@ -89,6 +90,12 @@ const CommunityScreen = ({ route }) => {
   // Following search
   const [followingSearchQuery, setFollowingSearchQuery] = useState('');
   const [followingSearchResults, setFollowingSearchResults] = useState([]);
+
+  // My Profile
+  const [myActivity, setMyActivity] = useState([]);
+  const [myActivityLoading, setMyActivityLoading] = useState(false);
+  const [myFollowerCount, setMyFollowerCount] = useState(0);
+  const [myFollowingCount, setMyFollowingCount] = useState(0);
 
   // Challenges
   const [challenges, setChallenges] = useState([]);
@@ -185,6 +192,9 @@ const CommunityScreen = ({ route }) => {
       case 'feed':
         loadActivityFeed();
         break;
+      case 'myprofile':
+        loadMyActivity();
+        break;
       case 'workouts':
         loadCommunityWorkouts();
         break;
@@ -233,6 +243,24 @@ const CommunityScreen = ({ route }) => {
       }
     } catch (error) {
       console.log('Error loading feed:', error);
+    }
+  };
+
+  const loadMyActivity = async () => {
+    setMyActivityLoading(true);
+    try {
+      const [activityResult, followersCountResult, followingResult] = await Promise.all([
+        socialService.getUserActivityFeed(user.id, 30),
+        socialService.getFollowersCount(user.id),
+        socialService.getFollowing(user.id),
+      ]);
+      setMyActivity(activityResult.data || []);
+      setMyFollowerCount(followersCountResult.count || 0);
+      setMyFollowingCount(followingResult.data?.length || 0);
+    } catch (error) {
+      console.log('Error loading my activity:', error);
+    } finally {
+      setMyActivityLoading(false);
     }
   };
 
@@ -559,6 +587,120 @@ const CommunityScreen = ({ route }) => {
     if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
     return date.toLocaleDateString();
   };
+
+  const renderMyProfile = () => (
+    <>
+      {/* Profile Header */}
+      <View style={styles.myProfileHeader}>
+        <View style={styles.myProfileAvatarWrap}>
+          {profile?.avatar_url ? (
+            <Image source={{ uri: profile.avatar_url }} style={styles.myProfileAvatar} />
+          ) : (
+            <View style={styles.myProfileAvatarFallback}>
+              <Text style={styles.myProfileAvatarText}>
+                {profile?.username?.[0]?.toUpperCase() || 'U'}
+              </Text>
+            </View>
+          )}
+        </View>
+        <Text style={styles.myProfileName}>
+          {profile?.first_name ? `${profile.first_name} ${profile.last_name || ''}`.trim() : profile?.username || 'User'}
+        </Text>
+        <Text style={styles.myProfileUsername}>@{profile?.username || 'user'}</Text>
+        <View style={styles.myProfileStats}>
+          <TouchableOpacity style={styles.myProfileStat} onPress={() => setActiveTab('followers')}>
+            <Text style={styles.myProfileStatCount}>{myFollowerCount}</Text>
+            <Text style={styles.myProfileStatLabel}>Followers</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.myProfileStat} onPress={() => setActiveTab('following')}>
+            <Text style={styles.myProfileStatCount}>{myFollowingCount}</Text>
+            <Text style={styles.myProfileStatLabel}>Following</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Activity */}
+      <Text style={styles.sectionLabel}>MY ACTIVITY</Text>
+      {myActivityLoading ? (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyStateText}>Loading...</Text>
+        </View>
+      ) : myActivity.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Dumbbell size={48} color={COLORS.textMuted} />
+          <Text style={styles.emptyStateTitle}>No activity yet</Text>
+          <Text style={styles.emptyStateText}>
+            Complete a workout or set a PR to see your activity here
+          </Text>
+        </View>
+      ) : (
+        myActivity.map((activity) => (
+          <View key={activity.id} style={styles.feedCard}>
+            <View style={styles.feedHeader}>
+              <View style={styles.feedUserRow}>
+                <View style={[
+                  styles.feedAvatar,
+                  activity.type === 'pr' && styles.feedAvatarPR,
+                ]}>
+                  {profile?.avatar_url ? (
+                    <Image source={{ uri: profile.avatar_url }} style={styles.feedAvatarImage} />
+                  ) : (
+                    <Text style={styles.feedAvatarText}>
+                      {profile?.username?.[0]?.toUpperCase() || 'U'}
+                    </Text>
+                  )}
+                </View>
+                <View style={styles.feedUserInfo}>
+                  <Text style={styles.feedUsername}>@{profile?.username || 'user'}</Text>
+                  <Text style={styles.feedTime}>{formatTimeAgo(activity.timestamp)}</Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.feedContent}>
+              <View style={[
+                styles.feedTypeBadge,
+                activity.type === 'pr' ? styles.feedTypeBadgePR : styles.feedTypeBadgeWorkout,
+              ]}>
+                {activity.type === 'pr' ? (
+                  <Trophy size={16} color={COLORS.warning} />
+                ) : (
+                  <Dumbbell size={16} color={COLORS.primary} />
+                )}
+                <Text style={[
+                  styles.feedTypeBadgeText,
+                  activity.type === 'pr' ? styles.feedTypeBadgeTextPR : styles.feedTypeBadgeTextWorkout,
+                ]}>
+                  {activity.type === 'pr' ? 'Personal Record' : 'Completed Workout'}
+                </Text>
+              </View>
+
+              <Text style={styles.feedTitle}>{activity.title}</Text>
+
+              <View style={styles.feedDetails}>
+                {activity.type === 'workout' && activity.data?.duration && (
+                  <View style={styles.feedDetailItem}>
+                    <Clock size={14} color={COLORS.textMuted} />
+                    <Text style={styles.feedDetailText}>{activity.data.duration} min</Text>
+                  </View>
+                )}
+                {activity.type === 'pr' && (
+                  <>
+                    <View style={styles.feedDetailItem}>
+                      <Text style={styles.feedDetailHighlight}>{weightUnit === 'lbs' ? Math.round(activity.data?.weight * 2.205) : activity.data?.weight} {weightUnit}</Text>
+                    </View>
+                    <View style={styles.feedDetailItem}>
+                      <Text style={styles.feedDetailText}>{'\u00d7'} {activity.data?.reps} reps</Text>
+                    </View>
+                  </>
+                )}
+              </View>
+            </View>
+          </View>
+        ))
+      )}
+    </>
+  );
 
   const renderActivityFeed = () => (
     <>
@@ -1309,6 +1451,7 @@ const CommunityScreen = ({ route }) => {
 
         <View style={styles.content}>
           {activeTab === 'feed' && renderActivityFeed()}
+          {activeTab === 'myprofile' && renderMyProfile()}
           {activeTab === 'workouts' && renderCommunityWorkouts()}
           {activeTab === 'followers' && renderFollowers()}
           {activeTab === 'following' && renderFollowing()}
@@ -2889,6 +3032,64 @@ const getStyles = (COLORS) => StyleSheet.create({
     color: COLORS.textOnPrimary,
     fontSize: 16,
     fontWeight: '600',
+  },
+
+  // My Profile styles
+  myProfileHeader: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  myProfileAvatarWrap: {
+    marginBottom: 12,
+  },
+  myProfileAvatar: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+  },
+  myProfileAvatarFallback: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  myProfileAvatarText: {
+    color: COLORS.textOnPrimary,
+    fontSize: 28,
+    fontWeight: '700',
+  },
+  myProfileName: {
+    color: COLORS.text,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  myProfileUsername: {
+    color: COLORS.textMuted,
+    fontSize: 14,
+    marginTop: 2,
+  },
+  myProfileStats: {
+    flexDirection: 'row',
+    marginTop: 16,
+    gap: 32,
+  },
+  myProfileStat: {
+    alignItems: 'center',
+  },
+  myProfileStatCount: {
+    color: COLORS.text,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  myProfileStatLabel: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    marginTop: 2,
   },
 });
 

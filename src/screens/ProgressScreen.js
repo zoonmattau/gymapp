@@ -490,7 +490,7 @@ const ProgressScreen = () => {
     setShowTargetWeightModal(false);
 
     if (user?.id) {
-      // Always save to localStorage first (reliable for web)
+      // Save to localStorage (reliable for web)
       if (Platform.OS === 'web') {
         try {
           localStorage.setItem(`target_weight_${user.id}`, weight.toString());
@@ -501,16 +501,27 @@ const ProgressScreen = () => {
 
       // Update local state immediately
       setWeightData(prev => ({ ...prev, target: weight }));
-      showToast('Target weight saved', 'success');
 
-      // Try to save to database in background (don't block on this)
-      try {
-        await supabase
+      // Save to both profiles and user_goals for consistency
+      const [profileResult, goalsResult] = await Promise.all([
+        supabase
           .from('profiles')
           .update({ target_weight: weight })
-          .eq('id', user.id);
-      } catch (error) {
-        console.log('DB save error (non-blocking):', error);
+          .eq('id', user.id),
+        supabase
+          .from('user_goals')
+          .upsert({
+            user_id: user.id,
+            target_weight: weight,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'user_id' }),
+      ]);
+
+      if (profileResult.error && goalsResult.error) {
+        console.log('DB save errors:', profileResult.error, goalsResult.error);
+        showToast('Target weight saved locally but failed to sync', 'error');
+      } else {
+        showToast('Target weight saved', 'success');
       }
     }
   };

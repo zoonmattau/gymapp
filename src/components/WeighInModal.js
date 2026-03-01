@@ -30,25 +30,8 @@ const WeighInModal = ({ visible, onClose, onSave, unit = 'kg', currentWeight = 0
         setWeight(''); // Reset to empty if no current weight
       }
 
-      // Set date to day after last weigh-in, or today if none/future
-      if (lastWeighInDate) {
-        const lastDate = new Date(lastWeighInDate);
-        const nextDay = new Date(lastDate);
-        nextDay.setDate(nextDay.getDate() + 1);
-
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        nextDay.setHours(0, 0, 0, 0);
-
-        // Use the day after last weigh-in, but not future dates
-        if (nextDay <= today) {
-          setSelectedDate(nextDay);
-        } else {
-          setSelectedDate(new Date());
-        }
-      } else {
-        setSelectedDate(new Date());
-      }
+      // Always default to today
+      setSelectedDate(new Date());
     }
   }, [visible, currentWeight, lastWeighInDate]);
 
