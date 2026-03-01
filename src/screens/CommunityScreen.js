@@ -32,6 +32,7 @@ import {
   Filter,
   X,
   Check,
+  Bell,
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useColors } from '../contexts/ThemeContext';
@@ -168,6 +169,7 @@ const CommunityScreen = ({ route }) => {
 
   const loadInitialData = async () => {
     loadFollowingIds();
+    loadFollowers();
   };
 
   const loadFollowingIds = async () => {
@@ -1426,8 +1428,32 @@ const CommunityScreen = ({ route }) => {
           />
         }
       >
-        <View style={styles.header}>
+        <View style={[styles.header, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
           <Text style={styles.title}>Community</Text>
+          {pendingRequests.length > 0 && (
+            <TouchableOpacity
+              onPress={() => setActiveTab('followers')}
+              style={{ position: 'relative', padding: 4 }}
+            >
+              <Bell size={24} color={COLORS.text} />
+              <View style={{
+                position: 'absolute',
+                top: 0,
+                right: 0,
+                backgroundColor: '#EF4444',
+                borderRadius: 9,
+                minWidth: 18,
+                height: 18,
+                justifyContent: 'center',
+                alignItems: 'center',
+                paddingHorizontal: 4,
+              }}>
+                <Text style={{ color: '#fff', fontSize: 10, fontWeight: 'bold' }}>
+                  {pendingRequests.length}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          )}
         </View>
 
         <ScrollView
