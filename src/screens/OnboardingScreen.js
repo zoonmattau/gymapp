@@ -337,13 +337,19 @@ const OnboardingScreen = ({ navigation }) => {
       if (formData.experienceLevel) updateData.experience_level = formData.experienceLevel;
       if (formData.goal) updateData.fitness_goal = formData.goal;
 
+      // Include onboarding_completed in the same profile update to avoid split writes
+      updateData.onboarding_completed = true;
+
       console.log('Saving profile with data:', updateData);
 
-      // Save profile data (ignore errors)
+      // Save profile data + onboarding flag in a single write
       try {
-        await profileService.updateProfile(user.id, updateData);
+        const { error } = await profileService.updateProfile(user.id, updateData);
+        if (error) {
+          console.log('Profile update error:', error);
+        }
       } catch (e) {
-        console.log('Profile update error (ignored):', e);
+        console.log('Profile update error:', e);
       }
 
       // Generate workout schedule based on goal
@@ -351,13 +357,6 @@ const OnboardingScreen = ({ navigation }) => {
         const program = GOAL_TO_PROGRAM[formData.goal];
         const daysPerWeek = program?.days || 4;
         await generateWorkoutSchedule(user.id, formData.goal, daysPerWeek);
-      }
-
-      // Mark onboarding as complete in Supabase (syncs across devices)
-      try {
-        await profileService.updateProfile(user.id, { onboarding_completed: true });
-      } catch (e) {
-        console.log('Failed to save onboarding to Supabase:', e);
       }
 
       // Also save to local storage as backup
