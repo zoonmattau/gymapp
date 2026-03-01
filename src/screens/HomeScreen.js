@@ -135,7 +135,7 @@ const HomeScreen = () => {
   const nutritionGoals = {
     calories: profile?.calorie_goal || 2200,
     protein: profile?.protein_goal || 150,
-    water: profile?.water_goal || 2500,
+    water: profile?.water_goal || 3500,
   };
 
   // Check for saved workout on initial mount (runs once)

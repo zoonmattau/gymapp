@@ -36,6 +36,7 @@ import { nutritionService } from '../services/nutritionService';
 import { sleepService } from '../services/sleepService';
 import AddMealModal from '../components/AddMealModal';
 import WaterEntryModal from '../components/WaterEntryModal';
+import { profileService } from '../services/profileService';
 import Toast from '../components/Toast';
 
 const TABS = [
@@ -58,7 +59,7 @@ const screenWidth = Dimensions.get('window').width;
 const HealthScreen = () => {
   const COLORS = useColors();
   const styles = getStyles(COLORS);
-  const { user } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [trendFilter, setTrendFilter] = useState('Calories');
@@ -129,6 +130,10 @@ const HealthScreen = () => {
   const [sleepGoal, setSleepGoal] = useState(7);
   const [sleepHistory, setSleepHistory] = useState([]);
 
+  // Water goal editing
+  const [showWaterGoalEdit, setShowWaterGoalEdit] = useState(false);
+  const [waterGoalInput, setWaterGoalInput] = useState('');
+
   // Modals
   const [showAddMeal, setShowAddMeal] = useState(false);
   const [showWaterEntry, setShowWaterEntry] = useState(false);
@@ -150,7 +155,7 @@ const HealthScreen = () => {
     protein: 180,
     carbs: 350,
     fats: 90,
-    water: 3500, // 3.5L in ml
+    water: profile?.water_goal || 3500, // ml, from profile or default 3.5L
   };
 
   // Nutrition mode
@@ -1142,7 +1147,78 @@ const HealthScreen = () => {
               <Text style={styles.waterProgressLabel}>remaining</Text>
             </View>
             <View style={styles.waterProgressStat}>
-              <Text style={styles.waterProgressValue}>{waterGoalL}L</Text>
+              {showWaterGoalEdit ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <TextInput
+                    style={{
+                      color: COLORS.text,
+                      fontSize: 20,
+                      fontWeight: '700',
+                      borderBottomWidth: 1,
+                      borderBottomColor: '#3B82F6',
+                      width: 50,
+                      textAlign: 'center',
+                      paddingVertical: 2,
+                    }}
+                    value={waterGoalInput}
+                    onChangeText={setWaterGoalInput}
+                    keyboardType="decimal-pad"
+                    autoFocus
+                  />
+                  <Text style={{ color: COLORS.text, fontSize: 20, fontWeight: '700' }}>L</Text>
+                  <TouchableOpacity
+                    onPress={async () => {
+                      const liters = parseFloat(waterGoalInput);
+                      if (!liters || liters <= 0 || liters > 20) {
+                        showToast('Enter a value between 0.1 and 20 liters', 'error');
+                        return;
+                      }
+                      const ml = Math.round(liters * 1000);
+                      await profileService.updateProfile(user.id, { water_goal: ml });
+                      await refreshProfile();
+                      setShowWaterGoalEdit(false);
+                      showToast(`Water goal set to ${liters}L`);
+                    }}
+                    onClick={async () => {
+                      const liters = parseFloat(waterGoalInput);
+                      if (!liters || liters <= 0 || liters > 20) {
+                        showToast('Enter a value between 0.1 and 20 liters', 'error');
+                        return;
+                      }
+                      const ml = Math.round(liters * 1000);
+                      await profileService.updateProfile(user.id, { water_goal: ml });
+                      await refreshProfile();
+                      setShowWaterGoalEdit(false);
+                      showToast(`Water goal set to ${liters}L`);
+                    }}
+                    style={{ marginLeft: 4 }}
+                  >
+                    <Check size={18} color={COLORS.success} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => setShowWaterGoalEdit(false)}
+                    onClick={() => setShowWaterGoalEdit(false)}
+                    style={{ marginLeft: 2 }}
+                  >
+                    <X size={18} color={COLORS.error} />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                  onPress={() => {
+                    setWaterGoalInput(waterGoalL);
+                    setShowWaterGoalEdit(true);
+                  }}
+                  onClick={() => {
+                    setWaterGoalInput(waterGoalL);
+                    setShowWaterGoalEdit(true);
+                  }}
+                >
+                  <Text style={styles.waterProgressValue}>{waterGoalL}L</Text>
+                  <Pencil size={14} color={COLORS.textMuted} />
+                </TouchableOpacity>
+              )}
               <Text style={styles.waterProgressLabel}>goal</Text>
             </View>
           </View>
