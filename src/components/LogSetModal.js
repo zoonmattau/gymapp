@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,7 @@ import {
   SafeAreaView,
   Platform,
 } from 'react-native';
-import { X, Plus, Minus, Check } from 'lucide-react-native';
+import { X, Plus, Minus, Check, Play, Square, RotateCcw } from 'lucide-react-native';
 import { useColors } from '../contexts/ThemeContext';
 
 const LogSetModal = ({
@@ -27,12 +27,16 @@ const LogSetModal = ({
   isReturningFromSuperset = false,
   isEdit = false,
   editData = null, // { rpe, setType, supersetExercise, supersetWeight, supersetReps, drops }
+  isTimedExercise = false,
 }) => {
   const COLORS = useColors();
   const styles = getStyles(COLORS);
 
   const [weight, setWeight] = useState(initialWeight);
   const [reps, setReps] = useState(initialReps);
+  const [timerRunning, setTimerRunning] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const timerIntervalRef = useRef(null);
   const [rpe, setRpe] = useState(null);
   const [setType, setSetType] = useState(null); // null, 'superset', 'dropset'
   const [supersetExercise, setSupersetExercise] = useState(null);
@@ -78,8 +82,48 @@ const LogSetModal = ({
   useEffect(() => {
     if (!visible) {
       setHasInitialized(false);
+      // Stop and reset stopwatch when modal closes
+      setTimerRunning(false);
+      setElapsedSeconds(0);
+      clearInterval(timerIntervalRef.current);
     }
   }, [visible]);
+
+  // Initialize elapsedSeconds from initialReps when editing a timed exercise
+  useEffect(() => {
+    if (visible && isTimedExercise && isEdit && initialReps) {
+      setElapsedSeconds(parseInt(initialReps) || 0);
+    }
+  }, [visible, isTimedExercise, isEdit, initialReps]);
+
+  // Stopwatch interval
+  useEffect(() => {
+    if (timerRunning) {
+      timerIntervalRef.current = setInterval(() => {
+        setElapsedSeconds(prev => prev + 1);
+      }, 1000);
+    } else {
+      clearInterval(timerIntervalRef.current);
+    }
+    return () => clearInterval(timerIntervalRef.current);
+  }, [timerRunning]);
+
+  // Sync elapsedSeconds to reps for timed exercises (so handleSave sends it)
+  useEffect(() => {
+    if (isTimedExercise) {
+      setReps(elapsedSeconds.toString());
+    }
+  }, [elapsedSeconds, isTimedExercise]);
+
+  const formatDuration = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const adjustDuration = (delta) => {
+    setElapsedSeconds(prev => Math.max(0, prev + delta));
+  };
 
   const adjustWeight = (delta) => {
     const current = parseFloat(weight) || 0;
@@ -153,7 +197,9 @@ const LogSetModal = ({
   };
 
   const hasValidDrops = setType === 'dropset' && drops.some(d => parseFloat(d.weight) > 0 && parseInt(d.reps) > 0);
-  const hasValidMainSet = (parseFloat(weight) > 0 || weight === 'BW') && parseInt(reps) > 0;
+  const hasValidMainSet = isTimedExercise
+    ? elapsedSeconds > 0
+    : (parseFloat(weight) > 0 || weight === 'BW') && parseInt(reps) > 0;
   const canSave = hasValidMainSet || hasValidDrops;
 
   if (!visible) return null;
@@ -224,33 +270,88 @@ const LogSetModal = ({
               </Text>
             </TouchableOpacity>
 
-            {/* Reps Input */}
-            <Text style={styles.inputLabel}>Reps</Text>
-            <View style={styles.inputRow}>
-              <TouchableOpacity
-                style={styles.adjustButton}
-                onPress={() => adjustReps(-1)}
-              >
-                <Minus size={24} color={COLORS.text} />
-              </TouchableOpacity>
-              <View style={styles.inputWrapper}>
-                <TextInput
-                  style={styles.mainInput}
-                  value={reps}
-                  onChangeText={setReps}
-                  keyboardType="number-pad"
-                  placeholder="0"
-                  placeholderTextColor={COLORS.textMuted}
-                  textAlign="center"
-                />
-              </View>
-              <TouchableOpacity
-                style={styles.adjustButton}
-                onPress={() => adjustReps(1)}
-              >
-                <Plus size={24} color={COLORS.text} />
-              </TouchableOpacity>
-            </View>
+            {/* Reps or Duration Input */}
+            {isTimedExercise ? (
+              <>
+                <Text style={styles.inputLabel}>Duration</Text>
+                {/* Stopwatch Display */}
+                <View style={styles.stopwatchDisplay}>
+                  <Text style={styles.stopwatchTime}>{formatDuration(elapsedSeconds)}</Text>
+                </View>
+                {/* Stopwatch Controls */}
+                <View style={styles.stopwatchControls}>
+                  <TouchableOpacity
+                    style={[styles.stopwatchButton, timerRunning ? styles.stopwatchButtonStop : styles.stopwatchButtonStart]}
+                    onPress={() => setTimerRunning(!timerRunning)}
+                  >
+                    {timerRunning ? (
+                      <Square size={20} color={COLORS.textOnPrimary} />
+                    ) : (
+                      <Play size={20} color={COLORS.textOnPrimary} />
+                    )}
+                    <Text style={styles.stopwatchButtonText}>{timerRunning ? 'Stop' : 'Start'}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.stopwatchResetButton}
+                    onPress={() => {
+                      setTimerRunning(false);
+                      setElapsedSeconds(0);
+                    }}
+                  >
+                    <RotateCcw size={20} color={COLORS.textMuted} />
+                    <Text style={styles.stopwatchResetText}>Reset</Text>
+                  </TouchableOpacity>
+                </View>
+                {/* Manual +/- adjustment */}
+                <View style={styles.inputRow}>
+                  <TouchableOpacity
+                    style={styles.adjustButton}
+                    onPress={() => adjustDuration(-5)}
+                  >
+                    <Minus size={24} color={COLORS.text} />
+                  </TouchableOpacity>
+                  <View style={styles.inputWrapper}>
+                    <Text style={styles.mainInput}>{elapsedSeconds}s</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.adjustButton}
+                    onPress={() => adjustDuration(5)}
+                  >
+                    <Plus size={24} color={COLORS.text} />
+                  </TouchableOpacity>
+                </View>
+                <Text style={[styles.inputLabel, { textAlign: 'center', marginTop: -4 }]}>Adjust by 5 seconds</Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.inputLabel}>Reps</Text>
+                <View style={styles.inputRow}>
+                  <TouchableOpacity
+                    style={styles.adjustButton}
+                    onPress={() => adjustReps(-1)}
+                  >
+                    <Minus size={24} color={COLORS.text} />
+                  </TouchableOpacity>
+                  <View style={styles.inputWrapper}>
+                    <TextInput
+                      style={styles.mainInput}
+                      value={reps}
+                      onChangeText={setReps}
+                      keyboardType="number-pad"
+                      placeholder="0"
+                      placeholderTextColor={COLORS.textMuted}
+                      textAlign="center"
+                    />
+                  </View>
+                  <TouchableOpacity
+                    style={styles.adjustButton}
+                    onPress={() => adjustReps(1)}
+                  >
+                    <Plus size={24} color={COLORS.text} />
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
           </View>
 
           {/* RPE Section */}
@@ -633,6 +734,59 @@ const getStyles = (COLORS) => StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
     textAlign: 'center',
+  },
+
+  // Stopwatch
+  stopwatchDisplay: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  stopwatchTime: {
+    color: COLORS.text,
+    fontSize: 48,
+    fontWeight: 'bold',
+    fontVariant: ['tabular-nums'],
+  },
+  stopwatchControls: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 12,
+    marginBottom: 16,
+  },
+  stopwatchButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  stopwatchButtonStart: {
+    backgroundColor: COLORS.success,
+  },
+  stopwatchButtonStop: {
+    backgroundColor: COLORS.error,
+  },
+  stopwatchButtonText: {
+    color: COLORS.textOnPrimary,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  stopwatchResetButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: COLORS.surface,
+  },
+  stopwatchResetText: {
+    color: COLORS.textMuted,
+    fontSize: 16,
+    fontWeight: '600',
   },
 
   // Bodyweight

@@ -3442,7 +3442,7 @@ export const EXERCISES = [
     name: 'Weighted Plank',
     muscleGroup: 'Core',
     equipment: 'Bodyweight',
-    type: 'Isolation',
+    type: 'Isometric',
     description: 'Plank with a weight plate on your back for added resistance. Progresses the standard plank.',
     tips: [
       'Set up in a standard plank position. Have a partner place a plate on your upper back.',

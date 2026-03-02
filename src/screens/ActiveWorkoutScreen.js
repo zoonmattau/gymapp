@@ -44,6 +44,20 @@ const getExerciseTips = (name) => {
   return match ? { tips: match.tips, description: match.description } : null;
 };
 
+// Check if an exercise is isometric (timed)
+const isTimedExercise = (name) => {
+  if (!name) return false;
+  return EXERCISES.find(e => e.name.toLowerCase() === name.toLowerCase())?.type === 'Isometric';
+};
+
+// Format seconds as M:SS for display
+const formatDuration = (seconds) => {
+  const s = parseInt(seconds) || 0;
+  const mins = Math.floor(s / 60);
+  const secs = s % 60;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+};
+
 // Get RPE color on a green to red scale (0-10)
 const getRpeColor = (rpe) => {
   const value = parseFloat(rpe) || 0;
@@ -630,6 +644,8 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
     );
     let totalVolume = 0;
     currentExercises.forEach(ex => {
+      // Skip isometric exercises from volume calc (seconds x weight doesn't make sense)
+      if (isTimedExercise(ex.name)) return;
       ex.sets.forEach(set => {
         if (set.completed && set.weight && set.reps) {
           const weight = set.weight === 'BW' ? 0 : parseFloat(set.weight) || 0;
@@ -991,7 +1007,10 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
                                   set.completed && styles.setWeightRepsCompleted,
                                   !set.completed && styles.setWeightRepsPending,
                                 ]}>
-                                  {set.weight || 0}{weightUnit} × {set.reps || 0}
+                                  {isTimedExercise(exercise.name)
+                                    ? `${set.weight && set.weight !== '0' ? `${set.weight}${weightUnit} · ` : ''}${formatDuration(set.reps)}`
+                                    : `${set.weight || 0}${weightUnit} × ${set.reps || 0}`
+                                  }
                                 </Text>
 
                                 {set.setType === 'dropset' && (
@@ -1127,6 +1146,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
         isReturningFromSuperset={isReturningFromSuperset}
         isEdit={!!setToEdit}
         editData={setToEdit}
+        isTimedExercise={isTimedExercise(selectedSetToLog?.exerciseName)}
       />
 
       {/* Toast Notification */}
