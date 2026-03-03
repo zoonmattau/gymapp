@@ -31,6 +31,8 @@ import ExerciseSearchModal from '../components/ExerciseSearchModal';
 import LogSetModal from '../components/LogSetModal';
 import Toast from '../components/Toast';
 import ConfirmModal from '../components/ConfirmModal';
+import MuscleMap, { PRIMARY_VIEW } from '../components/MuscleMap';
+import AnatomyModal from '../components/AnatomyModal';
 import { useAuth } from '../contexts/AuthContext';
 import { workoutService } from '../services/workoutService';
 import { setPausedWorkout, clearPausedWorkout } from '../utils/workoutStore';
@@ -42,6 +44,13 @@ const getExerciseTips = (name) => {
   const match = EXERCISES.find(e => e.name.toLowerCase() === lower)
     || EXERCISES.find(e => lower.includes(e.name.toLowerCase()) || e.name.toLowerCase().includes(lower));
   return match ? { tips: match.tips, description: match.description } : null;
+};
+
+// Find the muscle group for an exercise by name
+const getMuscleGroup = (name) => {
+  if (!name) return null;
+  const match = EXERCISES.find(e => e.name.toLowerCase() === name.toLowerCase());
+  return match?.muscleGroup || null;
 };
 
 // Check if an exercise is isometric (timed)
@@ -133,6 +142,9 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
   const [expandedHistory, setExpandedHistory] = useState(null); // exercise id with history open
   const [activeSetRow, setActiveSetRow] = useState(null); // "exerciseId-setId" string of tapped set, or null
   const [historyCache, setHistoryCache] = useState({}); // { exerciseName: { loading, data } }
+  const [anatomyModalVisible, setAnatomyModalVisible] = useState(false);
+  const [anatomyMuscle, setAnatomyMuscle] = useState(null);
+  const [anatomyExercise, setAnatomyExercise] = useState(null);
   const timerRef = useRef(null);
   const restTimerRef = useRef(null);
   const sessionIdRef = useRef(sessionId);
@@ -826,7 +838,9 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
         showsVerticalScrollIndicator={true}
       >
         {/* Exercises */}
-        {exercises.map((exercise) => (
+        {exercises.map((exercise) => {
+          const muscle = getMuscleGroup(exercise.name);
+          return (
           <View key={exercise.id} style={styles.exerciseCard}>
             {/* Exercise Header */}
             <TouchableOpacity
@@ -835,9 +849,29 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
                 expandedExercise === exercise.id ? null : exercise.id
               )}
             >
-              <View style={styles.exerciseIcon}>
-                <Dumbbell size={18} color={COLORS.primary} />
-              </View>
+              {muscle ? (
+                <TouchableOpacity
+                  onPress={() => {
+                    setAnatomyMuscle(muscle);
+                    setAnatomyExercise(exercise.name);
+                    setAnatomyModalVisible(true);
+                  }}
+                  style={styles.exerciseIcon}
+                >
+                  <MuscleMap
+                    view={PRIMARY_VIEW[muscle] || 'front'}
+                    highlightedMuscle={muscle}
+                    size={36}
+                    highlightColor={COLORS.primary}
+                    baseColor={COLORS.textMuted + '40'}
+                    outlineColor={COLORS.textMuted + '60'}
+                  />
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.exerciseIcon}>
+                  <Dumbbell size={18} color={COLORS.primary} />
+                </View>
+              )}
               <View style={styles.exerciseInfo}>
                 <Text style={styles.exerciseName}>{exercise.name}</Text>
                 <Text style={styles.exerciseSets}>
@@ -1087,7 +1121,8 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
               </View>
             )}
           </View>
-        ))}
+          );
+        })}
 
         {/* Add Exercise Button */}
         <TouchableOpacity
@@ -1209,6 +1244,18 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
           setShowDeleteSetModal(false);
           setSetToDelete(null);
         }}
+      />
+
+      {/* Anatomy Modal */}
+      <AnatomyModal
+        visible={anatomyModalVisible}
+        onClose={() => {
+          setAnatomyModalVisible(false);
+          setAnatomyMuscle(null);
+          setAnatomyExercise(null);
+        }}
+        muscleGroup={anatomyMuscle}
+        exerciseName={anatomyExercise}
       />
 
     </SafeAreaView>
