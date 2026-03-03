@@ -5,7 +5,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Home, Dumbbell, Apple, User, TrendingUp, Users } from 'lucide-react-native';
 import { useColors } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useActiveWorkout } from '../contexts/ActiveWorkoutContext';
 import { socialService } from '../services/socialService';
+import WorkoutBanner from '../components/WorkoutBanner';
 
 // Screens
 import HomeScreen from '../screens/HomeScreen';
@@ -21,6 +23,7 @@ const TabNavigator = () => {
   const COLORS = useColors();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const { isActive } = useActiveWorkout();
   const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
@@ -41,6 +44,8 @@ const TabNavigator = () => {
   const tabBarHeight = Platform.OS === 'web' ? 70 : (60 + insets.bottom);
 
   return (
+    <View style={{ flex: 1 }}>
+    {isActive && <WorkoutBanner />}
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
@@ -109,6 +114,7 @@ const TabNavigator = () => {
         }}
       />
     </Tab.Navigator>
+    </View>
   );
 };
 

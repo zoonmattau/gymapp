@@ -34,6 +34,7 @@ import ConfirmModal from '../components/ConfirmModal';
 import MuscleMap, { PRIMARY_VIEW } from '../components/MuscleMap';
 import AnatomyModal from '../components/AnatomyModal';
 import { useAuth } from '../contexts/AuthContext';
+import { useActiveWorkout } from '../contexts/ActiveWorkoutContext';
 import { workoutService } from '../services/workoutService';
 import { setPausedWorkout, clearPausedWorkout } from '../utils/workoutStore';
 
@@ -91,10 +92,34 @@ const formatRelativeDate = (dateString) => {
   return `${months[date.getMonth()]} ${date.getDate()}`;
 };
 
+// Isolated timer display to avoid re-rendering the entire header every second
+const WorkoutTimer = React.memo(({ workoutStartTime, COLORS }) => {
+  const [displayTime, setDisplayTime] = useState(0);
+
+  useEffect(() => {
+    const update = () => setDisplayTime(Math.floor((Date.now() - workoutStartTime) / 1000));
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, [workoutStartTime]);
+
+  const mins = Math.floor(displayTime / 60);
+  const secs = displayTime % 60;
+  const formatted = `${mins}:${secs.toString().padStart(2, '0')}`;
+
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
+      <Clock size={14} color={COLORS.textMuted} />
+      <Text style={{ color: COLORS.textMuted, fontSize: 14 }}>{formatted}</Text>
+    </View>
+  );
+});
+
 const ActiveWorkoutScreen = ({ route, navigation }) => {
   const COLORS = useColors();
   const styles = getStyles(COLORS);
   const { user, profile } = useAuth();
+  const { backgroundWorkout: setBackgroundWorkout, clearBackgroundWorkout } = useActiveWorkout();
   const weightUnit = profile?.weight_unit || 'kg';
   const {
     workout,
@@ -129,7 +154,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState('success');
   const [showFinishModal, setShowFinishModal] = useState(false);
-  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false); // kept for potential future use
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showDeleteSetModal, setShowDeleteSetModal] = useState(false);
   const [finishModalData, setFinishModalData] = useState(null);
@@ -158,6 +183,13 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
     setToastType(type);
     setToastVisible(true);
   };
+
+  // Clear the background workout banner when resuming
+  useEffect(() => {
+    if (resumedExercises) {
+      clearBackgroundWorkout();
+    }
+  }, []);
 
   // Keep refs up to date for beforeunload handler
   useEffect(() => {
@@ -313,16 +345,13 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
     }
   }, [workout, resumedExercises]);
 
-  // Workout timer - uses start time so it persists through background
+  // Sync workoutTime state periodically (for auto-save). Display is handled by WorkoutTimer component.
   useEffect(() => {
     if (isTimerRunning) {
-      // Update immediately
       setWorkoutTime(Math.floor((Date.now() - workoutStartTime) / 1000));
-
-      // Then update every second
       timerRef.current = setInterval(() => {
         setWorkoutTime(Math.floor((Date.now() - workoutStartTime) / 1000));
-      }, 1000);
+      }, 30000); // every 30s for auto-save, not every 1s
     }
     return () => clearInterval(timerRef.current);
   }, [isTimerRunning, workoutStartTime]);
@@ -620,7 +649,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
     // Capture values first
     let currentSessionId = sessionIdRef.current;
     const currentExercises = JSON.parse(JSON.stringify(exercises));
-    const currentWorkoutTime = workoutTime;
+    const currentWorkoutTime = Math.floor((Date.now() - workoutStartTime) / 1000);
     const currentUserId = user?.id;
 
     // If session was never created, try creating it now as a fallback
@@ -706,8 +735,9 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
       console.error('Cannot save workout - missing sessionId:', currentSessionId, 'or userId:', currentUserId);
     }
 
-    // Clear saved workout from localStorage
+    // Clear saved workout from localStorage and banner
     clearPausedWorkout();
+    clearBackgroundWorkout();
 
     // Build summary data for WorkoutSummaryScreen
     const summaryData = {
@@ -730,12 +760,34 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
   };
 
   const cancelWorkout = () => {
-    setShowCancelModal(true);
-  };
+    // Background the workout instead of discarding
+    const completedSetsCount = exercises.reduce(
+      (acc, ex) => acc + ex.sets.filter(s => s.completed).length, 0
+    );
+    const totalSetsCount = exercises.reduce(
+      (acc, ex) => acc + ex.sets.length, 0
+    );
 
-  const handleConfirmCancel = () => {
-    setShowCancelModal(false);
-    clearPausedWorkout();
+    // Save full workout data to localStorage
+    const currentElapsed = Math.floor((Date.now() - workoutStartTime) / 1000);
+
+    setPausedWorkout({
+      workoutName,
+      workout,
+      sessionId,
+      exercises,
+      elapsedTime: currentElapsed,
+    });
+
+    // Set lightweight context for the banner
+    setBackgroundWorkout({
+      workoutName,
+      backgroundedAt: Date.now(),
+      exerciseCount: exercises.length,
+      completedSets: completedSetsCount,
+      totalSets: totalSetsCount,
+    });
+
     navigation.goBack();
   };
 
@@ -793,28 +845,20 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
       <View style={styles.header}>
         <TouchableOpacity
           onPress={cancelWorkout}
+          onClick={cancelWorkout}
           style={styles.backButton}
         >
           <ArrowLeft size={24} color={COLORS.text} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.workoutName}>{workoutName}</Text>
-          <View style={styles.timerRow}>
-            <Clock size={14} color={COLORS.textMuted} />
-            <Text style={styles.timerText}>{formatTime(workoutTime)}</Text>
-          </View>
+          <WorkoutTimer workoutStartTime={workoutStartTime} COLORS={COLORS} />
         </View>
         <View style={styles.headerButtons}>
           <TouchableOpacity
-            style={[styles.resumeLaterButton, isSaving && styles.buttonDisabled]}
-            onPress={saveAndContinueLater}
-            disabled={isSaving}
-          >
-            <Text style={styles.resumeLaterText}>Resume Later</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
             style={[styles.finishButton, isSaving && styles.buttonDisabled]}
             onPress={finishWorkout}
+            onClick={isSaving ? undefined : finishWorkout}
             disabled={isSaving}
           >
             <Text style={styles.finishButtonText}>Finish</Text>
@@ -1204,18 +1248,6 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
         onCancel={() => setShowFinishModal(false)}
       />
 
-      {/* Cancel Workout Confirmation */}
-      <ConfirmModal
-        visible={showCancelModal}
-        title="Cancel Workout"
-        message="Are you sure you want to cancel? Your progress will be lost."
-        confirmText="Cancel Workout"
-        cancelText="Keep Going"
-        confirmStyle="danger"
-        onConfirm={handleConfirmCancel}
-        onCancel={() => setShowCancelModal(false)}
-      />
-
       {/* Delete Exercise Confirmation */}
       <ConfirmModal
         visible={showDeleteModal}
@@ -1571,13 +1603,16 @@ const getStyles = (COLORS) => StyleSheet.create({
   },
   finishButton: {
     backgroundColor: COLORS.success,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: 8,
+    minWidth: 70,
+    alignItems: 'center',
+    ...(Platform.OS === 'web' ? { cursor: 'pointer' } : {}),
   },
   finishButtonText: {
     color: COLORS.textOnPrimary,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
   },
   buttonDisabled: {

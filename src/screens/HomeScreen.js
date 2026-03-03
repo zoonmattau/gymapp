@@ -44,6 +44,7 @@ import { publishedWorkoutService } from '../services/publishedWorkoutService';
 import { getPausedWorkout, clearPausedWorkout } from '../utils/workoutStore';
 import { getCustomTemplates } from '../utils/customTemplateStore';
 import { useAuth } from '../contexts/AuthContext';
+import { useActiveWorkout } from '../contexts/ActiveWorkoutContext';
 import AddMealModal from '../components/AddMealModal';
 import WaterEntryModal from '../components/WaterEntryModal';
 import WeighInModal from '../components/WeighInModal';
@@ -71,6 +72,7 @@ const HomeScreen = () => {
   const styles = getStyles(COLORS);
   const navigation = useNavigation();
   const { user, profile, refreshProfile } = useAuth();
+  const { isActive: bannerActive } = useActiveWorkout();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [savedWorkout, setSavedWorkout] = useState(null);
@@ -685,8 +687,8 @@ const HomeScreen = () => {
   };
 
   const renderTodayWorkout = () => {
-    // Show resume workout card if there's a saved workout
-    if (savedWorkout && savedWorkout.exercises?.length > 0) {
+    // Show resume workout card if there's a saved workout (hidden when banner is active)
+    if (!bannerActive && savedWorkout && savedWorkout.exercises?.length > 0) {
       const exerciseCount = savedWorkout.exercises.length;
       const completedSets = savedWorkout.exercises.reduce(
         (acc, ex) => acc + (ex.sets?.filter(s => s.completed)?.length || 0), 0
@@ -896,8 +898,8 @@ const HomeScreen = () => {
           </View>
         </View>
 
-        {/* Saved Workout Banner */}
-        {savedWorkout && savedWorkout.exercises?.length > 0 && (
+        {/* Saved Workout Banner — hidden when active workout banner is showing */}
+        {!bannerActive && savedWorkout && savedWorkout.exercises?.length > 0 && (
           <View style={styles.savedWorkoutBanner}>
             <View style={styles.savedWorkoutInfo}>
               <View style={styles.savedWorkoutIcon}>

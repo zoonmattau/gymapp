@@ -4,6 +4,7 @@ import { ActivityIndicator, View, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useColors } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
+import { ActiveWorkoutProvider } from '../contexts/ActiveWorkoutContext';
 
 // Auth Screens
 import LoginScreen from '../screens/LoginScreen';
@@ -38,69 +39,60 @@ const OnboardingStack = () => (
 );
 
 const MainStack = () => (
-  <Stack.Navigator screenOptions={{ headerShown: false }}>
-    <Stack.Screen name="MainTabs" component={TabNavigator} />
-    <Stack.Screen
-      name="ActiveWorkout"
-      component={ActiveWorkoutScreen}
-      options={{ gestureEnabled: false }}
-    />
-    <Stack.Screen
-      name="WorkoutSummary"
-      component={WorkoutSummaryScreen}
-      options={{ gestureEnabled: false }}
-    />
-    <Stack.Screen
-      name="WorkoutSchedule"
-      component={WorkoutScheduleScreen}
-    />
-    <Stack.Screen
-      name="ExerciseLibrary"
-      component={ExerciseLibraryScreen}
-    />
-    <Stack.Screen
-      name="PersonalRecords"
-      component={PersonalRecordsScreen}
-    />
-    <Stack.Screen
-      name="WorkoutHistory"
-      component={WorkoutHistoryScreen}
-    />
-    <Stack.Screen
-      name="EditProfile"
-      component={EditProfileScreen}
-    />
-    <Stack.Screen
-      name="CreateWorkout"
-      component={CreateWorkoutScreen}
-    />
-    <Stack.Screen
-      name="PublicProfile"
-      component={PublicProfileScreen}
-    />
-  </Stack.Navigator>
+  <ActiveWorkoutProvider>
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="MainTabs" component={TabNavigator} />
+      <Stack.Screen
+        name="ActiveWorkout"
+        component={ActiveWorkoutScreen}
+        options={{ gestureEnabled: false }}
+      />
+      <Stack.Screen
+        name="WorkoutSummary"
+        component={WorkoutSummaryScreen}
+        options={{ gestureEnabled: false }}
+      />
+      <Stack.Screen
+        name="WorkoutSchedule"
+        component={WorkoutScheduleScreen}
+      />
+      <Stack.Screen
+        name="ExerciseLibrary"
+        component={ExerciseLibraryScreen}
+      />
+      <Stack.Screen
+        name="PersonalRecords"
+        component={PersonalRecordsScreen}
+      />
+      <Stack.Screen
+        name="WorkoutHistory"
+        component={WorkoutHistoryScreen}
+      />
+      <Stack.Screen
+        name="EditProfile"
+        component={EditProfileScreen}
+      />
+      <Stack.Screen
+        name="CreateWorkout"
+        component={CreateWorkoutScreen}
+      />
+      <Stack.Screen
+        name="PublicProfile"
+        component={PublicProfileScreen}
+      />
+    </Stack.Navigator>
+  </ActiveWorkoutProvider>
 );
-
-// Check localStorage synchronously on module load (web only)
-const getInitialOnboardingState = () => {
-  if (Platform.OS === 'web') {
-    // Check all possible user keys in localStorage
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key?.startsWith('onboarding_completed_') && localStorage.getItem(key) === 'true') {
-        return true;
-      }
-    }
-  }
-  return null;
-};
 
 const AppNavigator = () => {
   const COLORS = useColors();
   const { user, profile, loading } = useAuth();
-  // Initialize from localStorage synchronously to prevent flash
-  const [onboardingCompleted, setOnboardingCompleted] = useState(getInitialOnboardingState);
-  const checkedUserIdRef = React.useRef(null);
+  // Start as null — checkOnboarding will resolve the correct value per-user
+  const [onboardingCompleted, setOnboardingCompleted] = useState(null);
+  // Tracks which user ID we've made a definitive onboarding decision for
+  const decidedUserIdRef = React.useRef(null);
+  // Prevents duplicate DB fetches for the same user
+  const fetchingForUserRef = React.useRef(null);
 
   // Helper to save onboarding status to localStorage
   const saveOnboardingToStorage = (userId) => {
@@ -121,28 +113,26 @@ const AppNavigator = () => {
       return;
     }
 
-    // Not logged in - only set false if we don't already have a positive result
+    // Not logged in - reset everything so next login starts fresh
     if (!user) {
-      if (onboardingCompleted !== true) {
-        setOnboardingCompleted(false);
-      }
-      checkedUserIdRef.current = null;
+      setOnboardingCompleted(false);
+      decidedUserIdRef.current = null;
+      fetchingForUserRef.current = null;
       return;
     }
 
-    // If we already confirmed this user is onboarded, don't re-check
-    if (checkedUserIdRef.current === user.id && onboardingCompleted === true) {
+    // If we already made a definitive decision for this user, don't re-check
+    if (decidedUserIdRef.current === user.id) {
       return;
     }
 
-    // STEP 1: Check local storage first (instant, no network dependency)
-    // This is the most reliable source because the DB write can silently fail
+    // STEP 1: Check local storage for THIS specific user (instant, no network)
     if (Platform.OS === 'web') {
       const localValue = localStorage.getItem(`onboarding_completed_${user.id}`);
       if (localValue === 'true') {
-        console.log('Onboarding check: localStorage says completed');
+        console.log('Onboarding check: localStorage says completed for', user.id);
         setOnboardingCompleted(true);
-        checkedUserIdRef.current = user.id;
+        decidedUserIdRef.current = user.id;
         return;
       }
     } else {
@@ -151,7 +141,7 @@ const AppNavigator = () => {
         if (value === 'true') {
           console.log('Onboarding check: AsyncStorage says completed');
           setOnboardingCompleted(true);
-          checkedUserIdRef.current = user.id;
+          decidedUserIdRef.current = user.id;
           return;
         }
       } catch (e) {
@@ -164,31 +154,40 @@ const AppNavigator = () => {
       console.log('Onboarding check: profile.onboarding_completed is true');
       setOnboardingCompleted(true);
       saveOnboardingToStorage(user.id);
-      checkedUserIdRef.current = user.id;
+      decidedUserIdRef.current = user.id;
       return;
     }
 
     // STEP 3: If profile loaded but onboarding_completed is false, user needs onboarding
     if (profile && !profile.onboarding_completed) {
       console.log('Onboarding check: profile exists but onboarding_completed is false');
-      checkedUserIdRef.current = user.id;
       setOnboardingCompleted(false);
+      decidedUserIdRef.current = user.id;
       return;
     }
 
-    // STEP 4: Profile is null - fetch directly from database (only once per user)
-    if (!profile && user?.id && checkedUserIdRef.current !== user.id) {
-      checkedUserIdRef.current = user.id;
+    // STEP 4: Profile is null - fetch directly from database
+    // Use a separate ref to prevent duplicate fetches (don't block re-checks)
+    if (!profile && user?.id && fetchingForUserRef.current !== user.id) {
+      fetchingForUserRef.current = user.id;
       console.log('Onboarding check: profile is null, fetching directly from database');
+
+      // While fetching, default to showing onboarding (safe default — prevents
+      // flashing the main app for users who haven't completed onboarding)
+      setOnboardingCompleted(false);
 
       try {
         const { profileService } = await import('../services/profileService');
         const { data: freshProfile } = await profileService.getProfile(user.id);
 
+        // Guard: user might have changed during the await
+        if (fetchingForUserRef.current !== user.id) return;
+
         if (freshProfile?.onboarding_completed) {
           console.log('Onboarding check: fresh profile indicates completion');
           setOnboardingCompleted(true);
           saveOnboardingToStorage(user.id);
+          decidedUserIdRef.current = user.id;
           return;
         }
       } catch (e) {
@@ -197,6 +196,7 @@ const AppNavigator = () => {
 
       console.log('Onboarding check: all checks done, user needs onboarding');
       setOnboardingCompleted(false);
+      decidedUserIdRef.current = user.id;
       return;
     }
   };

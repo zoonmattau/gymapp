@@ -39,6 +39,7 @@ import {
 import { WORKOUT_TEMPLATES, AVAILABLE_PROGRAMS, GOAL_TO_PROGRAM } from '../constants/workoutTemplates';
 import { useColors } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useActiveWorkout } from '../contexts/ActiveWorkoutContext';
 import { getPausedWorkout, clearPausedWorkout } from '../utils/workoutStore';
 import { getCustomTemplates } from '../utils/customTemplateStore';
 import { workoutService } from '../services/workoutService';
@@ -60,6 +61,7 @@ const WorkoutsScreen = () => {
   const styles = getStyles(COLORS);
   const navigation = useNavigation();
   const { user, profile } = useAuth();
+  const { isActive: bannerActive } = useActiveWorkout();
   const weightUnit = profile?.weight_unit || 'kg';
   const [refreshing, setRefreshing] = useState(false);
   const [weekOffset, setWeekOffset] = useState(0);
@@ -701,8 +703,8 @@ const WorkoutsScreen = () => {
   };
 
   const startWorkout = () => {
-    if (pausedWorkout) {
-      // Resume paused workout
+    if (!bannerActive && pausedWorkout) {
+      // Resume paused workout (only when banner isn't handling it)
       navigation.navigate('ActiveWorkout', {
         workoutName: pausedWorkout.workoutName || 'Workout',
         workout: pausedWorkout.workout,
@@ -1013,13 +1015,13 @@ const WorkoutsScreen = () => {
           </View>
 
           <TouchableOpacity
-            style={[styles.startButton, pausedWorkout && styles.continueButton]}
+            style={[styles.startButton, !bannerActive && pausedWorkout && styles.continueButton]}
             onPress={startWorkout}
             onClick={startWorkout}
           >
             <Play size={18} color={COLORS.textOnPrimary} />
             <Text style={styles.startButtonText}>
-              {pausedWorkout ? 'Continue Workout' : 'Start Workout'}
+              {!bannerActive && pausedWorkout ? 'Continue Workout' : 'Start Workout'}
             </Text>
           </TouchableOpacity>
         </View>
