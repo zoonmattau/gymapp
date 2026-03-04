@@ -713,7 +713,7 @@ const HomeScreen = () => {
           </View>
           <View style={styles.savedWorkoutActions}>
             <TouchableOpacity
-              style={[styles.workoutButton, { backgroundColor: COLORS.warning, flex: 1 }]}
+              style={[styles.workoutButton, { backgroundColor: '#D97706', flex: 1 }]}
               onPress={resumeSavedWorkout}
             >
               <Play size={18} color={COLORS.textOnPrimary} />

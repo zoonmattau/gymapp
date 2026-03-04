@@ -1,8 +1,13 @@
 import React from 'react';
-import Svg, { Path, G, Ellipse, Line } from 'react-native-svg';
+import Svg, { Path, G, Ellipse, Line, Rect } from 'react-native-svg';
 import { MUSCLE_COLORS, getMuscleColor } from '../constants/muscleColors';
 
-// ─── Body outline (200×440 viewBox, curves throughout) ──────────────────────
+// ─── Body outline (200×440 viewBox) ─────────────────────────────────────────
+// Traced from body outline coordinates:
+// Right torso edge: X=136 (armpit Y=82) → X=132 (waist Y=138) → X=128 (hip Y=164) → X=130 (Y=184)
+// Crotch: (100, 194)
+// Right thigh: inner starts (110, 202), outer (132, 200) → (136, 224) → (134, 250) → (132, 284)
+// Right arm: outer X=158-164, inner X=142-150
 const BODY_OUTLINE =
   'M100 4 ' +
   'C117 4 126 15 123 30 Q120 40 114 48 L108 50 ' +
@@ -32,18 +37,17 @@ const BODY_OUTLINE =
   'C74 15 83 4 100 4 Z';
 
 // ─── FRONT MUSCLES ──────────────────────────────────────────────────────────
-// Each entry: { group, mirrored, paths[], fibers?[] }
+// All paths constrained within body outline coordinates
 const FRONT_MUSCLES = [
-  // ── Trapezius (upper, from front) ──
+  // ── Trapezius (upper, visible from front) ──
   {
     group: 'Traps',
     mirrored: true,
     paths: [
-      'M100 50 Q106 48 112 48 Q122 52 132 60 Q126 66 120 68 Q110 60 104 56 Q100 54 100 50 Z',
+      'M100 50 Q106 48 112 49 Q120 52 128 58 Q132 62 128 66 Q122 64 114 58 Q106 54 100 52 Z',
     ],
     fibers: [
       'M104 52 Q112 54 124 60',
-      'M102 50 Q114 52 128 58',
     ],
   },
   // ── Sternocleidomastoid ──
@@ -51,8 +55,8 @@ const FRONT_MUSCLES = [
     group: 'Traps',
     mirrored: false,
     paths: [
-      'M94 40 Q98 42 100 46 L100 52 Q96 54 92 50 Q90 46 94 40 Z',
-      'M106 40 Q102 42 100 46 L100 52 Q104 54 108 50 Q110 46 106 40 Z',
+      'M96 42 Q98 44 100 48 L100 52 Q97 54 94 50 Q92 46 96 42 Z',
+      'M104 42 Q102 44 100 48 L100 52 Q103 54 106 50 Q108 46 104 42 Z',
     ],
   },
   // ── Pectoralis Major ──
@@ -60,17 +64,16 @@ const FRONT_MUSCLES = [
     group: 'Chest',
     mirrored: true,
     paths: [
-      // Upper pec
-      'M100 70 Q108 66 120 68 Q128 70 134 76 C136 80 134 86 130 90 Q122 94 112 96 Q106 96 100 92 Z',
+      // Upper pec - fan from sternum toward armpit
+      'M101 68 Q110 66 120 68 Q128 72 134 78 Q136 82 134 86 Q130 90 122 92 Q112 94 104 92 Q101 88 101 78 Z',
       // Lower pec
-      'M100 92 Q106 96 112 96 Q122 94 128 96 Q130 100 126 106 Q118 112 108 112 Q100 110 100 104 Z',
+      'M101 92 Q106 94 112 94 Q122 92 128 94 Q130 98 126 104 Q118 108 110 108 Q104 106 101 102 Z',
     ],
     fibers: [
-      // Upper pec fiber direction (fan from sternum toward shoulder)
-      'M102 74 Q112 72 128 76', 'M102 80 Q114 78 132 82',
-      'M102 86 Q112 86 128 88',
-      // Lower pec fibers
-      'M102 96 Q112 96 126 98', 'M102 102 Q112 104 124 104',
+      'M103 72 Q114 70 130 76',
+      'M103 80 Q114 78 132 84',
+      'M103 86 Q114 86 128 90',
+      'M103 96 Q112 96 126 98',
     ],
   },
   // ── Deltoids ──
@@ -78,14 +81,12 @@ const FRONT_MUSCLES = [
     group: 'Shoulders',
     mirrored: true,
     paths: [
-      // Anterior delt
-      'M128 66 Q136 62 144 66 C148 70 150 76 150 82 Q148 88 142 90 Q136 86 132 80 Q130 74 128 66 Z',
-      // Lateral delt
-      'M144 66 Q150 64 154 68 C158 74 160 82 158 90 Q154 92 150 88 Q148 82 148 74 Q146 68 144 66 Z',
+      // Anterior + lateral delt as one clean cap shape
+      'M130 64 Q138 60 146 64 Q152 68 156 76 Q158 84 156 90 Q152 92 148 90 Q142 86 138 80 Q134 72 130 64 Z',
     ],
     fibers: [
-      'M132 70 Q140 72 146 80', 'M134 76 Q142 78 148 86',
-      'M148 70 Q154 76 156 84',
+      'M134 68 Q142 72 150 80',
+      'M136 74 Q144 78 154 86',
     ],
   },
   // ── Biceps ──
@@ -94,12 +95,13 @@ const FRONT_MUSCLES = [
     mirrored: true,
     paths: [
       // Biceps brachii (main belly)
-      'M144 92 Q150 88 154 92 C158 100 160 112 158 124 Q156 132 152 134 Q148 132 146 128 C142 118 142 106 144 92 Z',
-      // Brachialis (deeper, peeks out sides)
-      'M142 96 Q144 92 146 96 C144 104 142 114 142 124 Q142 130 144 132 Q140 130 140 124 C138 114 138 104 142 96 Z',
+      'M146 90 Q152 88 156 92 Q158 100 158 112 Q158 122 156 130 Q154 134 150 132 Q148 130 146 124 Q144 116 144 106 Q144 96 146 90 Z',
+      // Brachialis (deeper, visible on outer edge)
+      'M142 96 Q146 92 148 96 Q148 106 148 116 Q148 126 146 130 Q142 128 140 122 Q138 114 138 106 Q140 98 142 96 Z',
     ],
     fibers: [
-      'M148 96 L150 110 L150 126', 'M144 98 L146 112 L146 128',
+      'M148 94 L152 112 L150 128',
+      'M142 100 L144 114 L144 126',
     ],
   },
   // ── Forearms ──
@@ -107,90 +109,111 @@ const FRONT_MUSCLES = [
     group: 'Forearms',
     mirrored: true,
     paths: [
-      // Brachioradialis
-      'M150 132 Q156 130 158 136 C160 146 160 158 158 170 Q156 176 152 174 Q150 166 150 154 Q148 142 150 132 Z',
-      // Flexor group
-      'M144 134 Q150 132 150 140 C150 150 150 162 148 172 Q146 176 142 174 Q142 164 142 152 Q140 142 144 134 Z',
+      // Brachioradialis (outer forearm)
+      'M150 130 Q156 128 158 134 Q160 144 160 156 Q160 166 158 174 Q156 178 152 176 Q150 170 150 158 Q148 146 150 130 Z',
+      // Flexor group (inner forearm)
+      'M144 132 Q150 130 150 138 Q150 148 150 160 Q148 170 146 174 Q142 176 140 170 Q140 160 140 150 Q140 140 144 132 Z',
     ],
     fibers: [
-      'M152 136 L154 154 L154 170', 'M146 138 L148 156 L146 172',
+      'M152 134 L154 156 L154 172',
+      'M144 136 L146 156 L144 170',
     ],
   },
-  // ── Serratus Anterior ──
+  // ── Serratus Anterior (finger-like projections on ribs) ──
   {
     group: 'Core',
     mirrored: true,
     paths: [
-      'M128 90 Q134 92 134 98 L132 104 Q130 98 128 96 Z',
-      'M128 96 Q134 98 134 106 L132 112 Q128 106 128 100 Z',
-      'M126 104 Q132 106 132 114 L128 118 Q126 112 126 108 Z',
+      'M126 86 Q132 88 132 94 Q130 98 126 96 Z',
+      'M124 96 Q130 98 130 104 Q128 108 124 106 Z',
+      'M122 106 Q128 108 128 114 Q126 118 122 116 Z',
+      'M120 116 Q126 118 126 124 Q124 128 120 126 Z',
     ],
   },
-  // ── Rectus Abdominis ──
+  // ── Rectus Abdominis (8-pack: 4 rows × 2 columns, separated by linea alba) ──
   {
     group: 'Core',
     mirrored: false,
     paths: [
-      // Upper abs
-      'M95 106 Q98 104 100 106 Q102 104 105 106 Q106 112 106 118 Q104 122 100 122 Q96 122 94 118 Q94 112 95 106 Z',
-      // Mid abs
-      'M95 124 Q98 122 100 124 Q102 122 105 124 Q106 130 106 138 Q104 142 100 142 Q96 142 94 138 Q94 130 95 124 Z',
-      // Lower abs
-      'M95 144 Q98 142 100 144 Q102 142 105 144 Q106 150 106 160 Q104 164 100 166 Q96 164 94 160 Q94 150 95 144 Z',
-      // Lower V
-      'M96 166 Q100 164 104 166 Q106 172 106 180 Q104 184 100 186 Q96 184 94 180 Q94 172 96 166 Z',
+      // Row 1 — LEFT block
+      'M94 106 L99 106 L99 116 L94 116 Q93 111 94 106 Z',
+      // Row 1 — RIGHT block
+      'M101 106 L106 106 Q107 111 106 116 L101 116 Z',
+      // Row 2 — LEFT
+      'M94 120 L99 120 L99 132 L94 132 Z',
+      // Row 2 — RIGHT
+      'M101 120 L106 120 L106 132 L101 132 Z',
+      // Row 3 — LEFT
+      'M94 136 L99 136 L99 150 L94 150 Z',
+      // Row 3 — RIGHT
+      'M101 136 L106 136 L106 150 L101 150 Z',
+      // Row 4 (lower, tapers inward) — LEFT
+      'M95 154 L99 154 L99 168 Q97 172 95 168 Z',
+      // Row 4 — RIGHT
+      'M101 154 L105 154 Q105 168 103 172 L101 168 Z',
     ],
   },
-  // ── External Obliques ──
+  // ── External Obliques (diagonal strips from ribs to hip) ──
   {
     group: 'Core',
     mirrored: true,
     paths: [
-      'M106 106 Q116 102 126 104 C128 112 128 124 126 138 Q122 154 116 166 Q110 176 106 182 Q106 160 106 140 Q106 120 106 106 Z',
+      // Upper oblique
+      'M106 106 Q112 104 118 108 Q120 116 120 126 Q118 132 114 134 Q110 130 108 124 Q106 118 106 110 Z',
+      // Lower oblique
+      'M108 134 Q114 132 118 136 Q120 144 118 154 Q116 162 112 168 Q108 170 106 166 Q106 156 106 146 Q106 138 108 134 Z',
     ],
     fibers: [
-      // Diagonal fibers
-      'M124 108 Q116 126 110 146', 'M122 116 Q114 134 108 154',
-      'M120 126 Q112 144 108 164',
+      'M116 110 Q112 122 108 130',
+      'M116 138 Q112 150 108 162',
     ],
   },
   // ── Quadriceps ──
+  // Thigh bounds: inner edge starts at (110,202), outer edge at (132,200)
+  // At Y=240: inner ~X=116, outer ~X=135
+  // At Y=280: inner ~X=118, outer ~X=132
   {
     group: 'Quads',
     mirrored: true,
     paths: [
-      // Rectus femoris
-      'M108 198 Q114 194 120 198 C122 214 124 234 122 256 Q120 268 116 274 Q112 270 110 258 C108 238 106 218 108 198 Z',
-      // Vastus lateralis
-      'M120 198 Q128 196 134 200 C136 218 136 240 134 260 Q132 274 128 280 Q122 274 122 264 C122 244 122 224 120 198 Z',
-      // Vastus medialis (teardrop)
-      'M100 198 Q106 194 108 198 C108 218 108 238 110 258 Q112 270 114 280 Q108 284 104 278 Q100 268 100 250 C100 232 100 214 100 198 Z',
+      // Rectus femoris (center of thigh)
+      'M118 200 Q122 196 126 200 Q128 214 128 232 Q128 250 126 264 Q124 274 122 276 Q118 274 118 266 Q116 250 116 232 Q116 214 118 200 Z',
+      // Vastus lateralis (outer thigh)
+      'M126 198 Q130 194 134 198 Q136 214 136 232 Q136 250 134 266 Q132 276 130 278 Q126 276 126 268 Q126 250 126 232 Q126 214 126 198 Z',
+      // Vastus medialis (inner teardrop) — well inside thigh
+      'M112 206 Q116 202 120 206 Q120 222 120 238 Q120 254 118 268 Q116 276 114 278 Q112 274 110 266 Q110 250 110 234 Q110 218 112 206 Z',
+      // Sartorius (thin diagonal band across thigh)
+      'M128 192 Q130 190 132 192 Q130 210 126 230 Q122 250 118 268 Q116 274 114 272 Q118 254 122 236 Q126 216 128 192 Z',
     ],
     fibers: [
-      'M114 200 L116 230 L116 264', 'M128 202 L130 234 L128 270',
-      'M104 200 L106 234 L108 268',
+      'M122 204 L124 236 L124 270',
+      'M130 202 L132 236 L132 270',
+      'M114 210 L116 240 L116 270',
     ],
   },
-  // ── Adductors ──
+  // ── Adductors (inner thigh, well within the leg) ──
   {
     group: 'Quads',
     mirrored: true,
     paths: [
-      'M100 194 Q104 192 108 198 Q112 208 114 222 Q112 234 106 234 Q100 228 100 216 Z',
+      'M110 206 Q114 204 116 208 Q118 218 116 232 Q114 240 112 240 Q110 236 108 226 Q108 214 110 206 Z',
     ],
   },
-  // ── Calves (front) ──
+  // ── Calves (front — tibialis anterior + peroneal + gastrocnemius showing) ──
   {
     group: 'Calves',
     mirrored: true,
     paths: [
-      // Tibialis anterior
-      'M112 290 Q118 286 122 290 C124 304 124 320 122 336 Q120 344 116 342 Q114 334 112 320 C110 306 110 296 112 290 Z',
-      // Gastrocnemius medial
-      'M122 286 Q128 282 132 286 C134 300 134 318 132 336 Q130 344 126 342 Q124 334 124 320 C122 306 122 296 122 286 Z',
+      // Tibialis anterior (front/inner shin)
+      'M116 292 Q120 288 124 292 Q126 306 126 320 Q126 334 124 346 Q122 350 120 348 Q118 340 116 326 Q114 312 116 292 Z',
+      // Peroneal / fibularis (outer shin)
+      'M124 290 Q128 286 132 290 Q134 304 134 318 Q134 332 132 344 Q130 348 128 346 Q126 340 126 326 Q124 312 124 290 Z',
+      // Gastrocnemius medial head (visible from front, inner calf bulge)
+      'M116 288 Q120 284 122 288 Q124 298 122 310 Q120 318 116 316 Q114 310 114 300 Q114 292 116 288 Z',
     ],
     fibers: [
-      'M116 294 L118 316 L118 338', 'M128 290 L130 312 L128 338',
+      'M120 296 L122 318 L120 342',
+      'M128 294 L130 316 L130 340',
     ],
   },
 ];
@@ -202,14 +225,18 @@ const BACK_MUSCLES = [
     group: 'Traps',
     mirrored: true,
     paths: [
-      'M100 50 Q108 48 114 48 Q124 52 134 62 Q128 68 120 68 Q110 58 104 54 Q100 52 100 50 Z',
-      'M100 68 Q108 66 116 70 Q118 80 118 90 Q112 96 100 98 Q100 88 100 78 Z',
-      'M100 98 Q108 96 114 92 Q116 100 114 112 Q108 118 100 120 Q100 110 100 98 Z',
+      // Upper trap
+      'M100 50 Q108 48 114 50 Q122 54 130 60 Q126 66 120 66 Q112 60 106 56 Q102 52 100 50 Z',
+      // Middle trap
+      'M100 66 Q108 64 116 68 Q118 78 118 88 Q112 92 100 94 Q100 84 100 74 Z',
+      // Lower trap
+      'M100 94 Q108 92 114 90 Q116 96 114 106 Q108 112 100 114 Q100 106 100 94 Z',
     ],
     fibers: [
-      'M104 52 Q112 54 126 60',
-      'M102 74 Q108 72 116 76', 'M102 84 Q110 82 116 86',
-      'M102 102 Q108 98 114 96',
+      'M104 52 Q112 56 126 62',
+      'M102 72 Q110 70 116 74',
+      'M102 82 Q110 80 116 84',
+      'M102 98 Q108 96 114 94',
     ],
   },
   // ── Posterior Deltoid ──
@@ -217,10 +244,11 @@ const BACK_MUSCLES = [
     group: 'Shoulders',
     mirrored: true,
     paths: [
-      'M130 62 Q140 60 148 66 C152 72 154 80 154 88 Q150 92 144 90 Q138 86 134 78 Q130 70 130 62 Z',
+      'M128 62 Q138 58 146 64 Q152 70 154 80 Q154 88 148 90 Q142 88 138 82 Q132 74 128 62 Z',
     ],
     fibers: [
-      'M134 66 Q142 70 148 80', 'M136 74 Q144 78 150 86',
+      'M132 66 Q142 70 150 80',
+      'M134 72 Q144 76 150 86',
     ],
   },
   // ── Infraspinatus ──
@@ -228,16 +256,19 @@ const BACK_MUSCLES = [
     group: 'Back',
     mirrored: true,
     paths: [
-      'M118 70 Q124 66 130 68 Q136 72 138 80 Q136 88 130 94 Q122 92 118 86 Q116 78 118 70 Z',
+      'M116 68 Q122 64 128 66 Q134 70 136 78 Q134 86 128 90 Q120 88 116 82 Q114 76 116 68 Z',
     ],
-    fibers: ['M120 74 Q128 76 136 82', 'M120 82 Q128 84 134 88'],
+    fibers: [
+      'M118 72 Q126 74 134 80',
+      'M118 80 Q126 82 132 86',
+    ],
   },
   // ── Teres Major ──
   {
     group: 'Back',
     mirrored: true,
     paths: [
-      'M118 88 Q126 92 132 94 Q136 98 136 104 Q132 108 126 108 Q120 104 118 98 Q116 94 118 88 Z',
+      'M116 86 Q124 90 130 92 Q134 96 134 102 Q130 106 124 104 Q118 100 116 94 Q114 90 116 86 Z',
     ],
   },
   // ── Latissimus Dorsi ──
@@ -245,13 +276,14 @@ const BACK_MUSCLES = [
     group: 'Back',
     mirrored: true,
     paths: [
-      'M100 98 Q110 100 120 104 Q128 108 136 104 C138 114 138 128 134 144 Q128 158 120 166 Q112 170 106 170 Q100 166 100 156 C100 140 100 120 100 98 Z',
+      'M100 94 Q108 96 118 100 Q126 104 134 102 Q136 112 136 124 Q134 138 128 152 Q122 162 114 166 Q108 168 102 166 Q100 160 100 148 Q100 130 100 112 Z',
     ],
     fibers: [
-      // Lat fibers angle from spine toward armpit
-      'M102 104 Q116 108 134 110', 'M102 116 Q118 118 134 120',
-      'M102 128 Q116 130 132 132', 'M102 142 Q114 144 126 148',
-      'M102 154 Q112 156 120 160',
+      'M102 100 Q116 104 132 108',
+      'M102 114 Q118 116 134 118',
+      'M102 126 Q116 128 132 132',
+      'M102 140 Q114 142 126 148',
+      'M102 152 Q112 154 120 160',
     ],
   },
   // ── Erector Spinae ──
@@ -259,10 +291,11 @@ const BACK_MUSCLES = [
     group: 'Back',
     mirrored: true,
     paths: [
-      'M100 120 Q104 118 108 120 C110 132 110 148 108 164 Q106 172 104 176 Q100 174 100 168 C100 150 100 134 100 120 Z',
+      'M100 114 Q104 112 108 114 Q110 126 110 142 Q110 156 108 168 Q106 174 104 176 Q100 174 100 166 Q100 148 100 130 Z',
     ],
     fibers: [
-      'M102 124 L104 148 L102 170', 'M106 122 L108 146 L106 168',
+      'M102 118 L104 144 L102 170',
+      'M106 116 L108 142 L106 168',
     ],
   },
   // ── Triceps ──
@@ -271,12 +304,13 @@ const BACK_MUSCLES = [
     mirrored: true,
     paths: [
       // Long head
-      'M142 90 Q148 86 152 90 C156 100 158 114 156 128 Q154 134 150 134 Q146 132 144 126 C142 114 140 102 142 90 Z',
+      'M144 88 Q150 86 154 90 Q156 100 156 112 Q156 124 154 132 Q152 134 148 132 Q146 128 144 120 Q142 110 142 100 Q142 94 144 88 Z',
       // Lateral head
-      'M150 90 Q156 88 158 92 C162 102 162 116 160 130 Q158 136 154 134 Q152 130 152 122 C150 110 150 100 150 90 Z',
+      'M152 88 Q158 86 160 92 Q162 102 162 114 Q162 126 160 132 Q158 136 154 134 Q154 128 154 118 Q152 106 152 96 Z',
     ],
     fibers: [
-      'M146 94 L148 112 L148 130', 'M154 94 L156 112 L156 128',
+      'M148 92 L150 112 L150 130',
+      'M156 92 L158 112 L158 128',
     ],
   },
   // ── Forearm Extensors ──
@@ -284,16 +318,18 @@ const BACK_MUSCLES = [
     group: 'Forearms',
     mirrored: true,
     paths: [
-      'M148 134 Q156 130 158 138 C160 150 160 162 158 174 Q156 180 150 178 Q148 170 148 158 C146 148 146 140 148 134 Z',
+      'M148 132 Q156 130 158 136 Q160 148 160 160 Q160 170 158 176 Q154 178 150 176 Q148 170 146 160 Q144 148 148 132 Z',
     ],
-    fibers: ['M150 138 L154 156 L152 174'],
+    fibers: [
+      'M150 136 L154 156 L152 174',
+    ],
   },
   // ── Gluteus Medius ──
   {
     group: 'Glutes',
     mirrored: true,
     paths: [
-      'M120 158 Q128 154 134 160 Q138 168 136 178 Q132 182 126 180 Q120 176 118 168 Q118 162 120 158 Z',
+      'M118 156 Q126 152 132 158 Q136 164 134 174 Q130 178 124 176 Q118 172 116 164 Q116 160 118 156 Z',
     ],
   },
   // ── Gluteus Maximus ──
@@ -301,11 +337,12 @@ const BACK_MUSCLES = [
     group: 'Glutes',
     mirrored: true,
     paths: [
-      'M100 174 Q110 168 120 170 Q128 176 132 186 C132 196 128 202 120 204 Q112 204 106 200 Q100 196 100 188 Z',
+      'M100 172 Q108 166 118 168 Q126 174 130 184 Q130 194 126 200 Q120 204 112 202 Q106 198 102 192 Q100 186 100 178 Z',
     ],
     fibers: [
-      'M104 178 Q114 176 126 182', 'M104 186 Q114 184 128 190',
-      'M104 194 Q112 194 122 198',
+      'M104 176 Q114 174 124 180',
+      'M104 184 Q114 182 128 188',
+      'M104 192 Q112 192 122 196',
     ],
   },
   // ── Hamstrings ──
@@ -313,30 +350,32 @@ const BACK_MUSCLES = [
     group: 'Hamstrings',
     mirrored: true,
     paths: [
-      // Biceps femoris
-      'M120 204 Q128 200 134 204 C136 220 136 240 134 260 Q130 274 126 278 Q122 274 120 264 C120 244 118 224 120 204 Z',
-      // Semitendinosus
-      'M100 200 Q108 198 116 204 C118 220 118 240 116 260 Q114 272 110 276 Q104 274 100 266 C100 248 100 228 100 200 Z',
+      // Biceps femoris (outer)
+      'M122 204 Q128 200 134 204 Q136 218 136 236 Q136 254 134 268 Q130 276 126 278 Q122 274 122 266 Q120 248 120 230 Q120 214 122 204 Z',
+      // Semitendinosus / semimembranosus (inner)
+      'M112 202 Q118 198 122 204 Q122 218 120 236 Q118 254 116 268 Q114 276 110 276 Q106 272 106 264 Q106 248 108 230 Q110 214 112 202 Z',
     ],
     fibers: [
-      'M124 208 L128 236 L126 268', 'M106 204 L110 236 L108 268',
+      'M126 208 L130 238 L128 270',
+      'M114 206 L116 238 L114 270',
     ],
   },
-  // ── Calves (back) ──
+  // ── Calves (back — gastrocnemius + soleus) ──
   {
     group: 'Calves',
     mirrored: true,
     paths: [
       // Gastrocnemius medial
-      'M106 278 Q114 274 120 278 C122 292 122 308 120 326 Q118 334 114 332 Q110 328 108 318 C106 304 104 290 106 278 Z',
+      'M110 278 Q116 274 122 278 Q124 292 124 308 Q122 322 120 330 Q118 334 114 332 Q110 328 108 318 Q106 304 108 290 Z',
       // Gastrocnemius lateral
-      'M120 278 Q128 274 134 278 C136 292 136 308 134 326 Q132 334 128 332 Q124 328 122 318 C120 304 120 290 120 278 Z',
-      // Soleus
-      'M110 332 Q118 328 126 332 C130 340 130 352 128 364 Q124 372 118 372 Q112 370 110 362 C108 352 108 342 110 332 Z',
+      'M122 278 Q128 274 134 278 Q136 292 136 308 Q134 322 132 330 Q130 334 126 332 Q122 328 122 318 Q120 304 122 290 Z',
+      // Soleus (lower)
+      'M112 332 Q118 328 126 332 Q130 340 130 352 Q128 362 124 368 Q118 370 114 368 Q110 362 108 352 Q108 342 112 332 Z',
     ],
     fibers: [
-      'M110 282 L114 306 L112 328', 'M126 282 L130 306 L128 328',
-      'M114 336 L118 352 L116 368',
+      'M114 282 L116 306 L114 328',
+      'M128 282 L130 306 L128 328',
+      'M116 336 L120 352 L118 366',
     ],
   },
 ];
@@ -380,7 +419,7 @@ const DetailedAnatomy = React.memo(({
       viewBox="0 0 200 440"
       preserveAspectRatio="xMidYMid meet"
     >
-      {/* Body silhouette — solid dark fill like anatomy chart */}
+      {/* Body silhouette */}
       <Path
         d={BODY_OUTLINE}
         fill="#3A3F47"
@@ -393,14 +432,41 @@ const DetailedAnatomy = React.memo(({
       {/* Head */}
       <Ellipse cx="100" cy="22" rx="15" ry="19" fill="#3A3F47" fillOpacity={0.9} stroke="#2A2E35" strokeWidth={0.6} />
 
-      {/* Anatomical guide lines */}
-      <Line x1="100" y1="48" x2="100" y2="194" stroke="#2A2E35" strokeWidth={0.3} strokeOpacity={0.5} />
+      {/* Structural lines */}
+      {/* Center line (linea alba) */}
+      <Line x1="100" y1="50" x2="100" y2="170" stroke="#2A2E35" strokeWidth={0.4} strokeOpacity={0.4} />
+
+      {/* Collarbones */}
       {view === 'front' && (
-        <Path d="M86 60 Q92 56 100 58 Q108 56 114 60" fill="none" stroke="#2A2E35" strokeWidth={0.3} strokeOpacity={0.4} />
+        <>
+          <Path d="M90 58 Q96 54 100 56 Q104 54 110 58" fill="none" stroke="#2A2E35" strokeWidth={0.3} strokeOpacity={0.35} />
+          {/* Rib hints */}
+          <Path d="M104 108 Q112 106 118 110" fill="none" stroke="#363A42" strokeWidth={0.25} strokeOpacity={0.3} />
+          <Path d="M96 108 Q88 106 82 110" fill="none" stroke="#363A42" strokeWidth={0.25} strokeOpacity={0.3} />
+          {/* Inguinal crease */}
+          <Path d="M104 170 Q114 174 126 180" fill="none" stroke="#363A42" strokeWidth={0.3} strokeOpacity={0.35} />
+          <Path d="M96 170 Q86 174 74 180" fill="none" stroke="#363A42" strokeWidth={0.3} strokeOpacity={0.35} />
+          {/* Navel */}
+          <Ellipse cx="100" cy="158" rx="1.2" ry="1.8" fill="none" stroke="#2A2E35" strokeWidth={0.4} strokeOpacity={0.5} />
+        </>
       )}
+
       {view === 'back' && (
-        <Path d="M100 48 L100 194" fill="none" stroke="#2A2E35" strokeWidth={0.4} strokeOpacity={0.5} />
+        <>
+          {/* Spine line */}
+          <Line x1="100" y1="48" x2="100" y2="180" stroke="#2A2E35" strokeWidth={0.4} strokeOpacity={0.4} />
+          {/* Scapula hints */}
+          <Path d="M108 66 Q116 70 120 82 Q118 90 112 90" fill="none" stroke="#363A42" strokeWidth={0.3} strokeOpacity={0.35} />
+          <Path d="M92 66 Q84 70 80 82 Q82 90 88 90" fill="none" stroke="#363A42" strokeWidth={0.3} strokeOpacity={0.35} />
+          {/* Lower back dimples */}
+          <Ellipse cx="106" cy="172" rx="2" ry="1.5" fill="none" stroke="#363A42" strokeWidth={0.3} strokeOpacity={0.3} />
+          <Ellipse cx="94" cy="172" rx="2" ry="1.5" fill="none" stroke="#363A42" strokeWidth={0.3} strokeOpacity={0.3} />
+        </>
       )}
+
+      {/* Kneecaps */}
+      <Ellipse cx="122" cy="284" rx="6" ry="4" fill="none" stroke="#363A42" strokeWidth={0.3} strokeOpacity={0.4} />
+      <Ellipse cx="78" cy="284" rx="6" ry="4" fill="none" stroke="#363A42" strokeWidth={0.3} strokeOpacity={0.4} />
 
       {/* Muscle regions */}
       {muscles.map((muscle, mi) => {
@@ -409,14 +475,11 @@ const DetailedAnatomy = React.memo(({
         const isSecondary = level === 'secondary';
         const isTargeted = isPrimary || isSecondary;
 
-        // Targeted muscles: bright unique color | Base: darker gray with subtle definition
         const color = isTargeted ? getMuscleColor(muscle.group) : '#4A4F58';
         const fillOp = isPrimary ? 0.9 : isSecondary ? 0.55 : 0.7;
-        // Targeted muscles get a darker edge for separation; base gets subtle outline
         const strokeCol = isTargeted ? '#1A1D22' : '#363A42';
         const sw = isPrimary ? 0.8 : isSecondary ? 0.6 : 0.35;
         const so = isPrimary ? 0.8 : isSecondary ? 0.7 : 0.6;
-        // Fibers: visible on targeted, subtle on base
         const fiberCol = isTargeted ? '#FFFFFF' : '#5A5F68';
         const fiberOp = isPrimary ? 0.2 : isSecondary ? 0.12 : 0.15;
         const fiberW = isPrimary ? 0.5 : isSecondary ? 0.4 : 0.25;
@@ -480,23 +543,6 @@ const DetailedAnatomy = React.memo(({
           </G>
         );
       })}
-
-      {/* Knee caps */}
-      <Ellipse cx="118" cy="282" rx="7" ry="5" fill="none" stroke="#363A42" strokeWidth={0.4} strokeOpacity={0.5} />
-      <Ellipse cx="82" cy="282" rx="7" ry="5" fill="none" stroke="#363A42" strokeWidth={0.4} strokeOpacity={0.5} />
-
-      {/* Navel */}
-      {view === 'front' && (
-        <Ellipse cx="100" cy="170" rx="1.5" ry="2" fill="none" stroke="#2A2E35" strokeWidth={0.4} strokeOpacity={0.5} />
-      )}
-
-      {/* Scapula hints (back view) */}
-      {view === 'back' && (
-        <>
-          <Path d="M110 68 Q118 72 122 84 Q120 92 114 92" fill="none" stroke="#363A42" strokeWidth={0.3} strokeOpacity={0.4} />
-          <Path d="M90 68 Q82 72 78 84 Q80 92 86 92" fill="none" stroke="#363A42" strokeWidth={0.3} strokeOpacity={0.4} />
-        </>
-      )}
     </Svg>
   );
 }, (prev, next) =>

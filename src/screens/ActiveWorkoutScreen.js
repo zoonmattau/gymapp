@@ -145,6 +145,9 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
   const [restTimer, setRestTimer] = useState(0);
   const [isResting, setIsResting] = useState(false);
   const [restTimerEnabled, setRestTimerEnabled] = useState(true);
+  const [restDuration, setRestDuration] = useState(90); // adjustable per workout
+  const [editingRestTime, setEditingRestTime] = useState(false);
+  const [restTimeInput, setRestTimeInput] = useState('');
   const [showExerciseModal, setShowExerciseModal] = useState(false);
   const [showLogSetModal, setShowLogSetModal] = useState(false);
   const [selectedSetToLog, setSelectedSetToLog] = useState(null); // { exerciseId, exerciseName, setId, setNumber, weight, reps }
@@ -440,7 +443,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
 
     // Start rest timer after completing a set (only if enabled in profile)
     if (restTimerEnabled) {
-      setRestTimer(90);
+      setRestTimer(restDuration);
       setIsResting(true);
     }
   };
@@ -484,6 +487,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
           reps: setData.reps.toString(),
           rpe: setData.rpe,
           setType: setData.setType,
+          isWarmup: setData.isWarmup || false,
           supersetExercise: setData.supersetExercise,
           supersetWeight: setData.supersetWeight,
           supersetReps: setData.supersetReps,
@@ -500,7 +504,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
 
     // Start rest timer after logging a set (only if enabled in profile)
     if (restTimerEnabled) {
-      setRestTimer(90);
+      setRestTimer(restDuration);
       setIsResting(true);
     }
     setSelectedSetToLog(null);
@@ -598,6 +602,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
                 reps: setData.reps.toString(),
                 rpe: setData.rpe,
                 setType: setData.setType,
+                isWarmup: setData.isWarmup || false,
                 supersetExercise: setData.supersetExercise,
                 supersetWeight: setData.supersetWeight,
                 supersetReps: setData.supersetReps,
@@ -614,7 +619,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
 
     // Start rest timer after updating a set (only if enabled in profile)
     if (restTimerEnabled) {
-      setRestTimer(90);
+      setRestTimer(restDuration);
       setIsResting(true);
     }
 
@@ -708,7 +713,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
                   weight: set.weight === 'BW' ? 0 : parseFloat(set.weight) || 0,
                   reps: parseInt(set.reps) || 0,
                   rpe: set.rpe || null,
-                  isWarmup: false,
+                  isWarmup: set.isWarmup || set.setType === 'warmup',
                 });
               } catch (setErr) {
                 console.error('Error logging set:', exercise.name, setErr);
@@ -869,10 +874,71 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
       {/* Rest Timer Banner */}
       {isResting && (
         <View style={styles.restBanner}>
-          <Text style={styles.restText}>Rest: {formatTime(restTimer)}</Text>
-          <TouchableOpacity onPress={() => setIsResting(false)}>
-            <Text style={styles.skipRestText}>Skip</Text>
-          </TouchableOpacity>
+          <View style={styles.restLeft}>
+            {editingRestTime ? (
+              <View style={styles.restEditRow}>
+                <Text style={styles.restLabel}>Rest: </Text>
+                <TextInput
+                  style={styles.restTimeInput}
+                  value={restTimeInput}
+                  onChangeText={setRestTimeInput}
+                  keyboardType="number-pad"
+                  autoFocus
+                  selectTextOnFocus
+                  maxLength={3}
+                  placeholder="sec"
+                  placeholderTextColor="rgba(255,255,255,0.4)"
+                  onSubmitEditing={() => {
+                    const secs = parseInt(restTimeInput) || 90;
+                    const clamped = Math.max(10, secs);
+                    setRestDuration(clamped);
+                    setRestTimer(clamped);
+                    setEditingRestTime(false);
+                  }}
+                  onBlur={() => {
+                    const secs = parseInt(restTimeInput) || 90;
+                    const clamped = Math.max(10, secs);
+                    setRestDuration(clamped);
+                    setRestTimer(clamped);
+                    setEditingRestTime(false);
+                  }}
+                />
+                <Text style={styles.restLabel}>s</Text>
+              </View>
+            ) : (
+              <TouchableOpacity onPress={() => {
+                setRestTimeInput(String(restTimer));
+                setEditingRestTime(true);
+              }}>
+                <Text style={styles.restText}>Rest: {formatTime(restTimer)}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          <View style={styles.restControls}>
+            <TouchableOpacity
+              style={styles.restAdjustBtn}
+              onPress={() => {
+                const newDuration = Math.max(15, restDuration - 15);
+                setRestDuration(newDuration);
+                setRestTimer(prev => Math.max(0, prev - 15));
+              }}
+            >
+              <Text style={styles.restAdjustText}>-15s</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.restAdjustBtn}
+              onPress={() => {
+                const newDuration = restDuration + 15;
+                setRestDuration(newDuration);
+                setRestTimer(prev => prev + 15);
+              }}
+            >
+              <Text style={styles.restAdjustText}>+15s</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => { setIsResting(false); setEditingRestTime(false); }} style={styles.skipRestBtn}>
+              <Text style={styles.skipRestText}>Skip</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       )}
 
@@ -1091,6 +1157,11 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
                                   }
                                 </Text>
 
+                                {set.setType === 'warmup' && (
+                                  <View style={[styles.setBadge, styles.warmupBadge]}>
+                                    <Text style={styles.setBadgeText}>Warmup</Text>
+                                  </View>
+                                )}
                                 {set.setType === 'dropset' && (
                                   <View style={[styles.setBadge, styles.dropsetBadge]}>
                                     <Text style={styles.setBadgeText}>Dropset</Text>
@@ -1333,19 +1404,67 @@ const getStyles = (COLORS) => StyleSheet.create({
   restBanner: {
     backgroundColor: COLORS.primary,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 10,
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  restLeft: {
+    flexDirection: 'row',
     alignItems: 'center',
   },
   restText: {
     color: COLORS.text,
     fontSize: 16,
     fontWeight: '600',
+    textDecorationLine: 'underline',
+    textDecorationStyle: 'dotted',
+  },
+  restLabel: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  restEditRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  restTimeInput: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '600',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    minWidth: 50,
+    textAlign: 'center',
+    ...(Platform.OS === 'web' ? { outlineStyle: 'none' } : {}),
+  },
+  restControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  restAdjustBtn: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+  },
+  restAdjustText: {
+    color: COLORS.text,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  skipRestBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 5,
   },
   skipRestText: {
     color: COLORS.text,
     opacity: 0.8,
+    fontWeight: '600',
   },
   content: {
     flex: 1,
@@ -1466,6 +1585,9 @@ const getStyles = (COLORS) => StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: COLORS.text,
+  },
+  warmupBadge: {
+    backgroundColor: '#3B82F6',
   },
   dropsetBadge: {
     backgroundColor: COLORS.error,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,13 +7,14 @@ import {
   TouchableOpacity,
   TextInput,
   FlatList,
-  ScrollView,
   SafeAreaView,
   Platform,
 } from 'react-native';
-import { X, Search, Dumbbell } from 'lucide-react-native';
+import { X, Search } from 'lucide-react-native';
 import { useColors } from '../contexts/ThemeContext';
 import { EXERCISES } from '../constants/exercises';
+import MuscleMap, { PRIMARY_VIEW } from './MuscleMap';
+import { getMuscleColor } from '../constants/muscleColors';
 
 const MUSCLE_GROUPS = ['All', 'Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps', 'Quads', 'Hamstrings', 'Glutes', 'Calves', 'Core', 'Traps', 'Forearms', 'Full Body'];
 
@@ -38,15 +39,39 @@ const ExerciseSearchModal = ({ visible, onClose, onSelect, excludeExercises = []
   const COLORS = useColors();
   const styles = getStyles(COLORS);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [selectedMuscle, setSelectedMuscle] = useState('All');
+  const searchInputRef = useRef(null);
+  const debounceRef = useRef(null);
+
+  // Reset state every time modal opens
+  useEffect(() => {
+    if (visible) {
+      setSearchQuery('');
+      setDebouncedQuery('');
+      setSelectedMuscle('All');
+    }
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [visible]);
+
+  // Debounce search input
+  const handleSearchChange = useCallback((text) => {
+    setSearchQuery(text);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setDebouncedQuery(text);
+    }, 200);
+  }, []);
 
   // Get the muscle group of the current exercise for superset suggestions
   const currentExerciseData = currentExercise ? EXERCISES.find(e => e.name === currentExercise) : null;
   const currentMuscleGroup = currentExerciseData?.muscleGroup;
   const suggestedMuscleGroups = currentMuscleGroup ? SUPERSET_PAIRS[currentMuscleGroup] || [] : [];
 
-  // Get suggested exercises for superset - prioritize different equipment/type for variety
-  const suggestedExercises = (() => {
+  // Get suggested exercises for superset
+  const suggestedExercises = useMemo(() => {
     if (!isSuperset || suggestedMuscleGroups.length === 0) return [];
 
     const sameMuscleExercises = EXERCISES.filter(ex =>
@@ -55,7 +80,6 @@ const ExerciseSearchModal = ({ visible, onClose, onSelect, excludeExercises = []
       ex.name !== currentExercise
     );
 
-    // If we know the current exercise, prioritize different equipment/type
     if (currentExerciseData) {
       const differentEquipment = sameMuscleExercises.filter(
         ex => ex.equipment !== currentExerciseData.equipment
@@ -63,28 +87,184 @@ const ExerciseSearchModal = ({ visible, onClose, onSelect, excludeExercises = []
       const sameEquipment = sameMuscleExercises.filter(
         ex => ex.equipment === currentExerciseData.equipment
       );
-      // Show variety first, then same equipment
       return [...differentEquipment.slice(0, 4), ...sameEquipment.slice(0, 2)].slice(0, 6);
     }
 
     return sameMuscleExercises.slice(0, 6);
-  })();
+  }, [isSuperset, currentExercise, excludeExercises]);
 
-  const filteredExercises = EXERCISES.filter(ex => {
-    const name = ex.name.toLowerCase();
-    const queryWords = searchQuery.toLowerCase().split(/\s+/).filter(w => w.length > 0);
-    const matchesSearch = queryWords.length === 0 || queryWords.every(word => name.includes(word));
-    const matchesMuscle = selectedMuscle === 'All' || ex.muscleGroup === selectedMuscle;
-    const notExcluded = !excludeExercises.includes(ex.name);
-    return matchesSearch && matchesMuscle && notExcluded;
-  });
+  // Filter exercises using debounced query — fuzzy/smart search
+  const filteredExercises = useMemo(() => {
+    const queryWords = debouncedQuery.toLowerCase().split(/\s+/).filter(w => w.length > 0);
+    if (queryWords.length === 0) {
+      return EXERCISES.filter(ex => {
+        const matchesMuscle = selectedMuscle === 'All' || ex.muscleGroup === selectedMuscle;
+        return matchesMuscle && !excludeExercises.includes(ex.name);
+      });
+    }
 
-  const handleSelect = (exercise) => {
+    // Common synonyms/aliases — map search terms to also match these
+    const SYNONYMS = {
+      'bench': ['bench', 'chest press', 'floor press'],
+      'chest': ['chest', 'bench', 'pec', 'fly', 'flye'],
+      'squat': ['squat', 'leg press'],
+      'pull up': ['pull up', 'pullup', 'chin up', 'chinup'],
+      'pullup': ['pull up', 'pullup', 'chin up', 'chinup'],
+      'chinup': ['chin up', 'chinup', 'pull up', 'pullup'],
+      'curl': ['curl', 'bicep'],
+      'row': ['row', 'pull'],
+      'press': ['press', 'push'],
+      'deadlift': ['deadlift', 'dead lift'],
+      'ohp': ['overhead press', 'shoulder press', 'military press'],
+      'rdl': ['romanian deadlift'],
+      'db': ['dumbbell'],
+      'bb': ['barbell'],
+      'ez': ['ez bar', 'ez-bar'],
+      'lat': ['lat', 'pulldown', 'pull down', 'pull-down'],
+      'tri': ['tricep', 'triceps'],
+      'bi': ['bicep', 'biceps'],
+      'abs': ['abs', 'core', 'crunch', 'sit up'],
+      'rear delt': ['rear delt', 'reverse fly', 'face pull'],
+      'ham': ['hamstring', 'hamstrings'],
+      'glute': ['glute', 'glutes', 'hip thrust'],
+      'calf': ['calf', 'calves', 'calf raise'],
+      'trap': ['trap', 'traps', 'shrug'],
+    };
+
+    // Expand query words with synonyms
+    const expandedTermSets = queryWords.map(word => {
+      const terms = new Set([word]);
+      for (const [key, synonyms] of Object.entries(SYNONYMS)) {
+        if (word === key || synonyms.some(s => s === word)) {
+          terms.add(key);
+          synonyms.forEach(s => terms.add(s));
+        }
+      }
+      return terms;
+    });
+
+    // Score each exercise
+    const scored = EXERCISES
+      .filter(ex => {
+        const matchesMuscle = selectedMuscle === 'All' || ex.muscleGroup === selectedMuscle;
+        return matchesMuscle && !excludeExercises.includes(ex.name);
+      })
+      .map(ex => {
+        const name = ex.name.toLowerCase();
+        const group = ex.muscleGroup.toLowerCase();
+        const equip = (ex.equipment || '').toLowerCase();
+        const searchable = `${name} ${group} ${equip}`;
+
+        let score = 0;
+        let allMatch = true;
+
+        for (const termSet of expandedTermSets) {
+          let termMatched = false;
+          for (const term of termSet) {
+            if (name.includes(term)) {
+              score += 10; // Strong: name match
+              termMatched = true;
+              break;
+            }
+          }
+          if (!termMatched) {
+            for (const term of termSet) {
+              if (searchable.includes(term)) {
+                score += 3; // Weaker: group/equipment match
+                termMatched = true;
+                break;
+              }
+            }
+          }
+          if (!termMatched) allMatch = false;
+        }
+
+        // Bonus for exact substring match of the full query
+        if (name.includes(debouncedQuery.toLowerCase())) {
+          score += 20;
+        }
+
+        return { ex, score, allMatch };
+      })
+      .filter(item => item.score > 0 && item.allMatch)
+      .sort((a, b) => b.score - a.score);
+
+    return scored.map(item => item.ex);
+  }, [debouncedQuery, selectedMuscle, excludeExercises]);
+
+  const handleSelect = useCallback((exercise) => {
     onSelect(exercise.name);
     onClose();
-    setSearchQuery('');
-    setSelectedMuscle('All');
-  };
+  }, [onSelect, onClose]);
+
+  // Memoized exercise row
+  const renderExerciseItem = useCallback(({ item, index }) => (
+    <TouchableOpacity
+      style={styles.exerciseItem}
+      onPress={() => handleSelect(item)}
+    >
+      <View style={styles.exerciseIcon}>
+        <MuscleMap
+          view={PRIMARY_VIEW[item.muscleGroup] || 'front'}
+          highlightedMuscle={item.muscleGroup}
+          highlightColor={getMuscleColor(item.muscleGroup)}
+          size={32}
+        />
+      </View>
+      <View style={styles.exerciseInfo}>
+        <Text style={styles.exerciseName}>{item.name}</Text>
+        <Text style={styles.exerciseMeta}>
+          {item.muscleGroup} • {item.equipment}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  ), [styles, handleSelect]);
+
+  const exerciseKeyExtractor = useCallback((item, index) => `${item.name}-${index}`, []);
+
+  // Build the superset header
+  const ListHeader = useMemo(() => {
+    if (!isSuperset || suggestedExercises.length === 0 || debouncedQuery !== '') return null;
+    return (
+      <View style={styles.suggestedSection}>
+        <Text style={styles.suggestedTitle}>SUGGESTED FOR SUPERSET</Text>
+        <Text style={styles.suggestedSubtitle}>
+          Other {currentMuscleGroup} exercises
+        </Text>
+        {suggestedExercises.map((item, i) => (
+          <TouchableOpacity
+            key={`suggested-${item.name}-${i}`}
+            style={[styles.exerciseItem, styles.suggestedItem]}
+            onPress={() => handleSelect(item)}
+          >
+            <View style={[styles.exerciseIcon, styles.suggestedIcon]}>
+              <MuscleMap
+                view={PRIMARY_VIEW[item.muscleGroup] || 'front'}
+                highlightedMuscle={item.muscleGroup}
+                highlightColor={getMuscleColor(item.muscleGroup)}
+                size={32}
+              />
+            </View>
+            <View style={styles.exerciseInfo}>
+              <Text style={styles.exerciseName}>{item.name}</Text>
+              <Text style={styles.exerciseMeta}>
+                {item.muscleGroup} • {item.equipment}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        ))}
+        <View style={styles.divider}>
+          <Text style={styles.dividerText}>ALL EXERCISES</Text>
+        </View>
+      </View>
+    );
+  }, [isSuperset, suggestedExercises, debouncedQuery, currentMuscleGroup, styles, handleSelect]);
+
+  const ListEmpty = useMemo(() => (
+    <View style={styles.emptyState}>
+      <Text style={styles.emptyText}>No exercises found</Text>
+    </View>
+  ), [styles]);
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
@@ -104,13 +284,21 @@ const ExerciseSearchModal = ({ visible, onClose, onSelect, excludeExercises = []
         <View style={styles.searchContainer}>
           <Search size={20} color={COLORS.textMuted} />
           <TextInput
+            ref={searchInputRef}
             style={styles.searchInput}
             placeholder="Search exercises..."
             placeholderTextColor={COLORS.textMuted}
             value={searchQuery}
-            onChangeText={setSearchQuery}
+            onChangeText={handleSearchChange}
             autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="search"
           />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => { setSearchQuery(''); setDebouncedQuery(''); }} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <X size={18} color={COLORS.textMuted} />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Muscle Group Filter */}
@@ -141,70 +329,21 @@ const ExerciseSearchModal = ({ visible, onClose, onSelect, excludeExercises = []
           )}
         />
 
-        {/* Exercise List */}
-        <View style={styles.exerciseListContainer}>
-          <ScrollView
-            style={styles.exerciseList}
-            contentContainerStyle={styles.exerciseListContent}
-            showsVerticalScrollIndicator={true}
-            nestedScrollEnabled={true}
-          >
-            {/* Suggested Exercises for Superset */}
-            {isSuperset && suggestedExercises.length > 0 && searchQuery === '' && (
-              <View style={styles.suggestedSection}>
-              <Text style={styles.suggestedTitle}>SUGGESTED FOR SUPERSET</Text>
-              <Text style={styles.suggestedSubtitle}>
-                Other {currentMuscleGroup} exercises
-              </Text>
-              {suggestedExercises.map((item) => (
-                <TouchableOpacity
-                  key={item.name}
-                  style={[styles.exerciseItem, styles.suggestedItem]}
-                  onPress={() => handleSelect(item)}
-                >
-                  <View style={[styles.exerciseIcon, styles.suggestedIcon]}>
-                    <Dumbbell size={18} color="#D97706" />
-                  </View>
-                  <View style={styles.exerciseInfo}>
-                    <Text style={styles.exerciseName}>{item.name}</Text>
-                    <Text style={styles.exerciseMeta}>
-                      {item.muscleGroup} • {item.equipment}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-              <View style={styles.divider}>
-                <Text style={styles.dividerText}>ALL EXERCISES</Text>
-              </View>
-            </View>
-          )}
-
-          {/* All Exercises */}
-          {filteredExercises.length > 0 ? (
-            filteredExercises.map((item) => (
-              <TouchableOpacity
-                key={item.name}
-                style={styles.exerciseItem}
-                onPress={() => handleSelect(item)}
-              >
-                <View style={styles.exerciseIcon}>
-                  <Dumbbell size={18} color={COLORS.primary} />
-                </View>
-                <View style={styles.exerciseInfo}>
-                  <Text style={styles.exerciseName}>{item.name}</Text>
-                  <Text style={styles.exerciseMeta}>
-                    {item.muscleGroup} • {item.equipment}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))
-          ) : (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>No exercises found</Text>
-            </View>
-            )}
-          </ScrollView>
-        </View>
+        {/* Exercise List — virtualized FlatList */}
+        <FlatList
+          data={filteredExercises}
+          keyExtractor={exerciseKeyExtractor}
+          renderItem={renderExerciseItem}
+          ListHeaderComponent={ListHeader}
+          ListEmptyComponent={ListEmpty}
+          style={styles.exerciseList}
+          contentContainerStyle={styles.exerciseListContent}
+          initialNumToRender={15}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          removeClippedSubviews={Platform.OS !== 'web'}
+          keyboardShouldPersistTaps="handled"
+        />
       </SafeAreaView>
     </Modal>
   );
@@ -252,6 +391,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     color: COLORS.text,
     fontSize: 16,
     marginLeft: 10,
+    ...(Platform.OS === 'web' ? { outlineStyle: 'none' } : {}),
   },
   filterList: {
     flexGrow: 0,
@@ -277,22 +417,10 @@ const getStyles = (COLORS) => StyleSheet.create({
   filterChipTextActive: {
     color: COLORS.textOnPrimary,
   },
-  exerciseListContainer: {
-    flex: 1,
-    marginTop: 12,
-    ...(Platform.OS === 'web' ? {
-      overflow: 'hidden',
-      position: 'relative',
-    } : {}),
-  },
   exerciseList: {
     flex: 1,
+    marginTop: 12,
     paddingHorizontal: 16,
-    ...(Platform.OS === 'web' ? {
-      overflowY: 'scroll',
-      height: '100%',
-      WebkitOverflowScrolling: 'touch',
-    } : {}),
   },
   exerciseListContent: {
     paddingBottom: 40,
@@ -336,8 +464,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     fontSize: 16,
   },
   suggestedSection: {
-    paddingHorizontal: 16,
-    marginTop: 12,
+    marginBottom: 8,
   },
   suggestedTitle: {
     color: '#D97706',

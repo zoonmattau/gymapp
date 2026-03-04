@@ -38,7 +38,7 @@ const LogSetModal = ({
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const timerIntervalRef = useRef(null);
   const [rpe, setRpe] = useState(null);
-  const [setType, setSetType] = useState(null); // null, 'superset', 'dropset'
+  const [setType, setSetType] = useState(null); // null, 'warmup', 'superset', 'dropset'
   const [supersetExercise, setSupersetExercise] = useState(null);
   const [supersetWeight, setSupersetWeight] = useState('');
   const [supersetReps, setSupersetReps] = useState('');
@@ -60,7 +60,7 @@ const LogSetModal = ({
         setDrops(editData.drops?.length > 0 ? editData.drops : [{ weight: '', reps: '' }]);
       } else {
         setRpe(null);
-        setSetType(null);
+        setSetType(setNumber === 1 ? 'warmup' : null);
         setSupersetExercise(null);
         setSupersetWeight('');
         setSupersetReps('');
@@ -187,6 +187,7 @@ const LogSetModal = ({
       reps: parseInt(reps) || 0,
       rpe,
       setType,
+      isWarmup: setType === 'warmup',
       supersetExercise: setType === 'superset' ? supersetExercise : null,
       supersetWeight: setType === 'superset' ? (supersetWeight === 'BW' ? 'BW' : (parseFloat(supersetWeight) || 0)) : null,
       supersetReps: setType === 'superset' ? (parseInt(supersetReps) || 0) : null,
@@ -412,6 +413,20 @@ const LogSetModal = ({
           <View style={styles.section}>
             <Text style={styles.inputLabel}>Set Type (optional)</Text>
             <View style={styles.setTypeRow}>
+              <TouchableOpacity
+                style={[
+                  styles.setTypeButton,
+                  setType === 'warmup' && styles.setTypeWarmupSelected,
+                ]}
+                onPress={() => setSetType(setType === 'warmup' ? null : 'warmup')}
+              >
+                <Text style={[
+                  styles.setTypeText,
+                  setType === 'warmup' && styles.setTypeTextSelected,
+                ]}>
+                  Warmup
+                </Text>
+              </TouchableOpacity>
               <TouchableOpacity
                 style={[
                   styles.setTypeButton,
@@ -861,8 +876,13 @@ const getStyles = (COLORS) => StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  setTypeWarmupSelected: {
+    backgroundColor: '#3B82F6',
+    borderWidth: 2,
+    borderColor: '#60A5FA',
+  },
   setTypeSupersetSelected: {
-    backgroundColor: '#D97706', // Darker amber/yellow
+    backgroundColor: '#D97706',
     borderWidth: 2,
     borderColor: '#3b82f6',
   },

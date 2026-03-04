@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { EXERCISES } from '../constants/exercises';
 
 // Helper to get local date string (YYYY-MM-DD) - avoids UTC timezone issues
 const getLocalDateString = (date = new Date()) => {
@@ -154,24 +155,46 @@ export const workoutService = {
       }
     }
 
-    // If still no exercise ID, we can't insert
-    if (!finalExerciseId) {
-      console.error('Could not find exercise ID for:', exerciseName);
-      return { data: null, error: { message: 'Exercise not found: ' + exerciseName } };
+    // Auto-create exercise in DB if not found
+    if (!finalExerciseId && exerciseName) {
+      const localExercise = EXERCISES.find(e => e.name === exerciseName);
+      const { data: newExercise, error: createError } = await supabase
+        .from('exercises')
+        .upsert({
+          name: exerciseName,
+          muscle_group: localExercise?.muscleGroup || 'Full Body',
+          equipment: localExercise?.equipment || null,
+          exercise_type: (localExercise?.type || 'compound').toLowerCase(),
+        }, { onConflict: 'name' })
+        .select()
+        .single();
+
+      if (createError) {
+        console.error('Failed to create exercise:', exerciseName, createError);
+      } else if (newExercise?.id) {
+        finalExerciseId = newExercise.id;
+      }
     }
+
+    if (!finalExerciseId) {
+      console.error('Could not resolve exercise_id for:', exerciseName);
+      return { data: null, error: { message: 'Could not resolve exercise: ' + exerciseName } };
+    }
+
+    const insertData = {
+      session_id: sessionId,
+      exercise_id: finalExerciseId,
+      exercise_name: exerciseName,
+      set_number: setData.setNumber,
+      weight: setData.weight,
+      reps: setData.reps,
+      rpe: setData.rpe || null,
+      is_warmup: setData.isWarmup || false,
+    };
 
     const { data, error } = await supabase
       .from('workout_sets')
-      .insert({
-        session_id: sessionId,
-        exercise_id: finalExerciseId,
-        exercise_name: exerciseName,
-        set_number: setData.setNumber,
-        weight: setData.weight,
-        reps: setData.reps,
-        rpe: setData.rpe || null,
-        is_warmup: setData.isWarmup || false,
-      })
+      .insert(insertData)
       .select()
       .single();
 

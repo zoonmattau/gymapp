@@ -121,8 +121,9 @@ const AppNavigator = () => {
       return;
     }
 
-    // If we already made a definitive decision for this user, don't re-check
-    if (decidedUserIdRef.current === user.id) {
+    // If we already confirmed this user completed onboarding, don't re-check
+    // (Only lock on true — when false, keep checking so completing onboarding works)
+    if (decidedUserIdRef.current === user.id && onboardingCompleted === true) {
       return;
     }
 
