@@ -101,34 +101,32 @@ export const workoutService = {
       is_rest_day: isRestDay,
     };
 
-    // Try upsert first
-    let { data, error } = await supabase
+    // Delete existing entry first, then insert (more reliable than upsert)
+    await supabase.from('workout_schedule').delete()
+      .eq('user_id', userId).eq('scheduled_date', date);
+
+    const { data, error } = await supabase
       .from('workout_schedule')
-      .upsert(payload, { onConflict: 'user_id,scheduled_date' })
+      .insert(payload)
       .select()
       .single();
-
-    // If upsert fails (e.g. missing unique constraint), fall back to delete + insert
-    if (error) {
-      await supabase.from('workout_schedule').delete()
-        .eq('user_id', userId).eq('scheduled_date', date);
-      ({ data, error } = await supabase
-        .from('workout_schedule')
-        .insert(payload)
-        .select()
-        .single());
-    }
 
     return { data, error };
   },
 
   // Start a workout session
   async startWorkout(userId, templateId, scheduleId = null, workoutName = null) {
+    // Only use template_id if it's a valid UUID (36 chars with dashes)
+    // Non-UUID template IDs (like "push_day") are from hardcoded templates
+    const isValidUuid = templateId &&
+      typeof templateId === 'string' &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(templateId);
+
     const { data, error } = await supabase
       .from('workout_sessions')
       .insert({
         user_id: userId,
-        template_id: templateId,
+        template_id: isValidUuid ? templateId : null,
         schedule_id: scheduleId,
         workout_name: workoutName,
         started_at: new Date().toISOString(),
@@ -227,6 +225,8 @@ export const workoutService = {
     // Add optional fields only if they have values
     if (summary.durationMinutes !== undefined) updateData.duration_minutes = summary.durationMinutes;
     if (summary.totalVolume !== undefined) updateData.total_volume = summary.totalVolume;
+    if (summary.exerciseCount !== undefined) updateData.exercise_count = summary.exerciseCount;
+    if (summary.totalSets !== undefined) updateData.total_sets = summary.totalSets;
 
     const { data, error } = await supabase
       .from('workout_sessions')
@@ -546,12 +546,19 @@ export const workoutService = {
     // Calculate estimated 1RM using Epley formula
     const e1rm = weight * (1 + reps / 30);
 
-    // Get current PR for this exercise
-    const { data: currentPR } = await supabase
+    // Get current PR for this exercise (by name since exerciseId may be null)
+    let query = supabase
       .from('personal_records')
       .select('*')
-      .eq('user_id', userId)
-      .eq('exercise_id', exerciseId)
+      .eq('user_id', userId);
+
+    if (exerciseId) {
+      query = query.eq('exercise_id', exerciseId);
+    } else if (exerciseName) {
+      query = query.eq('exercise_name', exerciseName);
+    }
+
+    const { data: currentPR } = await query
       .order('e1rm', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -567,6 +574,7 @@ export const workoutService = {
           weight,
           reps,
           e1rm,
+          achieved_at: new Date().toISOString(),
           workout_session_id: sessionId,
         })
         .select()
@@ -774,6 +782,34 @@ export const workoutService = {
       return { data, error: null };
     } catch (err) {
       console.error('Error renaming workout session:', err);
+      return { data: null, error: err };
+    }
+  },
+
+  async updateWorkoutSession(sessionId, updates) {
+    try {
+      console.log('updateWorkoutSession called with:', sessionId, updates);
+      const { data, error, count } = await supabase
+        .from('workout_sessions')
+        .update(updates)
+        .eq('id', sessionId)
+        .select();
+
+      console.log('Update result - data:', data, 'error:', error, 'count:', count);
+
+      if (error) {
+        console.error('Error updating workout session:', error);
+        return { data: null, error };
+      }
+
+      if (!data || data.length === 0) {
+        console.warn('No rows updated - sessionId may not exist:', sessionId);
+        return { data: null, error: { message: 'No rows found with that sessionId' } };
+      }
+
+      return { data: data[0], error: null };
+    } catch (err) {
+      console.error('Error updating workout session:', err);
       return { data: null, error: err };
     }
   },

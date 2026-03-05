@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useRoute } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   TextInput,
   Alert,
   Platform,
+  Modal,
 } from 'react-native';
 import {
   Flame,
@@ -19,16 +20,15 @@ import {
   Trash2,
   Pencil,
   Moon,
-  Pill,
   ChevronLeft,
   ChevronRight,
-  ChevronDown,
   Plus,
   X,
   Settings,
   Calendar,
 } from 'lucide-react-native';
 import { LineChart } from 'react-native-chart-kit';
+import Svg, { Circle } from 'react-native-svg';
 import { Dimensions } from 'react-native';
 import { useColors } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -59,11 +59,11 @@ const screenWidth = Dimensions.get('window').width;
 const HealthScreen = () => {
   const COLORS = useColors();
   const styles = getStyles(COLORS);
+  const route = useRoute();
   const { user, profile, refreshProfile } = useAuth();
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState(route.params?.tab || 'overview');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [trendFilter, setTrendFilter] = useState('Calories');
-  const [showTrendDropdown, setShowTrendDropdown] = useState(false);
   const [sleepChartPeriod, setSleepChartPeriod] = useState('7D');
 
   // Date navigation helpers
@@ -104,6 +104,7 @@ const HealthScreen = () => {
   const [waterIntake, setWaterIntake] = useState(0);
   const [waterEntries, setWaterEntries] = useState([]); // Individual water logs
   const [meals, setMeals] = useState([]);
+  const [nutritionHistory, setNutritionHistory] = useState([]);
 
   // Supplements state
   const [supplements, setSupplements] = useState([]);
@@ -129,6 +130,7 @@ const HealthScreen = () => {
   const [sleepData, setSleepData] = useState(null);
   const [sleepGoal, setSleepGoal] = useState(7);
   const [sleepHistory, setSleepHistory] = useState([]);
+  const [selectedSleepPoint, setSelectedSleepPoint] = useState(null);
 
   // Water goal editing
   const [showWaterGoalEdit, setShowWaterGoalEdit] = useState(false);
@@ -137,6 +139,7 @@ const HealthScreen = () => {
   // Modals
   const [showAddMeal, setShowAddMeal] = useState(false);
   const [showWaterEntry, setShowWaterEntry] = useState(false);
+  const [showAdjustedInfo, setShowAdjustedInfo] = useState(false);
 
   // Toast notification
   const [toastVisible, setToastVisible] = useState(false);
@@ -149,13 +152,13 @@ const HealthScreen = () => {
     setToastVisible(true);
   };
 
-  // Goals
+  // Goals - read from user profile
   const nutritionGoals = {
-    calories: 3611,
-    protein: 180,
-    carbs: 350,
-    fats: 90,
-    water: profile?.water_goal || 3500, // ml, from profile or default 3.5L
+    calories: profile?.calorie_goal || 2200,
+    protein: profile?.protein_goal || 150,
+    carbs: profile?.carb_goal || 250,
+    fats: profile?.fat_goal || 70,
+    water: profile?.water_goal || 3500,
   };
 
   // Nutrition mode
@@ -169,14 +172,24 @@ const HealthScreen = () => {
   useFocusEffect(
     useCallback(() => {
       if (user?.id) {
-        loadTodayNutrition();
+        loadDateNutrition();
         loadWaterEntries();
         loadSupplements();
         loadSleepData();
         loadSleepHistory();
+        loadNutritionHistory();
       }
     }, [user])
   );
+
+  // Reload when selectedDate changes
+  useEffect(() => {
+    if (user?.id) {
+      loadDateNutrition();
+      loadWaterEntries();
+      loadSupplements();
+    }
+  }, [selectedDate]);
 
   useEffect(() => {
     if (user?.id) {
@@ -184,18 +197,25 @@ const HealthScreen = () => {
     }
   }, [selectedSleepDate]);
 
-  const loadTodayNutrition = async () => {
+  const loadDateNutrition = async () => {
     try {
-      const { data } = await nutritionService.getDailyNutrition(user.id);
+      const dateStr = getLocalDateString(selectedDate);
+      const { data } = await nutritionService.getDailyNutrition(user.id, dateStr);
       if (data) {
         setCaloriesIntake(data.total_calories || 0);
         setProteinIntake(data.total_protein || 0);
         setCarbsIntake(data.total_carbs || 0);
         setFatsIntake(data.total_fats || 0);
         setWaterIntake(data.water_intake || 0);
+      } else {
+        setCaloriesIntake(0);
+        setProteinIntake(0);
+        setCarbsIntake(0);
+        setFatsIntake(0);
+        setWaterIntake(0);
       }
 
-      const { data: mealsData } = await nutritionService.getMeals(user.id);
+      const { data: mealsData } = await nutritionService.getMeals(user.id, dateStr);
       if (mealsData) {
         setMeals(mealsData.map(m => ({
           id: m.id,
@@ -206,22 +226,46 @@ const HealthScreen = () => {
           fats: m.fats || 0,
           logged_at: m.created_at,
         })));
+      } else {
+        setMeals([]);
       }
     } catch (error) {
       console.log('Error loading nutrition:', error);
     }
   };
 
+  const loadNutritionHistory = async () => {
+    try {
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - 27); // Last 4 weeks
+
+      const { data } = await nutritionService.getNutritionHistory(
+        user.id,
+        getLocalDateString(startDate),
+        getLocalDateString(endDate)
+      );
+      if (data) {
+        setNutritionHistory(data);
+      }
+    } catch (error) {
+      console.log('Error loading nutrition history:', error);
+    }
+  };
+
   const loadWaterEntries = async () => {
     try {
-      const { data } = await nutritionService.getWaterLogs(user.id);
+      const dateStr = getLocalDateString(selectedDate);
+      const { data } = await nutritionService.getWaterLogs(user.id, dateStr);
       if (data) {
         setWaterEntries(data.map(log => ({
           id: log.id,
           amount: log.amount_ml,
-          timestamp: new Date(log.created_at),
+          timestamp: new Date(log.logged_at),
           log_date: log.log_date,
         })));
+      } else {
+        setWaterEntries([]);
       }
     } catch (error) {
       console.log('Error loading water entries:', error);
@@ -232,16 +276,17 @@ const HealthScreen = () => {
     try {
       const { data } = await nutritionService.getSupplements(user.id);
       if (data) {
-        // Get today's supplement logs
-        const today = getLocalDateString();
-        const { data: logs } = await nutritionService.getSupplementLogs(user.id, today);
+        // Get supplement logs for selected date
+        const dateStr = getLocalDateString(selectedDate);
+        const { data: logs } = await nutritionService.getSupplementLogs(user.id, dateStr);
 
         const supplementsWithStatus = data.map(supp => {
           const takenCount = logs?.filter(l => l.supplement_id === supp.id).length || 0;
+          const timesPerDay = supp.times_per_day || 1;
           return {
             ...supp,
             takenCount,
-            taken: takenCount > 0,
+            taken: takenCount >= timesPerDay, // Fully complete when all doses taken
           };
         });
         setSupplements(supplementsWithStatus);
@@ -278,23 +323,25 @@ const HealthScreen = () => {
 
   const loadSleepHistory = async () => {
     try {
-      // Get current month's start and end dates
+      // Get date range: from 14 days ago (covers 7-day chart + buffer) to end of current month
       const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const fourteenDaysAgo = new Date(now);
+      fourteenDaysAgo.setDate(now.getDate() - 14);
       const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
-      const startDate = getLocalDateString(startOfMonth);
+      const startDate = getLocalDateString(fourteenDaysAgo);
       const endDate = getLocalDateString(endOfMonth);
 
       const { data } = await sleepService.getSleepHistory(user.id, startDate, endDate);
 
       if (data && data.length > 0) {
-        // Convert to format expected by the calendar: { date: dayOfMonth, hours: hoursSlept }
-        const historyForCalendar = data.map(entry => ({
+        // Keep full data for tooltips, add date number for calendar
+        const historyWithDate = data.map(entry => ({
+          ...entry,
           date: new Date(entry.log_date + 'T00:00:00').getDate(),
           hours: entry.hours_slept || 0,
         }));
-        setSleepHistory(historyForCalendar);
+        setSleepHistory(historyWithDate);
       }
     } catch (error) {
       console.log('Error loading sleep history:', error);
@@ -316,7 +363,9 @@ const HealthScreen = () => {
 
     if (user?.id) {
       try {
-        await nutritionService.logMeal(user.id, meal);
+        const mealWithDate = { ...meal, date: getLocalDateString(selectedDate) };
+        await nutritionService.logMeal(user.id, mealWithDate);
+        await loadNutritionHistory();
       } catch (error) {
         console.log('Error saving meal:', error);
       }
@@ -332,8 +381,8 @@ const HealthScreen = () => {
       setMeals(prev => prev.filter(m => m.id !== meal.id));
 
       if (user?.id && meal.id) {
-        const today = getLocalDateString();
-        await nutritionService.deleteMeal(meal.id, user.id, today);
+        const dateStr = getLocalDateString(selectedDate);
+        await nutritionService.deleteMeal(meal.id, user.id, dateStr);
       }
     };
 
@@ -359,9 +408,11 @@ const HealthScreen = () => {
 
     if (user?.id) {
       try {
-        await nutritionService.logWater(user.id, amount);
-        // Reload entries to get the actual entry from database
+        const dateStr = getLocalDateString(selectedDate);
+        await nutritionService.logWater(user.id, amount, dateStr);
+        // Reload entries and history to update chart
         await loadWaterEntries();
+        await loadNutritionHistory();
       } catch (error) {
         console.log('Error saving water:', error);
         // Revert on error
@@ -382,13 +433,14 @@ const HealthScreen = () => {
           console.log('Error deleting water entry:', error);
           // Reload to restore state on error
           await loadWaterEntries();
-          await loadTodayNutrition();
+          await loadDateNutrition();
         }
+        await loadNutritionHistory();
       } catch (error) {
         console.log('Error deleting water:', error);
         // Reload to restore state on error
         await loadWaterEntries();
-        await loadTodayNutrition();
+        await loadDateNutrition();
       }
     }
   };
@@ -409,13 +461,23 @@ const HealthScreen = () => {
   };
 
   const handleSupplementTaken = async (supp) => {
-    const isCurrentlyTaken = supp.taken || false;
+    const timesPerDay = supp.times_per_day || 1;
+    const currentCount = supp.takenCount || 0;
+
+    // If already at max doses, don't add more
+    if (currentCount >= timesPerDay) {
+      return;
+    }
+
+    const newCount = currentCount + 1;
+    const isComplete = newCount >= timesPerDay;
+
     setSupplements(prev => prev.map(s =>
-      s.id === supp.id ? { ...s, taken: !isCurrentlyTaken } : s
+      s.id === supp.id ? { ...s, takenCount: newCount, taken: isComplete } : s
     ));
 
-    if (user?.id && !isCurrentlyTaken) {
-      await nutritionService.logSupplement(user.id, supp.id, getLocalDateString());
+    if (user?.id) {
+      await nutritionService.logSupplement(user.id, supp.id, getLocalDateString(selectedDate));
     }
   };
 
@@ -524,13 +586,20 @@ const HealthScreen = () => {
       setSleepLogged(true);
       setSleepData({ hours_slept: hours, bed_time: bedTime, wake_time: wakeTime });
 
-      // Add to sleep history for calendar display
+      // Add to sleep history for chart and calendar display
       const sleepDate = new Date(selectedSleepDate);
       const dayOfMonth = sleepDate.getDate();
       setSleepHistory(prev => {
         // Remove any existing entry for this date
-        const filtered = prev.filter(entry => entry.date !== dayOfMonth);
-        return [...filtered, { date: dayOfMonth, hours: parseFloat(hours.toFixed(1)) }];
+        const filtered = prev.filter(entry => entry.date !== dayOfMonth && entry.log_date !== selectedSleepDate);
+        return [...filtered, {
+          date: dayOfMonth,
+          hours: parseFloat(hours.toFixed(1)),
+          log_date: selectedSleepDate,
+          hours_slept: hours,
+          bed_time: bedTime,
+          wake_time: wakeTime,
+        }];
       });
 
       showToast(`Sleep logged: ${hours.toFixed(1)} hours`, 'success');
@@ -564,9 +633,11 @@ const HealthScreen = () => {
 
   const caloriesComplete = caloriesIntake >= nutritionGoals.calories;
   const waterComplete = waterIntake >= nutritionGoals.water;
+  const proteinComplete = proteinIntake >= nutritionGoals.protein;
 
-  const totalSupplements = supplements.length;
-  const takenSupplements = supplements.filter(s => s.taken).length;
+  // Calculate total doses needed and taken (accounting for multi-dose supplements)
+  const totalSupplements = supplements.reduce((acc, s) => acc + (s.times_per_day || 1), 0);
+  const takenSupplements = supplements.reduce((acc, s) => acc + (s.takenCount || 0), 0);
 
   const waterOptions = [
     { label: '100ml', amount: 100 },
@@ -598,9 +669,6 @@ const HealthScreen = () => {
       {/* Fat Loss Mode Card */}
       <View style={styles.modeCard}>
         <View style={styles.modeHeader}>
-          <View style={styles.modeIconContainer}>
-            <Flame size={28} color="#F97316" />
-          </View>
           <View style={styles.modeInfo}>
             <Text style={styles.modeTitle}>{nutritionMode.name}</Text>
             <Text style={styles.modeSubtitle}>{nutritionMode.description}</Text>
@@ -608,13 +676,13 @@ const HealthScreen = () => {
         </View>
         <View style={styles.modeStats}>
           <View style={styles.modeStat}>
-            <Text style={styles.modeStatLabel}>Daily Target (adjusted)</Text>
-            <Text style={styles.modeStatValue}>{nutritionGoals.calories} kcal</Text>
+            <Text style={styles.modeStatLabel}>Target</Text>
+            <Text style={styles.modeStatValue} numberOfLines={1}>{nutritionGoals.calories}</Text>
           </View>
           <View style={styles.modeStat}>
             <Text style={styles.modeStatLabel}>Remaining</Text>
-            <Text style={[styles.modeStatValue, styles.modeStatValueGreen]}>
-              {caloriesRemaining} kcal
+            <Text style={[styles.modeStatValue, caloriesRemaining >= 0 ? styles.modeStatValueGreen : styles.modeStatValueRed]} numberOfLines={1}>
+              {caloriesRemaining}
             </Text>
           </View>
           <View style={[styles.onTrackBadge, !isOnTrack && styles.offTrackBadge]}>
@@ -633,35 +701,36 @@ const HealthScreen = () => {
       <View style={styles.circlesRow}>
         {/* Calories Circle */}
         <View style={styles.circleCard}>
-          <TouchableOpacity style={styles.circleSettingsBtn}>
-            <Settings size={16} color={COLORS.textMuted} />
-          </TouchableOpacity>
           <View style={styles.circleContainer}>
             <View style={styles.progressRingWrapper}>
-              {/* Background ring */}
-              <View style={[styles.progressRingBg, { borderColor: COLORS.surfaceLight }]} />
-              {/* Progress ring overlay */}
-              <View style={[
-                styles.progressRingOverlay,
-                {
-                  borderColor: caloriesComplete ? COLORS.success : COLORS.primary,
-                  opacity: caloriesProgress > 0 ? 0.3 + (caloriesProgress / 100) * 0.7 : 0,
-                }
-              ]} />
-              {/* Top indicator dot */}
-              <View style={[
-                styles.progressDotTop,
-                { backgroundColor: caloriesComplete ? COLORS.success : COLORS.primary }
-              ]} />
+              <Svg width={100} height={100} style={{ transform: [{ rotate: '-90deg' }] }}>
+                <Circle
+                  cx={50}
+                  cy={50}
+                  r={45}
+                  stroke={COLORS.surfaceLight}
+                  strokeWidth={8}
+                  fill="none"
+                />
+                <Circle
+                  cx={50}
+                  cy={50}
+                  r={45}
+                  stroke={caloriesComplete ? COLORS.success : COLORS.primary}
+                  strokeWidth={8}
+                  fill="none"
+                  strokeDasharray={2 * Math.PI * 45}
+                  strokeDashoffset={2 * Math.PI * 45 * (1 - Math.min(caloriesProgress / 100, 1))}
+                  strokeLinecap="round"
+                />
+              </Svg>
               <View style={styles.circleInner}>
-                {caloriesComplete ? (
+                {caloriesComplete && (
                   <Check size={24} color={COLORS.success} strokeWidth={3} />
-                ) : (
-                  <Flame size={22} color={caloriesProgress > 0 ? COLORS.primary : COLORS.textMuted} />
                 )}
                 <Text style={[
                   styles.circleValue,
-                  { color: caloriesComplete ? COLORS.success : caloriesProgress > 0 ? COLORS.primary : COLORS.text }
+                  { color: caloriesComplete ? COLORS.success : COLORS.primary }
                 ]}>
                   {caloriesIntake}
                 </Text>
@@ -678,35 +747,36 @@ const HealthScreen = () => {
 
         {/* Water Circle */}
         <View style={styles.circleCard}>
-          <TouchableOpacity style={styles.circleSettingsBtn}>
-            <Settings size={16} color={COLORS.textMuted} />
-          </TouchableOpacity>
           <View style={styles.circleContainer}>
             <View style={styles.progressRingWrapper}>
-              {/* Background ring */}
-              <View style={[styles.progressRingBg, { borderColor: COLORS.surfaceLight }]} />
-              {/* Progress ring overlay */}
-              <View style={[
-                styles.progressRingOverlay,
-                {
-                  borderColor: waterComplete ? COLORS.success : '#3B82F6',
-                  opacity: waterProgress > 0 ? 0.3 + (waterProgress / 100) * 0.7 : 0,
-                }
-              ]} />
-              {/* Top indicator dot */}
-              <View style={[
-                styles.progressDotTop,
-                { backgroundColor: waterComplete ? COLORS.success : '#3B82F6' }
-              ]} />
+              <Svg width={100} height={100} style={{ transform: [{ rotate: '-90deg' }] }}>
+                <Circle
+                  cx={50}
+                  cy={50}
+                  r={45}
+                  stroke={COLORS.surfaceLight}
+                  strokeWidth={8}
+                  fill="none"
+                />
+                <Circle
+                  cx={50}
+                  cy={50}
+                  r={45}
+                  stroke={waterComplete ? COLORS.success : COLORS.primary}
+                  strokeWidth={8}
+                  fill="none"
+                  strokeDasharray={2 * Math.PI * 45}
+                  strokeDashoffset={2 * Math.PI * 45 * (1 - Math.min(waterProgress / 100, 1))}
+                  strokeLinecap="round"
+                />
+              </Svg>
               <View style={styles.circleInner}>
-                {waterComplete ? (
+                {waterComplete && (
                   <Check size={24} color={COLORS.success} strokeWidth={3} />
-                ) : (
-                  <Droplets size={22} color="#3B82F6" />
                 )}
                 <Text style={[
                   styles.circleValue,
-                  { color: waterComplete ? COLORS.success : COLORS.text }
+                  { color: waterComplete ? COLORS.success : COLORS.primary }
                 ]}>
                   {(waterIntake / 1000).toFixed(1)}L
                 </Text>
@@ -727,9 +797,6 @@ const HealthScreen = () => {
         {/* Add Meal Card */}
         <View style={styles.actionCard}>
           <View style={styles.actionCardHeader}>
-            <View style={styles.actionCardIcon}>
-              <Utensils size={18} color={COLORS.primary} />
-            </View>
             <Text style={styles.actionCardTitle}>Add Meal</Text>
           </View>
           <TouchableOpacity
@@ -743,49 +810,80 @@ const HealthScreen = () => {
             {/* Protein Ring */}
             <View style={styles.macroRingItem}>
               <View style={styles.macroRingWrapper}>
-                <View style={[styles.macroRingBg, { borderColor: COLORS.surfaceLight }]} />
-                <View style={[
-                  styles.macroRingProgress,
-                  {
-                    borderColor: COLORS.primary,
-                    opacity: proteinPercent > 0 ? 0.3 + (Math.min(proteinPercent, 100) / 100) * 0.7 : 0.2,
-                  }
-                ]} />
-                <View style={styles.macroRingInner}>
-                  <Text style={[styles.macroRingValue, { color: COLORS.primary }]}>{proteinPercent}%</Text>
+                <Svg width={56} height={56} style={{ transform: [{ rotate: '-90deg' }] }}>
+                  <Circle cx={28} cy={28} r={23} stroke={COLORS.surfaceLight} strokeWidth={5} fill="none" />
+                  <Circle
+                    cx={28}
+                    cy={28}
+                    r={23}
+                    stroke={proteinComplete ? COLORS.success : COLORS.primary}
+                    strokeWidth={5}
+                    fill="none"
+                    strokeDasharray={2 * Math.PI * 23}
+                    strokeDashoffset={2 * Math.PI * 23 * (1 - Math.min(proteinPercent / 100, 1))}
+                    strokeLinecap="round"
+                  />
+                </Svg>
+                <View style={[styles.macroRingInner, { position: 'absolute' }]}>
+                  <Text style={[styles.macroRingValue, { color: proteinComplete ? COLORS.success : COLORS.primary }]}>{proteinPercent}%</Text>
                 </View>
               </View>
-              <Text style={styles.macroRingLabel}>Protein</Text>
-              <Text style={styles.macroRingSubtext}>{proteinIntake}g / {nutritionGoals.protein}g</Text>
+              <Text style={[styles.macroRingLabel, proteinComplete && { color: COLORS.success }]}>Protein</Text>
+              <Text style={[styles.macroRingSubtext, proteinComplete && { color: COLORS.success }]}>{proteinIntake}g / {nutritionGoals.protein}g</Text>
             </View>
 
             {/* Carbs Ring */}
             <View style={styles.macroRingItem}>
               <View style={styles.macroRingWrapper}>
-                <View style={[styles.macroRingBg, { borderColor: COLORS.surfaceLight }]} />
-                <View style={[
-                  styles.macroRingProgress,
-                  {
-                    borderColor: COLORS.warning,
-                    opacity: carbsPercent > 0 ? 0.3 + (Math.min(carbsPercent, 100) / 100) * 0.7 : 0.2,
-                  }
-                ]} />
-                <View style={styles.macroRingInner}>
-                  <Text style={[styles.macroRingValue, { color: COLORS.warning }]}>{carbsPercent}%</Text>
+                <Svg width={56} height={56} style={{ transform: [{ rotate: '-90deg' }] }}>
+                  <Circle cx={28} cy={28} r={23} stroke={COLORS.surfaceLight} strokeWidth={5} fill="none" />
+                  <Circle
+                    cx={28}
+                    cy={28}
+                    r={23}
+                    stroke={COLORS.primary}
+                    strokeWidth={5}
+                    fill="none"
+                    strokeDasharray={2 * Math.PI * 23}
+                    strokeDashoffset={2 * Math.PI * 23 * (1 - Math.min(carbsPercent / 100, 1))}
+                    strokeLinecap="round"
+                  />
+                </Svg>
+                <View style={[styles.macroRingInner, { position: 'absolute' }]}>
+                  <Text style={[styles.macroRingValue, { color: COLORS.primary }]}>{carbsPercent}%</Text>
                 </View>
               </View>
               <Text style={styles.macroRingLabel}>Carbs</Text>
               <Text style={styles.macroRingSubtext}>{carbsIntake}g / {nutritionGoals.carbs}g</Text>
             </View>
           </View>
+          {/* Recent Meals */}
+          <View style={styles.recentInCard}>
+            {meals.length === 0 ? (
+              <Text style={styles.recentEmptyCompact}>No meals logged</Text>
+            ) : (
+              meals.slice(-3).reverse().map((meal) => (
+                <View key={meal.id} style={styles.recentEntryCardCompact}>
+                  <View style={styles.recentEntryInfo}>
+                    <Text style={styles.recentEntryTitleCompact} numberOfLines={1}>{meal.name}</Text>
+                    <Text style={styles.recentEntrySubtextCompact}>{meal.calories} kcal</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.recentDeleteBtnCompact}
+                    onPress={() => handleDeleteMeal(meal)}
+                    onClick={() => handleDeleteMeal(meal)}
+                  >
+                    <Trash2 size={14} color={COLORS.error} />
+                  </TouchableOpacity>
+                </View>
+              ))
+            )}
+          </View>
         </View>
 
         {/* Quick Water Card */}
         <View style={styles.actionCard}>
           <View style={styles.actionCardHeader}>
-            <View style={[styles.actionCardIcon, { backgroundColor: '#3B82F6' + '20' }]}>
-              <Droplets size={18} color="#3B82F6" />
-            </View>
             <Text style={styles.actionCardTitle}>Quick Water</Text>
           </View>
           <View style={styles.waterButtonsGrid}>
@@ -804,8 +902,30 @@ const HealthScreen = () => {
               onPress={() => setShowWaterEntry(true)}
               onClick={() => setShowWaterEntry(true)}
             >
-              <Plus size={16} color={COLORS.textMuted} />
+              <Text style={styles.waterQuickBtnText}>Custom</Text>
             </TouchableOpacity>
+          </View>
+          {/* Recent Water */}
+          <View style={styles.recentInCard}>
+            {waterEntries.length === 0 ? (
+              <Text style={styles.recentEmptyCompact}>No water logged</Text>
+            ) : (
+              waterEntries.slice(0, 3).map((entry) => (
+                <View key={entry.id} style={styles.recentEntryCardCompact}>
+                  <View style={styles.recentEntryInfo}>
+                    <Text style={styles.recentEntryTitleCompact}>{formatWaterAmount(entry.amount)}</Text>
+                    <Text style={styles.recentEntrySubtextCompact}>{formatTime(entry.timestamp)}</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.recentDeleteBtnCompact}
+                    onPress={() => handleDeleteWater(entry)}
+                    onClick={() => handleDeleteWater(entry)}
+                  >
+                    <Trash2 size={14} color={COLORS.error} />
+                  </TouchableOpacity>
+                </View>
+              ))
+            )}
           </View>
         </View>
       </View>
@@ -814,32 +934,21 @@ const HealthScreen = () => {
       <View style={styles.weeklyTrendsCard}>
         <View style={styles.weeklyTrendsHeader}>
           <Text style={styles.weeklyTrendsTitle}>Weekly Trends</Text>
-          <TouchableOpacity
-            style={styles.trendFilterBtn}
-            onPress={() => setShowTrendDropdown(!showTrendDropdown)}
-          >
-            <Text style={styles.trendFilterText}>{trendFilter}</Text>
-            <ChevronDown size={16} color={COLORS.primary} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Dropdown Menu */}
-        {showTrendDropdown && (
-          <View style={styles.trendDropdown}>
+          <View style={styles.trendToggle}>
             <TouchableOpacity
-              style={[styles.trendDropdownItem, trendFilter === 'Calories' && styles.trendDropdownItemActive]}
-              onPress={() => { setTrendFilter('Calories'); setShowTrendDropdown(false); }}
+              style={[styles.trendToggleBtn, trendFilter === 'Calories' && styles.trendToggleBtnActive]}
+              onPress={() => setTrendFilter('Calories')}
             >
-              <Text style={[styles.trendDropdownText, trendFilter === 'Calories' && styles.trendDropdownTextActive]}>Calories</Text>
+              <Text style={[styles.trendToggleText, trendFilter === 'Calories' && styles.trendToggleTextActive]}>Calories</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.trendDropdownItem, trendFilter === 'Hydration' && styles.trendDropdownItemActive]}
-              onPress={() => { setTrendFilter('Hydration'); setShowTrendDropdown(false); }}
+              style={[styles.trendToggleBtn, trendFilter === 'Hydration' && styles.trendToggleBtnActive]}
+              onPress={() => setTrendFilter('Hydration')}
             >
-              <Text style={[styles.trendDropdownText, trendFilter === 'Hydration' && styles.trendDropdownTextActive]}>Hydration</Text>
+              <Text style={[styles.trendToggleText, trendFilter === 'Hydration' && styles.trendToggleTextActive]}>Water</Text>
             </TouchableOpacity>
           </View>
-        )}
+        </View>
 
         {/* Chart - No Data State */}
         <View style={styles.chartContainer}>
@@ -860,20 +969,39 @@ const HealthScreen = () => {
           ))}
         </View>
 
-        {/* Calendar grid - 4 weeks - showing no data state */}
+        {/* Calendar grid - 4 weeks */}
         {[0, 1, 2, 3].map((weekIdx) => (
           <View key={weekIdx} style={styles.streakWeekRow}>
             {[0, 1, 2, 3, 4, 5, 6].map((dayIdx) => {
               const today = new Date();
               const currentDayOfWeek = today.getDay() === 0 ? 6 : today.getDay() - 1;
-              const isToday = weekIdx === 3 && dayIdx === currentDayOfWeek;
+
+              // Calculate date for this cell (week 3 = current week, dayIdx matches Mon-Sun)
+              const daysFromToday = (3 - weekIdx) * 7 + (currentDayOfWeek - dayIdx);
+              const cellDate = new Date(today);
+              cellDate.setDate(today.getDate() - daysFromToday);
+              const cellDateStr = getLocalDateString(cellDate);
+
+              const isToday = daysFromToday === 0;
+              const isFuture = daysFromToday < 0;
+
+              // Check if date is before account creation (use auth user's created_at)
+              const accountCreated = user?.created_at ? new Date(user.created_at) : null;
+              const isBeforeAccount = accountCreated && cellDate < new Date(accountCreated.toDateString());
+
+              // Find nutrition data for this date
+              const dayData = nutritionHistory.find(d => d.log_date === cellDateStr);
+              const hasData = dayData && dayData.total_calories > 0;
+              const metGoal = hasData && dayData.total_calories >= nutritionGoals.calories * 0.9; // 90% of goal = met
 
               return (
                 <View
                   key={dayIdx}
                   style={[
                     styles.streakDay,
-                    styles.streakDayNoData,
+                    (isFuture || isBeforeAccount) ? styles.streakDayFuture :
+                      hasData ? (metGoal ? styles.streakDayMet : styles.streakDayMissed) :
+                      styles.streakDayNoData,
                     isToday && styles.streakDayToday,
                   ]}
                 />
@@ -898,107 +1026,40 @@ const HealthScreen = () => {
           </View>
         </View>
       </View>
-
-      {/* Recent Meals & Recent Water */}
-      <Text style={styles.sectionLabel}>TODAY'S LOG</Text>
-      <View style={styles.recentRow}>
-        {/* Recent Meals Column */}
-        <View style={styles.recentColumn}>
-          <View style={styles.recentHeader}>
-            <Text style={styles.recentTitle}>Recent Meals</Text>
-            <TouchableOpacity
-              onPress={() => setActiveTab('meals')}
-              onClick={() => setActiveTab('meals')}
-            >
-              <Text style={styles.recentSeeAll}>See all</Text>
-            </TouchableOpacity>
-          </View>
-          {meals.length === 0 ? (
-            <View style={styles.recentEmptyCard}>
-              <Utensils size={20} color={COLORS.textMuted} />
-              <Text style={styles.recentEmpty}>No meals logged</Text>
-            </View>
-          ) : (
-            meals.slice(-3).reverse().map((meal) => (
-              <View key={meal.id} style={styles.recentEntryCard}>
-                <View style={styles.recentEntryInfo}>
-                  <Text style={styles.recentEntryTitle} numberOfLines={1}>{meal.name}</Text>
-                  <Text style={styles.recentEntrySubtext}>
-                    {meal.calories} kcal • {meal.protein}g protein
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.recentDeleteBtn}
-                  onPress={() => handleDeleteMeal(meal)}
-                  onClick={() => handleDeleteMeal(meal)}
-                >
-                  <Trash2 size={16} color={COLORS.error} />
-                </TouchableOpacity>
-              </View>
-            ))
-          )}
-        </View>
-
-        {/* Recent Water Column */}
-        <View style={styles.recentColumn}>
-          <View style={styles.recentHeader}>
-            <Text style={styles.recentTitle}>Recent Water</Text>
-            <TouchableOpacity
-              onPress={() => setActiveTab('water')}
-              onClick={() => setActiveTab('water')}
-            >
-              <Text style={styles.recentSeeAll}>See all</Text>
-            </TouchableOpacity>
-          </View>
-          {waterEntries.length === 0 ? (
-            <View style={styles.recentEmptyCard}>
-              <Droplets size={20} color={COLORS.textMuted} />
-              <Text style={styles.recentEmpty}>No water logged</Text>
-            </View>
-          ) : (
-            waterEntries.slice(0, 3).map((entry) => (
-              <View key={entry.id} style={styles.recentEntryCard}>
-                <View style={styles.recentEntryInfo}>
-                  <Text style={styles.recentEntryTitle}>{formatWaterAmount(entry.amount)}</Text>
-                  <Text style={styles.recentEntrySubtext}>{formatTime(entry.timestamp)}</Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.recentDeleteBtn}
-                  onPress={() => handleDeleteWater(entry)}
-                  onClick={() => handleDeleteWater(entry)}
-                >
-                  <Trash2 size={16} color={COLORS.error} />
-                </TouchableOpacity>
-              </View>
-            ))
-          )}
-        </View>
-      </View>
     </>
   );
 
   const renderMealsTab = () => {
-    const caloriesLeft = Math.max(0, nutritionGoals.calories - caloriesIntake);
-    const proteinLeft = Math.max(0, nutritionGoals.protein - proteinIntake);
+    const caloriesOver = caloriesIntake > nutritionGoals.calories;
+    const caloriesLeft = caloriesOver ? caloriesIntake - nutritionGoals.calories : nutritionGoals.calories - caloriesIntake;
+    const proteinOver = proteinIntake > nutritionGoals.protein;
+    const proteinLeft = proteinOver ? proteinIntake - nutritionGoals.protein : nutritionGoals.protein - proteinIntake;
 
     return (
       <>
         {/* REMAINING TODAY Section */}
         <View style={styles.remainingHeader}>
           <Text style={styles.remainingTitle}>REMAINING TODAY</Text>
-          <View style={styles.adjustedBadge}>
+          <TouchableOpacity
+            style={styles.adjustedBadge}
+            onPress={() => setShowAdjustedInfo(true)}
+          >
             <Text style={styles.adjustedBadgeText}>adjusted</Text>
-          </View>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.remainingCardsRow}>
           <View style={styles.remainingCard}>
-            <Text style={styles.remainingValue}>{caloriesLeft}</Text>
-            <Text style={styles.remainingLabel}>calories left</Text>
+            <Text style={[styles.remainingValue, caloriesOver && { color: COLORS.warning }]}>
+              {caloriesOver ? `+${caloriesLeft}` : caloriesLeft}
+            </Text>
+            <Text style={styles.remainingLabel}>{caloriesOver ? 'calories over' : 'calories left'}</Text>
           </View>
           <View style={styles.remainingCard}>
-            <Text style={[styles.remainingValue, { color: COLORS.primary }]}>{proteinLeft}g</Text>
-            <Text style={styles.remainingLabel}>protein left</Text>
+            <Text style={[styles.remainingValue, { color: proteinOver ? COLORS.success : COLORS.primary }]}>
+              {proteinOver ? `+${proteinLeft}g` : `${proteinLeft}g`}
+            </Text>
+            <Text style={styles.remainingLabel}>{proteinOver ? 'protein extra' : 'protein left'}</Text>
           </View>
         </View>
 
@@ -1132,14 +1193,13 @@ const HealthScreen = () => {
         {/* Water Progress */}
         <View style={styles.waterProgressCard}>
           <View style={styles.waterProgressHeader}>
-            <Droplets size={24} color={waterComplete ? COLORS.success : '#3B82F6'} />
             <Text style={[styles.waterProgressTitle, waterComplete && { color: COLORS.success }]}>
               {waterComplete ? "Goal Reached!" : "Today's Water"}
             </Text>
           </View>
           <View style={styles.waterProgressStats}>
             <View style={styles.waterProgressStat}>
-              <Text style={[styles.waterProgressValue, { color: waterComplete ? COLORS.success : '#3B82F6' }]}>{waterIntakeL}L</Text>
+              <Text style={[styles.waterProgressValue, { color: waterComplete ? COLORS.success : COLORS.water }]}>{waterIntakeL}L</Text>
               <Text style={styles.waterProgressLabel}>consumed</Text>
             </View>
             <View style={styles.waterProgressStat}>
@@ -1155,7 +1215,7 @@ const HealthScreen = () => {
                       fontSize: 20,
                       fontWeight: '700',
                       borderBottomWidth: 1,
-                      borderBottomColor: '#3B82F6',
+                      borderBottomColor: COLORS.water,
                       width: 50,
                       textAlign: 'center',
                       paddingVertical: 2,
@@ -1191,21 +1251,20 @@ const HealthScreen = () => {
                       setShowWaterGoalEdit(false);
                       showToast(`Water goal set to ${liters}L`);
                     }}
-                    style={{ marginLeft: 4 }}
+                    style={{ marginLeft: 8 }}
                   >
-                    <Check size={18} color={COLORS.success} />
+                    <Text style={{ color: COLORS.success, fontWeight: '600' }}>Save</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => setShowWaterGoalEdit(false)}
                     onClick={() => setShowWaterGoalEdit(false)}
-                    style={{ marginLeft: 2 }}
+                    style={{ marginLeft: 8 }}
                   >
-                    <X size={18} color={COLORS.error} />
+                    <Text style={{ color: COLORS.error, fontWeight: '600' }}>Cancel</Text>
                   </TouchableOpacity>
                 </View>
               ) : (
                 <TouchableOpacity
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
                   onPress={() => {
                     setWaterGoalInput(waterGoalL);
                     setShowWaterGoalEdit(true);
@@ -1216,7 +1275,6 @@ const HealthScreen = () => {
                   }}
                 >
                   <Text style={styles.waterProgressValue}>{waterGoalL}L</Text>
-                  <Pencil size={14} color={COLORS.textMuted} />
                 </TouchableOpacity>
               )}
               <Text style={styles.waterProgressLabel}>goal</Text>
@@ -1242,9 +1300,8 @@ const HealthScreen = () => {
               onPress={() => handleAddWater(amount)}
               onClick={() => handleAddWater(amount)}
             >
-              <Plus size={16} color={COLORS.primary} />
               <Text style={styles.waterQuickAddText}>
-                {amount >= 1000 ? `${amount / 1000}L` : `${amount}ml`}
+                +{amount >= 1000 ? `${amount / 1000}L` : `${amount}ml`}
               </Text>
             </TouchableOpacity>
           ))}
@@ -1256,45 +1313,101 @@ const HealthScreen = () => {
           onPress={() => setShowWaterEntry(true)}
           onClick={() => setShowWaterEntry(true)}
         >
-          <Plus size={20} color={COLORS.textOnPrimary} />
-          <Text style={styles.waterCustomAddText}>Add Custom Amount</Text>
+          <Text style={styles.waterCustomAddText}>+ Add Custom Amount</Text>
         </TouchableOpacity>
 
         {/* Today's Water Log */}
         <Text style={styles.sectionLabel}>TODAY'S WATER LOG</Text>
         {waterEntries.length === 0 ? (
           <View style={styles.emptyState}>
-            <Droplets size={40} color={COLORS.textMuted} />
             <Text style={styles.emptyStateText}>No water logged today</Text>
             <Text style={styles.emptyStateSubtext}>Use the quick add buttons above</Text>
           </View>
         ) : (
           waterEntries.map((entry) => (
             <View key={entry.id} style={styles.waterLogEntry}>
-              <View style={styles.waterLogLeft}>
-                <Droplets size={20} color="#3B82F6" />
-                <View style={styles.waterLogInfo}>
-                  <Text style={styles.waterLogAmount}>{formatWaterAmount(entry.amount)}</Text>
-                  <Text style={styles.waterLogTime}>{formatTime(entry.timestamp)}</Text>
-                </View>
+              <View style={styles.waterLogInfo}>
+                <Text style={styles.waterLogAmount}>{formatWaterAmount(entry.amount)}</Text>
+                <Text style={styles.waterLogTime}>{formatTime(entry.timestamp)}</Text>
               </View>
               <TouchableOpacity
                 style={styles.waterLogDeleteBtn}
                 onPress={() => handleDeleteWater(entry)}
                 onClick={() => handleDeleteWater(entry)}
               >
-                <Trash2 size={18} color={COLORS.error} />
+                <Text style={{ color: COLORS.error, fontSize: 14 }}>Remove</Text>
               </TouchableOpacity>
             </View>
           ))
         )}
+
+        {/* Weekly Water Chart */}
+        <Text style={styles.sectionLabel}>THIS WEEK</Text>
+        <View style={styles.waterWeekChart}>
+          {/* Y-Axis Labels */}
+          <View style={styles.waterWeekYAxis}>
+            <Text style={styles.waterWeekYLabel}>{(nutritionGoals.water / 1000).toFixed(1)}L</Text>
+            <Text style={styles.waterWeekYLabel}>{(nutritionGoals.water / 2000).toFixed(1)}L</Text>
+            <Text style={styles.waterWeekYLabel}>0</Text>
+          </View>
+
+          {/* Chart Area */}
+          <View style={styles.waterWeekChartArea}>
+            {/* Goal Line (dotted) */}
+            <View style={styles.waterWeekGoalLine}>
+              {[...Array(20)].map((_, i) => (
+                <View key={i} style={styles.waterWeekGoalDash} />
+              ))}
+            </View>
+
+            {/* Bars */}
+            <View style={styles.waterWeekBars}>
+              {(() => {
+                const days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+                const today = new Date();
+                const dayOfWeek = today.getDay();
+                const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+
+                return days.map((day, idx) => {
+                  const date = new Date(today);
+                  date.setDate(today.getDate() + mondayOffset + idx);
+                  const dateStr = getLocalDateString(date);
+                  const dayData = nutritionHistory.find(d => d.log_date === dateStr);
+                  const intake = dayData?.water_intake || 0;
+                  const percent = Math.min(100, (intake / nutritionGoals.water) * 100);
+                  const isToday = date.toDateString() === today.toDateString();
+                  const isFuture = date > today;
+
+                  return (
+                    <View key={idx} style={styles.waterWeekDay}>
+                      <View style={styles.waterWeekBarContainer}>
+                        <View
+                          style={[
+                            styles.waterWeekBar,
+                            { height: `${percent}%` },
+                            percent >= 100 && styles.waterWeekBarComplete,
+                            isFuture && { opacity: 0.3 },
+                          ]}
+                        />
+                      </View>
+                      <Text style={[
+                        styles.waterWeekLabel,
+                        isToday && { color: COLORS.primary, fontWeight: '700' }
+                      ]}>{day}</Text>
+                    </View>
+                  );
+                });
+              })()}
+            </View>
+          </View>
+        </View>
       </>
     );
   };
 
   const renderSupplementsTab = () => (
     <>
-      <Text style={styles.sectionLabel}>TODAY'S PROGRESS ⚡</Text>
+      <Text style={styles.sectionLabel}>TODAY'S PROGRESS</Text>
       <View style={styles.supplementProgressCard}>
         <Text style={styles.supplementProgressText}>
           {takenSupplements}/{totalSupplements} taken
@@ -1317,7 +1430,7 @@ const HealthScreen = () => {
       </View>
 
       <View style={styles.supplementsHeader}>
-        <Text style={styles.sectionLabel}>MY SUPPLEMENTS 💊</Text>
+        <Text style={styles.sectionLabel}>MY SUPPLEMENTS</Text>
         <TouchableOpacity style={styles.addSupplementBtn} onPress={() => setShowAddSupplement(true)}>
           <Plus size={16} color={COLORS.primary} />
         </TouchableOpacity>
@@ -1325,7 +1438,6 @@ const HealthScreen = () => {
 
       {supplements.length === 0 ? (
         <View style={styles.emptyState}>
-          <Pill size={40} color={COLORS.textMuted} />
           <Text style={styles.emptyStateText}>No supplements added</Text>
           <TouchableOpacity onPress={() => setShowAddSupplement(true)}>
             <Text style={[styles.emptyStateSubtext, { color: COLORS.primary }]}>Add your first supplement</Text>
@@ -1333,20 +1445,33 @@ const HealthScreen = () => {
         </View>
       ) : (
         supplements.map((supp) => {
-          const isTaken = supp.taken || false;
+          const timesPerDay = supp.times_per_day || 1;
+          const takenCount = supp.takenCount || 0;
+          const isComplete = takenCount >= timesPerDay;
+          const isPartial = takenCount > 0 && takenCount < timesPerDay;
+
           return (
-            <View key={supp.id} style={[styles.supplementCard, isTaken && styles.supplementCardComplete]}>
+            <View key={supp.id} style={[styles.supplementCard, isComplete && styles.supplementCardComplete]}>
               <TouchableOpacity
                 style={styles.supplementMainArea}
                 onPress={() => handleSupplementTaken(supp)}
+                disabled={isComplete}
               >
-                <View style={[styles.supplementCheck, isTaken && styles.supplementCheckComplete]}>
-                  {isTaken && <Check size={14} color={COLORS.background} />}
+                <View style={[
+                  styles.supplementCheck,
+                  isPartial && styles.supplementCheckPartial,
+                  isComplete && styles.supplementCheckComplete
+                ]}>
+                  {isComplete ? (
+                    <Check size={14} color={COLORS.background} />
+                  ) : timesPerDay > 1 ? (
+                    <Text style={styles.supplementCheckText}>{takenCount}/{timesPerDay}</Text>
+                  ) : null}
                 </View>
                 <View style={styles.supplementInfo}>
                   <Text style={styles.supplementName}>{supp.name}</Text>
                   <Text style={styles.supplementDosage}>
-                    {supp.dosage} • {supp.times_per_day || 1}x/day
+                    {supp.dosage} • {timesPerDay > 1 ? `${takenCount}/${timesPerDay} today` : (isComplete ? 'Taken' : '1/day')}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -1411,7 +1536,7 @@ const HealthScreen = () => {
                   keyboardType="numeric"
                   textAlign="center"
                 />
-                <Text style={styles.supplementFreqLabel}>x/day</Text>
+                <Text style={styles.supplementFreqLabel}>/day</Text>
               </View>
               <View style={styles.supplementFreqItem}>
                 <TextInput
@@ -1421,7 +1546,7 @@ const HealthScreen = () => {
                   keyboardType="numeric"
                   textAlign="center"
                 />
-                <Text style={styles.supplementFreqLabel}>x/week</Text>
+                <Text style={styles.supplementFreqLabel}>/week</Text>
               </View>
             </View>
 
@@ -1491,15 +1616,8 @@ const HealthScreen = () => {
           </View>
         </View>
 
-        {/* Logging Info Banner */}
-        <View style={styles.sleepLoggingBanner}>
-          <Calendar size={16} color={COLORS.primary} />
-          <Text style={styles.sleepLoggingText}>Logging sleep for {dateLabel}</Text>
-        </View>
-
         {/* Sleep Hours Display */}
         <View style={styles.sleepHoursRow}>
-          <Moon size={18} color={COLORS.primary} />
           <Text style={styles.sleepHoursValue}>{calculateSleepHours()} hrs</Text>
         </View>
 
@@ -1554,9 +1672,21 @@ const HealthScreen = () => {
 
         {/* Log Button */}
         {sleepHistory.find(d => d.date === displayDate.getDate()) ? (
-          <View style={styles.sleepLoggedBtn}>
-            <Check size={20} color="#FFFFFF" />
-            <Text style={styles.sleepLoggedBtnText}>Sleep Logged</Text>
+          <View style={styles.sleepLoggedRow}>
+            <View style={styles.sleepLoggedBtn}>
+              <Check size={20} color="#FFFFFF" />
+              <Text style={styles.sleepLoggedBtnText}>Sleep Logged</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.sleepUndoBtn}
+              onPress={async () => {
+                const dateStr = `${displayDate.getFullYear()}-${String(displayDate.getMonth() + 1).padStart(2, '0')}-${String(displayDate.getDate()).padStart(2, '0')}`;
+                await sleepService.deleteSleepLog(user.id, dateStr);
+                loadSleepHistory();
+              }}
+            >
+              <Text style={styles.sleepUndoBtnText}>Undo</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <TouchableOpacity
@@ -1568,28 +1698,23 @@ const HealthScreen = () => {
           </TouchableOpacity>
         )}
 
-        {/* Current Streak Card */}
-        <View style={styles.sleepStreakCard}>
-          <View style={styles.sleepStreakLeft}>
-            <View style={styles.sleepStreakIcon}>
-              <Flame size={24} color="#F59E0B" />
-            </View>
-            <View>
-              <Text style={styles.sleepStreakLabel}>Current Streak</Text>
-              <Text style={styles.sleepStreakValue}>{currentStreak} nights</Text>
-            </View>
+        {/* Stats Row */}
+        <View style={styles.sleepStatsRow}>
+          <View style={styles.sleepStatCard}>
+            <Text style={styles.sleepStatValue}>{currentStreak}</Text>
+            <Text style={styles.sleepStatLabel}>Night Streak</Text>
           </View>
-          <View style={styles.sleepStreakRight}>
-            <Text style={styles.sleepStreakGoal}>Goal: {sleepGoal} hrs</Text>
-            <Text style={styles.sleepStreakHint}>
-              {sleepHistory.length === 0 ? 'Log sleep to start!' : `${sleepHistory.length} nights logged`}
-            </Text>
+          <View style={styles.sleepStatCard}>
+            <Text style={styles.sleepStatValue}>{sleepGoal}h</Text>
+            <Text style={styles.sleepStatLabel}>Sleep Goal</Text>
           </View>
         </View>
 
-        {/* LAST 7 NIGHTS Chart */}
+        {/* Sleep Chart */}
         <View style={styles.sleepChartHeader}>
-          <Text style={styles.sleepChartTitle}>LAST 7 NIGHTS</Text>
+          <Text style={styles.sleepChartTitle}>
+            {sleepChartPeriod === '7D' ? 'LAST 7 NIGHTS' : sleepChartPeriod === '4W' ? 'LAST 4 WEEKS' : 'LAST 3 MONTHS'}
+          </Text>
           <View style={styles.sleepChartPeriods}>
             {['7D', '4W', '3M'].map((period) => (
               <TouchableOpacity
@@ -1606,66 +1731,110 @@ const HealthScreen = () => {
         </View>
 
         <View style={styles.sleepChartCard}>
-          <LineChart
-            data={{
-              labels: sleepChartPeriod === '7D'
-                ? ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri']
-                : sleepChartPeriod === '4W'
-                ? ['W1', 'W2', 'W3', 'W4']
-                : ['M1', 'M2', 'M3'],
-              datasets: [
-                {
-                  data: sleepChartPeriod === '7D'
-                    ? [0, 1, 2, 3, 4, 5, 6].map(i => {
-                        const entry = sleepHistory.find(h => h.date === new Date().getDate() - 6 + i);
-                        return entry?.hours || 0;
-                      })
-                    : sleepChartPeriod === '4W'
-                    ? [0, 0, 0, 0]
-                    : [0, 0, 0],
-                  color: (opacity = 1) => '#8B5CF6',
-                  strokeWidth: 2,
-                },
-                {
-                  data: sleepChartPeriod === '7D'
-                    ? [sleepGoal, sleepGoal, sleepGoal, sleepGoal, sleepGoal, sleepGoal, sleepGoal]
-                    : sleepChartPeriod === '4W'
-                    ? [sleepGoal, sleepGoal, sleepGoal, sleepGoal]
-                    : [sleepGoal, sleepGoal, sleepGoal],
-                  color: (opacity = 1) => COLORS.textMuted,
-                  strokeWidth: 1,
-                  withDots: false,
-                },
-              ],
-            }}
-            width={screenWidth - 64}
-            height={160}
-            chartConfig={{
-              backgroundColor: COLORS.surface,
-              backgroundGradientFrom: COLORS.surface,
-              backgroundGradientTo: COLORS.surface,
-              decimalPlaces: 0,
-              color: (opacity = 1) => '#8B5CF6',
-              labelColor: (opacity = 1) => COLORS.textMuted,
-              propsForDots: {
-                r: '4',
-                strokeWidth: '2',
-                stroke: '#8B5CF6',
-              },
-              propsForBackgroundLines: {
-                strokeDasharray: '3 3',
-                stroke: COLORS.surfaceLight,
-              },
-            }}
-            bezier
-            style={{ marginLeft: -16, borderRadius: 12 }}
-            withInnerLines={true}
-            withOuterLines={false}
-            withVerticalLines={false}
-            withHorizontalLines={true}
-            fromZero={true}
-            segments={4}
-          />
+          {(() => {
+            // Build chart data from sleep history
+            const today = new Date();
+            const chartData = [];
+            const chartLabels = [];
+
+            if (sleepChartPeriod === '7D') {
+              // Start from 7 days ago up to yesterday (skip today since tonight's sleep isn't logged yet)
+              for (let i = 7; i >= 1; i--) {
+                const date = new Date(today);
+                date.setDate(today.getDate() - i);
+                const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                chartLabels.push(dayNames[date.getDay()]);
+                const entry = sleepHistory.find(h => h.log_date === getLocalDateString(date));
+                chartData.push({ hours: entry?.hours_slept || 0.1, entry });
+              }
+            } else {
+              // Placeholder for 4W/3M
+              chartLabels.push(...(sleepChartPeriod === '4W' ? ['W1', 'W2', 'W3', 'W4'] : ['M1', 'M2', 'M3']));
+              chartData.push(...chartLabels.map(() => ({ hours: 0.1, entry: null })));
+            }
+
+            return (
+              <>
+                <LineChart
+                  data={{
+                    labels: chartLabels,
+                    datasets: [
+                      {
+                        data: chartData.map(d => d.hours),
+                        color: (opacity = 1) => COLORS.textMuted,
+                        strokeWidth: 2,
+                      },
+                      {
+                        data: Array(chartLabels.length).fill(sleepGoal),
+                        color: (opacity = 1) => COLORS.textMuted + '40',
+                        strokeWidth: 1,
+                        withDots: false,
+                      },
+                    ],
+                  }}
+                  width={screenWidth - 32}
+                  height={160}
+                  chartConfig={{
+                    backgroundColor: COLORS.surface,
+                    backgroundGradientFrom: COLORS.surface,
+                    backgroundGradientTo: COLORS.surface,
+                    decimalPlaces: 0,
+                    color: (opacity = 1) => COLORS.textMuted,
+                    labelColor: (opacity = 1) => COLORS.textMuted,
+                    fillShadowGradientOpacity: 0,
+                    propsForDots: {
+                      r: '5',
+                      strokeWidth: '2',
+                    },
+                    propsForBackgroundLines: {
+                      strokeDasharray: '3 3',
+                      stroke: COLORS.surfaceLight,
+                    },
+                    propsForLabels: {
+                      fontSize: 11,
+                      fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif',
+                    },
+                  }}
+                  getDotColor={(dataPoint) =>
+                    dataPoint <= 0.1 ? COLORS.textMuted + '50' : dataPoint >= sleepGoal ? COLORS.primary : '#EF4444'
+                  }
+                  bezier
+                  withShadow={false}
+                  style={{ marginLeft: -8, borderRadius: 12 }}
+                  withInnerLines={true}
+                  withOuterLines={false}
+                  withVerticalLines={false}
+                  withHorizontalLines={true}
+                  fromZero={true}
+                  segments={4}
+                  onDataPointClick={({ index }) => {
+                    const point = chartData[index];
+                    if (point?.entry) {
+                      setSelectedSleepPoint(point.entry);
+                    } else {
+                      setSelectedSleepPoint(null);
+                    }
+                  }}
+                />
+                {/* Tooltip */}
+                {selectedSleepPoint && (
+                  <TouchableOpacity
+                    style={styles.sleepTooltip}
+                    onPress={() => setSelectedSleepPoint(null)}
+                    activeOpacity={0.9}
+                  >
+                    <Text style={styles.sleepTooltipDate}>
+                      {new Date(selectedSleepPoint.log_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                    </Text>
+                    <Text style={styles.sleepTooltipHours}>{selectedSleepPoint.hours_slept?.toFixed(1) || 0}h</Text>
+                    <Text style={styles.sleepTooltipTimes}>
+                      {selectedSleepPoint.bed_time?.slice(0, 5) || '--:--'} - {selectedSleepPoint.wake_time?.slice(0, 5) || '--:--'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </>
+            );
+          })()}
         </View>
 
         {/* SLEEP STREAK Calendar */}
@@ -1750,17 +1919,21 @@ const HealthScreen = () => {
             <ChevronLeft size={20} color={COLORS.text} />
           </TouchableOpacity>
           <View style={styles.dateNavCenter}>
-            <Calendar size={20} color={COLORS.textMuted} />
             <Text style={styles.dateNavText}>{getDateLabel()}</Text>
           </View>
-          <TouchableOpacity
-            style={[styles.dateNavBtn, isToday && styles.dateNavBtnDisabled]}
-            onPress={() => !isToday && navigateDate(1)}
-            onClick={() => !isToday && navigateDate(1)}
-            disabled={isToday}
-          >
-            <ChevronRight size={20} color={isToday ? COLORS.textMuted : COLORS.text} />
-          </TouchableOpacity>
+          {isToday ? (
+            <View style={[styles.dateNavBtn, styles.dateNavBtnDisabled]}>
+              <ChevronRight size={20} color={COLORS.border} />
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.dateNavBtn}
+              onPress={() => navigateDate(1)}
+              onClick={() => navigateDate(1)}
+            >
+              <ChevronRight size={20} color={COLORS.text} />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Tabs */}
@@ -1807,6 +1980,37 @@ const HealthScreen = () => {
         type={toastType}
         onHide={() => setToastVisible(false)}
       />
+
+      {/* Adjusted Info Modal */}
+      <Modal
+        visible={showAdjustedInfo}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowAdjustedInfo(false)}
+      >
+        <TouchableOpacity
+          style={styles.adjustedModalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowAdjustedInfo(false)}
+        >
+          <View style={styles.adjustedModalContent}>
+            <Text style={styles.adjustedModalTitle}>Adjusted Targets</Text>
+            <Text style={styles.adjustedModalText}>
+              Your daily targets are adjusted based on your current goal ({nutritionMode.name}).
+              {'\n\n'}
+              This accounts for your activity level, workouts, and progress to help you stay on track.
+              {'\n\n'}
+              Base: {nutritionGoals.calories} kcal • {nutritionGoals.protein}g protein
+            </Text>
+            <TouchableOpacity
+              style={styles.adjustedModalButton}
+              onPress={() => setShowAdjustedInfo(false)}
+            >
+              <Text style={styles.adjustedModalButtonText}>Got it</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -1839,7 +2043,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     alignItems: 'center',
   },
   dateNavBtnDisabled: {
-    opacity: 0.5,
+    opacity: 0.2,
   },
   dateNavCenter: {
     flexDirection: 'row',
@@ -1936,6 +2140,9 @@ const getStyles = (COLORS) => StyleSheet.create({
   modeStatValueGreen: {
     color: COLORS.success,
   },
+  modeStatValueRed: {
+    color: COLORS.error,
+  },
   onTrackBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2020,6 +2227,12 @@ const getStyles = (COLORS) => StyleSheet.create({
     top: -1,
   },
   circleInner: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
     alignItems: 'center',
     gap: 4,
   },
@@ -2073,14 +2286,14 @@ const getStyles = (COLORS) => StyleSheet.create({
   logMealBtn: {
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: '#F97316',
+    borderColor: COLORS.primary,
     borderRadius: 8,
     paddingVertical: 12,
     alignItems: 'center',
     marginBottom: 14,
   },
   logMealBtnText: {
-    color: '#F97316',
+    color: COLORS.primary,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -2152,6 +2365,35 @@ const getStyles = (COLORS) => StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
+  recentInCard: {
+    marginTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+    paddingTop: 10,
+  },
+  recentEntryCardCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  recentEntryTitleCompact: {
+    color: COLORS.text,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  recentEntrySubtextCompact: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+  },
+  recentDeleteBtnCompact: {
+    padding: 4,
+  },
+  recentEmptyCompact: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    textAlign: 'center',
+    paddingVertical: 8,
+  },
 
   // Weekly Trends
   weeklyTrendsCard: {
@@ -2171,38 +2413,27 @@ const getStyles = (COLORS) => StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-  trendFilterBtn: {
+  trendToggle: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: COLORS.primary,
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 8,
+    padding: 2,
   },
-  trendFilterText: {
-    color: COLORS.primary,
-    fontSize: 13,
+  trendToggleBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  trendToggleBtnActive: {
+    backgroundColor: COLORS.primary,
+  },
+  trendToggleText: {
+    color: COLORS.textMuted,
+    fontSize: 12,
     fontWeight: '600',
   },
-  trendDropdown: {
-    backgroundColor: COLORS.surfaceLight,
-    borderRadius: 12,
-    marginBottom: 12,
-    overflow: 'hidden',
-  },
-  trendDropdownItem: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-  },
-  trendDropdownItemActive: {
-    backgroundColor: COLORS.primary + '20',
-  },
-  trendDropdownText: {
-    color: COLORS.text,
-    fontSize: 14,
+  trendToggleTextActive: {
+    color: COLORS.textOnPrimary,
   },
   trendDropdownTextActive: {
     color: COLORS.primary,
@@ -2284,13 +2515,19 @@ const getStyles = (COLORS) => StyleSheet.create({
     borderRadius: 6,
   },
   streakDayMet: {
-    backgroundColor: COLORS.success + '80',
+    backgroundColor: COLORS.primary,
   },
   streakDayMissed: {
     backgroundColor: '#EF4444',
   },
   streakDayNoData: {
     backgroundColor: COLORS.surfaceLight,
+  },
+  streakDayFuture: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    opacity: 0.3,
   },
   streakDayToday: {
     borderWidth: 2,
@@ -2491,6 +2728,43 @@ const getStyles = (COLORS) => StyleSheet.create({
     color: COLORS.textMuted,
     fontSize: 11,
   },
+  adjustedModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  adjustedModalContent: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 340,
+  },
+  adjustedModalTitle: {
+    color: COLORS.text,
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 12,
+  },
+  adjustedModalText: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    lineHeight: 22,
+    marginBottom: 20,
+  },
+  adjustedModalButton: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  adjustedModalButtonText: {
+    color: COLORS.textOnPrimary,
+    fontSize: 15,
+    fontWeight: '600',
+  },
   remainingCardsRow: {
     flexDirection: 'row',
     gap: 12,
@@ -2665,7 +2939,7 @@ const getStyles = (COLORS) => StyleSheet.create({
   },
   waterProgressFill: {
     height: '100%',
-    backgroundColor: '#3B82F6',
+    backgroundColor: COLORS.water,
     borderRadius: 4,
   },
   waterQuickAddRow: {
@@ -2733,6 +3007,78 @@ const getStyles = (COLORS) => StyleSheet.create({
   },
   waterLogDeleteBtn: {
     padding: 8,
+  },
+  waterWeekChart: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 16,
+    paddingLeft: 12,
+    height: 160,
+    marginBottom: 16,
+  },
+  waterWeekYAxis: {
+    width: 32,
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    paddingRight: 8,
+    paddingBottom: 20,
+  },
+  waterWeekYLabel: {
+    color: COLORS.textMuted,
+    fontSize: 10,
+  },
+  waterWeekChartArea: {
+    flex: 1,
+    position: 'relative',
+  },
+  waterWeekGoalLine: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  waterWeekGoalDash: {
+    width: 8,
+    height: 2,
+    backgroundColor: COLORS.primary,
+    opacity: 0.5,
+    borderRadius: 1,
+  },
+  waterWeekBars: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+  },
+  waterWeekDay: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 6,
+  },
+  waterWeekBarContainer: {
+    flex: 1,
+    width: 20,
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 4,
+    justifyContent: 'flex-end',
+    overflow: 'hidden',
+  },
+  waterWeekBar: {
+    width: '100%',
+    backgroundColor: COLORS.primary,
+    borderRadius: 4,
+    minHeight: 4,
+  },
+  waterWeekBarComplete: {
+    backgroundColor: COLORS.success,
+  },
+  waterWeekLabel: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    fontWeight: '500',
   },
   mealCard: {
     flexDirection: 'row',
@@ -2856,6 +3202,15 @@ const getStyles = (COLORS) => StyleSheet.create({
   supplementCheckComplete: {
     backgroundColor: COLORS.primary,
     borderColor: COLORS.primary,
+  },
+  supplementCheckPartial: {
+    backgroundColor: COLORS.primary + '30',
+    borderColor: COLORS.primary,
+  },
+  supplementCheckText: {
+    color: COLORS.primary,
+    fontSize: 9,
+    fontWeight: '700',
   },
   supplementInfo: {
     flex: 1,
@@ -3219,35 +3574,81 @@ const getStyles = (COLORS) => StyleSheet.create({
     fontWeight: 'bold',
   },
   sleepLogBtnNew: {
-    backgroundColor: COLORS.sleep || '#8B5CF6',
-    borderRadius: 12,
-    paddingVertical: 14,
+    backgroundColor: COLORS.surface,
+    borderRadius: 10,
+    paddingVertical: 12,
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
   },
   sleepLogBtnTextNew: {
-    color: COLORS.textOnPrimary,
-    fontSize: 16,
-    fontWeight: '600',
+    color: COLORS.primary,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  sleepLoggedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 20,
   },
   sleepLoggedBtn: {
+    flex: 1,
     flexDirection: 'row',
     backgroundColor: COLORS.success,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 20,
     gap: 8,
+  },
+  sleepUndoBtn: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  sleepUndoBtnText: {
+    color: COLORS.textMuted,
+    fontSize: 14,
+    fontWeight: '500',
   },
   sleepLoggedBtnText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
   },
+  sleepStatsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 16,
+  },
+  sleepStatCard: {
+    flex: 1,
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  sleepStatValue: {
+    color: COLORS.text,
+    fontSize: 22,
+    fontWeight: '700',
+  },
+  sleepStatLabel: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    fontWeight: '500',
+  },
   sleepStreakCard: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: COLORS.surface,
     borderRadius: 16,
@@ -3256,6 +3657,7 @@ const getStyles = (COLORS) => StyleSheet.create({
   },
   sleepStreakLeft: {
     flexDirection: 'row',
+    alignItems: 'center',
     alignItems: 'center',
     gap: 12,
   },
@@ -3359,7 +3761,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     alignItems: 'center',
   },
   sleepCalendarDayGood: {
-    backgroundColor: 'rgba(139, 92, 246, 0.3)',
+    backgroundColor: COLORS.primary + '40',
   },
   sleepCalendarDayBad: {
     backgroundColor: 'rgba(239, 68, 68, 0.3)',
@@ -3403,6 +3805,34 @@ const getStyles = (COLORS) => StyleSheet.create({
   sleepCalendarLegendText: {
     color: COLORS.textMuted,
     fontSize: 12,
+  },
+
+  // Sleep Chart Tooltip
+  sleepTooltip: {
+    position: 'absolute',
+    top: 4,
+    right: 8,
+    backgroundColor: COLORS.surface,
+    borderRadius: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    zIndex: 10,
+    minWidth: 100,
+  },
+  sleepTooltipDate: {
+    color: COLORS.textMuted,
+    fontSize: 10,
+    marginBottom: 2,
+  },
+  sleepTooltipHours: {
+    color: COLORS.primary,
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  sleepTooltipTimes: {
+    color: COLORS.textMuted,
+    fontSize: 11,
   },
 });
 

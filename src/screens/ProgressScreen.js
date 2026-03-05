@@ -11,23 +11,8 @@ import {
   Modal,
   TextInput,
 } from 'react-native';
-import { X } from 'lucide-react-native';
+import { X, TrendingUp, TrendingDown, Minus } from 'lucide-react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import {
-  TrendingUp,
-  TrendingDown,
-  Flame,
-  Dumbbell,
-  Trophy,
-  Calendar,
-  Target,
-  Scale,
-  Droplets,
-  Moon,
-  Zap,
-  Plus,
-  ChevronRight,
-} from 'lucide-react-native';
 import { LineChart } from 'react-native-chart-kit';
 import { useColors } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -49,7 +34,9 @@ const ProgressScreen = () => {
   const COLORS = useColors();
   const styles = getStyles(COLORS);
   const { user, profile, refreshProfile } = useAuth();
-  const [chartPeriod, setChartPeriod] = useState('All');
+  const [chartPeriod, setChartPeriod] = useState('7D');
+  const [trendsPeriod, setTrendsPeriod] = useState('7D');
+  const [selectedWeightPoint, setSelectedWeightPoint] = useState(null);
   const [showWeighInModal, setShowWeighInModal] = useState(false);
   const [showGoalModal, setShowGoalModal] = useState(false);
   const [showTargetWeightModal, setShowTargetWeightModal] = useState(false);
@@ -150,12 +137,22 @@ const ProgressScreen = () => {
   useFocusEffect(
     useCallback(() => {
       if (user?.id) {
-        loadProgressData();
-        // Refresh profile to get latest settings (like weight_unit)
-        refreshProfile();
+        // Refresh profile first, then load data
+        refreshProfile().then(() => {
+          loadProgressData();
+        }).catch(() => {
+          loadProgressData(); // Load anyway if refresh fails
+        });
       }
     }, [user])
   );
+
+  // Reload program data when profile changes (e.g., after refreshProfile)
+  useEffect(() => {
+    if (profile?.fitness_goal) {
+      loadProgramData();
+    }
+  }, [profile?.fitness_goal]);
 
   const loadProgressData = async () => {
     try {
@@ -262,18 +259,13 @@ const ProgressScreen = () => {
 
   const loadProgramData = async () => {
     try {
-      // Get user's goals from the database
-      const { data: goalData } = await supabase
-        .from('user_goals')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      // Get user's fitness goal from profile
+      const goalKey = profile?.fitness_goal;
 
-      if (goalData && goalData.goal) {
-        const goalKey = goalData.goal;
+      if (goalKey) {
         const goalInfo = GOAL_INFO[goalKey];
         const programInfo = GOAL_TO_PROGRAM[goalKey];
-        const experienceInfo = EXPERIENCE_LEVELS[goalData.experience] || EXPERIENCE_LEVELS.novice;
+        const experienceInfo = EXPERIENCE_LEVELS[profile?.experience_level] || EXPERIENCE_LEVELS.novice;
 
         if (programInfo) {
           // Calculate program progress based on completed workouts
@@ -381,9 +373,14 @@ const ProgressScreen = () => {
   };
 
   const progressToGoal = () => {
+    // No progress if no target is set
+    if (!weightData.target || weightData.target === 0) return 0;
+    if (!weightData.start || weightData.start === 0) return 0;
+    if (!weightData.current || weightData.current === 0) return 0;
+
     const totalChange = Math.abs(weightData.start - weightData.target);
     const currentChange = Math.abs(weightData.current - weightData.start);
-    return totalChange > 0 ? Math.round((currentChange / totalChange) * 100) : 0;
+    return totalChange > 0 ? Math.min(100, Math.round((currentChange / totalChange) * 100)) : 0;
   };
 
   const handleSaveWeighIn = async (weight, unit, date) => {
@@ -564,7 +561,7 @@ const ProgressScreen = () => {
     backgroundColor: COLORS.surface,
     backgroundGradientFrom: COLORS.surface,
     backgroundGradientTo: COLORS.surface,
-    decimalPlaces: 0,
+    decimalPlaces: 1,
     color: (opacity = 1) => `rgba(6, 182, 212, ${opacity})`,
     labelColor: (opacity = 1) => COLORS.textMuted,
     style: {
@@ -579,51 +576,96 @@ const ProgressScreen = () => {
       strokeDasharray: '3 3',
       stroke: COLORS.surfaceLight,
     },
+    propsForLabels: {
+      fontSize: 11,
+      fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif',
+    },
   };
 
-  // Dynamic chart data based on period - returns actual user data only
-  const getChartLabels = () => {
+  // Filter weight history based on selected period - only show actual data points
+  const getFilteredWeightHistory = () => {
     if (weightHistory.length === 0) return [];
-    return weightHistory.map(w => {
+
+    const now = new Date();
+    let cutoffDate;
+
+    switch (chartPeriod) {
+      case '7D':
+        cutoffDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case '4W':
+        cutoffDate = new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000);
+        break;
+      case '3M':
+        cutoffDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+        break;
+      default:
+        cutoffDate = new Date(0);
+    }
+
+    return weightHistory.filter(w => {
+      if (!w.date) return true;
+      return new Date(w.date) >= cutoffDate;
+    });
+  };
+
+  const filteredWeightHistory = getFilteredWeightHistory();
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  // Generate labels - dd Mmm format, sparse for longer periods
+  const getChartLabels = () => {
+    if (filteredWeightHistory.length === 0) return [];
+    const dataLength = filteredWeightHistory.length;
+
+    return filteredWeightHistory.map((w, index) => {
+      // For longer periods, only show first and last
+      if ((chartPeriod === '3M' || chartPeriod === '4W') && index !== 0 && index !== dataLength - 1) {
+        return '';
+      }
       if (w.date) {
         const date = new Date(w.date);
-        return `${date.getMonth() + 1}/${date.getDate()}`;
+        return `${date.getDate()} ${months[date.getMonth()]}`;
       }
       return w.week;
     });
   };
 
-  const getWeightData = () => {
-    if (weightHistory.length === 0) return [];
-    return weightHistory.map(w => w.weight);
-  };
-
-  const weightChartData = weightHistory.length > 0 ? {
+  const weightChartData = filteredWeightHistory.length > 0 ? {
     labels: getChartLabels(),
     datasets: [
       {
-        data: getWeightData(),
+        data: filteredWeightHistory.map(w => w.weight),
         color: (opacity = 1) => `rgba(6, 182, 212, ${opacity})`,
         strokeWidth: 2,
       },
     ],
   } : null;
 
+  // Get trend chart labels with proper spacing - always dd Mmm format
+  const getTrendLabels = (history, dateKey = 'log_date') => {
+    if (!history || history.length === 0) return [];
+
+    const dataLength = history.length;
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    return history.map((item, index) => {
+      // For longer periods, show fewer labels
+      if ((trendsPeriod === '3M' || trendsPeriod === '4W') && index !== 0 && index !== dataLength - 1) {
+        return '';
+      }
+      const date = new Date(item[dateKey]);
+      return `${date.getDate()} ${months[date.getMonth()]}`;
+    });
+  };
+
   // Generate chart data from actual history
   const generateNutritionChartData = (dataKey, color) => {
     if (!nutritionHistory || nutritionHistory.length < 2) return null;
 
-    const labels = nutritionHistory.map(n => {
-      const date = new Date(n.log_date);
-      return `${date.getMonth() + 1}/${date.getDate()}`;
-    });
-
-    const data = nutritionHistory.map(n => n[dataKey] || 0);
-
     return {
-      labels,
+      labels: getTrendLabels(nutritionHistory),
       datasets: [{
-        data,
+        data: nutritionHistory.map(n => n[dataKey] || 0),
         color: (opacity = 1) => color.replace('1)', `${opacity})`),
         strokeWidth: 2,
       }],
@@ -633,17 +675,10 @@ const ProgressScreen = () => {
   const generateSleepChartData = () => {
     if (!sleepHistory || sleepHistory.length < 2) return null;
 
-    const labels = sleepHistory.map(s => {
-      const date = new Date(s.log_date);
-      return `${date.getMonth() + 1}/${date.getDate()}`;
-    });
-
-    const data = sleepHistory.map(s => s.hours_slept || 0);
-
     return {
-      labels,
+      labels: getTrendLabels(sleepHistory),
       datasets: [{
-        data,
+        data: sleepHistory.map(s => s.hours_slept || 0),
         color: (opacity = 1) => `rgba(139, 92, 246, ${opacity})`,
         strokeWidth: 2,
       }],
@@ -655,32 +690,68 @@ const ProgressScreen = () => {
   const waterChartData = generateNutritionChartData('water_intake', 'rgba(6, 182, 212, 1)');
   const sleepChartData = generateSleepChartData();
 
+  // Common chart config for trend charts
+  const trendChartConfig = (color) => ({
+    backgroundColor: COLORS.surface,
+    backgroundGradientFrom: COLORS.surface,
+    backgroundGradientTo: COLORS.surface,
+    decimalPlaces: 0,
+    color: () => color,
+    labelColor: () => COLORS.textMuted,
+    propsForDots: {
+      r: '4',
+      strokeWidth: '2',
+      stroke: color,
+    },
+    propsForBackgroundLines: {
+      strokeDasharray: '3 3',
+      stroke: COLORS.surfaceLight,
+    },
+    propsForLabels: {
+      fontSize: 11,
+      fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif',
+    },
+  });
+
+  // Swipeable chart card width
+  const trendCardWidth = screenWidth - 48;
+
   const renderContent = () => (
     <>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Progress</Text>
-      </View>
-
       {/* OVERVIEW Section */}
       <Text style={styles.sectionLabel}>OVERVIEW</Text>
       <View style={styles.overviewRow}>
         <View style={styles.overviewCard}>
-          <View style={styles.overviewCardHeader}>
-            <TrendingUp size={16} color={COLORS.primary} />
-            <Text style={styles.overviewCardLabel}>Current</Text>
-          </View>
+          <Text style={styles.overviewCardLabel}>Current</Text>
           <Text style={styles.overviewCardValue}>{formatWeight(weightData.current)}</Text>
           <Text style={styles.overviewCardSubtext}>{weightData.target > 0 ? `Target: ${formatWeight(weightData.target)}` : 'Log a weigh-in'}</Text>
         </View>
-        <View style={styles.overviewCard}>
-          <View style={styles.overviewCardHeader}>
-            <Target size={16} color={COLORS.success} />
-            <Text style={styles.overviewCardLabel}>Progress</Text>
-          </View>
-          <Text style={[styles.overviewCardValue, { color: COLORS.success }]}>{weightData.current > 0 ? `${progressToGoal()}%` : '--'}</Text>
-          <Text style={styles.overviewCardSubtext}>to goal</Text>
-        </View>
+        <TouchableOpacity
+          style={[
+            styles.overviewCard,
+            progressToGoal() >= 100 && styles.overviewCardComplete
+          ]}
+          onPress={() => {
+            if (!weightData.target || weightData.target === 0) {
+              setTempTargetWeight('');
+              setShowTargetWeightModal(true);
+            }
+          }}
+          activeOpacity={weightData.target > 0 ? 1 : 0.7}
+        >
+          <Text style={styles.overviewCardLabel}>Progress</Text>
+          {weightData.target > 0 ? (
+            <>
+              <Text style={[styles.overviewCardValue, { color: COLORS.success }]}>{progressToGoal()}%</Text>
+              <Text style={styles.overviewCardSubtext}>{progressToGoal() >= 100 ? 'Goal reached!' : 'to goal'}</Text>
+            </>
+          ) : (
+            <>
+              <Text style={[styles.overviewCardValue, { color: COLORS.primary, fontSize: 18 }]}>Set Goal</Text>
+              <Text style={styles.overviewCardSubtext}>tap to start</Text>
+            </>
+          )}
+        </TouchableOpacity>
       </View>
 
       {/* TARGET WEIGHT Section */}
@@ -702,9 +773,7 @@ const ProgressScreen = () => {
             <Text style={styles.targetWeightLabel}>Current</Text>
             <Text style={styles.targetWeightValue}>{formatWeight(weightData.current)}</Text>
           </View>
-          <View style={styles.targetWeightArrow}>
-            <ChevronRight size={24} color={COLORS.primary} />
-          </View>
+          <Text style={styles.targetWeightArrow}>→</Text>
           <View style={styles.targetWeightItem}>
             <Text style={styles.targetWeightLabel}>Target</Text>
             <Text style={[styles.targetWeightValue, { color: COLORS.primary }]}>
@@ -734,9 +803,6 @@ const ProgressScreen = () => {
       </View>
       <View style={styles.goalCard}>
         <View style={styles.goalHeader}>
-          <View style={styles.goalIconContainer}>
-            <Target size={24} color={COLORS.primary} />
-          </View>
           <View style={styles.goalInfo}>
             <Text style={styles.goalTitle}>{GOAL_INFO[currentGoal]?.title || 'General Fitness'}</Text>
             <Text style={styles.goalSubtitle}>{GOAL_INFO[currentGoal]?.idealDays || '3-5'} days/week</Text>
@@ -760,29 +826,24 @@ const ProgressScreen = () => {
       <Text style={styles.sectionLabel}>STREAKS</Text>
       <View style={styles.streaksRow}>
         <View style={styles.streakCard}>
-          <Dumbbell size={18} color={COLORS.textMuted} />
           <Text style={styles.streakLabel}>Workouts</Text>
-          <Text style={[styles.streakValue, { color: '#F59E0B' }]}>{streaks.workouts}</Text>
+          <Text style={[styles.streakValue, { color: COLORS.primary }]}>{streaks.workouts}</Text>
         </View>
         <View style={styles.streakCard}>
-          <Flame size={18} color={COLORS.textMuted} />
           <Text style={styles.streakLabel}>Calories</Text>
-          <Text style={[styles.streakValue, { color: COLORS.accent }]}>{streaks.calories}</Text>
+          <Text style={[styles.streakValue, { color: COLORS.primary }]}>{streaks.calories}</Text>
         </View>
         <View style={styles.streakCard}>
-          <Droplets size={18} color={COLORS.textMuted} />
           <Text style={styles.streakLabel}>Water</Text>
-          <Text style={[styles.streakValue, { color: '#06B6D4' }]}>{streaks.water}</Text>
+          <Text style={[styles.streakValue, { color: COLORS.primary }]}>{streaks.water}</Text>
         </View>
         <View style={styles.streakCard}>
-          <Zap size={18} color={COLORS.textMuted} />
           <Text style={styles.streakLabel}>Supps</Text>
-          <Text style={[styles.streakValue, { color: '#F59E0B' }]}>{streaks.supps}</Text>
+          <Text style={[styles.streakValue, { color: COLORS.primary }]}>{streaks.supps}</Text>
         </View>
         <View style={styles.streakCard}>
-          <Moon size={18} color={COLORS.textMuted} />
           <Text style={styles.streakLabel}>Sleep</Text>
-          <Text style={[styles.streakValue, { color: '#8B5CF6' }]}>{streaks.sleep}</Text>
+          <Text style={[styles.streakValue, { color: COLORS.primary }]}>{streaks.sleep}</Text>
         </View>
       </View>
 
@@ -829,7 +890,7 @@ const ProgressScreen = () => {
       <View style={styles.chartSectionHeader}>
         <Text style={styles.chartTitle}>Weight Tracking</Text>
         <View style={styles.chartPeriodRow}>
-          {['7D', '30D', '90D', 'All'].map((period) => (
+          {['7D', '4W', '3M'].map((period) => (
             <TouchableOpacity
               key={period}
               style={[styles.chartPeriodBtn, chartPeriod === period && styles.chartPeriodBtnActive]}
@@ -843,7 +904,7 @@ const ProgressScreen = () => {
         </View>
       </View>
       <View style={styles.chartCard}>
-        {weightChartData && weightHistory.length > 0 ? (
+        {weightChartData && filteredWeightHistory.length > 0 ? (
           <>
             <LineChart
               data={weightChartData}
@@ -860,7 +921,46 @@ const ProgressScreen = () => {
               withHorizontalLabels={true}
               fromZero={false}
               segments={4}
+              onDataPointClick={({ index }) => {
+                const point = filteredWeightHistory[index];
+                const prevPoint = filteredWeightHistory[index - 1];
+                if (point) {
+                  setSelectedWeightPoint({
+                    ...point,
+                    change: prevPoint ? point.weight - prevPoint.weight : null,
+                  });
+                }
+              }}
             />
+            {selectedWeightPoint && (
+              <TouchableOpacity
+                style={styles.weightTooltip}
+                onPress={() => setSelectedWeightPoint(null)}
+                activeOpacity={0.9}
+              >
+                <Text style={styles.weightTooltipDate}>
+                  {selectedWeightPoint.date ? new Date(selectedWeightPoint.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '--'}
+                </Text>
+                <Text style={styles.weightTooltipValue}>{formatWeight(selectedWeightPoint.weight)}</Text>
+                {selectedWeightPoint.change !== null && (
+                  <View style={styles.weightTooltipChange}>
+                    {selectedWeightPoint.change > 0.05 ? (
+                      <TrendingUp size={12} color={COLORS.success} />
+                    ) : selectedWeightPoint.change < -0.05 ? (
+                      <TrendingDown size={12} color={COLORS.primary} />
+                    ) : (
+                      <Minus size={12} color={COLORS.textMuted} />
+                    )}
+                    <Text style={[
+                      styles.weightTooltipChangeText,
+                      { color: selectedWeightPoint.change > 0.05 ? COLORS.success : selectedWeightPoint.change < -0.05 ? COLORS.primary : COLORS.textMuted }
+                    ]}>
+                      {selectedWeightPoint.change > 0 ? '+' : ''}{formatWeight(selectedWeightPoint.change)}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            )}
             <View style={styles.chartGoalLine}>
               <Text style={styles.chartGoalText}>Goal: {formatWeight(weightData.target)}</Text>
             </View>
@@ -877,22 +977,42 @@ const ProgressScreen = () => {
           </>
         ) : (
           <View style={styles.chartEmpty}>
-            <Scale size={32} color={COLORS.textMuted} />
             <Text style={styles.chartEmptyText}>No weight data yet</Text>
             <Text style={styles.chartEmptySubtext}>Log weigh-ins to see your progress</Text>
           </View>
         )}
       </View>
 
-      {/* NUTRITION TRENDS Section */}
-      <Text style={styles.sectionLabel}>NUTRITION TRENDS (Last 7 Days)</Text>
-      <View style={styles.nutritionCard}>
-        {/* Calories */}
-        <View style={styles.nutritionChartSection}>
-          <View style={styles.nutritionChartHeader}>
-            <Text style={[styles.nutritionChartTitle, { color: COLORS.accent }]}>Calories</Text>
+      {/* TRENDS Section */}
+      <View style={styles.trendsSectionHeader}>
+        <Text style={styles.sectionLabel}>TRENDS</Text>
+        <View style={styles.chartPeriodRow}>
+          {['7D', '4W', '3M'].map((period) => (
+            <TouchableOpacity
+              key={period}
+              style={[styles.chartPeriodBtn, trendsPeriod === period && styles.chartPeriodBtnActive]}
+              onPress={() => setTrendsPeriod(period)}
+            >
+              <Text style={[styles.chartPeriodText, trendsPeriod === period && styles.chartPeriodTextActive]}>
+                {period}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+      <ScrollView
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        style={styles.trendsScrollView}
+        contentContainerStyle={styles.trendsScrollContent}
+      >
+        {/* Calories Card */}
+        <View style={[styles.trendCard, { width: trendCardWidth }]}>
+          <View style={styles.trendCardHeader}>
+            <Text style={[styles.trendCardTitle, { color: COLORS.accent }]}>Calories</Text>
             {nutritionHistory.length > 0 && (
-              <Text style={styles.nutritionAvgText}>
+              <Text style={styles.trendAvgText}>
                 Avg: {Math.round(nutritionHistory.reduce((sum, n) => sum + (n.total_calories || 0), 0) / nutritionHistory.length)}
               </Text>
             )}
@@ -900,51 +1020,31 @@ const ProgressScreen = () => {
           {caloriesChartData ? (
             <LineChart
               data={caloriesChartData}
-              width={chartWidth}
-              height={140}
-              chartConfig={{
-                backgroundColor: COLORS.surface,
-                backgroundGradientFrom: COLORS.surface,
-                backgroundGradientTo: COLORS.surface,
-                decimalPlaces: 0,
-                color: () => COLORS.accent,
-                labelColor: () => COLORS.textMuted,
-                propsForDots: {
-                  r: '4',
-                  strokeWidth: '2',
-                  stroke: COLORS.accent,
-                },
-                propsForBackgroundLines: {
-                  strokeDasharray: '3 3',
-                  stroke: COLORS.surfaceLight,
-                },
-              }}
+              width={trendCardWidth - 32}
+              height={160}
+              chartConfig={trendChartConfig(COLORS.accent)}
               bezier
-              style={styles.miniChart}
+              withShadow={false}
               withInnerLines={true}
               withOuterLines={false}
               withVerticalLines={false}
               withHorizontalLines={true}
-              withVerticalLabels={true}
-              withHorizontalLabels={true}
-              withDots={true}
-              withShadow={false}
               segments={3}
+              style={{ marginLeft: -8 }}
             />
           ) : (
-            <View style={styles.miniChartEmpty}>
-              <Flame size={24} color={COLORS.textMuted} />
-              <Text style={styles.miniChartEmptyText}>No calorie data yet</Text>
+            <View style={styles.trendChartEmpty}>
+              <Text style={styles.trendChartEmptyText}>No calorie data yet</Text>
             </View>
           )}
         </View>
 
-        {/* Protein */}
-        <View style={[styles.nutritionChartSection, styles.nutritionChartBorder]}>
-          <View style={styles.nutritionChartHeader}>
-            <Text style={[styles.nutritionChartTitle, { color: '#EC4899' }]}>Protein</Text>
+        {/* Protein Card */}
+        <View style={[styles.trendCard, { width: trendCardWidth }]}>
+          <View style={styles.trendCardHeader}>
+            <Text style={[styles.trendCardTitle, { color: '#EC4899' }]}>Protein</Text>
             {nutritionHistory.length > 0 && (
-              <Text style={styles.nutritionAvgText}>
+              <Text style={styles.trendAvgText}>
                 Avg: {Math.round(nutritionHistory.reduce((sum, n) => sum + (n.total_protein || 0), 0) / nutritionHistory.length)}g
               </Text>
             )}
@@ -952,51 +1052,31 @@ const ProgressScreen = () => {
           {proteinChartData ? (
             <LineChart
               data={proteinChartData}
-              width={chartWidth}
-              height={140}
-              chartConfig={{
-                backgroundColor: COLORS.surface,
-                backgroundGradientFrom: COLORS.surface,
-                backgroundGradientTo: COLORS.surface,
-                decimalPlaces: 0,
-                color: () => '#EC4899',
-                labelColor: () => COLORS.textMuted,
-                propsForDots: {
-                  r: '4',
-                  strokeWidth: '2',
-                  stroke: '#EC4899',
-                },
-                propsForBackgroundLines: {
-                  strokeDasharray: '3 3',
-                  stroke: COLORS.surfaceLight,
-                },
-              }}
+              width={trendCardWidth - 32}
+              height={160}
+              chartConfig={trendChartConfig('#EC4899')}
               bezier
-              style={styles.miniChart}
+              withShadow={false}
               withInnerLines={true}
               withOuterLines={false}
               withVerticalLines={false}
               withHorizontalLines={true}
-              withVerticalLabels={true}
-              withHorizontalLabels={true}
-              withDots={true}
-              withShadow={false}
               segments={3}
+              style={{ marginLeft: -8 }}
             />
           ) : (
-            <View style={styles.miniChartEmpty}>
-              <Zap size={24} color={COLORS.textMuted} />
-              <Text style={styles.miniChartEmptyText}>No protein data yet</Text>
+            <View style={styles.trendChartEmpty}>
+              <Text style={styles.trendChartEmptyText}>No protein data yet</Text>
             </View>
           )}
         </View>
 
-        {/* Water */}
-        <View style={[styles.nutritionChartSection, styles.nutritionChartBorder]}>
-          <View style={styles.nutritionChartHeader}>
-            <Text style={[styles.nutritionChartTitle, { color: '#06B6D4' }]}>Water</Text>
+        {/* Water Card */}
+        <View style={[styles.trendCard, { width: trendCardWidth }]}>
+          <View style={styles.trendCardHeader}>
+            <Text style={[styles.trendCardTitle, { color: '#06B6D4' }]}>Water</Text>
             {nutritionHistory.length > 0 && (
-              <Text style={styles.nutritionAvgText}>
+              <Text style={styles.trendAvgText}>
                 Avg: {(nutritionHistory.reduce((sum, n) => sum + (n.water_intake || 0), 0) / nutritionHistory.length / 1000).toFixed(1)}L
               </Text>
             )}
@@ -1004,51 +1084,31 @@ const ProgressScreen = () => {
           {waterChartData ? (
             <LineChart
               data={waterChartData}
-              width={chartWidth}
-              height={140}
-              chartConfig={{
-                backgroundColor: COLORS.surface,
-                backgroundGradientFrom: COLORS.surface,
-                backgroundGradientTo: COLORS.surface,
-                decimalPlaces: 0,
-                color: () => '#06B6D4',
-                labelColor: () => COLORS.textMuted,
-                propsForDots: {
-                  r: '4',
-                  strokeWidth: '2',
-                  stroke: '#06B6D4',
-                },
-                propsForBackgroundLines: {
-                  strokeDasharray: '3 3',
-                  stroke: COLORS.surfaceLight,
-                },
-              }}
+              width={trendCardWidth - 32}
+              height={160}
+              chartConfig={trendChartConfig('#06B6D4')}
               bezier
-              style={styles.miniChart}
+              withShadow={false}
               withInnerLines={true}
               withOuterLines={false}
               withVerticalLines={false}
               withHorizontalLines={true}
-              withVerticalLabels={true}
-              withHorizontalLabels={true}
-              withDots={true}
-              withShadow={false}
               segments={3}
+              style={{ marginLeft: -8 }}
             />
           ) : (
-            <View style={styles.miniChartEmpty}>
-              <Droplets size={24} color={COLORS.textMuted} />
-              <Text style={styles.miniChartEmptyText}>No water data yet</Text>
+            <View style={styles.trendChartEmpty}>
+              <Text style={styles.trendChartEmptyText}>No water data yet</Text>
             </View>
           )}
         </View>
 
-        {/* Sleep */}
-        <View style={[styles.nutritionChartSection, styles.nutritionChartBorder]}>
-          <View style={styles.nutritionChartHeader}>
-            <Text style={[styles.nutritionChartTitle, { color: '#8B5CF6' }]}>Sleep</Text>
+        {/* Sleep Card */}
+        <View style={[styles.trendCard, { width: trendCardWidth }]}>
+          <View style={styles.trendCardHeader}>
+            <Text style={[styles.trendCardTitle, { color: '#8B5CF6' }]}>Sleep</Text>
             {sleepHistory.length > 0 && (
-              <Text style={styles.nutritionAvgText}>
+              <Text style={styles.trendAvgText}>
                 Avg: {(sleepHistory.reduce((sum, s) => sum + (s.hours_slept || 0), 0) / sleepHistory.length).toFixed(1)}h
               </Text>
             )}
@@ -1056,81 +1116,39 @@ const ProgressScreen = () => {
           {sleepChartData ? (
             <LineChart
               data={sleepChartData}
-              width={chartWidth}
-              height={140}
-              chartConfig={{
-                backgroundColor: COLORS.surface,
-                backgroundGradientFrom: COLORS.surface,
-                backgroundGradientTo: COLORS.surface,
-                decimalPlaces: 0,
-                color: () => '#8B5CF6',
-                labelColor: () => COLORS.textMuted,
-                propsForDots: {
-                  r: '4',
-                  strokeWidth: '2',
-                  stroke: '#8B5CF6',
-                },
-                propsForBackgroundLines: {
-                  strokeDasharray: '3 3',
-                  stroke: COLORS.surfaceLight,
-                },
-              }}
+              width={trendCardWidth - 32}
+              height={160}
+              chartConfig={trendChartConfig('#8B5CF6')}
               bezier
-              style={styles.miniChart}
+              withShadow={false}
               withInnerLines={true}
               withOuterLines={false}
               withVerticalLines={false}
               withHorizontalLines={true}
-              withVerticalLabels={true}
-              withHorizontalLabels={true}
-              withDots={true}
-              withShadow={false}
               segments={3}
+              style={{ marginLeft: -8 }}
             />
           ) : (
-            <View style={styles.miniChartEmpty}>
-              <Moon size={24} color={COLORS.textMuted} />
-              <Text style={styles.miniChartEmptyText}>No sleep data yet</Text>
+            <View style={styles.trendChartEmpty}>
+              <Text style={styles.trendChartEmptyText}>No sleep data yet</Text>
             </View>
           )}
         </View>
-      </View>
-
-      {/* BODY COMPOSITION Section */}
-      <Text style={styles.sectionLabel}>BODY COMPOSITION</Text>
-      <View style={styles.comingSoonCard}>
-        <Text style={styles.comingSoonTitle}>Track body fat and muscle mass</Text>
-        <Text style={styles.comingSoonText}>Coming soon</Text>
-      </View>
+      </ScrollView>
 
       {/* MEASUREMENTS Section */}
       <Text style={styles.sectionLabel}>MEASUREMENTS</Text>
       <View style={styles.measurementsCard}>
         <View style={styles.measurementRow}>
-          <View style={styles.measurementLeft}>
-            <View style={[styles.measurementIcon, { backgroundColor: COLORS.primary + '20' }]}>
-              <TrendingUp size={16} color={COLORS.primary} />
-            </View>
-            <Text style={styles.measurementLabel}>Current Weight</Text>
-          </View>
+          <Text style={styles.measurementLabel}>Current Weight</Text>
           <Text style={styles.measurementValue}>{formatWeight(weightData.current)}</Text>
         </View>
         <View style={styles.measurementRow}>
-          <View style={styles.measurementLeft}>
-            <View style={[styles.measurementIcon, { backgroundColor: '#4DD0E1' + '20' }]}>
-              <Target size={16} color="#4DD0E1" />
-            </View>
-            <Text style={styles.measurementLabel}>Goal Weight</Text>
-          </View>
+          <Text style={styles.measurementLabel}>Goal Weight</Text>
           <Text style={styles.measurementValue}>{formatWeight(weightData.target)}</Text>
         </View>
         <View style={styles.measurementRow}>
-          <View style={styles.measurementLeft}>
-            <View style={[styles.measurementIcon, { backgroundColor: COLORS.success + '20' }]}>
-              <TrendingDown size={16} color={COLORS.success} />
-            </View>
-            <Text style={styles.measurementLabel}>To Go</Text>
-          </View>
+          <Text style={styles.measurementLabel}>To Go</Text>
           <Text style={styles.measurementValue}>{weightData.current > 0 && weightData.target > 0 ? formatWeight(Math.abs(weightData.current - weightData.target)) : '--'}</Text>
         </View>
       </View>
@@ -1140,7 +1158,6 @@ const ProgressScreen = () => {
         style={styles.logWeighInBtn}
         onPress={() => setShowWeighInModal(true)}
       >
-        <Plus size={20} color={COLORS.textOnPrimary} />
         <Text style={styles.logWeighInText}>Log Weigh-In</Text>
       </TouchableOpacity>
 
@@ -1153,18 +1170,53 @@ const ProgressScreen = () => {
             nestedScrollEnabled={true}
             showsVerticalScrollIndicator={true}
           >
-            {weightHistory.slice().reverse().map((entry, index) => (
-              <View key={index} style={[styles.historyRow, index < weightHistory.length - 1 && styles.historyRowBorder]}>
-                <Text style={styles.historyDate}>
-                  {entry.date ? new Date(entry.date).toLocaleDateString('en-US', {
-                    weekday: 'short',
-                    day: 'numeric',
-                    month: 'short',
-                  }) : entry.week}
-                </Text>
-                <Text style={styles.historyWeight}>{formatWeight(entry.weight)}</Text>
-              </View>
-            ))}
+            {weightHistory.slice().reverse().map((entry, index, arr) => {
+              const nextEntry = arr[index + 1];
+              const diffFromLast = nextEntry ? entry.weight - nextEntry.weight : 0;
+              const startEntry = arr[arr.length - 1];
+              const diffFromStart = startEntry ? entry.weight - startEntry.weight : 0;
+
+              // Determine if goal is to gain or lose weight
+              const wantToGain = weightData.target > weightData.current;
+
+              // Color logic: green = good progress, red = bad progress
+              const getDiffColor = (diff) => {
+                if (Math.abs(diff) < 0.05) return null;
+                const gained = diff > 0;
+                const isGood = wantToGain ? gained : !gained;
+                return isGood ? COLORS.success : '#FF6B6B';
+              };
+
+              const formatDiff = (diff) => {
+                if (Math.abs(diff) < 0.05) return '—';
+                const sign = diff > 0 ? '+' : '';
+                return `${sign}${diff.toFixed(1)}`;
+              };
+
+              return (
+                <View key={index} style={[styles.historyRow, index < arr.length - 1 && styles.historyRowBorder]}>
+                  <Text style={styles.historyDate}>
+                    {entry.date ? new Date(entry.date).toLocaleDateString('en-GB', {
+                      day: 'numeric',
+                      month: 'short',
+                    }) : entry.week}
+                  </Text>
+                  <Text style={styles.historyWeight}>{formatWeight(entry.weight)}</Text>
+                  <Text style={[
+                    styles.historyDiff,
+                    getDiffColor(diffFromLast) && { color: getDiffColor(diffFromLast) },
+                  ]}>
+                    {formatDiff(diffFromLast)}
+                  </Text>
+                  <Text style={[
+                    styles.historyDiff,
+                    getDiffColor(diffFromStart) && { color: getDiffColor(diffFromStart) },
+                  ]}>
+                    {formatDiff(diffFromStart)}
+                  </Text>
+                </View>
+              );
+            })}
           </ScrollView>
         ) : (
           <Text style={styles.historyEmptyText}>Log your weigh-ins to track progress</Text>
@@ -1476,6 +1528,10 @@ const getStyles = (COLORS) => StyleSheet.create({
     borderRadius: 16,
     padding: 16,
   },
+  overviewCardComplete: {
+    borderWidth: 2,
+    borderColor: COLORS.success + '60',
+  },
   overviewCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1484,17 +1540,20 @@ const getStyles = (COLORS) => StyleSheet.create({
   },
   overviewCardLabel: {
     color: COLORS.textMuted,
-    fontSize: 14,
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    marginBottom: 8,
   },
   overviewCardValue: {
     color: COLORS.text,
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: 'bold',
+    marginBottom: 4,
   },
   overviewCardSubtext: {
     color: COLORS.textMuted,
     fontSize: 12,
-    marginTop: 4,
   },
 
   // Goal
@@ -1854,9 +1913,10 @@ const getStyles = (COLORS) => StyleSheet.create({
   },
   historyRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: 12,
+    gap: 12,
   },
   historyRowBorder: {
     borderBottomWidth: 1,
@@ -1868,12 +1928,21 @@ const getStyles = (COLORS) => StyleSheet.create({
   },
   historyDate: {
     color: COLORS.textMuted,
-    fontSize: 14,
+    fontSize: 13,
+    minWidth: 50,
   },
   historyWeight: {
     color: COLORS.text,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
+    minWidth: 55,
+    textAlign: 'right',
+  },
+  historyDiff: {
+    color: COLORS.textMuted,
+    fontSize: 13,
+    minWidth: 45,
+    textAlign: 'right',
   },
   historyEmptyText: {
     color: COLORS.textMuted,
@@ -1949,6 +2018,8 @@ const getStyles = (COLORS) => StyleSheet.create({
   },
   targetWeightArrow: {
     paddingHorizontal: 16,
+    color: COLORS.primary,
+    fontSize: 24,
   },
   targetWeightProgress: {
     marginTop: 16,
@@ -2039,6 +2110,85 @@ const getStyles = (COLORS) => StyleSheet.create({
     color: COLORS.textOnPrimary,
     fontSize: 16,
     fontWeight: '600',
+  },
+
+  // Trends Section
+  trendsSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  trendsScrollView: {
+    marginHorizontal: -16,
+    marginBottom: 16,
+  },
+  trendsScrollContent: {
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  trendCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    padding: 16,
+    marginRight: 12,
+  },
+  trendCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  trendCardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  trendAvgText: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+  },
+  trendChartEmpty: {
+    height: 160,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  trendChartEmptyText: {
+    color: COLORS.textMuted,
+    fontSize: 14,
+  },
+
+  // Weight Chart Tooltip
+  weightTooltip: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: COLORS.surface,
+    borderRadius: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    zIndex: 10,
+    minWidth: 90,
+  },
+  weightTooltipDate: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    marginBottom: 2,
+  },
+  weightTooltipValue: {
+    color: COLORS.primary,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  weightTooltipChange: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+  },
+  weightTooltipChangeText: {
+    fontSize: 12,
+    fontWeight: '500',
   },
 });
 

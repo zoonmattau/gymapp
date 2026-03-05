@@ -254,7 +254,7 @@ export const socialService = {
       // Get profiles excluding self and already following directly in the query
       let query = supabase
         .from('profiles')
-        .select('id, username, first_name, last_name, avatar_url, bio');
+        .select('id, username, first_name, last_name, avatar_url, bio, created_at');
 
       // Supabase .not('id', 'in', ...) to exclude followed users at DB level
       if (excludeIds.length > 0) {
@@ -270,13 +270,35 @@ export const socialService = {
 
       const filtered = data || [];
 
-      // Get follower counts for each suggested user
+      // Get follower counts and workout counts for each suggested user
       const enriched = await Promise.all(filtered.map(async (user) => {
-        const { count } = await supabase
-          .from('friendships')
-          .select('*', { count: 'exact', head: true })
-          .eq('friend_id', user.id)
-          .eq('status', 'accepted');
+        const [followerResult, workoutResult] = await Promise.all([
+          supabase
+            .from('friendships')
+            .select('*', { count: 'exact', head: true })
+            .eq('friend_id', user.id)
+            .eq('status', 'accepted'),
+          supabase
+            .from('workout_sessions')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', user.id),
+        ]);
+
+        // Calculate time on app
+        const createdAt = user.created_at ? new Date(user.created_at) : new Date();
+        const now = new Date();
+        const diffMs = now - createdAt;
+        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+        let timeOnApp = '';
+        if (diffDays < 7) {
+          timeOnApp = diffDays <= 1 ? 'New' : `${diffDays}d`;
+        } else if (diffDays < 30) {
+          timeOnApp = `${Math.floor(diffDays / 7)}w`;
+        } else if (diffDays < 365) {
+          timeOnApp = `${Math.floor(diffDays / 30)}mo`;
+        } else {
+          timeOnApp = `${Math.floor(diffDays / 365)}y`;
+        }
 
         return {
           id: user.id,
@@ -284,7 +306,10 @@ export const socialService = {
           username: user.username || 'user',
           avatar: user.avatar_url,
           bio: user.bio,
-          followers: count || 0,
+          followers: followerResult.count || 0,
+          workoutCount: workoutResult.count || 0,
+          timeOnApp,
+          joinedAt: user.created_at,
         };
       }));
 
@@ -678,7 +703,7 @@ export const socialService = {
       const [workoutsResult, prsResult] = await Promise.all([
         supabase
           .from('workout_sessions')
-          .select('id, user_id, workout_name, duration_minutes, ended_at')
+          .select('*')
           .eq('user_id', targetUserId)
           .not('ended_at', 'is', null)
           .order('ended_at', { ascending: false })
@@ -694,18 +719,45 @@ export const socialService = {
       const workouts = workoutsResult.data || [];
       const prs = prsResult.data || [];
 
-      const workoutActivities = workouts.map(workout => ({
-        id: `workout_${workout.id}`,
-        type: 'workout',
-        userId: workout.user_id,
-        title: workout.workout_name || 'Workout',
-        subtitle: `${workout.duration_minutes || 0} min workout`,
-        timestamp: workout.ended_at,
-        data: {
-          duration: workout.duration_minutes,
-          workoutName: workout.workout_name,
-        }
-      }));
+      // Get set counts from workout_sets table for accurate stats
+      const workoutIds = workouts.map(w => w.id);
+      const setCountsMap = {};
+      if (workoutIds.length > 0) {
+        const { data: setsData } = await supabase
+          .from('workout_sets')
+          .select('session_id, reps, exercise_name')
+          .in('session_id', workoutIds);
+
+        (setsData || []).forEach(s => {
+          if (!setCountsMap[s.session_id]) {
+            setCountsMap[s.session_id] = { sets: 0, reps: 0, exercises: new Set() };
+          }
+          setCountsMap[s.session_id].sets += 1;
+          setCountsMap[s.session_id].reps += (s.reps || 0);
+          if (s.exercise_name) setCountsMap[s.session_id].exercises.add(s.exercise_name);
+        });
+      }
+
+      const workoutActivities = workouts.map(workout => {
+        const setCounts = setCountsMap[workout.id] || { sets: 0, reps: 0, exercises: new Set() };
+        return {
+          id: `workout_${workout.id}`,
+          type: 'workout',
+          userId: workout.user_id,
+          title: workout.workout_name || 'Workout',
+          subtitle: `${workout.duration_minutes || 0} min workout`,
+          timestamp: workout.ended_at,
+          data: {
+            duration: workout.duration_minutes,
+            workoutName: workout.workout_name,
+            volume: workout.total_volume,
+            sets: setCounts.sets || workout.total_sets,
+            reps: setCounts.reps,
+            exercises: setCounts.exercises.size || workout.exercise_count,
+            rating: workout.rating,
+          }
+        };
+      });
 
       const prActivities = prs.map(pr => ({
         id: `pr_${pr.id}`,
@@ -745,15 +797,16 @@ export const socialService = {
         .eq('status', 'accepted');
 
       const followingIds = (following || []).map(f => f.friend_id);
-      if (followingIds.length === 0) return { data: [], error: null };
+      // Include current user's activity in the feed
+      const feedUserIds = [userId, ...followingIds];
 
       // Fetch workouts and PRs in parallel
       const [workoutsResult, prsResult] = await Promise.all([
         // Get recent workout sessions
         supabase
           .from('workout_sessions')
-          .select('id, user_id, workout_name, duration_minutes, ended_at')
-          .in('user_id', followingIds)
+          .select('*')
+          .in('user_id', feedUserIds)
           .not('ended_at', 'is', null)
           .order('ended_at', { ascending: false })
           .limit(limit),
@@ -761,13 +814,20 @@ export const socialService = {
         supabase
           .from('personal_records')
           .select('id, user_id, exercise_name, weight, reps, achieved_at')
-          .in('user_id', followingIds)
+          .in('user_id', feedUserIds)
           .order('achieved_at', { ascending: false })
           .limit(limit)
       ]);
 
+      if (workoutsResult.error) {
+        console.error('Workouts query error:', workoutsResult.error);
+      }
+      if (prsResult.error) {
+        console.error('PRs query error:', prsResult.error);
+      }
       const workouts = workoutsResult.data || [];
       const prs = prsResult.data || [];
+      console.log('Feed loaded:', workouts.length, 'workouts,', prs.length, 'PRs for users:', feedUserIds);
 
       // Get unique user IDs and fetch profiles
       const allUserIds = [...new Set([
@@ -801,23 +861,53 @@ export const socialService = {
         });
       }
 
+      // Get set counts from workout_sets table (like Workouts tab does)
+      const setCountsMap = {};
+      if (workoutIds.length > 0) {
+        const { data: setsData, error: setsError } = await supabase
+          .from('workout_sets')
+          .select('session_id, reps, exercise_name')
+          .in('session_id', workoutIds);
+
+        console.log('workout_sets query:', { workoutIds, setsData: setsData?.length || 0, setsError });
+
+        (setsData || []).forEach(s => {
+          if (!setCountsMap[s.session_id]) {
+            setCountsMap[s.session_id] = { sets: 0, reps: 0, exercises: new Set() };
+          }
+          setCountsMap[s.session_id].sets += 1;
+          setCountsMap[s.session_id].reps += (s.reps || 0);
+          if (s.exercise_name) setCountsMap[s.session_id].exercises.add(s.exercise_name);
+        });
+      }
+
       // Build workout activities
-      const workoutActivities = workouts.map(workout => ({
-        id: `workout_${workout.id}`,
-        activityId: workout.id,
-        type: 'workout',
-        userId: workout.user_id,
-        profile: profilesMap[workout.user_id] || {},
-        title: workout.workout_name || 'Workout',
-        subtitle: `${workout.duration_minutes || 0} min workout`,
-        timestamp: workout.ended_at,
-        likes: likesMap[workout.id] || 0,
-        comments: 0,
-        data: {
-          duration: workout.duration_minutes,
-          workoutName: workout.workout_name,
-        }
-      }));
+      console.log('setCountsMap:', setCountsMap);
+      const workoutActivities = workouts.map(workout => {
+        const setCounts = setCountsMap[workout.id] || { sets: 0, reps: 0, exercises: new Set() };
+        console.log('Building workout activity:', workout.id, 'rating:', workout.rating, 'setCounts:', setCounts);
+        return {
+          id: `workout_${workout.id}`,
+          activityId: workout.id,
+          type: 'workout',
+          userId: workout.user_id,
+          profile: profilesMap[workout.user_id] || {},
+          title: workout.workout_name || 'Workout',
+          subtitle: `${workout.duration_minutes || 0} min workout`,
+          timestamp: workout.ended_at,
+          likes: likesMap[workout.id] || 0,
+          comments: 0,
+          data: {
+            duration: workout.duration_minutes,
+            workoutName: workout.workout_name,
+            volume: workout.total_volume,
+            sets: setCounts.sets,
+            reps: setCounts.reps,
+            exercises: setCounts.exercises.size,
+            rating: workout.rating,
+          }
+        };
+      });
 
       // Build PR activities
       const prActivities = prs.map(pr => ({

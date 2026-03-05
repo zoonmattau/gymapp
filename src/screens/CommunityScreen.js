@@ -45,14 +45,371 @@ import { workoutService } from '../services/workoutService';
 import { supabase } from '../lib/supabase';
 
 const TABS = [
-  { id: 'feed', label: 'Feed' },
-  { id: 'myprofile', label: 'My Profile' },
-  { id: 'discover', label: 'Discover' },
-  { id: 'workouts', label: 'Workouts' },
-  { id: 'following', label: 'Following' },
-  { id: 'followers', label: 'Followers' },
-  { id: 'challenges', label: 'Challenges' },
+  { id: 'community', label: 'Community' },
+  { id: 'profile', label: 'Profile' },
 ];
+
+// Collapsible Feed Card Component
+const FeedCard = ({ activity, weightUnit, navigation }) => {
+  const [expanded, setExpanded] = useState(false);
+  const [exerciseDetails, setExerciseDetails] = useState([]);
+  const COLORS = useColors();
+
+  const loadExerciseDetails = async () => {
+    if (activity.type !== 'workout' || exerciseDetails.length > 0) return;
+
+    try {
+      const { data } = await supabase
+        .from('workout_sets')
+        .select('exercise_name, set_number, weight, reps')
+        .eq('session_id', activity.activityId)
+        .order('set_number', { ascending: true });
+
+      // Group by exercise
+      const grouped = {};
+      (data || []).forEach(set => {
+        if (!grouped[set.exercise_name]) {
+          grouped[set.exercise_name] = [];
+        }
+        grouped[set.exercise_name].push(set);
+      });
+
+      setExerciseDetails(Object.entries(grouped).map(([name, sets]) => ({ name, sets })));
+    } catch (err) {
+      console.log('Error loading exercise details:', err);
+    }
+  };
+
+  const handleToggle = () => {
+    if (!expanded) {
+      loadExerciseDetails();
+    }
+    setExpanded(!expanded);
+  };
+
+  const formatTimeAgo = (timestamp) => {
+    if (!timestamp) return '';
+    const now = new Date();
+    const date = new Date(timestamp);
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
+  };
+
+  const styles = StyleSheet.create({
+    card: {
+      backgroundColor: COLORS.surface,
+      borderRadius: 16,
+      marginBottom: 12,
+      overflow: 'hidden',
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: 14,
+    },
+    userRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+    },
+    avatar: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: COLORS.primary + '30',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 10,
+    },
+    avatarImage: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+    },
+    avatarText: {
+      color: COLORS.primary,
+      fontSize: 16,
+      fontWeight: 'bold',
+    },
+    username: {
+      color: COLORS.text,
+      fontSize: 15,
+      fontWeight: '600',
+    },
+    time: {
+      color: COLORS.textMuted,
+      fontSize: 12,
+    },
+    badge: {
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 12,
+      backgroundColor: COLORS.primary + '20',
+    },
+    badgeText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: COLORS.primary,
+    },
+    content: {
+      paddingHorizontal: 14,
+      paddingBottom: 14,
+    },
+    titleRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 8,
+    },
+    title: {
+      color: COLORS.text,
+      fontSize: 17,
+      fontWeight: 'bold',
+      flex: 1,
+    },
+    starsRow: {
+      flexDirection: 'row',
+      gap: 2,
+    },
+    statsRow: {
+      flexDirection: 'row',
+      backgroundColor: COLORS.cardLight,
+      borderRadius: 10,
+      padding: 10,
+      justifyContent: 'space-around',
+    },
+    stat: {
+      alignItems: 'center',
+      paddingHorizontal: 8,
+    },
+    statValue: {
+      color: COLORS.text,
+      fontSize: 18,
+      fontWeight: 'bold',
+    },
+    statLabel: {
+      color: COLORS.textMuted,
+      fontSize: 11,
+      marginTop: 2,
+    },
+    statDivider: {
+      width: 1,
+      backgroundColor: COLORS.border,
+    },
+    expandBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 8,
+      borderTopWidth: 1,
+      borderTopColor: COLORS.border,
+    },
+    expandText: {
+      color: COLORS.primary,
+      fontSize: 13,
+      marginRight: 4,
+    },
+    exerciseList: {
+      paddingHorizontal: 14,
+      paddingBottom: 14,
+    },
+    exerciseItem: {
+      backgroundColor: COLORS.cardLight,
+      borderRadius: 10,
+      padding: 12,
+      marginBottom: 8,
+    },
+    exerciseHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 8,
+    },
+    exerciseName: {
+      color: COLORS.text,
+      fontSize: 15,
+      fontWeight: '600',
+    },
+    exerciseSetsCount: {
+      color: COLORS.textMuted,
+      fontSize: 12,
+    },
+    setsTable: {
+      borderTopWidth: 1,
+      borderTopColor: COLORS.border,
+      paddingTop: 8,
+    },
+    setRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingVertical: 4,
+    },
+    setNumber: {
+      color: COLORS.textMuted,
+      fontSize: 13,
+      width: 50,
+    },
+    setWeight: {
+      color: COLORS.text,
+      fontSize: 13,
+      fontWeight: '500',
+      flex: 1,
+      textAlign: 'center',
+    },
+    setReps: {
+      color: COLORS.primary,
+      fontSize: 13,
+      fontWeight: '600',
+      width: 60,
+      textAlign: 'right',
+    },
+    setText: {
+      color: COLORS.textSecondary,
+      fontSize: 13,
+    },
+    prDetails: {
+      flexDirection: 'row',
+      alignItems: 'baseline',
+      gap: 8,
+    },
+    prWeight: {
+      color: COLORS.warning,
+      fontSize: 20,
+      fontWeight: 'bold',
+    },
+    prReps: {
+      color: COLORS.textSecondary,
+      fontSize: 16,
+    },
+  });
+
+  return (
+    <View style={styles.card}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.userRow}
+          onPress={() => navigation.navigate('PublicProfile', { userId: activity.userId, username: activity.profile?.username })}
+        >
+          <View style={styles.avatar}>
+            {activity.profile?.avatar_url ? (
+              <Image source={{ uri: activity.profile.avatar_url }} style={styles.avatarImage} />
+            ) : (
+              <Text style={styles.avatarText}>
+                {activity.profile?.username?.[0]?.toUpperCase() || 'U'}
+              </Text>
+            )}
+          </View>
+          <View>
+            <Text style={styles.username}>@{activity.profile?.username || 'user'}</Text>
+            <Text style={styles.time}>{formatTimeAgo(activity.timestamp)}</Text>
+          </View>
+        </TouchableOpacity>
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>{activity.type === 'pr' ? 'PR' : 'Workout'}</Text>
+        </View>
+      </View>
+
+      {/* Content */}
+      <View style={styles.content}>
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>{activity.title}</Text>
+          {activity.type === 'workout' && (
+            <View style={styles.starsRow}>
+              {[1, 2, 3, 4, 5].map((star) => (
+                <Star
+                  key={star}
+                  size={16}
+                  color={COLORS.warning}
+                  fill={star <= (activity.data?.rating || 0) ? COLORS.warning : 'transparent'}
+                />
+              ))}
+            </View>
+          )}
+        </View>
+
+        {activity.type === 'workout' && (
+          <View style={styles.statsRow}>
+            {[
+              activity.data?.duration > 0 && { value: activity.data.duration, label: 'min' },
+              activity.data?.exercises > 0 && { value: activity.data.exercises, label: 'exercises' },
+              activity.data?.sets > 0 && { value: activity.data.sets, label: 'sets' },
+              activity.data?.reps > 0 && { value: activity.data.reps, label: 'reps' },
+              activity.data?.volume > 0 && {
+                value: activity.data.volume >= 1000 ? `${(activity.data.volume / 1000).toFixed(1)}K` : activity.data.volume,
+                label: weightUnit
+              },
+            ].filter(Boolean).map((stat, idx, arr) => (
+              <React.Fragment key={idx}>
+                <View style={styles.stat}>
+                  <Text style={styles.statValue}>{stat.value}</Text>
+                  <Text style={styles.statLabel}>{stat.label}</Text>
+                </View>
+                {idx < arr.length - 1 && <View style={styles.statDivider} />}
+              </React.Fragment>
+            ))}
+          </View>
+        )}
+
+        {activity.type === 'pr' && (
+          <View style={styles.prDetails}>
+            <Text style={styles.prWeight}>
+              {weightUnit === 'lbs' ? Math.round(activity.data?.weight * 2.205) : activity.data?.weight} {weightUnit}
+            </Text>
+            <Text style={styles.prReps}>× {activity.data?.reps} reps</Text>
+          </View>
+        )}
+      </View>
+
+      {/* Expand/collapse for workouts */}
+      {activity.type === 'workout' && (
+        <>
+          <TouchableOpacity style={styles.expandBtn} onPress={handleToggle}>
+            <Text style={styles.expandText}>{expanded ? 'Hide details' : 'Show exercises'}</Text>
+            <ChevronDown size={16} color={COLORS.primary} style={{ transform: [{ rotate: expanded ? '180deg' : '0deg' }] }} />
+          </TouchableOpacity>
+
+          {expanded && (
+            <View style={styles.exerciseList}>
+              {exerciseDetails.length === 0 ? (
+                <Text style={styles.setText}>Loading...</Text>
+              ) : (
+                exerciseDetails.map((exercise, idx) => (
+                  <View key={idx} style={styles.exerciseItem}>
+                    <View style={styles.exerciseHeader}>
+                      <Text style={styles.exerciseName}>{exercise.name}</Text>
+                      <Text style={styles.exerciseSetsCount}>{exercise.sets.length} sets</Text>
+                    </View>
+                    <View style={styles.setsTable}>
+                      {exercise.sets.map((set, setIdx) => (
+                        <View key={setIdx} style={styles.setRow}>
+                          <Text style={styles.setNumber}>Set {setIdx + 1}</Text>
+                          <Text style={styles.setWeight}>
+                            {set.weight > 0 ? `${weightUnit === 'lbs' ? Math.round(set.weight * 2.205) : set.weight} ${weightUnit}` : '—'}
+                          </Text>
+                          <Text style={styles.setReps}>{set.reps} reps</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                ))
+              )}
+            </View>
+          )}
+        </>
+      )}
+    </View>
+  );
+};
 
 const CommunityScreen = ({ route }) => {
   const navigation = useNavigation();
@@ -60,12 +417,13 @@ const CommunityScreen = ({ route }) => {
   const styles = getStyles(COLORS);
   const { user, profile } = useAuth();
   const weightUnit = profile?.weight_unit || 'kg';
-  const initialTab = route?.params?.initialTab || 'feed';
+  const initialTab = route?.params?.initialTab || 'community';
   const [activeTab, setActiveTab] = useState(initialTab);
   const [refreshing, setRefreshing] = useState(false);
 
   // Activity Feed
   const [activityFeed, setActivityFeed] = useState([]);
+  const [feedLimit, setFeedLimit] = useState(5);
   const [userLikes, setUserLikes] = useState({});
 
   // Community Workouts
@@ -125,6 +483,16 @@ const CommunityScreen = ({ route }) => {
   const [showRepertoireModal, setShowRepertoireModal] = useState(false);
   const [savedWorkoutsWithDetails, setSavedWorkoutsWithDetails] = useState([]);
   const [loadingRepertoire, setLoadingRepertoire] = useState(false);
+
+  // Profile followers/following modal
+  const [showFollowModal, setShowFollowModal] = useState(false);
+  const [followModalTab, setFollowModalTab] = useState('followers');
+
+  // Challenge detail modal
+  const [showChallengeDetail, setShowChallengeDetail] = useState(false);
+  const [selectedChallenge, setSelectedChallenge] = useState(null);
+  const [challengeLeaderboard, setChallengeLeaderboard] = useState([]);
+  const [challengeParticipantsFromFollowing, setChallengeParticipantsFromFollowing] = useState([]);
 
   const searchTimerRef = useRef(null);
   const followingSearchTimerRef = useRef(null);
@@ -191,26 +559,20 @@ const CommunityScreen = ({ route }) => {
 
   const loadTabData = async () => {
     switch (activeTab) {
-      case 'feed':
-        loadActivityFeed();
+      case 'community':
+        // Load all community data in parallel
+        await Promise.all([
+          loadActivityFeed(),
+          loadCommunityWorkouts(),
+          loadChallenges(),
+        ]);
         break;
-      case 'myprofile':
-        loadMyActivity();
-        break;
-      case 'workouts':
-        loadCommunityWorkouts();
-        break;
-      case 'followers':
-        loadFollowers();
-        break;
-      case 'following':
-        loadFollowing();
-        break;
-      case 'discover':
-        loadSuggestedUsers();
-        break;
-      case 'challenges':
-        loadChallenges();
+      case 'profile':
+        await Promise.all([
+          loadMyActivity(),
+          loadFollowers(),
+          loadFollowing(),
+        ]);
         break;
     }
   };
@@ -223,6 +585,7 @@ const CommunityScreen = ({ route }) => {
 
   const loadActivityFeed = async () => {
     try {
+      setFeedLimit(5); // Reset to show first 5
       // Load feed and suggested users in parallel
       const [feedResult, suggestedResult, likesResult] = await Promise.all([
         socialService.getActivityFeed(user.id, 30),
@@ -472,6 +835,41 @@ const CommunityScreen = ({ route }) => {
     }
   };
 
+  const handleOpenChallengeDetail = async (challenge) => {
+    setSelectedChallenge(challenge);
+    setShowChallengeDetail(true);
+
+    // Generate sample leaderboard data for now
+    const sampleLeaderboard = [
+      { id: '1', username: 'fitpro', name: 'Fitness Pro', progress: 95, avatar: null },
+      { id: '2', username: 'ironmaster', name: 'Iron Master', progress: 87, avatar: null },
+      { id: '3', username: profile?.username || 'you', name: profile?.first_name || 'You', progress: challenge.user_progress || 0, avatar: profile?.avatar_url, isMe: true },
+      { id: '4', username: 'gymrat', name: 'Gym Rat', progress: 72, avatar: null },
+      { id: '5', username: 'lifter', name: 'Power Lifter', progress: 65, avatar: null },
+    ].sort((a, b) => b.progress - a.progress);
+
+    setChallengeLeaderboard(sampleLeaderboard);
+
+    // Check which of my following are in this challenge
+    const followingInChallenge = following.slice(0, 3).map(f => ({
+      id: f.following_id,
+      username: f.following?.username,
+      avatar: f.following?.avatar_url,
+    }));
+    setChallengeParticipantsFromFollowing(followingInChallenge);
+  };
+
+  const handleJoinChallenge = async (challengeId) => {
+    try {
+      await competitionService.joinChallenge(user.id, challengeId);
+      // Refresh challenges
+      loadChallenges();
+      setShowChallengeDetail(false);
+    } catch (error) {
+      console.log('Error joining challenge:', error);
+    }
+  };
+
   const searchUsers = async () => {
     if (!searchQuery.trim()) {
       setSearchResults([]);
@@ -680,11 +1078,45 @@ const CommunityScreen = ({ route }) => {
               <Text style={styles.feedTitle}>{activity.title}</Text>
 
               <View style={styles.feedDetails}>
-                {activity.type === 'workout' && activity.data?.duration && (
-                  <View style={styles.feedDetailItem}>
-                    <Clock size={14} color={COLORS.textMuted} />
-                    <Text style={styles.feedDetailText}>{activity.data.duration} min</Text>
-                  </View>
+                {activity.type === 'workout' && (
+                  <>
+                    {activity.data?.duration > 0 && (
+                      <View style={styles.feedDetailItem}>
+                        <Clock size={14} color={COLORS.textMuted} />
+                        <Text style={styles.feedDetailText}>{activity.data.duration} min</Text>
+                      </View>
+                    )}
+                    {activity.data?.exercises > 0 && (
+                      <View style={styles.feedDetailItem}>
+                        <Text style={styles.feedDetailText}>{activity.data.exercises} exercises</Text>
+                      </View>
+                    )}
+                    {activity.data?.sets > 0 && (
+                      <View style={styles.feedDetailItem}>
+                        <Text style={styles.feedDetailText}>{activity.data.sets} sets</Text>
+                      </View>
+                    )}
+                    {activity.data?.reps > 0 && (
+                      <View style={styles.feedDetailItem}>
+                        <Text style={styles.feedDetailText}>{activity.data.reps} reps</Text>
+                      </View>
+                    )}
+                    {activity.data?.volume > 0 && (
+                      <View style={styles.feedDetailItem}>
+                        <Text style={styles.feedDetailText}>
+                          {activity.data.volume >= 1000
+                            ? `${(activity.data.volume / 1000).toFixed(1)}K ${weightUnit}`
+                            : `${activity.data.volume} ${weightUnit}`}
+                        </Text>
+                      </View>
+                    )}
+                    {activity.data?.rating > 0 && (
+                      <View style={styles.feedDetailItem}>
+                        <Star size={14} color={COLORS.warning} fill={COLORS.warning} />
+                        <Text style={styles.feedDetailText}>{activity.data.rating}</Text>
+                      </View>
+                    )}
+                  </>
                 )}
                 {activity.type === 'pr' && (
                   <>
@@ -836,11 +1268,45 @@ const CommunityScreen = ({ route }) => {
 
               {/* Activity Details */}
               <View style={styles.feedDetails}>
-                {activity.type === 'workout' && activity.data?.duration && (
-                  <View style={styles.feedDetailItem}>
-                    <Clock size={14} color={COLORS.textMuted} />
-                    <Text style={styles.feedDetailText}>{activity.data.duration} min</Text>
-                  </View>
+                {activity.type === 'workout' && (
+                  <>
+                    {activity.data?.duration > 0 && (
+                      <View style={styles.feedDetailItem}>
+                        <Clock size={14} color={COLORS.textMuted} />
+                        <Text style={styles.feedDetailText}>{activity.data.duration} min</Text>
+                      </View>
+                    )}
+                    {activity.data?.exercises > 0 && (
+                      <View style={styles.feedDetailItem}>
+                        <Text style={styles.feedDetailText}>{activity.data.exercises} exercises</Text>
+                      </View>
+                    )}
+                    {activity.data?.sets > 0 && (
+                      <View style={styles.feedDetailItem}>
+                        <Text style={styles.feedDetailText}>{activity.data.sets} sets</Text>
+                      </View>
+                    )}
+                    {activity.data?.reps > 0 && (
+                      <View style={styles.feedDetailItem}>
+                        <Text style={styles.feedDetailText}>{activity.data.reps} reps</Text>
+                      </View>
+                    )}
+                    {activity.data?.volume > 0 && (
+                      <View style={styles.feedDetailItem}>
+                        <Text style={styles.feedDetailText}>
+                          {activity.data.volume >= 1000
+                            ? `${(activity.data.volume / 1000).toFixed(1)}K ${weightUnit}`
+                            : `${activity.data.volume} ${weightUnit}`}
+                        </Text>
+                      </View>
+                    )}
+                    {activity.data?.rating > 0 && (
+                      <View style={styles.feedDetailItem}>
+                        <Star size={14} color={COLORS.warning} fill={COLORS.warning} />
+                        <Text style={styles.feedDetailText}>{activity.data.rating}</Text>
+                      </View>
+                    )}
+                  </>
                 )}
                 {activity.type === 'pr' && (
                   <>
@@ -1034,13 +1500,13 @@ const CommunityScreen = ({ route }) => {
                     style={styles.acceptButton}
                     onPress={() => handleAcceptRequest(request)}
                   >
-                    <Check size={16} color={COLORS.textOnPrimary} />
+                    <Text style={styles.acceptButtonText}>Accept</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.rejectButton}
                     onPress={() => handleRejectRequest(request)}
                   >
-                    <X size={16} color={COLORS.error} />
+                    <Text style={styles.rejectButtonText}>Decline</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -1415,6 +1881,437 @@ const CommunityScreen = ({ route }) => {
     </>
   );
 
+  // Combined Community tab - all content in one scrollable view
+  const renderCommunity = () => (
+    <>
+      {/* Search Users */}
+      <View style={styles.searchContainer}>
+        <Search size={18} color={COLORS.textMuted} />
+        <TextInput
+          style={styles.searchInput}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="Search for users..."
+          placeholderTextColor={COLORS.textMuted}
+          onSubmitEditing={searchUsers}
+          returnKeyType="search"
+        />
+      </View>
+
+      {/* Search Results */}
+      {searchResults.length > 0 && (
+        <>
+          <Text style={styles.sectionLabel}>SEARCH RESULTS</Text>
+          {searchResults.map((userProfile) => {
+            const isFollowingUser = followingIds.has(userProfile.id);
+            const isPendingUser = pendingIds.has(userProfile.id);
+            return (
+              <View key={userProfile.id} style={styles.userCard}>
+                <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }} onPress={() => navigation.navigate('PublicProfile', { userId: userProfile.id, username: userProfile.username })}>
+                  <View style={styles.userAvatar}>
+                    {userProfile.avatar_url ? (
+                      <Image source={{ uri: userProfile.avatar_url }} style={styles.userAvatarImage} />
+                    ) : (
+                      <Text style={styles.userAvatarText}>
+                        {userProfile.username?.[0]?.toUpperCase() || 'U'}
+                      </Text>
+                    )}
+                  </View>
+                  <View style={styles.userInfo}>
+                    <Text style={styles.userName}>@{userProfile.username || 'user'}</Text>
+                    {userProfile.bio && (
+                      <Text style={styles.userBio} numberOfLines={1}>{userProfile.bio}</Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.followButton, (isFollowingUser || isPendingUser) && styles.followingButton]}
+                  onPress={() => handleFollowUser(userProfile.id)}
+                >
+                  {isFollowingUser ? (
+                    <UserCheck size={16} color={COLORS.text} />
+                  ) : isPendingUser ? (
+                    <Clock size={16} color={COLORS.text} />
+                  ) : (
+                    <UserPlus size={16} color={COLORS.textOnPrimary} />
+                  )}
+                </TouchableOpacity>
+              </View>
+            );
+          })}
+        </>
+      )}
+
+      {/* Suggested Users */}
+      {suggestedUsers.length > 0 && !searchQuery && (
+        <View style={styles.suggestedSection}>
+          <Text style={styles.sectionLabel}>SUGGESTED FOR YOU</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.suggestedScroll}
+            contentContainerStyle={styles.suggestedScrollContent}
+          >
+            {suggestedUsers.map((suggestedUser) => (
+              <TouchableOpacity key={suggestedUser.id} style={styles.suggestedCard} onPress={() => navigation.navigate('PublicProfile', { userId: suggestedUser.id, username: suggestedUser.username, name: suggestedUser.name, timeOnApp: suggestedUser.timeOnApp, workoutCount: suggestedUser.workoutCount })} activeOpacity={0.7}>
+                <View style={styles.suggestedAvatar}>
+                  {suggestedUser.avatar ? (
+                    <Image source={{ uri: suggestedUser.avatar }} style={styles.suggestedAvatarImage} />
+                  ) : (
+                    <Text style={styles.suggestedAvatarText}>
+                      {suggestedUser.username?.[0]?.toUpperCase() || 'U'}
+                    </Text>
+                  )}
+                </View>
+                <Text style={styles.suggestedName} numberOfLines={1}>
+                  {suggestedUser.name || suggestedUser.username}
+                </Text>
+                <Text style={styles.suggestedUsername} numberOfLines={1}>
+                  @{suggestedUser.username}
+                </Text>
+                <View style={styles.suggestedStats}>
+                  <Text style={styles.suggestedStatText}>{suggestedUser.workoutCount || 0} workouts</Text>
+                  <Text style={styles.suggestedStatDot}>•</Text>
+                  <Text style={styles.suggestedStatText}>{suggestedUser.timeOnApp || 'New'}</Text>
+                </View>
+                <TouchableOpacity
+                  style={[
+                    styles.suggestedFollowBtn,
+                    (followingIds.has(suggestedUser.id) || pendingIds.has(suggestedUser.id)) && styles.suggestedFollowingBtn,
+                  ]}
+                  onPress={() => handleFollowUser(suggestedUser.id)}
+                >
+                  <Text style={[
+                    styles.suggestedFollowBtnText,
+                    (followingIds.has(suggestedUser.id) || pendingIds.has(suggestedUser.id)) && styles.suggestedFollowingBtnText,
+                  ]}>
+                    {followingIds.has(suggestedUser.id) ? 'Following' : pendingIds.has(suggestedUser.id) ? 'Requested' : 'Follow'}
+                  </Text>
+                </TouchableOpacity>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
+      {/* Activity Feed */}
+      <Text style={styles.sectionLabel}>RECENT ACTIVITY</Text>
+      {activityFeed.length === 0 ? (
+        <View style={styles.emptyStateCard}>
+          <Text style={styles.emptyStateCardTitle}>No activity yet</Text>
+          <Text style={styles.emptyStateCardText}>
+            Follow friends to see their workouts and PRs here
+          </Text>
+        </View>
+      ) : (
+        <>
+          {activityFeed.slice(0, feedLimit).map((activity) => (
+            <FeedCard key={activity.id} activity={activity} weightUnit={weightUnit} navigation={navigation} />
+          ))}
+          {activityFeed.length > feedLimit && (
+            <TouchableOpacity
+              style={styles.loadMoreBtn}
+              onPress={() => setFeedLimit(prev => prev + 5)}
+            >
+              <Text style={styles.loadMoreText}>Load more ({activityFeed.length - feedLimit} remaining)</Text>
+            </TouchableOpacity>
+          )}
+        </>
+      )}
+
+      {/* Community Workouts */}
+      <View style={{ marginTop: 16 }}>
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionLabel}>COMMUNITY WORKOUTS</Text>
+          <TouchableOpacity style={styles.repertoireBtnSmall} onPress={handleOpenRepertoire}>
+            <Text style={styles.repertoireBtnSmallText}>My Rep-ertoire</Text>
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity
+          style={styles.shareWorkoutBtn}
+          onPress={handleShareWorkout}
+        >
+          <Text style={styles.shareWorkoutBtnText}>Share Your Workout</Text>
+        </TouchableOpacity>
+
+        {communityWorkouts.length === 0 ? (
+          <View style={styles.emptyStateCard}>
+            <Text style={styles.emptyStateCardTitle}>No community workouts yet</Text>
+            <Text style={styles.emptyStateCardText}>Be the first to share a workout!</Text>
+          </View>
+        ) : (
+          communityWorkouts.slice(0, 3).map((workout) => (
+            <View key={workout.id} style={styles.workoutCard}>
+              <View style={styles.workoutInfo}>
+                <Text style={styles.workoutName}>{workout.name}</Text>
+                <Text style={styles.workoutMeta}>
+                  by @{workout.creator_username} • {workout.exercise_count || 0} exercises
+                </Text>
+              </View>
+              <View style={styles.workoutStats}>
+                <Text style={styles.workoutStatText}>{(workout.average_rating || 0).toFixed(1)} rating • {workout.completion_count || 0} completions</Text>
+              </View>
+              <View style={styles.workoutActions}>
+                <TouchableOpacity
+                  style={[styles.saveButton, savedWorkoutIds.has(workout.id) && styles.saveButtonActive]}
+                  onPress={() => handleSaveWorkout(workout.id)}
+                >
+                  <Text style={[styles.saveButtonText, savedWorkoutIds.has(workout.id) && styles.saveButtonTextActive]}>
+                    {savedWorkoutIds.has(workout.id) ? 'Saved' : 'Save'}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.startButton}>
+                  <Text style={styles.startButtonText}>Start</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))
+        )}
+      </View>
+
+      {/* Challenges */}
+      <View style={{ marginTop: 16 }}>
+        <Text style={styles.sectionLabel}>CHALLENGES</Text>
+        {challenges.length === 0 ? (
+          <TouchableOpacity
+            style={styles.createChallengeDashedBtn}
+            onPress={() => setShowCreateChallenge(true)}
+          >
+            <Text style={styles.createChallengeDashedText}>+ Create New Challenge</Text>
+          </TouchableOpacity>
+        ) : (
+          <>
+            {challenges.slice(0, 3).map((challenge) => (
+              <TouchableOpacity
+                key={challenge.id}
+                style={styles.challengeCard}
+                onPress={() => handleOpenChallengeDetail(challenge)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.challengeInfo}>
+                  <Text style={styles.challengeName}>{challenge.name}</Text>
+                  <Text style={styles.challengeGoalText}>
+                    {challenge.goal_type === 'workouts' && `Complete ${challenge.goal_value} workouts`}
+                    {challenge.goal_type === 'streak' && `${challenge.goal_value} day streak`}
+                    {challenge.goal_type === 'volume' && `Lift ${challenge.goal_value?.toLocaleString()} kg`}
+                    {challenge.goal_type === 'reps' && `Complete ${challenge.goal_value?.toLocaleString()} reps`}
+                  </Text>
+                  <Text style={styles.challengeMeta}>
+                    {challenge.participant_count || 0} participants
+                  </Text>
+                </View>
+                <View style={styles.challengeProgress}>
+                  <View style={styles.challengeProgressBar}>
+                    <View
+                      style={[
+                        styles.challengeProgressFill,
+                        { width: `${Math.min((challenge.user_progress || 0) / (challenge.goal_value || 1) * 100, 100)}%` }
+                      ]}
+                    />
+                  </View>
+                  <Text style={styles.challengeProgressText}>
+                    {challenge.user_progress || 0}/{challenge.goal_value || 0}
+                  </Text>
+                </View>
+                <Text style={styles.challengeTapHint}>Tap to view details</Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity
+              style={styles.createChallengeDashedBtn}
+              onPress={() => setShowCreateChallenge(true)}
+            >
+              <Text style={styles.createChallengeDashedText}>+ Create New Challenge</Text>
+            </TouchableOpacity>
+          </>
+        )}
+      </View>
+    </>
+  );
+
+  // Profile tab with followers/following modals
+  const renderProfile = () => (
+    <>
+      {/* Profile Header */}
+      <View style={styles.myProfileHeader}>
+        <View style={styles.myProfileAvatarContainer}>
+          {profile?.avatar_url ? (
+            <Image source={{ uri: profile.avatar_url }} style={styles.myProfileAvatarImage} />
+          ) : (
+            <View style={styles.myProfileAvatarFallback}>
+              <Text style={styles.myProfileAvatarText}>
+                {profile?.username?.[0]?.toUpperCase() || 'U'}
+              </Text>
+            </View>
+          )}
+        </View>
+        <Text style={styles.myProfileName}>
+          {profile?.first_name ? `${profile.first_name} ${profile.last_name || ''}`.trim() : profile?.username || 'User'}
+        </Text>
+        <Text style={styles.myProfileUsername}>@{profile?.username || 'user'}</Text>
+        <View style={styles.myProfileStats}>
+          <TouchableOpacity style={styles.myProfileStat} onPress={() => { setFollowModalTab('followers'); setShowFollowModal(true); }}>
+            <Text style={styles.myProfileStatCount}>{myFollowerCount}</Text>
+            <Text style={styles.myProfileStatLabel}>Followers</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.myProfileStat} onPress={() => { setFollowModalTab('following'); setShowFollowModal(true); }}>
+            <Text style={styles.myProfileStatCount}>{myFollowingCount}</Text>
+            <Text style={styles.myProfileStatLabel}>Following</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Pending Follow Requests */}
+      {pendingRequests.length > 0 && (
+        <>
+          <Text style={styles.sectionLabel}>FOLLOW REQUESTS ({pendingRequests.length})</Text>
+          {pendingRequests.map((request) => {
+            const reqProfile = request.requester;
+            return (
+              <View key={request.id} style={styles.userCard}>
+                <View style={styles.userAvatar}>
+                  {reqProfile?.avatar_url ? (
+                    <Image source={{ uri: reqProfile.avatar_url }} style={styles.userAvatarImage} />
+                  ) : (
+                    <Text style={styles.userAvatarText}>
+                      {reqProfile?.username?.[0]?.toUpperCase() || 'U'}
+                    </Text>
+                  )}
+                </View>
+                <View style={styles.userInfo}>
+                  <Text style={styles.userName}>@{reqProfile?.username || 'user'}</Text>
+                  <Text style={styles.userBio}>
+                    {reqProfile?.first_name || ''} {reqProfile?.last_name || ''}
+                  </Text>
+                </View>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TouchableOpacity
+                    style={styles.acceptButton}
+                    onPress={() => handleAcceptRequest(request)}
+                  >
+                    <Text style={styles.acceptButtonText}>Accept</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.rejectButton}
+                    onPress={() => handleRejectRequest(request)}
+                  >
+                    <Text style={styles.rejectButtonText}>Decline</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            );
+          })}
+        </>
+      )}
+
+      {/* My Activity */}
+      <Text style={styles.sectionLabel}>MY ACTIVITY</Text>
+      {myActivityLoading ? (
+        <View style={styles.emptyStateCard}>
+          <Text style={styles.emptyStateCardText}>Loading...</Text>
+        </View>
+      ) : myActivity.length === 0 ? (
+        <View style={styles.emptyStateCard}>
+          <Text style={styles.emptyStateCardTitle}>No activity yet</Text>
+          <Text style={styles.emptyStateCardText}>
+            Complete a workout or set a PR to see your activity here
+          </Text>
+        </View>
+      ) : (
+        myActivity.map((activity) => (
+          <View key={activity.id} style={styles.feedCard}>
+            <View style={styles.feedHeader}>
+              <View style={styles.feedUserRow}>
+                <View style={[
+                  styles.feedAvatar,
+                  activity.type === 'pr' && styles.feedAvatarPR,
+                ]}>
+                  {profile?.avatar_url ? (
+                    <Image source={{ uri: profile.avatar_url }} style={styles.feedAvatarImage} />
+                  ) : (
+                    <Text style={styles.feedAvatarText}>
+                      {profile?.username?.[0]?.toUpperCase() || 'U'}
+                    </Text>
+                  )}
+                </View>
+                <View style={styles.feedUserInfo}>
+                  <Text style={styles.feedUsername}>@{profile?.username || 'user'}</Text>
+                  <Text style={styles.feedTime}>{formatTimeAgo(activity.timestamp)}</Text>
+                </View>
+              </View>
+            </View>
+            <View style={styles.feedContent}>
+              <View style={[
+                styles.feedTypeBadge,
+                activity.type === 'pr' ? styles.feedTypeBadgePR : styles.feedTypeBadgeWorkout,
+              ]}>
+                <Text style={[
+                  styles.feedTypeBadgeText,
+                  activity.type === 'pr' ? styles.feedTypeBadgeTextPR : styles.feedTypeBadgeTextWorkout,
+                ]}>
+                  {activity.type === 'pr' ? 'Personal Record' : 'Completed Workout'}
+                </Text>
+              </View>
+              <Text style={styles.feedTitle}>{activity.title}</Text>
+              <View style={styles.feedDetails}>
+                {activity.type === 'workout' && (
+                  <>
+                    {activity.data?.duration > 0 && (
+                      <View style={styles.feedDetailItem}>
+                        <Clock size={14} color={COLORS.textMuted} />
+                        <Text style={styles.feedDetailText}>{activity.data.duration} min</Text>
+                      </View>
+                    )}
+                    {activity.data?.exercises > 0 && (
+                      <View style={styles.feedDetailItem}>
+                        <Text style={styles.feedDetailText}>{activity.data.exercises} exercises</Text>
+                      </View>
+                    )}
+                    {activity.data?.sets > 0 && (
+                      <View style={styles.feedDetailItem}>
+                        <Text style={styles.feedDetailText}>{activity.data.sets} sets</Text>
+                      </View>
+                    )}
+                    {activity.data?.reps > 0 && (
+                      <View style={styles.feedDetailItem}>
+                        <Text style={styles.feedDetailText}>{activity.data.reps} reps</Text>
+                      </View>
+                    )}
+                    {activity.data?.volume > 0 && (
+                      <View style={styles.feedDetailItem}>
+                        <Text style={styles.feedDetailText}>
+                          {activity.data.volume >= 1000
+                            ? `${(activity.data.volume / 1000).toFixed(1)}K ${weightUnit}`
+                            : `${activity.data.volume} ${weightUnit}`}
+                        </Text>
+                      </View>
+                    )}
+                    {activity.data?.rating > 0 && (
+                      <View style={styles.feedDetailItem}>
+                        <Star size={14} color={COLORS.warning} fill={COLORS.warning} />
+                        <Text style={styles.feedDetailText}>{activity.data.rating}</Text>
+                      </View>
+                    )}
+                  </>
+                )}
+                {activity.type === 'pr' && (
+                  <>
+                    <View style={styles.feedDetailItem}>
+                      <Text style={styles.feedDetailHighlight}>{weightUnit === 'lbs' ? Math.round(activity.data?.weight * 2.205) : activity.data?.weight} {weightUnit}</Text>
+                    </View>
+                    <View style={styles.feedDetailItem}>
+                      <Text style={styles.feedDetailText}>{'\u00d7'} {activity.data?.reps} reps</Text>
+                    </View>
+                  </>
+                )}
+              </View>
+            </View>
+          </View>
+        ))
+      )}
+    </>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
@@ -1428,61 +2325,36 @@ const CommunityScreen = ({ route }) => {
           />
         }
       >
-        <View style={[styles.header, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
-          <Text style={styles.title}>Community</Text>
+        <View style={[styles.header, { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' }]}>
           {pendingRequests.length > 0 && (
             <TouchableOpacity
-              onPress={() => setActiveTab('followers')}
-              style={{ position: 'relative', padding: 4 }}
+              onPress={() => setActiveTab('profile')}
+              style={styles.requestsBadge}
             >
-              <Bell size={24} color={COLORS.text} />
-              <View style={{
-                position: 'absolute',
-                top: 0,
-                right: 0,
-                backgroundColor: '#EF4444',
-                borderRadius: 9,
-                minWidth: 18,
-                height: 18,
-                justifyContent: 'center',
-                alignItems: 'center',
-                paddingHorizontal: 4,
-              }}>
-                <Text style={{ color: '#fff', fontSize: 10, fontWeight: 'bold' }}>
-                  {pendingRequests.length}
-                </Text>
-              </View>
+              <Text style={styles.requestsBadgeText}>
+                {pendingRequests.length} request{pendingRequests.length > 1 ? 's' : ''}
+              </Text>
             </TouchableOpacity>
           )}
         </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.tabsScroll}
-          contentContainerStyle={styles.tabsContainer}
-        >
+        <View style={styles.tabsRow}>
           {TABS.map((tab) => (
             <TouchableOpacity
               key={tab.id}
-              style={[styles.tab, activeTab === tab.id && styles.tabActive]}
+              style={[styles.tabLarge, activeTab === tab.id && styles.tabLargeActive]}
               onPress={() => setActiveTab(tab.id)}
             >
-              <Text style={[styles.tabText, activeTab === tab.id && styles.tabTextActive]}>
+              <Text style={[styles.tabLargeText, activeTab === tab.id && styles.tabLargeTextActive]}>
                 {tab.label}
               </Text>
             </TouchableOpacity>
           ))}
-        </ScrollView>
+        </View>
 
         <View style={styles.content}>
-          {activeTab === 'feed' && renderActivityFeed()}
-          {activeTab === 'myprofile' && renderMyProfile()}
-          {activeTab === 'workouts' && renderCommunityWorkouts()}
-          {activeTab === 'followers' && renderFollowers()}
-          {activeTab === 'following' && renderFollowing()}
-          {activeTab === 'discover' && renderDiscover()}
-          {activeTab === 'challenges' && renderChallenges()}
+          {activeTab === 'community' && renderCommunity()}
+          {activeTab === 'profile' && renderProfile()}
         </View>
 
         <View style={{ height: 100 }} />
@@ -1671,6 +2543,241 @@ const CommunityScreen = ({ route }) => {
         </View>
       )}
 
+      {/* Followers/Following Modal */}
+      <Modal
+        visible={showFollowModal}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={() => setShowFollowModal(false)}
+      >
+        <SafeAreaView style={styles.container}>
+          <View style={styles.followModalHeader}>
+            <TouchableOpacity onPress={() => setShowFollowModal(false)} style={styles.closeBtn}>
+              <Text style={styles.closeBtnText}>Close</Text>
+            </TouchableOpacity>
+            <View style={styles.followModalTabs}>
+              <TouchableOpacity
+                style={[styles.followModalTab, followModalTab === 'followers' && styles.followModalTabActive]}
+                onPress={() => setFollowModalTab('followers')}
+              >
+                <Text style={[styles.followModalTabText, followModalTab === 'followers' && styles.followModalTabTextActive]}>
+                  Followers ({followers.length})
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.followModalTab, followModalTab === 'following' && styles.followModalTabActive]}
+                onPress={() => setFollowModalTab('following')}
+              >
+                <Text style={[styles.followModalTabText, followModalTab === 'following' && styles.followModalTabTextActive]}>
+                  Following ({following.length})
+                </Text>
+              </TouchableOpacity>
+            </View>
+            <View style={{ width: 50 }} />
+          </View>
+
+          <ScrollView style={styles.followModalContent}>
+            {followModalTab === 'followers' ? (
+              followers.length === 0 ? (
+                <View style={styles.emptyStateCard}>
+                  <Text style={styles.emptyStateCardTitle}>No followers yet</Text>
+                  <Text style={styles.emptyStateCardText}>Share your profile to gain followers!</Text>
+                </View>
+              ) : (
+                followers.map((item) => {
+                  const userProfile = item.follower;
+                  const userId = item.follower_id;
+                  const isFollowingUser = followingIds.has(userId);
+                  const isPendingUser = pendingIds.has(userId);
+                  return (
+                    <View key={item.id} style={styles.userCard}>
+                      <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }} onPress={() => { setShowFollowModal(false); navigation.navigate('PublicProfile', { userId, username: userProfile?.username }); }}>
+                        <View style={styles.userAvatar}>
+                          {userProfile?.avatar_url ? (
+                            <Image source={{ uri: userProfile.avatar_url }} style={styles.userAvatarImage} />
+                          ) : (
+                            <Text style={styles.userAvatarText}>
+                              {userProfile?.username?.[0]?.toUpperCase() || 'U'}
+                            </Text>
+                          )}
+                        </View>
+                        <View style={styles.userInfo}>
+                          <Text style={styles.userName}>@{userProfile?.username || 'user'}</Text>
+                          {userProfile?.bio && (
+                            <Text style={styles.userBio} numberOfLines={1}>{userProfile.bio}</Text>
+                          )}
+                        </View>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.followButton, (isFollowingUser || isPendingUser) && styles.followingButton]}
+                        onPress={() => handleFollowUser(userId)}
+                      >
+                        <Text style={[styles.followButtonText, (isFollowingUser || isPendingUser) && styles.followingButtonText]}>
+                          {isFollowingUser ? 'Following' : isPendingUser ? 'Requested' : 'Follow'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })
+              )
+            ) : (
+              following.length === 0 ? (
+                <View style={styles.emptyStateCard}>
+                  <Text style={styles.emptyStateCardTitle}>Not following anyone</Text>
+                  <Text style={styles.emptyStateCardText}>Search for users to follow!</Text>
+                </View>
+              ) : (
+                following.map((item) => {
+                  const userProfile = item.following;
+                  const userId = item.following_id;
+                  return (
+                    <View key={item.id} style={styles.userCard}>
+                      <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }} onPress={() => { setShowFollowModal(false); navigation.navigate('PublicProfile', { userId, username: userProfile?.username }); }}>
+                        <View style={styles.userAvatar}>
+                          {userProfile?.avatar_url ? (
+                            <Image source={{ uri: userProfile.avatar_url }} style={styles.userAvatarImage} />
+                          ) : (
+                            <Text style={styles.userAvatarText}>
+                              {userProfile?.username?.[0]?.toUpperCase() || 'U'}
+                            </Text>
+                          )}
+                        </View>
+                        <View style={styles.userInfo}>
+                          <Text style={styles.userName}>@{userProfile?.username || 'user'}</Text>
+                          {userProfile?.bio && (
+                            <Text style={styles.userBio} numberOfLines={1}>{userProfile.bio}</Text>
+                          )}
+                        </View>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.followButton, styles.followingButton]}
+                        onPress={() => handleFollowUser(userId)}
+                      >
+                        <Text style={styles.followingButtonText}>Following</Text>
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })
+              )
+            )}
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
+
+      {/* Challenge Detail Modal */}
+      <Modal
+        visible={showChallengeDetail}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={() => setShowChallengeDetail(false)}
+      >
+        <SafeAreaView style={styles.container}>
+          <View style={styles.followModalHeader}>
+            <TouchableOpacity onPress={() => setShowChallengeDetail(false)} style={styles.closeBtn}>
+              <Text style={styles.closeBtnText}>Close</Text>
+            </TouchableOpacity>
+            <Text style={styles.challengeDetailTitle}>Challenge</Text>
+            <View style={{ width: 50 }} />
+          </View>
+
+          {selectedChallenge && (
+            <ScrollView style={styles.challengeDetailContent}>
+              {/* Challenge Header */}
+              <View style={styles.challengeDetailHeader}>
+                <Text style={styles.challengeDetailName}>{selectedChallenge.name}</Text>
+                <Text style={styles.challengeDetailGoal}>
+                  {selectedChallenge.goal_type === 'workouts' && `Complete ${selectedChallenge.goal_value} workouts`}
+                  {selectedChallenge.goal_type === 'streak' && `Maintain a ${selectedChallenge.goal_value} day streak`}
+                  {selectedChallenge.goal_type === 'volume' && `Lift ${selectedChallenge.goal_value?.toLocaleString()} kg total`}
+                  {selectedChallenge.goal_type === 'reps' && `Complete ${selectedChallenge.goal_value?.toLocaleString()} total reps`}
+                </Text>
+                <Text style={styles.challengeDetailParticipants}>
+                  {selectedChallenge.participant_count || 0} participants
+                </Text>
+              </View>
+
+              {/* Your Progress */}
+              <View style={styles.challengeDetailSection}>
+                <Text style={styles.challengeDetailSectionTitle}>YOUR PROGRESS</Text>
+                <View style={styles.challengeDetailProgressCard}>
+                  <View style={styles.challengeDetailProgressBar}>
+                    <View
+                      style={[
+                        styles.challengeDetailProgressFill,
+                        { width: `${Math.min((selectedChallenge.user_progress || 0) / (selectedChallenge.goal_value || 1) * 100, 100)}%` }
+                      ]}
+                    />
+                  </View>
+                  <Text style={styles.challengeDetailProgressText}>
+                    {selectedChallenge.user_progress || 0} / {selectedChallenge.goal_value || 0}
+                  </Text>
+                  <Text style={styles.challengeDetailProgressPercent}>
+                    {Math.round((selectedChallenge.user_progress || 0) / (selectedChallenge.goal_value || 1) * 100)}% complete
+                  </Text>
+                </View>
+              </View>
+
+              {/* Friends Participating */}
+              {challengeParticipantsFromFollowing.length > 0 && (
+                <View style={styles.challengeDetailSection}>
+                  <Text style={styles.challengeDetailSectionTitle}>FRIENDS IN THIS CHALLENGE</Text>
+                  <View style={styles.friendsRow}>
+                    {challengeParticipantsFromFollowing.map((friend) => (
+                      <View key={friend.id} style={styles.friendChip}>
+                        <View style={styles.friendChipAvatar}>
+                          {friend.avatar ? (
+                            <Image source={{ uri: friend.avatar }} style={styles.friendChipAvatarImage} />
+                          ) : (
+                            <Text style={styles.friendChipAvatarText}>
+                              {friend.username?.[0]?.toUpperCase() || 'U'}
+                            </Text>
+                          )}
+                        </View>
+                        <Text style={styles.friendChipName}>@{friend.username}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+
+              {/* Leaderboard */}
+              <View style={styles.challengeDetailSection}>
+                <Text style={styles.challengeDetailSectionTitle}>LEADERBOARD</Text>
+                {challengeLeaderboard.map((participant, index) => (
+                  <View
+                    key={participant.id}
+                    style={[
+                      styles.leaderboardRow,
+                      participant.isMe && styles.leaderboardRowMe,
+                    ]}
+                  >
+                    <Text style={styles.leaderboardRank}>#{index + 1}</Text>
+                    <View style={styles.leaderboardAvatar}>
+                      {participant.avatar ? (
+                        <Image source={{ uri: participant.avatar }} style={styles.leaderboardAvatarImage} />
+                      ) : (
+                        <Text style={styles.leaderboardAvatarText}>
+                          {participant.username?.[0]?.toUpperCase() || 'U'}
+                        </Text>
+                      )}
+                    </View>
+                    <View style={styles.leaderboardInfo}>
+                      <Text style={[styles.leaderboardName, participant.isMe && styles.leaderboardNameMe]}>
+                        {participant.isMe ? 'You' : participant.name}
+                      </Text>
+                      <Text style={styles.leaderboardUsername}>@{participant.username}</Text>
+                    </View>
+                    <Text style={styles.leaderboardProgress}>{participant.progress}%</Text>
+                  </View>
+                ))}
+              </View>
+
+              <View style={{ height: 100 }} />
+            </ScrollView>
+          )}
+        </SafeAreaView>
+      </Modal>
+
       {/* Create Challenge Modal */}
       <Modal
         visible={showCreateChallenge}
@@ -1684,10 +2791,11 @@ const CommunityScreen = ({ route }) => {
             <TouchableOpacity
               onPress={() => {
                 setShowCreateChallenge(false);
-                setNewChallenge({ name: '', type: 'workouts', duration: 7, invitedFriends: [] });
+                setNewChallenge({ name: '', type: 'workouts', duration: 7, invitedFriends: [], isGlobal: false });
               }}
+              style={styles.closeBtn}
             >
-              <X size={24} color={COLORS.text} />
+              <Text style={styles.closeBtnText}>Cancel</Text>
             </TouchableOpacity>
             <Text style={styles.createChallengeTitle}>Create Challenge</Text>
             <View style={{ width: 24 }} />
@@ -1763,7 +2871,33 @@ const CommunityScreen = ({ route }) => {
               </View>
             </View>
 
+            {/* Visibility */}
+            <View style={styles.createChallengeSection}>
+              <Text style={styles.createChallengeSectionTitle}>Visibility</Text>
+              <View style={styles.visibilityRow}>
+                <TouchableOpacity
+                  style={[styles.visibilityOption, !newChallenge.isGlobal && styles.visibilityOptionSelected]}
+                  onPress={() => setNewChallenge(prev => ({ ...prev, isGlobal: false }))}
+                >
+                  <Text style={[styles.visibilityOptionText, !newChallenge.isGlobal && styles.visibilityOptionTextSelected]}>
+                    Invite Only
+                  </Text>
+                  <Text style={styles.visibilityOptionDesc}>Only invited friends can join</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.visibilityOption, newChallenge.isGlobal && styles.visibilityOptionSelected]}
+                  onPress={() => setNewChallenge(prev => ({ ...prev, isGlobal: true }))}
+                >
+                  <Text style={[styles.visibilityOptionText, newChallenge.isGlobal && styles.visibilityOptionTextSelected]}>
+                    Global
+                  </Text>
+                  <Text style={styles.visibilityOptionDesc}>Anyone can discover and join</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
             {/* Invite Friends */}
+            {!newChallenge.isGlobal && (
             <View style={styles.createChallengeSection}>
               <Text style={styles.createChallengeSectionTitle}>Invite Friends</Text>
               {following.length === 0 ? (
@@ -1817,6 +2951,7 @@ const CommunityScreen = ({ route }) => {
                 </Text>
               )}
             </View>
+            )}
 
             {/* Preview */}
             {newChallenge.name && (
@@ -1848,7 +2983,7 @@ const CommunityScreen = ({ route }) => {
             <TouchableOpacity
               style={[
                 styles.createChallengeButton,
-                (!newChallenge.name || newChallenge.invitedFriends.length === 0) && styles.createChallengeButtonDisabled,
+                (!newChallenge.name || (!newChallenge.isGlobal && newChallenge.invitedFriends.length === 0)) && styles.createChallengeButtonDisabled,
               ]}
               onPress={async () => {
                 if (newChallenge.name && newChallenge.invitedFriends.length > 0) {
@@ -1878,7 +3013,7 @@ const CommunityScreen = ({ route }) => {
                       setChallenges(prev => [...prev, newChallengeObj]);
                     }
 
-                    setNewChallenge({ name: '', type: 'workouts', duration: 7, invitedFriends: [] });
+                    setNewChallenge({ name: '', type: 'workouts', duration: 7, invitedFriends: [], isGlobal: false });
                     setShowCreateChallenge(false);
                   } catch (err) {
                     console.log('Error creating challenge:', err);
@@ -2121,6 +3256,20 @@ const getStyles = (COLORS) => StyleSheet.create({
     fontSize: 11,
     marginTop: 4,
   },
+  suggestedStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  suggestedStatText: {
+    color: COLORS.textMuted,
+    fontSize: 10,
+  },
+  suggestedStatDot: {
+    color: COLORS.textMuted,
+    fontSize: 10,
+    marginHorizontal: 4,
+  },
   suggestedFollowBtn: {
     backgroundColor: COLORS.primary,
     borderRadius: 8,
@@ -2161,9 +3310,10 @@ const getStyles = (COLORS) => StyleSheet.create({
     overflow: 'hidden',
   },
   feedHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     padding: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
   },
   feedUserRow: {
     flexDirection: 'row',
@@ -2234,16 +3384,79 @@ const getStyles = (COLORS) => StyleSheet.create({
   feedTypeBadgeTextPR: {
     color: COLORS.warning,
   },
+  feedTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingTop: 4,
+  },
   feedTitle: {
     color: COLORS.text,
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: 'bold',
-    marginBottom: 8,
+    flex: 1,
+  },
+  feedStarsRow: {
+    flexDirection: 'row',
+    gap: 2,
+  },
+  feedStatsLine: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    paddingHorizontal: 14,
+    paddingTop: 6,
+    paddingBottom: 14,
   },
   feedDetails: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: 12,
+    marginTop: 8,
+  },
+  feedStatsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 12,
+    paddingHorizontal: 14,
+    paddingBottom: 14,
+  },
+  feedStatBox: {
+    backgroundColor: COLORS.cardLight,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    minWidth: 60,
+  },
+  feedStatValue: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  feedStatLabel: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  feedPRDetails: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
+    marginTop: 8,
+    paddingHorizontal: 14,
+    paddingBottom: 14,
+  },
+  feedPRWeight: {
+    color: COLORS.warning,
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  feedPRReps: {
+    color: COLORS.textSecondary,
+    fontSize: 16,
   },
   feedDetailItem: {
     flexDirection: 'row',
@@ -2379,6 +3592,20 @@ const getStyles = (COLORS) => StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
     lineHeight: 20,
+  },
+  loadMoreBtn: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 14,
+    alignItems: 'center',
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: COLORS.primary + '40',
+  },
+  loadMoreText: {
+    color: COLORS.primary,
+    fontSize: 14,
+    fontWeight: '600',
   },
   discoverBtn: {
     backgroundColor: COLORS.primary,
@@ -3116,6 +4343,360 @@ const getStyles = (COLORS) => StyleSheet.create({
     color: COLORS.textMuted,
     fontSize: 12,
     marginTop: 2,
+  },
+
+  // Main tabs row
+  tabsRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    marginBottom: 16,
+    gap: 12,
+  },
+  tabLarge: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: COLORS.surface,
+    alignItems: 'center',
+  },
+  tabLargeActive: {
+    backgroundColor: COLORS.primary,
+  },
+  tabLargeText: {
+    color: COLORS.textMuted,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  tabLargeTextActive: {
+    color: COLORS.textOnPrimary,
+  },
+
+  // Follow Modal
+  followModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  followModalTabs: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  followModalTab: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: COLORS.surface,
+  },
+  followModalTabActive: {
+    backgroundColor: COLORS.primary,
+  },
+  followModalTabText: {
+    color: COLORS.textMuted,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  followModalTabTextActive: {
+    color: COLORS.textOnPrimary,
+  },
+  followModalContent: {
+    flex: 1,
+    padding: 16,
+  },
+
+  // Section header row
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  repertoireBtnSmall: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: COLORS.warning + '20',
+    borderRadius: 16,
+  },
+  repertoireBtnSmallText: {
+    color: COLORS.warning,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+
+  // My Profile Avatar Container
+  myProfileAvatarContainer: {
+    marginBottom: 12,
+  },
+  myProfileAvatarImage: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+  },
+
+  // Accept/Reject buttons
+  acceptButtonText: {
+    color: COLORS.textOnPrimary,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  rejectButtonText: {
+    color: COLORS.error,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+
+  // Close button
+  closeBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  closeBtnText: {
+    color: COLORS.primary,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+
+  // Follow button text
+  followButtonText: {
+    color: COLORS.textOnPrimary,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  followingButtonText: {
+    color: COLORS.text,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+
+  // Requests badge
+  requestsBadge: {
+    backgroundColor: '#EF4444',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+  },
+  requestsBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+
+  // Challenge card updates
+  challengeGoalText: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  challengeTapHint: {
+    color: COLORS.primary,
+    fontSize: 11,
+    marginTop: 8,
+    textAlign: 'right',
+  },
+
+  // Challenge Detail Modal
+  challengeDetailTitle: {
+    color: COLORS.text,
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  challengeDetailContent: {
+    flex: 1,
+    padding: 16,
+  },
+  challengeDetailHeader: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  challengeDetailName: {
+    color: COLORS.text,
+    fontSize: 22,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  challengeDetailGoal: {
+    color: COLORS.primary,
+    fontSize: 15,
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  challengeDetailParticipants: {
+    color: COLORS.textMuted,
+    fontSize: 13,
+    marginTop: 4,
+  },
+  challengeDetailSection: {
+    marginBottom: 20,
+  },
+  challengeDetailSectionTitle: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    marginBottom: 10,
+  },
+  challengeDetailProgressCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 16,
+  },
+  challengeDetailProgressBar: {
+    height: 12,
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 6,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  challengeDetailProgressFill: {
+    height: '100%',
+    backgroundColor: COLORS.primary,
+    borderRadius: 6,
+  },
+  challengeDetailProgressText: {
+    color: COLORS.text,
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  challengeDetailProgressPercent: {
+    color: COLORS.textMuted,
+    fontSize: 13,
+    marginTop: 2,
+  },
+  friendsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  friendChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderRadius: 20,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    paddingRight: 14,
+  },
+  friendChipAvatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 6,
+  },
+  friendChipAvatarImage: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+  },
+  friendChipAvatarText: {
+    color: COLORS.textOnPrimary,
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  friendChipName: {
+    color: COLORS.text,
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  leaderboardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+  },
+  leaderboardRowMe: {
+    backgroundColor: COLORS.primary + '20',
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+  },
+  leaderboardRank: {
+    color: COLORS.textMuted,
+    fontSize: 14,
+    fontWeight: 'bold',
+    width: 30,
+  },
+  leaderboardAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  leaderboardAvatarImage: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+  },
+  leaderboardAvatarText: {
+    color: COLORS.textOnPrimary,
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  leaderboardInfo: {
+    flex: 1,
+  },
+  leaderboardName: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  leaderboardNameMe: {
+    color: COLORS.primary,
+  },
+  leaderboardUsername: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+  },
+  leaderboardProgress: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+
+  // Visibility options
+  visibilityRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  visibilityOption: {
+    flex: 1,
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 2,
+    borderColor: COLORS.surfaceLight,
+  },
+  visibilityOptionSelected: {
+    backgroundColor: COLORS.primary + '20',
+    borderColor: COLORS.primary,
+  },
+  visibilityOptionText: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  visibilityOptionTextSelected: {
+    color: COLORS.primary,
+  },
+  visibilityOptionDesc: {
+    color: COLORS.textMuted,
+    fontSize: 11,
   },
 });
 

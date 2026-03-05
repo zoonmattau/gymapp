@@ -12,29 +12,22 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  Dimensions,
 } from 'react-native';
+import { LineChart } from 'react-native-chart-kit';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import {
-  Dumbbell,
-  Calendar,
-  Play,
   ChevronRight,
   ChevronLeft,
   ChevronDown,
   ChevronUp,
-  Clock,
-  Trophy,
-  Settings,
-  Coffee,
   Check,
   Plus,
   Search,
   X,
-  FileText,
   Pencil,
-  GripVertical,
   Trash2,
-  BarChart2,
+  Star,
 } from 'lucide-react-native';
 import { WORKOUT_TEMPLATES, AVAILABLE_PROGRAMS, GOAL_TO_PROGRAM } from '../constants/workoutTemplates';
 import { useColors } from '../contexts/ThemeContext';
@@ -85,6 +78,8 @@ const WorkoutsScreen = () => {
   const [selectedWorkout, setSelectedWorkout] = useState(null);
   const [workoutDetails, setWorkoutDetails] = useState(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
+  const [exerciseHistoryCache, setExerciseHistoryCache] = useState({}); // { exerciseName: [{ weight, reps, started_at }] }
+  const [expandedExerciseGraph, setExpandedExerciseGraph] = useState(null); // exercise name with graph shown
 
   // History stats
   const [workoutSetCounts, setWorkoutSetCounts] = useState({});
@@ -574,11 +569,62 @@ const WorkoutsScreen = () => {
     }
   };
 
+  // Load exercise history for 1RM graph
+  const loadExerciseHistory = async (exerciseName) => {
+    if (exerciseHistoryCache[exerciseName]) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('workout_sets')
+        .select('weight, reps, session:workout_sessions!inner(started_at, user_id)')
+        .eq('exercise_name', exerciseName)
+        .eq('session.user_id', user.id)
+        .order('session(started_at)', { ascending: true });
+
+      if (!error && data) {
+        setExerciseHistoryCache(prev => ({ ...prev, [exerciseName]: data }));
+      }
+    } catch (err) {
+      console.log('Error loading exercise history:', err);
+    }
+  };
+
+  // Toggle exercise graph and load history if needed
+  const toggleExerciseGraph = (exerciseName) => {
+    if (expandedExerciseGraph === exerciseName) {
+      setExpandedExerciseGraph(null);
+    } else {
+      setExpandedExerciseGraph(exerciseName);
+      loadExerciseHistory(exerciseName);
+    }
+  };
+
   const getWeekHeaderText = () => {
     if (weekOffset === 0) return 'This Week';
     if (weekOffset === 1) return 'Next Week';
     if (weekOffset === -1) return 'Last Week';
     return `Week ${weekOffset > 0 ? '+' : ''}${weekOffset}`;
+  };
+
+  // Get short workout name for mobile display
+  const getShortWorkoutName = (workout) => {
+    if (!workout) return '';
+    // Common mappings
+    const mappings = {
+      'Upper Body Push': 'Push',
+      'Upper Body Pull': 'Pull',
+      'Lower Body': 'Legs',
+      'Full Body': 'Full',
+      'Chest & Back': 'Chest',
+      'Arms & Shoulders': 'Arms',
+      'Chest & Triceps': 'Chest',
+      'Back & Biceps': 'Back',
+      'Shoulders & Arms': 'Arms',
+      'Legs & Core': 'Legs',
+    };
+    if (mappings[workout]) return mappings[workout];
+    // Otherwise take first word
+    return workout.split(' ')[0].replace('&', '').trim();
   };
 
   const getWeekDates = () => {
@@ -588,6 +634,10 @@ const WorkoutsScreen = () => {
     const monday = new Date(today);
     monday.setDate(today.getDate() + diff + (weekOffset * 7));
 
+    // Account creation date check
+    const accountCreated = user?.created_at ? new Date(user.created_at) : null;
+    const accountCreatedStart = accountCreated ? new Date(accountCreated.toDateString()) : null;
+
     const dates = [];
     for (let i = 0; i < 7; i++) {
       const date = new Date(monday);
@@ -596,6 +646,7 @@ const WorkoutsScreen = () => {
       const todayStart = new Date(today);
       todayStart.setHours(0, 0, 0, 0);
       const isPast = date < todayStart;
+      const isBeforeAccount = accountCreatedStart && date < accountCreatedStart;
 
       dates.push({
         dayIndex: i,
@@ -604,6 +655,7 @@ const WorkoutsScreen = () => {
         isToday,
         isPast,
         isFuture: !isPast && !isToday,
+        isBeforeAccount,
         ...weekSchedule[i],
       });
     }
@@ -813,10 +865,8 @@ const WorkoutsScreen = () => {
           />
         }
       >
-        {/* THIS WEEK Section */}
+        {/* Week Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>THIS WEEK</Text>
-
           <View style={styles.weekHeader}>
             <TouchableOpacity
               style={styles.weekNavBtn}
@@ -826,23 +876,18 @@ const WorkoutsScreen = () => {
             </TouchableOpacity>
 
             <View style={styles.weekTitleContainer}>
-              <Text style={styles.weekTitle}>{getWeekHeaderText()}</Text>
+              <Text style={styles.sectionLabel}>{getWeekHeaderText().toUpperCase()}</Text>
               {weekLoading && (
                 <ActivityIndicator size="small" color={COLORS.primary} style={{ marginLeft: 8 }} />
               )}
             </View>
 
-            <View style={styles.weekNavRight}>
-              <TouchableOpacity
-                style={styles.weekNavBtn}
-                onPress={() => setWeekOffset(prev => prev + 1)}
-              >
-                <ChevronRight size={20} color={COLORS.textMuted} />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.weekNavBtn}>
-                <Settings size={18} color={COLORS.textMuted} />
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+              style={styles.weekNavBtn}
+              onPress={() => setWeekOffset(prev => prev + 1)}
+            >
+              <ChevronRight size={20} color={COLORS.textMuted} />
+            </TouchableOpacity>
           </View>
 
           {/* Week Days */}
@@ -850,7 +895,7 @@ const WorkoutsScreen = () => {
             <div style={{ display: 'flex', flexDirection: 'row', gap: 6, width: '100%' }}>
               {weekDates.map((day) => {
                 const isCompleted = day.completed;
-                const isMissed = day.isPast && !day.isRest && !isCompleted;
+                const isMissed = day.isPast && !day.isRest && !isCompleted && !day.isBeforeAccount;
                 const isDragging = draggedDay === day.dayIndex;
                 const isDragOver = dragOverDay === day.dayIndex;
                 const canDrag = canDragDay(day);
@@ -860,8 +905,8 @@ const WorkoutsScreen = () => {
                   flex: '1 1 0',
                   minWidth: 0,
                   width: 'calc((100% - 36px) / 7)',
-                  backgroundColor: (isDragOver || isHovered) ? 'rgba(155, 89, 182, 0.2)' :
-                                   isCompleted ? COLORS.success + '15' :
+                  backgroundColor: (isDragOver || isHovered) ? COLORS.primary + '30' :
+                                   isCompleted ? COLORS.primary + '15' :
                                    isMissed ? COLORS.error + '15' :
                                    day.isToday ? COLORS.primary + '15' : COLORS.surface,
                   borderRadius: 12,
@@ -872,15 +917,15 @@ const WorkoutsScreen = () => {
                   alignItems: 'center',
                   justifyContent: 'center',
                   border: `2px solid ${
-                    isDragOver || isHovered ? '#9b59b6' :
-                    isCompleted ? COLORS.success :
+                    isDragOver || isHovered ? COLORS.primary :
+                    isCompleted ? COLORS.primary :
                     isMissed ? COLORS.error :
                     day.isToday ? COLORS.primary :
                     'transparent'
                   }`,
                   opacity: isDragging ? 0.5 : 1,
                   transform: (isDragOver || isHovered) ? 'scale(1.05)' : isDragging ? 'scale(0.95)' : 'scale(1)',
-                  boxShadow: (isDragOver || isHovered) ? '0 4px 16px rgba(155, 89, 182, 0.6)' : 'none',
+                  boxShadow: (isDragOver || isHovered) ? `0 4px 16px ${COLORS.primary}90` : 'none',
                   cursor: canDrag ? 'grab' : 'default',
                   transition: 'transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease, background-color 0.15s ease',
                   userSelect: 'none',
@@ -921,7 +966,7 @@ const WorkoutsScreen = () => {
                         isCompleted && styles.textCompleted,
                         day.isToday && styles.textToday,
                       ]} numberOfLines={1}>
-                        {day.isRest ? 'Rest' : day.workout}
+                        {day.isRest ? 'Rest' : getShortWorkoutName(day.workout)}
                       </Text>
                     </View>
                   </div>
@@ -932,7 +977,7 @@ const WorkoutsScreen = () => {
             <View style={styles.weekDays}>
               {weekDates.map((day) => {
                 const isCompleted = day.completed;
-                const isMissed = day.isPast && !day.isRest && !isCompleted;
+                const isMissed = day.isPast && !day.isRest && !isCompleted && !day.isBeforeAccount;
                 return (
                   <View
                     key={day.dayIndex}
@@ -966,7 +1011,7 @@ const WorkoutsScreen = () => {
                         isMissed && styles.textMissed,
                         day.isToday && styles.textToday,
                       ]} numberOfLines={1}>
-                        {day.isRest ? 'Rest' : day.workout}
+                        {day.isRest ? 'Rest' : getShortWorkoutName(day.workout)}
                       </Text>
                     </View>
                   </View>
@@ -976,6 +1021,29 @@ const WorkoutsScreen = () => {
           )}
 
           <Text style={styles.weekHint}>Drag days to swap schedule</Text>
+
+          {/* Weekly Stats Summary */}
+          {workoutHistory.length > 0 && (() => {
+            const totalSets = Object.values(workoutSetCounts).reduce((a, c) => a + c.sets, 0);
+            const totalReps = Object.values(workoutSetCounts).reduce((a, c) => a + c.reps, 0);
+            const workoutsCompleted = workoutHistory.length;
+            return (
+              <View style={styles.weeklyStatsRow}>
+                <View style={styles.weeklyStat}>
+                  <Text style={styles.weeklyStatValue}>{workoutsCompleted}</Text>
+                  <Text style={styles.weeklyStatLabel}>Workouts</Text>
+                </View>
+                <View style={styles.weeklyStat}>
+                  <Text style={styles.weeklyStatValue}>{totalSets}</Text>
+                  <Text style={styles.weeklyStatLabel}>Sets</Text>
+                </View>
+                <View style={styles.weeklyStat}>
+                  <Text style={styles.weeklyStatValue}>{totalReps >= 1000 ? `${(totalReps / 1000).toFixed(1)}k` : totalReps}</Text>
+                  <Text style={styles.weeklyStatLabel}>Reps</Text>
+                </View>
+              </View>
+            );
+          })()}
         </View>
 
         {/* TODAY'S WORKOUT Section */}
@@ -983,15 +1051,6 @@ const WorkoutsScreen = () => {
           <Text style={styles.sectionLabel}>TODAY'S WORKOUT</Text>
 
           <View style={styles.todayCard}>
-            <View style={styles.todayIconContainer}>
-              {todaySchedule?.workout ? (
-                <Dumbbell size={32} color={COLORS.primary} />
-              ) : todaySchedule?.isRest ? (
-                <Coffee size={32} color={COLORS.sleep} />
-              ) : (
-                <Calendar size={32} color={COLORS.textMuted} />
-              )}
-            </View>
             <View style={styles.todayContent}>
               <Text style={styles.todayTitle}>
                 {todaySchedule?.workout ? todaySchedule.workout : todaySchedule?.isRest ? 'Rest Day' : 'No workout scheduled'}
@@ -1001,16 +1060,8 @@ const WorkoutsScreen = () => {
                   ? 'Ready to train'
                   : todaySchedule?.isRest
                     ? 'Recovery is part of the process'
-                    : 'Set up your training program'}
+                    : 'Tap Start to begin'}
               </Text>
-              <TouchableOpacity
-                style={styles.setupProgramButton}
-                onPress={() => setShowProgramModal(true)}
-              >
-                <Text style={styles.setupProgramButtonText}>
-                  {todaySchedule?.workout || todaySchedule?.isRest ? 'Change Program' : 'Choose Program'}
-                </Text>
-              </TouchableOpacity>
             </View>
           </View>
 
@@ -1019,54 +1070,10 @@ const WorkoutsScreen = () => {
             onPress={startWorkout}
             onClick={startWorkout}
           >
-            <Play size={18} color={COLORS.textOnPrimary} />
             <Text style={styles.startButtonText}>
               {!bannerActive && pausedWorkout ? 'Continue Workout' : 'Start Workout'}
             </Text>
           </TouchableOpacity>
-        </View>
-
-        {/* QUICK ACTIONS Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>QUICK ACTIONS</Text>
-
-          <View style={styles.quickActionsGrid}>
-            <TouchableOpacity
-              style={styles.quickActionCard}
-              onPress={() => navigation.navigate('ExerciseLibrary')}
-            >
-              <Dumbbell size={28} color={COLORS.primary} />
-              <Text style={styles.quickActionTitle}>Exercise Library</Text>
-              <Text style={styles.quickActionSub}>Browse all exercises</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.quickActionCard}
-              onPress={() => navigation.navigate('WorkoutHistory')}
-            >
-              <Clock size={28} color={COLORS.primary} />
-              <Text style={styles.quickActionTitle}>History</Text>
-              <Text style={styles.quickActionSub}>View past workouts</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.quickActionCard}
-              onPress={() => navigation.navigate('PersonalRecords')}
-            >
-              <Trophy size={28} color={COLORS.warning} />
-              <Text style={styles.quickActionTitle}>Personal Records</Text>
-              <Text style={styles.quickActionSub}>Your PRs</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.quickActionCard}
-              onPress={() => navigation.navigate('CreateWorkout')}
-            >
-              <Pencil size={28} color={COLORS.primary} />
-              <Text style={styles.quickActionTitle}>Design Workout</Text>
-              <Text style={styles.quickActionSub}>Create custom template</Text>
-            </TouchableOpacity>
-          </View>
         </View>
 
         {/* RECENT ACTIVITY Section */}
@@ -1098,7 +1105,6 @@ const WorkoutsScreen = () => {
 
           {workoutHistory.length === 0 ? (
             <View style={styles.emptyActivityCard}>
-              <Dumbbell size={32} color={COLORS.textMuted} />
               <Text style={styles.emptyActivityTitle}>No workouts yet</Text>
               <Text style={styles.emptyActivityText}>Complete your first workout to see it here</Text>
             </View>
@@ -1114,11 +1120,16 @@ const WorkoutsScreen = () => {
                   activeOpacity={0.7}
                 >
                   <View style={styles.activityHeader}>
-                    <View style={styles.activityIcon}>
-                      <Dumbbell size={20} color={COLORS.primary} />
-                    </View>
                     <View style={styles.activityInfo}>
-                      <Text style={styles.activityTitle}>{workout.workout_name || 'Workout'}</Text>
+                      <View style={styles.activityTitleRow}>
+                        <Text style={styles.activityTitle}>{workout.workout_name || 'Workout'}</Text>
+                        {workout.rating > 0 && (
+                          <View style={styles.ratingDisplay}>
+                            <Star size={12} color={COLORS.warning} fill={COLORS.warning} />
+                            <Text style={styles.ratingText}>{workout.rating}</Text>
+                          </View>
+                        )}
+                      </View>
                       <Text style={styles.activityTime}>
                         {counts?.sets > 0
                           ? `${counts.sets} sets • ${counts.reps} reps • ${formatActivityDate(workout.ended_at)}`
@@ -1138,7 +1149,7 @@ const WorkoutsScreen = () => {
                       style={styles.deleteActivityButton}
                       onPress={(e) => handleDeletePress(workout, e)}
                     >
-                      <Trash2 size={16} color="#EF4444" />
+                      <Trash2 size={16} color={COLORS.error} />
                     </TouchableOpacity>
                     {isExpanded ? (
                       <ChevronUp size={18} color={COLORS.primary} />
@@ -1156,33 +1167,189 @@ const WorkoutsScreen = () => {
                           <Text style={styles.detailsLoadingText}>Loading exercises...</Text>
                         </View>
                       ) : workoutDetails && workoutDetails.length > 0 ? (
-                        workoutDetails.map((exercise, idx) => (
-                          <View key={idx} style={styles.exerciseDetail}>
-                            <Text style={styles.exerciseDetailName}>{exercise.name}</Text>
-                            <View style={styles.exerciseSets}>
-                              {exercise.sets.map((set, setIdx) => (
-                                <View key={setIdx} style={styles.setDetail}>
-                                  <Text style={[styles.setNumber, set.isWarmup && styles.warmupText]}>
-                                    {set.isWarmup ? 'W' : setIdx + 1}
-                                  </Text>
-                                  <Text style={styles.setInfo}>
-                                    {set.weight > 0 ? `${weightUnit === 'lbs' ? Math.round(set.weight * 2.205) : set.weight} ${weightUnit}` : 'BW'} × {set.reps}
-                                    {set.rpe ? <Text style={{ color: getRpeColor(set.rpe) }}> @{set.rpe}</Text> : ''}
+                        workoutDetails.map((exercise, idx) => {
+                          const workingSets = exercise.sets.filter(s => !s.isWarmup);
+                          const weights = workingSets.map(s => parseFloat(s.weight) || 0).filter(w => w > 0);
+                          const topWeight = weights.length > 0 ? Math.max(...weights) : 0;
+                          const displayWeight = weightUnit === 'lbs' ? Math.round(topWeight * 2.205) : topWeight;
+
+                          // Calculate best e1RM from this workout
+                          const bestE1rm = workingSets.reduce((best, s) => {
+                            const w = parseFloat(s.weight) || 0;
+                            const r = parseInt(s.reps) || 0;
+                            const e1rm = w * (1 + r / 30);
+                            return e1rm > best ? e1rm : best;
+                          }, 0);
+
+                          const isGraphExpanded = expandedExerciseGraph === exercise.name;
+                          const history = exerciseHistoryCache[exercise.name] || [];
+
+                          return (
+                            <View key={idx}>
+                              <TouchableOpacity
+                                style={styles.exerciseDetailRow}
+                                onPress={() => toggleExerciseGraph(exercise.name)}
+                              >
+                                <View style={styles.exerciseDetailLeft}>
+                                  <Text style={styles.exerciseDetailName} numberOfLines={1}>{exercise.name}</Text>
+                                  <Text style={styles.exerciseDetailStats}>
+                                    {workingSets.length} sets{topWeight > 0 ? ` · ${displayWeight}${weightUnit}` : ''}
                                   </Text>
                                 </View>
-                              ))}
+                                {bestE1rm > 0 && (
+                                  <View style={styles.e1rmBadge}>
+                                    <Text style={styles.e1rmBadgeText}>{Math.round(bestE1rm)} e1RM</Text>
+                                  </View>
+                                )}
+                                {isGraphExpanded ? (
+                                  <ChevronUp size={16} color={COLORS.primary} />
+                                ) : (
+                                  <ChevronDown size={16} color={COLORS.textMuted} />
+                                )}
+                              </TouchableOpacity>
+
+                              {/* 1RM History Graph */}
+                              {isGraphExpanded && (
+                                <View style={styles.exerciseGraphContainer}>
+                                  {history.length >= 2 ? (() => {
+                                    // Group by session date, find max e1RM per session
+                                    const sessionE1rms = {};
+                                    history.forEach(h => {
+                                      const date = h.session?.started_at?.split('T')[0] || 'unknown';
+                                      const w = parseFloat(h.weight) || 0;
+                                      const r = parseInt(h.reps) || 0;
+                                      const e1rm = w * (1 + r / 30);
+                                      if (!sessionE1rms[date] || e1rm > sessionE1rms[date]) {
+                                        sessionE1rms[date] = e1rm;
+                                      }
+                                    });
+
+                                    const sortedDates = Object.keys(sessionE1rms).sort();
+                                    const chartData = sortedDates.slice(-10).map(d => Math.round(sessionE1rms[d]));
+                                    const labels = sortedDates.slice(-10).map(d => {
+                                      const date = new Date(d);
+                                      return `${date.getDate()}/${date.getMonth() + 1}`;
+                                    });
+
+                                    if (chartData.length < 2) {
+                                      return <Text style={styles.noGraphDataText}>Need more sessions for graph</Text>;
+                                    }
+
+                                    const startVal = chartData[0];
+                                    const endVal = chartData[chartData.length - 1];
+                                    const change = endVal - startVal;
+
+                                    return (
+                                      <>
+                                        <LineChart
+                                          data={{
+                                            labels: labels.length > 5 ? labels.filter((_, i) => i % 2 === 0) : labels,
+                                            datasets: [{ data: chartData, color: () => COLORS.primary, strokeWidth: 2 }],
+                                          }}
+                                          width={Dimensions.get('window').width - 80}
+                                          height={100}
+                                          withVerticalLabels={true}
+                                          withHorizontalLabels={true}
+                                          withInnerLines={false}
+                                          withOuterLines={false}
+                                          withDots={true}
+                                          fromZero={false}
+                                          chartConfig={{
+                                            backgroundColor: 'transparent',
+                                            backgroundGradientFrom: COLORS.surfaceLight,
+                                            backgroundGradientTo: COLORS.surfaceLight,
+                                            decimalPlaces: 0,
+                                            color: () => COLORS.primary,
+                                            labelColor: () => COLORS.textMuted,
+                                            propsForDots: { r: '3', strokeWidth: '0', fill: COLORS.primary },
+                                            propsForLabels: { fontSize: 9 },
+                                          }}
+                                          bezier
+                                          style={styles.exerciseGraph}
+                                        />
+                                        <View style={styles.graphStatsRow}>
+                                          <Text style={styles.graphStatText}>Start: {startVal}{weightUnit}</Text>
+                                          <Text style={styles.graphStatText}>Now: {endVal}{weightUnit}</Text>
+                                          <Text style={[styles.graphStatText, { color: change >= 0 ? COLORS.success : COLORS.error }]}>
+                                            {change >= 0 ? '+' : ''}{change}{weightUnit}
+                                          </Text>
+                                        </View>
+                                      </>
+                                    );
+                                  })() : (
+                                    <Text style={styles.noGraphDataText}>Complete more sessions to see progress</Text>
+                                  )}
+                                </View>
+                              )}
                             </View>
-                          </View>
-                        ))
+                          );
+                        })
                       ) : (
                         <Text style={styles.noDetailsText}>No exercise data recorded</Text>
                       )}
+
+                      {/* View Summary Button */}
+                      <TouchableOpacity
+                        style={styles.viewSummaryButton}
+                        onPress={() => {
+                          const formattedExercises = (workoutDetails || []).map(ex => ({
+                            name: ex.name,
+                            sets: ex.sets.map(s => ({
+                              weight: s.weight,
+                              reps: s.reps,
+                              rpe: s.rpe,
+                              completed: true,
+                              isWarmup: s.isWarmup,
+                            })),
+                          }));
+
+                          const durationMins = workout.duration_minutes ||
+                            (workout.ended_at && workout.started_at
+                              ? Math.round((new Date(workout.ended_at) - new Date(workout.started_at)) / 60000)
+                              : 0);
+
+                          navigation.navigate('WorkoutSummary', {
+                            summary: {
+                              sessionId: workout.id,
+                              workoutName: workout.workout_name || 'Workout',
+                              duration: durationMins * 60,
+                              totalSets: formattedExercises.reduce((sum, ex) => sum + ex.sets.length, 0),
+                              completedSets: formattedExercises.reduce((sum, ex) => sum + ex.sets.length, 0),
+                              exercises: formattedExercises,
+                              totalVolume: workout.total_volume || 0,
+                              newPRs: [],
+                              isFromHistory: true,
+                            },
+                          });
+                        }}
+                      >
+                        <Text style={styles.viewSummaryButtonText}>View Summary</Text>
+                      </TouchableOpacity>
                     </View>
                   )}
                 </TouchableOpacity>
               );
             })
           )}
+        </View>
+
+        {/* PRs & Design Row */}
+        <View style={styles.quickRow}>
+          <TouchableOpacity
+            style={styles.quickRowCard}
+            onPress={() => navigation.navigate('PersonalRecords')}
+          >
+            <Text style={styles.quickRowTitle}>Personal Records</Text>
+            <Text style={styles.quickRowSub}>View your PRs</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.quickRowCard}
+            onPress={() => navigation.navigate('CreateWorkout')}
+          >
+            <Text style={styles.quickRowTitle}>Design Workout</Text>
+            <Text style={styles.quickRowSub}>Create template</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={{ height: 100 }} />
@@ -1207,9 +1374,6 @@ const WorkoutsScreen = () => {
             {/* Quick Start Options */}
             <View style={styles.quickStartOptions}>
               <TouchableOpacity style={styles.quickStartOption} onPress={startFreeformWorkout}>
-                <View style={[styles.quickStartIcon, { backgroundColor: COLORS.primary + '20' }]}>
-                  <Play size={24} color={COLORS.primary} />
-                </View>
                 <View style={styles.quickStartInfo}>
                   <Text style={styles.quickStartTitle}>Workout</Text>
                   <Text style={styles.quickStartDesc}>Build your workout as you go</Text>
@@ -1219,9 +1383,6 @@ const WorkoutsScreen = () => {
 
               {todaySchedule?.workout && (
                 <TouchableOpacity style={styles.quickStartOption} onPress={startScheduledWorkout}>
-                  <View style={[styles.quickStartIcon, { backgroundColor: COLORS.success + '20' }]}>
-                    <Calendar size={24} color={COLORS.success} />
-                  </View>
                   <View style={styles.quickStartInfo}>
                     <Text style={styles.quickStartTitle}>Today's Scheduled</Text>
                     <Text style={styles.quickStartDesc}>{todaySchedule.workout}</Text>
@@ -1241,9 +1402,6 @@ const WorkoutsScreen = () => {
                     style={styles.customTemplateItem}
                     onPress={() => startFromCustomTemplate(template)}
                   >
-                    <View style={styles.customTemplateIcon}>
-                      <Pencil size={18} color={COLORS.primary} />
-                    </View>
                     <View style={styles.templateInfo}>
                       <Text style={styles.templateName}>{template.name}</Text>
                       <Text style={styles.templateFocus}>{template.focus}</Text>
@@ -1287,9 +1445,6 @@ const WorkoutsScreen = () => {
                   style={styles.templateItem}
                   onPress={() => startFromTemplate(id)}
                 >
-                  <View style={styles.templateIcon}>
-                    <Dumbbell size={18} color={COLORS.primary} />
-                  </View>
                   <View style={styles.templateInfo}>
                     <Text style={styles.templateName}>{template.name}</Text>
                     <Text style={styles.templateFocus}>{template.focus}</Text>
@@ -1315,7 +1470,7 @@ const WorkoutsScreen = () => {
         animationType="fade"
         onRequestClose={() => setRenameModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
+        <View style={[styles.modalOverlay, { justifyContent: 'center', alignItems: 'center' }]}>
           <View style={styles.renameModalContainer}>
             <View style={styles.renameModalHeader}>
               <Text style={styles.renameModalTitle}>Rename Workout</Text>
@@ -1359,10 +1514,10 @@ const WorkoutsScreen = () => {
         animationType="fade"
         onRequestClose={() => setWorkoutToDelete(null)}
       >
-        <View style={styles.modalOverlay}>
+        <View style={styles.deleteModalOverlay}>
           <View style={styles.deleteModalContainer}>
             <View style={styles.deleteModalIconWrap}>
-              <Trash2 size={28} color="#EF4444" />
+              <Trash2 size={28} color={COLORS.error} />
             </View>
             <Text style={styles.deleteModalTitle}>Delete Workout</Text>
             <Text style={styles.deleteModalMessage}>
@@ -1730,12 +1885,12 @@ const getStyles = (COLORS) => StyleSheet.create({
     overflow: 'hidden',
   },
   dayCardCompleted: {
-    borderColor: COLORS.success,
-    backgroundColor: COLORS.success + '15',
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primary + '15',
   },
   dayCardMissed: {
-    borderColor: '#EF4444',
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderColor: COLORS.error,
+    backgroundColor: COLORS.error + '15',
   },
   dayCardToday: {
     borderColor: COLORS.primary,
@@ -1746,9 +1901,9 @@ const getStyles = (COLORS) => StyleSheet.create({
     transform: [{ scale: 0.95 }],
   },
   dayCardDragOver: {
-    borderColor: '#9b59b6',
-    backgroundColor: '#9b59b6' + '30',
-    shadowColor: '#9b59b6',
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primary + '30',
+    shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
     shadowRadius: 8,
@@ -1781,10 +1936,10 @@ const getStyles = (COLORS) => StyleSheet.create({
     flex: 1,
   },
   textCompleted: {
-    color: COLORS.success,
+    color: COLORS.primary,
   },
   textMissed: {
-    color: '#EF4444',
+    color: COLORS.error,
   },
   textToday: {
     color: COLORS.primary,
@@ -1801,7 +1956,6 @@ const getStyles = (COLORS) => StyleSheet.create({
     backgroundColor: COLORS.surface,
     borderRadius: 16,
     padding: 16,
-    flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
   },
@@ -1814,17 +1968,19 @@ const getStyles = (COLORS) => StyleSheet.create({
     alignItems: 'center',
   },
   todayContent: {
-    flex: 1,
+    alignItems: 'center',
   },
   todayTitle: {
     color: COLORS.text,
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 4,
+    textAlign: 'center',
   },
   todaySubtitle: {
     color: COLORS.textMuted,
     fontSize: 14,
+    textAlign: 'center',
   },
   startButton: {
     flexDirection: 'row',
@@ -1837,7 +1993,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     borderRadius: 12,
   },
   continueButton: {
-    backgroundColor: '#D97706',
+    backgroundColor: COLORS.primary,
   },
   startButtonText: {
     color: COLORS.textOnPrimary,
@@ -1845,29 +2001,28 @@ const getStyles = (COLORS) => StyleSheet.create({
     fontWeight: '600',
   },
 
-  // Quick Actions
-  quickActionsGrid: {
+  // Quick Row (PRs & Design)
+  quickRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    rowGap: 12,
+    gap: 12,
+    marginTop: 16,
+    marginBottom: 16,
   },
-  quickActionCard: {
-    width: '48.5%',
+  quickRowCard: {
+    flex: 1,
     backgroundColor: COLORS.surface,
-    borderRadius: 16,
+    borderRadius: 12,
     padding: 16,
   },
-  quickActionTitle: {
+  quickRowTitle: {
     color: COLORS.text,
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
-    marginTop: 12,
   },
-  quickActionSub: {
+  quickRowSub: {
     color: COLORS.textMuted,
     fontSize: 12,
-    marginTop: 2,
+    marginTop: 4,
   },
 
   // Recent Activity
@@ -1897,6 +2052,36 @@ const getStyles = (COLORS) => StyleSheet.create({
     color: COLORS.text,
     fontSize: 15,
     fontWeight: '500',
+  },
+  activityTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  ratingDisplay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    backgroundColor: COLORS.warning + '20',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  ratingText: {
+    color: COLORS.warning,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  feedbackDisplay: {
+    backgroundColor: COLORS.primary + '20',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  feedbackText: {
+    color: COLORS.primary,
+    fontSize: 11,
+    fontWeight: '600',
   },
   activityTime: {
     color: COLORS.textMuted,
@@ -1939,6 +2124,30 @@ const getStyles = (COLORS) => StyleSheet.create({
     backgroundColor: COLORS.surfaceLight,
     marginVertical: 4,
   },
+  // Weekly stats summary (in calendar section)
+  weeklyStatsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    backgroundColor: COLORS.primary + '15',
+    borderRadius: 12,
+    paddingVertical: 14,
+    marginTop: 12,
+  },
+  weeklyStat: {
+    alignItems: 'center',
+  },
+  weeklyStatValue: {
+    color: COLORS.primary,
+    fontSize: 22,
+    fontWeight: 'bold',
+  },
+  weeklyStatLabel: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    marginTop: 2,
+    fontWeight: '500',
+  },
   // Expanded workout details
   expandedDetails: {
     marginTop: 12,
@@ -1957,48 +2166,90 @@ const getStyles = (COLORS) => StyleSheet.create({
     color: COLORS.textMuted,
     fontSize: 13,
   },
-  exerciseDetail: {
-    marginBottom: 12,
+  exerciseDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.surfaceLight,
   },
   exerciseDetailName: {
     color: COLORS.text,
     fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 6,
+    flex: 1,
+    marginRight: 12,
   },
-  exerciseSets: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+  exerciseDetailStats: {
+    color: COLORS.textMuted,
+    fontSize: 12,
   },
-  setDetail: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.surfaceLight,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    gap: 6,
+  exerciseDetailLeft: {
+    flex: 1,
   },
-  setNumber: {
+  e1rmBadge: {
+    backgroundColor: COLORS.primary + '20',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginRight: 8,
+  },
+  e1rmBadgeText: {
     color: COLORS.primary,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  exerciseGraphContainer: {
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
+  },
+  exerciseGraph: {
+    borderRadius: 8,
+    marginLeft: -10,
+  },
+  graphStatsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  graphStatText: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  noGraphDataText: {
+    color: COLORS.textMuted,
     fontSize: 12,
-    fontWeight: '700',
-    minWidth: 14,
     textAlign: 'center',
-  },
-  warmupText: {
-    color: COLORS.warning,
-  },
-  setInfo: {
-    color: COLORS.textSecondary,
-    fontSize: 12,
+    paddingVertical: 12,
   },
   noDetailsText: {
     color: COLORS.textMuted,
     fontSize: 13,
     textAlign: 'center',
     paddingVertical: 8,
+  },
+  viewSummaryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: COLORS.primary + '15',
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    borderRadius: 10,
+    paddingVertical: 12,
+    marginTop: 12,
+  },
+  viewSummaryButtonText: {
+    color: COLORS.primary,
+    fontSize: 14,
+    fontWeight: '600',
   },
   emptyActivityCard: {
     backgroundColor: COLORS.surface,
@@ -2415,15 +2666,15 @@ const getStyles = (COLORS) => StyleSheet.create({
     minHeight: 64,
   },
   programImpactCard: {
-    backgroundColor: COLORS.warning + '18',
+    backgroundColor: COLORS.primary + '18',
     borderRadius: 10,
     padding: 12,
     marginBottom: 12,
     borderLeftWidth: 3,
-    borderLeftColor: COLORS.warning,
+    borderLeftColor: COLORS.primary,
   },
   programImpactTitle: {
-    color: COLORS.warning,
+    color: COLORS.primary,
     fontSize: 12,
     fontWeight: '700',
     marginBottom: 3,
@@ -2529,6 +2780,12 @@ const getStyles = (COLORS) => StyleSheet.create({
     alignItems: 'center',
   },
   // Delete Confirmation Modal
+  deleteModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   deleteModalContainer: {
     backgroundColor: COLORS.surface,
     borderRadius: 20,
@@ -2543,7 +2800,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#EF444420',
+    backgroundColor: COLORS.error + '20',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
@@ -2584,7 +2841,7 @@ const getStyles = (COLORS) => StyleSheet.create({
   },
   deleteConfirmButton: {
     flex: 1,
-    backgroundColor: '#EF4444',
+    backgroundColor: COLORS.error,
     borderRadius: 12,
     paddingVertical: 14,
     flexDirection: 'row',
