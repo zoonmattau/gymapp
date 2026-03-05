@@ -18,48 +18,114 @@ export const competitionService = {
     try {
       if (!userId) return { data: [], error: null };
 
-      // For now, return some sample challenges since we don't have a challenges table yet
-      // This can be connected to a real database table later
-      const sampleChallenges = [
-        {
-          id: '1',
-          name: '30-Day Workout Streak',
-          description: 'Complete at least one workout every day for 30 days',
-          type: 'streak',
-          target: 30,
-          progress: 12,
-          endDate: new Date(Date.now() + 18 * 24 * 60 * 60 * 1000).toISOString(),
-          participants: 245,
-          reward: '🏆 Streak Master Badge',
-        },
-        {
-          id: '2',
-          name: 'Volume Challenge',
-          description: 'Lift 100,000 kg total this month',
-          type: 'volume',
-          target: 100000,
-          progress: 42500,
-          endDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-          participants: 128,
-          reward: '💪 Volume King Badge',
-        },
-        {
-          id: '3',
-          name: 'PR Hunter',
-          description: 'Set 5 personal records this week',
-          type: 'prs',
-          target: 5,
-          progress: 2,
-          endDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
-          participants: 89,
-          reward: '🎯 PR Hunter Badge',
-        },
-      ];
+      const today = getLocalDateString();
 
-      return { data: sampleChallenges, error: null };
+      // Get challenges user has joined (as creator or participant)
+      const { data: participantData } = await supabase
+        .from('challenge_participants')
+        .select('challenge_id')
+        .eq('user_id', userId)
+        .eq('status', 'joined');
+
+      const joinedChallengeIds = (participantData || []).map(p => p.challenge_id);
+
+      // Get challenges created by user
+      let createdChallenges = [];
+      try {
+        const { data, error } = await supabase
+          .from('challenges')
+          .select('*')
+          .eq('creator_id', userId)
+          .gte('end_date', today);
+        if (!error) createdChallenges = data || [];
+      } catch {
+        // Table may not exist yet
+      }
+
+      // Get joined challenges
+      let joinedChallenges = [];
+      if (joinedChallengeIds.length > 0) {
+        try {
+          const { data, error } = await supabase
+            .from('challenges')
+            .select('*')
+            .in('id', joinedChallengeIds)
+            .gte('end_date', today);
+          if (!error) joinedChallenges = data || [];
+        } catch {
+          // Table may not exist yet
+        }
+      }
+
+      // Merge and dedupe
+      const allChallenges = [...(createdChallenges || [])];
+      for (const c of joinedChallenges) {
+        if (!allChallenges.find(existing => existing.id === c.id)) {
+          allChallenges.push(c);
+        }
+      }
+
+      // Calculate progress for each challenge
+      for (const challenge of allChallenges) {
+        challenge.user_progress = await this.calculateChallengeProgress(userId, challenge);
+      }
+
+      return { data: allChallenges, error: null };
     } catch (err) {
       console.warn('Error getting active challenges:', err?.message);
       return { data: [], error: err };
+    }
+  },
+
+  // Calculate user's progress for a specific challenge
+  async calculateChallengeProgress(userId, challenge) {
+    try {
+      const startDate = challenge.start_date;
+      const endDate = challenge.end_date;
+
+      switch (challenge.goal_type) {
+        case 'workouts': {
+          const { count } = await supabase
+            .from('workout_sessions')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', userId)
+            .not('ended_at', 'is', null)
+            .gte('started_at', startDate)
+            .lte('started_at', endDate);
+          return count || 0;
+        }
+        case 'volume': {
+          const { data: sets } = await supabase
+            .from('workout_sets')
+            .select('weight, reps, session:workout_sessions!inner(user_id, started_at)')
+            .eq('session.user_id', userId)
+            .gte('session.started_at', startDate)
+            .lte('session.started_at', endDate);
+          return (sets || []).reduce((sum, s) => sum + ((s.weight || 0) * (s.reps || 0)), 0);
+        }
+        case 'prs': {
+          const { count } = await supabase
+            .from('personal_records')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', userId)
+            .gte('achieved_at', startDate)
+            .lte('achieved_at', endDate);
+          return count || 0;
+        }
+        case 'streak': {
+          const { data: streakData } = await supabase
+            .from('workout_streaks')
+            .select('current_streak')
+            .eq('user_id', userId)
+            .maybeSingle();
+          return streakData?.current_streak || 0;
+        }
+        default:
+          return 0;
+      }
+    } catch (err) {
+      console.warn('Error calculating challenge progress:', err?.message);
+      return 0;
     }
   },
 

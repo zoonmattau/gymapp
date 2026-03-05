@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "gymapp-native",
-    "slug": "gymapp-native",
+    "name": "UpRep",
+    "slug": "uprep",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",

@@ -275,27 +275,57 @@ const WorkoutHistoryScreen = ({ navigation }) => {
                 <Text style={styles.detailsLoadingText}>Loading exercises...</Text>
               </View>
             ) : workoutDetails && workoutDetails.length > 0 ? (
-              workoutDetails.map((exercise, idx) => (
-                <View key={idx} style={styles.exerciseDetail}>
-                  <Text style={styles.exerciseDetailName}>{exercise.name}</Text>
-                  <View style={styles.exerciseSets}>
-                    {exercise.sets.map((set, setIdx) => (
-                      <View key={setIdx} style={styles.setDetail}>
-                        <Text style={[styles.setNumber, set.isWarmup && styles.warmupText]}>
-                          {set.isWarmup ? 'W' : setIdx + 1}
-                        </Text>
-                        <Text style={styles.setInfo}>
-                          {set.weight > 0 ? `${weightUnit === 'lbs' ? Math.round(set.weight * 2.205) : set.weight} ${weightUnit}` : 'BW'} × {set.reps}
-                          {set.rpe ? <Text style={{ color: getRpeColor(set.rpe) }}> @{set.rpe}</Text> : ''}
-                        </Text>
-                      </View>
-                    ))}
+              workoutDetails.map((exercise, idx) => {
+                const workingSets = exercise.sets.filter(s => !s.isWarmup);
+                const weights = workingSets.map(s => parseFloat(s.weight) || 0).filter(w => w > 0);
+                const topWeight = weights.length > 0 ? Math.max(...weights) : 0;
+                const displayWeight = weightUnit === 'lbs' ? Math.round(topWeight * 2.205) : topWeight;
+                return (
+                  <View key={idx} style={styles.exerciseDetailRow}>
+                    <Text style={styles.exerciseDetailName} numberOfLines={1}>{exercise.name}</Text>
+                    <Text style={styles.exerciseDetailStats}>
+                      {workingSets.length} sets{topWeight > 0 ? ` · ${displayWeight}${weightUnit}` : ''}
+                    </Text>
                   </View>
-                </View>
-              ))
+                );
+              })
             ) : (
               <Text style={styles.noDetailsText}>No exercise data recorded</Text>
             )}
+
+            {/* View Summary Button */}
+            <TouchableOpacity
+              style={styles.viewSummaryButton}
+              onPress={() => {
+                // Format exercises for summary screen
+                const formattedExercises = (workoutDetails || []).map(ex => ({
+                  name: ex.name,
+                  sets: ex.sets.map(s => ({
+                    weight: s.weight,
+                    reps: s.reps,
+                    rpe: s.rpe,
+                    completed: true,
+                    isWarmup: s.isWarmup,
+                  })),
+                }));
+
+                navigation.navigate('WorkoutSummary', {
+                  summary: {
+                    sessionId: item.id,
+                    workoutName: item.name,
+                    duration: (item.duration || 0) * 60, // Convert to seconds
+                    totalSets: item.sets || formattedExercises.reduce((sum, ex) => sum + ex.sets.length, 0),
+                    completedSets: item.sets || formattedExercises.reduce((sum, ex) => sum + ex.sets.length, 0),
+                    exercises: formattedExercises,
+                    totalVolume: item.totalVolume || 0,
+                    newPRs: [],
+                    isFromHistory: true,
+                  },
+                });
+              }}
+            >
+              <Text style={styles.viewSummaryButtonText}>View Summary</Text>
+            </TouchableOpacity>
           </View>
         )}
       </TouchableOpacity>
@@ -778,48 +808,46 @@ const getStyles = (COLORS) => StyleSheet.create({
     color: COLORS.textMuted,
     fontSize: 13,
   },
-  exerciseDetail: {
-    marginBottom: 12,
+  exerciseDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.surfaceLight,
   },
   exerciseDetailName: {
     color: COLORS.text,
     fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 6,
+    flex: 1,
+    marginRight: 12,
   },
-  exerciseSets: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  setDetail: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.surfaceLight,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    gap: 6,
-  },
-  setNumber: {
-    color: COLORS.primary,
-    fontSize: 12,
-    fontWeight: '700',
-    minWidth: 14,
-    textAlign: 'center',
-  },
-  warmupText: {
-    color: COLORS.warning,
-  },
-  setInfo: {
-    color: COLORS.textSecondary,
-    fontSize: 12,
+  exerciseDetailStats: {
+    color: COLORS.textMuted,
+    fontSize: 13,
   },
   noDetailsText: {
     color: COLORS.textMuted,
     fontSize: 13,
     textAlign: 'center',
     paddingVertical: 8,
+  },
+  viewSummaryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: COLORS.primary + '15',
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    borderRadius: 10,
+    paddingVertical: 12,
+    marginTop: 12,
+  },
+  viewSummaryButtonText: {
+    color: COLORS.primary,
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
-import { ActivityIndicator, View, Platform } from 'react-native';
+import { ActivityIndicator, View, Platform, Image } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useColors } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -204,7 +204,12 @@ const AppNavigator = () => {
 
   if (loading || onboardingCompleted === null) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background, paddingBottom: 80 }}>
+        <Image
+          source={require('../../assets/logo.png')}
+          style={{ width: 120, height: 120, marginBottom: 24 }}
+          resizeMode="contain"
+        />
         <ActivityIndicator size="large" color={COLORS.primary} />
       </View>
     );

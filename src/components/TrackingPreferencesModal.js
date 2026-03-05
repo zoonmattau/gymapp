@@ -8,7 +8,7 @@ import {
   ScrollView,
   Switch,
 } from 'react-native';
-import { X, Flame, Droplets, Moon, Zap, Apple } from 'lucide-react-native';
+import { X } from 'lucide-react-native';
 import { useColors } from '../contexts/ThemeContext';
 
 const TrackingPreferencesModal = ({ visible, onClose, preferences, onToggle }) => {
@@ -16,41 +16,11 @@ const TrackingPreferencesModal = ({ visible, onClose, preferences, onToggle }) =
   const styles = getStyles(COLORS);
 
   const TRACKING_OPTIONS = [
-    {
-      id: 'calories',
-      label: 'Calories',
-      desc: 'Track daily calorie intake',
-      icon: Flame,
-      color: COLORS.warning,
-    },
-    {
-      id: 'macros',
-      label: 'Macros',
-      desc: 'Track protein, carbs, and fats',
-      icon: Apple,
-      color: COLORS.protein,
-    },
-    {
-      id: 'water',
-      label: 'Water',
-      desc: 'Track daily water intake',
-      icon: Droplets,
-      color: COLORS.water,
-    },
-    {
-      id: 'sleep',
-      label: 'Sleep',
-      desc: 'Track sleep duration and quality',
-      icon: Moon,
-      color: COLORS.sleep,
-    },
-    {
-      id: 'supplements',
-      label: 'Supplements',
-      desc: 'Track daily supplement intake',
-      icon: Zap,
-      color: COLORS.supplements,
-    },
+    { id: 'calories', label: 'Calories', desc: 'Track daily calorie intake' },
+    { id: 'macros', label: 'Macros', desc: 'Track protein, carbs, and fats' },
+    { id: 'water', label: 'Water', desc: 'Track daily water intake' },
+    { id: 'sleep', label: 'Sleep', desc: 'Track sleep duration and quality' },
+    { id: 'supplements', label: 'Supplements', desc: 'Track daily supplement intake' },
   ];
 
   return (
@@ -76,19 +46,10 @@ const TrackingPreferencesModal = ({ visible, onClose, preferences, onToggle }) =
 
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
             {TRACKING_OPTIONS.map(tracking => {
-              const Icon = tracking.icon;
               const isEnabled = preferences?.[tracking.id] !== false;
 
               return (
                 <View key={tracking.id} style={styles.trackingRow}>
-                  <View
-                    style={[
-                      styles.iconContainer,
-                      { backgroundColor: tracking.color + '20' },
-                    ]}
-                  >
-                    <Icon size={20} color={tracking.color} />
-                  </View>
                   <View style={styles.trackingInfo}>
                     <Text style={styles.trackingLabel}>{tracking.label}</Text>
                     <Text style={styles.trackingDesc}>{tracking.desc}</Text>
@@ -171,14 +132,6 @@ const getStyles = (COLORS) => StyleSheet.create({
     borderRadius: 12,
     padding: 14,
     marginBottom: 8,
-  },
-  iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
   },
   trackingInfo: {
     flex: 1,

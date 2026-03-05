@@ -120,32 +120,51 @@ const SleepEntryModal = ({ visible, onClose, onSave, existingData }) => {
   const renderQualityStars = () => {
     return (
       <View style={styles.starsRow}>
-        {[1, 2, 3, 4, 5].map((star) => (
-          <TouchableOpacity
-            key={star}
-            onPress={() => setQualityRating(star)}
-            style={styles.starButton}
-          >
-            <Star
-              size={32}
-              color={star <= qualityRating ? '#F59E0B' : COLORS.surfaceLight}
-              fill={star <= qualityRating ? '#F59E0B' : 'transparent'}
-            />
-          </TouchableOpacity>
-        ))}
+        {[1, 2, 3, 4, 5].map((star) => {
+          const isFull = qualityRating >= star;
+          const isHalf = qualityRating === star - 0.5;
+
+          return (
+            <TouchableOpacity
+              key={star}
+              style={styles.starButton}
+              onPress={() => {
+                // Toggle between full and half on tap
+                if (qualityRating === star) {
+                  setQualityRating(star - 0.5);
+                } else {
+                  setQualityRating(star);
+                }
+              }}
+            >
+              <Star
+                size={32}
+                color={isFull || isHalf ? '#F59E0B' : COLORS.textMuted}
+                fill={isFull ? '#F59E0B' : 'transparent'}
+                strokeWidth={isHalf ? 2 : 1.5}
+              />
+              {isHalf && (
+                <View style={styles.halfStarOverlay}>
+                  <Star
+                    size={32}
+                    color="#F59E0B"
+                    fill="#F59E0B"
+                  />
+                </View>
+              )}
+            </TouchableOpacity>
+          );
+        })}
       </View>
     );
   };
 
   const getQualityLabel = () => {
-    switch (qualityRating) {
-      case 1: return 'Poor';
-      case 2: return 'Fair';
-      case 3: return 'Good';
-      case 4: return 'Great';
-      case 5: return 'Excellent';
-      default: return 'Good';
-    }
+    if (qualityRating <= 1) return 'Poor';
+    if (qualityRating <= 2) return 'Fair';
+    if (qualityRating <= 3) return 'Good';
+    if (qualityRating <= 4) return 'Great';
+    return 'Excellent';
   };
 
   const quickTimeOptions = [
@@ -177,7 +196,6 @@ const SleepEntryModal = ({ visible, onClose, onSave, existingData }) => {
                 <ChevronLeft size={24} color={COLORS.text} />
               </TouchableOpacity>
               <View style={styles.dateDisplay}>
-                <Calendar size={16} color={COLORS.sleep} />
                 <Text style={styles.dateValue}>{formatSelectedDate()}</Text>
               </View>
               <TouchableOpacity
@@ -219,34 +237,104 @@ const SleepEntryModal = ({ visible, onClose, onSave, existingData }) => {
           {/* Bed Time */}
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>BED TIME (last night)</Text>
-            <View style={styles.timeInputRow}>
-              <View style={styles.timeIcon}>
-                <Moon size={20} color={COLORS.sleep} />
-              </View>
-              <TextInput
-                style={styles.timeInput}
-                value={bedTime}
-                onChangeText={setBedTime}
-                placeholder="22:00"
-                placeholderTextColor={COLORS.textMuted}
-              />
+            <View style={styles.timePickerRow}>
+              <Text style={styles.timeDisplay}>{bedTime}</Text>
+            </View>
+            <View style={styles.timeButtonsRow}>
+              <TouchableOpacity
+                style={styles.timeBtn}
+                onPress={() => {
+                  const [h, m] = bedTime.split(':').map(Number);
+                  const newH = h === 0 ? 23 : h - 1;
+                  setBedTime(`${String(newH).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+                }}
+              >
+                <Text style={styles.timeBtnText}>-1h</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.timeBtn}
+                onPress={() => {
+                  const [h, m] = bedTime.split(':').map(Number);
+                  const newH = h === 23 ? 0 : h + 1;
+                  setBedTime(`${String(newH).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+                }}
+              >
+                <Text style={styles.timeBtnText}>+1h</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.timeBtn}
+                onPress={() => {
+                  const [h, m] = bedTime.split(':').map(Number);
+                  const newM = m < 15 ? 60 + m - 15 : m - 15;
+                  const newH = m < 15 ? (h === 0 ? 23 : h - 1) : h;
+                  setBedTime(`${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`);
+                }}
+              >
+                <Text style={styles.timeBtnText}>-15m</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.timeBtn}
+                onPress={() => {
+                  const [h, m] = bedTime.split(':').map(Number);
+                  const newM = m >= 45 ? m - 45 : m + 15;
+                  const newH = m >= 45 ? (h === 23 ? 0 : h + 1) : h;
+                  setBedTime(`${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`);
+                }}
+              >
+                <Text style={styles.timeBtnText}>+15m</Text>
+              </TouchableOpacity>
             </View>
           </View>
 
           {/* Wake Time */}
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>WAKE TIME (this morning)</Text>
-            <View style={styles.timeInputRow}>
-              <View style={styles.timeIcon}>
-                <Clock size={20} color={COLORS.warning} />
-              </View>
-              <TextInput
-                style={styles.timeInput}
-                value={wakeTime}
-                onChangeText={setWakeTime}
-                placeholder="06:00"
-                placeholderTextColor={COLORS.textMuted}
-              />
+            <View style={styles.timePickerRow}>
+              <Text style={styles.timeDisplay}>{wakeTime}</Text>
+            </View>
+            <View style={styles.timeButtonsRow}>
+              <TouchableOpacity
+                style={styles.timeBtn}
+                onPress={() => {
+                  const [h, m] = wakeTime.split(':').map(Number);
+                  const newH = h === 0 ? 23 : h - 1;
+                  setWakeTime(`${String(newH).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+                }}
+              >
+                <Text style={styles.timeBtnText}>-1h</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.timeBtn}
+                onPress={() => {
+                  const [h, m] = wakeTime.split(':').map(Number);
+                  const newH = h === 23 ? 0 : h + 1;
+                  setWakeTime(`${String(newH).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+                }}
+              >
+                <Text style={styles.timeBtnText}>+1h</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.timeBtn}
+                onPress={() => {
+                  const [h, m] = wakeTime.split(':').map(Number);
+                  const newM = m < 15 ? 60 + m - 15 : m - 15;
+                  const newH = m < 15 ? (h === 0 ? 23 : h - 1) : h;
+                  setWakeTime(`${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`);
+                }}
+              >
+                <Text style={styles.timeBtnText}>-15m</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.timeBtn}
+                onPress={() => {
+                  const [h, m] = wakeTime.split(':').map(Number);
+                  const newM = m >= 45 ? m - 45 : m + 15;
+                  const newH = m >= 45 ? (h === 23 ? 0 : h + 1) : h;
+                  setWakeTime(`${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`);
+                }}
+              >
+                <Text style={styles.timeBtnText}>+15m</Text>
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -385,21 +473,37 @@ const getStyles = (COLORS) => StyleSheet.create({
   quickButtonTextActive: {
     color: COLORS.textOnPrimary,
   },
-  timeInputRow: {
-    flexDirection: 'row',
+  timePickerRow: {
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: COLORS.surface,
     borderRadius: 12,
-    paddingHorizontal: 16,
-  },
-  timeIcon: {
-    marginRight: 12,
-  },
-  timeInput: {
-    flex: 1,
-    color: COLORS.text,
-    fontSize: 18,
     paddingVertical: 16,
+  },
+  timeDisplay: {
+    color: COLORS.text,
+    fontSize: 40,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  timeButtonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 12,
+  },
+  timeBtn: {
+    backgroundColor: COLORS.surface,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  timeBtnText: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '600',
   },
   hoursDisplay: {
     flexDirection: 'row',
@@ -426,6 +530,14 @@ const getStyles = (COLORS) => StyleSheet.create({
   },
   starButton: {
     padding: 4,
+    position: 'relative',
+  },
+  halfStarOverlay: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    width: 16,
+    overflow: 'hidden',
   },
   qualityLabel: {
     color: COLORS.text,

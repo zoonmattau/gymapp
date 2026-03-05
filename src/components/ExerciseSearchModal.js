@@ -193,7 +193,7 @@ const ExerciseSearchModal = ({ visible, onClose, onSelect, excludeExercises = []
   }, [debouncedQuery, selectedMuscle, excludeExercises]);
 
   const handleSelect = useCallback((exercise) => {
-    onSelect(exercise.name);
+    onSelect(exercise.name, exercise.muscleGroup);
     onClose();
   }, [onSelect, onClose]);
 

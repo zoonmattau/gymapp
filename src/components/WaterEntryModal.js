@@ -7,16 +7,20 @@ import {
   TouchableOpacity,
   TextInput,
   SafeAreaView,
+  ScrollView,
+  Alert,
 } from 'react-native';
-import { X, Droplets, Plus, Minus } from 'lucide-react-native';
+import { X, Plus, Minus, Trash2, Check } from 'lucide-react-native';
 import { useColors } from '../contexts/ThemeContext';
 
-const WaterEntryModal = ({ visible, onClose, onAdd, currentIntake = 0 }) => {
+const WaterEntryModal = ({ visible, onClose, onAdd, onDelete, currentIntake = 0, waterGoal = 2500, waterEntries = [] }) => {
   const COLORS = useColors();
   const styles = getStyles(COLORS);
   const [amount, setAmount] = useState('250');
 
   const quickAmounts = [100, 200, 250, 300, 400, 500, 750, 1000];
+  const progress = Math.min(100, Math.round((currentIntake / waterGoal) * 100));
+  const isComplete = currentIntake >= waterGoal;
 
   const handleAdd = () => {
     const ml = parseInt(amount) || 0;
@@ -44,39 +48,54 @@ const WaterEntryModal = ({ visible, onClose, onAdd, currentIntake = 0 }) => {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.content}>
-          {/* Current Progress */}
-          <View style={styles.progressCard}>
-            <Droplets size={24} color={COLORS.water} />
-            <View style={styles.progressInfo}>
-              <Text style={styles.progressLabel}>Today's intake</Text>
-              <Text style={styles.progressValue}>{(currentIntake / 1000).toFixed(1)}L</Text>
+        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          {/* Progress Ring and Amount Input Side by Side */}
+          <View style={styles.topRow}>
+            {/* Progress Ring */}
+            <View style={styles.progressCard}>
+              <View style={styles.ringWrapper}>
+                <View style={[styles.ringBg, { borderColor: COLORS.surfaceLight }]} />
+                <View style={[
+                  styles.ringProgress,
+                  {
+                    borderColor: isComplete ? COLORS.success : COLORS.water,
+                    opacity: progress > 0 ? 0.3 + (progress / 100) * 0.7 : 0.2,
+                  }
+                ]} />
+                <View style={styles.ringInner}>
+                  {isComplete && <Check size={16} color={COLORS.success} strokeWidth={3} />}
+                  <Text style={[styles.ringPercent, { color: isComplete ? COLORS.success : COLORS.water }]}>
+                    {progress}%
+                  </Text>
+                </View>
+              </View>
+              <Text style={styles.progressLabel}>{(currentIntake / 1000).toFixed(1)}L / {(waterGoal / 1000).toFixed(1)}L</Text>
             </View>
-          </View>
 
-          {/* Amount Input */}
-          <View style={styles.inputSection}>
-            <Text style={styles.sectionLabel}>AMOUNT (ML)</Text>
-            <View style={styles.amountRow}>
-              <TouchableOpacity
-                style={styles.adjustButton}
-                onPress={() => adjustAmount(-50)}
-              >
-                <Minus size={24} color={COLORS.text} />
-              </TouchableOpacity>
-              <TextInput
-                style={styles.amountInput}
-                value={amount}
-                onChangeText={setAmount}
-                keyboardType="numeric"
-                textAlign="center"
-              />
-              <TouchableOpacity
-                style={styles.adjustButton}
-                onPress={() => adjustAmount(50)}
-              >
-                <Plus size={24} color={COLORS.text} />
-              </TouchableOpacity>
+            {/* Amount Input */}
+            <View style={styles.amountCard}>
+              <Text style={styles.progressLabel}>Add amount</Text>
+              <View style={styles.amountRow}>
+                <TouchableOpacity
+                  style={styles.adjustButton}
+                  onPress={() => adjustAmount(-50)}
+                >
+                  <Minus size={20} color={COLORS.text} />
+                </TouchableOpacity>
+                <TextInput
+                  style={styles.amountInput}
+                  value={amount}
+                  onChangeText={setAmount}
+                  keyboardType="numeric"
+                  textAlign="center"
+                />
+                <TouchableOpacity
+                  style={styles.adjustButton}
+                  onPress={() => adjustAmount(50)}
+                >
+                  <Plus size={20} color={COLORS.text} />
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
 
@@ -106,9 +125,44 @@ const WaterEntryModal = ({ visible, onClose, onAdd, currentIntake = 0 }) => {
             </View>
           </View>
 
-          {/* Add Button */}
+          {/* Today's Entries */}
+          {waterEntries.length > 0 && (
+            <View style={styles.entriesSection}>
+              <Text style={styles.sectionLabel}>TODAY'S ENTRIES</Text>
+              {waterEntries.map((entry) => (
+                <View key={entry.id} style={styles.entryRow}>
+                  <View style={styles.entryInfo}>
+                    <Text style={styles.entryAmount}>{entry.amount}ml</Text>
+                    <Text style={styles.entryTime}>
+                      {new Date(entry.logged_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={() => {
+                      if (onDelete) {
+                        Alert.alert(
+                          'Delete Entry',
+                          `Remove ${entry.amount}ml entry?`,
+                          [
+                            { text: 'Cancel', style: 'cancel' },
+                            { text: 'Delete', style: 'destructive', onPress: () => onDelete(entry) },
+                          ]
+                        );
+                      }
+                    }}
+                  >
+                    <Trash2 size={18} color={COLORS.error} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
+        </ScrollView>
+
+        {/* Add Button - Fixed at bottom */}
+        <View style={styles.bottomSection}>
           <TouchableOpacity style={styles.addButton} onPress={handleAdd}>
-            <Droplets size={20} color={COLORS.textOnPrimary} />
             <Text style={styles.addButtonText}>Add {amount}ml</Text>
           </TouchableOpacity>
         </View>
@@ -144,29 +198,62 @@ const getStyles = (COLORS) => StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 20,
   },
-  progressCard: {
+  topRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    gap: 12,
+    marginBottom: 24,
+  },
+  progressCard: {
+    flex: 1,
     backgroundColor: COLORS.surface,
     borderRadius: 12,
     padding: 16,
-    marginBottom: 24,
-    gap: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  progressInfo: {
+  ringWrapper: {
+    width: 80,
+    height: 80,
+    position: 'relative',
+    marginBottom: 8,
+  },
+  ringBg: {
+    position: 'absolute',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 6,
+  },
+  ringProgress: {
+    position: 'absolute',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 6,
+  },
+  ringInner: {
+    position: 'absolute',
+    width: 80,
+    height: 80,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  ringPercent: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  amountCard: {
     flex: 1,
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 12,
+    justifyContent: 'center',
   },
   progressLabel: {
     color: COLORS.textMuted,
     fontSize: 12,
-  },
-  progressValue: {
-    color: COLORS.water,
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  inputSection: {
-    marginBottom: 24,
+    marginBottom: 8,
+    textAlign: 'center',
   },
   sectionLabel: {
     color: COLORS.textMuted,
@@ -178,24 +265,27 @@ const getStyles = (COLORS) => StyleSheet.create({
   amountRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    justifyContent: 'center',
+    gap: 8,
   },
   adjustButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: COLORS.surface,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.surfaceLight,
     justifyContent: 'center',
     alignItems: 'center',
   },
   amountInput: {
-    flex: 1,
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    paddingVertical: 16,
+    width: 80,
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
     color: COLORS.text,
-    fontSize: 32,
+    fontSize: 24,
     fontWeight: 'bold',
+    textAlign: 'center',
   },
   quickSection: {
     marginBottom: 24,
@@ -203,10 +293,11 @@ const getStyles = (COLORS) => StyleSheet.create({
   quickGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    justifyContent: 'center',
     gap: 10,
   },
   quickButton: {
-    width: '23%',
+    width: 70,
     paddingVertical: 12,
     borderRadius: 10,
     backgroundColor: COLORS.surface,
@@ -223,16 +314,44 @@ const getStyles = (COLORS) => StyleSheet.create({
   quickButtonTextActive: {
     color: COLORS.textOnPrimary,
   },
+  entriesSection: {
+    marginBottom: 24,
+  },
+  entryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
+  },
+  entryInfo: {
+    flex: 1,
+  },
+  entryAmount: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  entryTime: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  deleteButton: {
+    padding: 8,
+  },
+  bottomSection: {
+    paddingHorizontal: 16,
+    paddingBottom: 20,
+    backgroundColor: COLORS.background,
+  },
   addButton: {
     backgroundColor: COLORS.water,
     borderRadius: 12,
     paddingVertical: 16,
-    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
-    marginTop: 'auto',
-    marginBottom: 20,
   },
   addButtonText: {
     color: COLORS.textOnPrimary,

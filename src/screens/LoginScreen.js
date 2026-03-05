@@ -10,6 +10,7 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
+  Image,
 } from 'react-native';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
 import { useColors } from '../contexts/ThemeContext';
@@ -56,7 +57,11 @@ const LoginScreen = ({ navigation }) => {
         <View style={styles.content}>
           {/* Logo/Header */}
           <View style={styles.header}>
-            <Text style={styles.logo}>UpRep</Text>
+            <Image
+              source={require('../../assets/logo.png')}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
             <Text style={styles.subtitle}>Welcome back</Text>
           </View>
 
@@ -150,10 +155,9 @@ const getStyles = (COLORS) => StyleSheet.create({
     alignItems: 'center',
     marginBottom: 48,
   },
-  logo: {
-    fontSize: 42,
-    fontWeight: 'bold',
-    color: COLORS.primary,
+  logoImage: {
+    width: 150,
+    height: 150,
     marginBottom: 8,
   },
   subtitle: {
@@ -186,24 +190,25 @@ const getStyles = (COLORS) => StyleSheet.create({
     alignSelf: 'flex-end',
   },
   forgotPasswordText: {
-    color: COLORS.primary,
+    color: COLORS.textSecondary,
     fontSize: 14,
   },
   loginButton: {
     backgroundColor: COLORS.primary,
     borderRadius: 12,
-    height: 56,
+    height: 52,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 12,
   },
   loginButtonDisabled: {
-    opacity: 0.7,
+    opacity: 0.6,
   },
   loginButtonText: {
     color: COLORS.textOnPrimary,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
+    letterSpacing: 0.5,
   },
   registerContainer: {
     flexDirection: 'row',

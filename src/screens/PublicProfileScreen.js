@@ -12,12 +12,6 @@ import {
 } from 'react-native';
 import {
   ArrowLeft,
-  Trophy,
-  Dumbbell,
-  Clock,
-  UserPlus,
-  UserCheck,
-  Users,
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useColors } from '../contexts/ThemeContext';
@@ -32,9 +26,11 @@ const PublicProfileScreen = ({ route }) => {
   const { user, profile: myProfile } = useAuth();
   const weightUnit = myProfile?.weight_unit || 'kg';
 
-  const { userId, username: passedUsername, name: passedName } = route.params;
+  const { userId, username: passedUsername, name: passedName, timeOnApp: passedTimeOnApp, workoutCount: passedWorkoutCount } = route.params;
 
   const [profileData, setProfileData] = useState(null);
+  const [workoutCount, setWorkoutCount] = useState(passedWorkoutCount || 0);
+  const [timeOnApp, setTimeOnApp] = useState(passedTimeOnApp || '');
   const [followerCount, setFollowerCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
   const [isFollowing, setIsFollowing] = useState(false);
@@ -49,25 +45,49 @@ const PublicProfileScreen = ({ route }) => {
   const loadProfile = async () => {
     setLoading(true);
     try {
-      const [profileResult, followersResult, followingResult, followStatusResult, activityResult] = await Promise.all([
+      const [profileResult, followersResult, followingResult, followStatusResult, activityResult, workoutCountResult] = await Promise.all([
         supabase
           .from('profiles')
-          .select('id, username, first_name, last_name, avatar_url, bio')
+          .select('id, username, first_name, last_name, avatar_url, bio, created_at')
           .eq('id', userId)
           .single(),
         socialService.getFollowersCount(userId),
         socialService.getFollowing(userId),
         socialService.isFollowing(user?.id, userId),
         socialService.getUserActivityFeed(userId),
+        supabase
+          .from('workout_sessions')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', userId),
       ]);
 
       if (profileResult.data) {
         setProfileData(profileResult.data);
+        // Calculate time on app
+        const createdAt = profileResult.data.created_at ? new Date(profileResult.data.created_at) : new Date();
+        const now = new Date();
+        const diffMs = now - createdAt;
+        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+        let calculatedTimeOnApp = '';
+        if (diffDays < 7) {
+          calculatedTimeOnApp = diffDays <= 1 ? 'New member' : `${diffDays} days`;
+        } else if (diffDays < 30) {
+          const weeks = Math.floor(diffDays / 7);
+          calculatedTimeOnApp = `${weeks} week${weeks > 1 ? 's' : ''}`;
+        } else if (diffDays < 365) {
+          const months = Math.floor(diffDays / 30);
+          calculatedTimeOnApp = `${months} month${months > 1 ? 's' : ''}`;
+        } else {
+          const years = Math.floor(diffDays / 365);
+          calculatedTimeOnApp = `${years} year${years > 1 ? 's' : ''}`;
+        }
+        setTimeOnApp(calculatedTimeOnApp);
       }
       setFollowerCount(followersResult.count || 0);
       setFollowingCount(followingResult.data?.length || 0);
       setIsFollowing(followStatusResult.isFollowing || false);
       setActivityFeed(activityResult.data || []);
+      setWorkoutCount(workoutCountResult.count || 0);
     } catch (err) {
       console.warn('Error loading public profile:', err?.message);
     } finally {
@@ -153,7 +173,19 @@ const PublicProfileScreen = ({ route }) => {
             <Text style={styles.statNumber}>{followingCount}</Text>
             <Text style={styles.statLabel}>Following</Text>
           </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{workoutCount}</Text>
+            <Text style={styles.statLabel}>Workouts</Text>
+          </View>
         </View>
+
+        {/* Time on App */}
+        {timeOnApp && (
+          <View style={styles.timeOnAppRow}>
+            <Text style={styles.timeOnAppText}>Member for {timeOnApp}</Text>
+          </View>
+        )}
 
         {/* Follow/Unfollow Button */}
         {!isOwnProfile && (
@@ -162,11 +194,6 @@ const PublicProfileScreen = ({ route }) => {
             onPress={handleFollowToggle}
             disabled={followLoading}
           >
-            {isFollowing ? (
-              <UserCheck size={18} color={COLORS.text} />
-            ) : (
-              <UserPlus size={18} color={COLORS.textOnPrimary} />
-            )}
             <Text style={[styles.followBtnText, isFollowing && styles.followingBtnText]}>
               {followLoading ? '...' : isFollowing ? 'Following' : 'Follow'}
             </Text>
@@ -178,7 +205,6 @@ const PublicProfileScreen = ({ route }) => {
 
         {activityFeed.length === 0 ? (
           <View style={styles.emptyState}>
-            <Users size={40} color={COLORS.textMuted} />
             <Text style={styles.emptyStateTitle}>No activity yet</Text>
             <Text style={styles.emptyStateText}>
               This user hasn't logged any workouts or PRs yet
@@ -192,11 +218,6 @@ const PublicProfileScreen = ({ route }) => {
                 styles.feedTypeBadge,
                 activity.type === 'pr' ? styles.feedTypeBadgePR : styles.feedTypeBadgeWorkout,
               ]}>
-                {activity.type === 'pr' ? (
-                  <Trophy size={16} color={COLORS.warning} />
-                ) : (
-                  <Dumbbell size={16} color={COLORS.primary} />
-                )}
                 <Text style={[
                   styles.feedTypeBadgeText,
                   activity.type === 'pr' ? styles.feedTypeBadgeTextPR : styles.feedTypeBadgeTextWorkout,
@@ -212,7 +233,6 @@ const PublicProfileScreen = ({ route }) => {
               <View style={styles.feedDetails}>
                 {activity.type === 'workout' && activity.data?.duration && (
                   <View style={styles.feedDetailItem}>
-                    <Clock size={14} color={COLORS.textMuted} />
                     <Text style={styles.feedDetailText}>{activity.data.duration} min</Text>
                   </View>
                 )}
@@ -388,6 +408,14 @@ const getStyles = (COLORS) => StyleSheet.create({
     width: 1,
     height: 30,
     backgroundColor: COLORS.surfaceLight,
+  },
+  timeOnAppRow: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  timeOnAppText: {
+    color: COLORS.textMuted,
+    fontSize: 13,
   },
   followBtn: {
     flexDirection: 'row',

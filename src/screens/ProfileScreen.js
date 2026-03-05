@@ -12,6 +12,7 @@ import {
   Modal,
   Image,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -44,6 +45,7 @@ import {
   Sun,
   Plus,
   Camera,
+  Smartphone,
 } from 'lucide-react-native';
 import { useColors, useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -97,6 +99,14 @@ const ProfileScreen = () => {
   // Notifications & Privacy modals
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showAchievementsModal, setShowAchievementsModal] = useState(false);
+  const [selectedAchievement, setSelectedAchievement] = useState(null);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [feedbackType, setFeedbackType] = useState('suggestion');
+  const [feedbackMessage, setFeedbackMessage] = useState('');
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
+  const [showHelpModal, setShowHelpModal] = useState(false);
+  const [showAboutModal, setShowAboutModal] = useState(false);
   const [notificationSettings, setNotificationSettings] = useState({
     workoutReminders: true,
     progressUpdates: true,
@@ -108,7 +118,7 @@ const ProfileScreen = () => {
     showActivity: true,
     showProgress: false,
   });
-  const [privateAccount, setPrivateAccount] = useState(true);
+  const [privateAccount, setPrivateAccount] = useState(false);
 
   // Toast
   const [toastVisible, setToastVisible] = useState(false);
@@ -268,7 +278,7 @@ const ProfileScreen = () => {
   // Load private_account from profile
   useEffect(() => {
     if (profile) {
-      setPrivateAccount(profile.private_account !== false);
+      setPrivateAccount(profile.private_account === true);
     }
   }, [profile]);
 
@@ -542,6 +552,44 @@ const ProfileScreen = () => {
     }
   };
 
+  const submitFeedback = async () => {
+    if (!feedbackMessage.trim()) {
+      showToast('Please enter your feedback', 'error');
+      return;
+    }
+    setFeedbackSubmitting(true);
+    try {
+      // Google Sheets Web App URL - replace with your deployed script URL
+      const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec';
+
+      const data = {
+        type: feedbackType,
+        message: feedbackMessage,
+        username: profile?.username || 'anonymous',
+        userId: user?.id || 'unknown',
+        timestamp: new Date().toISOString(),
+        platform: Platform.OS,
+      };
+
+      await fetch(GOOGLE_SHEET_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      showToast('Feedback submitted! Thank you!', 'success');
+      setFeedbackMessage('');
+      setFeedbackType('suggestion');
+      setShowFeedbackModal(false);
+    } catch (error) {
+      console.log('Error submitting feedback:', error);
+      showToast('Failed to submit. Please try again.', 'error');
+    } finally {
+      setFeedbackSubmitting(false);
+    }
+  };
+
   const handleLogout = async () => {
     if (Platform.OS === 'web') {
       if (window.confirm('Are you sure you want to log out?')) {
@@ -574,17 +622,133 @@ const ProfileScreen = () => {
     return 'December 2025';
   };
 
-  // Achievement icons (placeholder)
-  const achievements = [
-    { id: 1, name: 'First Steps', icon: Crosshair },
-    { id: 2, name: 'Getting Se...', icon: Dumbbell },
-    { id: 3, name: 'Dedicated', icon: User },
-    { id: 4, name: 'Centurion', icon: Award },
-    { id: 5, name: 'Week War...', icon: RefreshCw },
-    { id: 6, name: 'Monthly M...', icon: Zap },
-    { id: 7, name: 'Unstoppa...', icon: Star },
-    { id: 8, name: 'Personal ...', icon: Award },
+  // Achievement definitions with unlock conditions - 100 achievements across categories
+  const achievementDefinitions = [
+    // === WORKOUT MILESTONES (1-20) ===
+    { id: 1, category: 'Workouts', name: 'First Steps', icon: Dumbbell, description: 'Complete your first workout', check: () => stats.workouts >= 1 },
+    { id: 2, category: 'Workouts', name: 'Getting Started', icon: Dumbbell, description: 'Complete 5 workouts', check: () => stats.workouts >= 5 },
+    { id: 3, category: 'Workouts', name: 'Double Digits', icon: Dumbbell, description: 'Complete 10 workouts', check: () => stats.workouts >= 10 },
+    { id: 4, category: 'Workouts', name: 'Committed', icon: Dumbbell, description: 'Complete 25 workouts', check: () => stats.workouts >= 25 },
+    { id: 5, category: 'Workouts', name: 'Half Century', icon: Dumbbell, description: 'Complete 50 workouts', check: () => stats.workouts >= 50 },
+    { id: 6, category: 'Workouts', name: 'Centurion', icon: Award, description: 'Complete 100 workouts', check: () => stats.workouts >= 100 },
+    { id: 7, category: 'Workouts', name: 'Dedicated', icon: Award, description: 'Complete 150 workouts', check: () => stats.workouts >= 150 },
+    { id: 8, category: 'Workouts', name: 'Iron Will', icon: Award, description: 'Complete 200 workouts', check: () => stats.workouts >= 200 },
+    { id: 9, category: 'Workouts', name: 'Gym Rat', icon: Award, description: 'Complete 300 workouts', check: () => stats.workouts >= 300 },
+    { id: 10, category: 'Workouts', name: 'Veteran', icon: Award, description: 'Complete 400 workouts', check: () => stats.workouts >= 400 },
+    { id: 11, category: 'Workouts', name: 'Half Thousand', icon: Award, description: 'Complete 500 workouts', check: () => stats.workouts >= 500 },
+    { id: 12, category: 'Workouts', name: 'Elite', icon: Award, description: 'Complete 750 workouts', check: () => stats.workouts >= 750 },
+    { id: 13, category: 'Workouts', name: 'Legendary', icon: Award, description: 'Complete 1000 workouts', check: () => stats.workouts >= 1000 },
+    { id: 14, category: 'Workouts', name: 'Immortal', icon: Award, description: 'Complete 1500 workouts', check: () => stats.workouts >= 1500 },
+    { id: 15, category: 'Workouts', name: 'Titan', icon: Award, description: 'Complete 2000 workouts', check: () => stats.workouts >= 2000 },
+
+    // === STREAK ACHIEVEMENTS (16-35) ===
+    { id: 16, category: 'Streaks', name: 'First Week', icon: RefreshCw, description: 'Maintain a 1 week streak', check: () => stats.weekStreak >= 1 },
+    { id: 17, category: 'Streaks', name: 'Two Timer', icon: RefreshCw, description: 'Maintain a 2 week streak', check: () => stats.weekStreak >= 2 },
+    { id: 18, category: 'Streaks', name: 'Three-peat', icon: RefreshCw, description: 'Maintain a 3 week streak', check: () => stats.weekStreak >= 3 },
+    { id: 19, category: 'Streaks', name: 'Monthly Master', icon: RefreshCw, description: 'Maintain a 4 week streak', check: () => stats.weekStreak >= 4 },
+    { id: 20, category: 'Streaks', name: 'Consistent', icon: RefreshCw, description: 'Maintain a 6 week streak', check: () => stats.weekStreak >= 6 },
+    { id: 21, category: 'Streaks', name: 'Two Months Strong', icon: RefreshCw, description: 'Maintain an 8 week streak', check: () => stats.weekStreak >= 8 },
+    { id: 22, category: 'Streaks', name: 'Quarter Master', icon: RefreshCw, description: 'Maintain a 12 week streak', check: () => stats.weekStreak >= 12 },
+    { id: 23, category: 'Streaks', name: 'Unstoppable', icon: RefreshCw, description: 'Maintain a 16 week streak', check: () => stats.weekStreak >= 16 },
+    { id: 24, category: 'Streaks', name: 'Half Year Hero', icon: RefreshCw, description: 'Maintain a 26 week streak', check: () => stats.weekStreak >= 26 },
+    { id: 25, category: 'Streaks', name: 'Year Round', icon: Award, description: 'Maintain a 52 week streak', check: () => stats.weekStreak >= 52 },
+    { id: 26, category: 'Streaks', name: 'Eternal Flame', icon: Award, description: 'Maintain a 78 week streak', check: () => stats.weekStreak >= 78 },
+    { id: 27, category: 'Streaks', name: 'Two Year Titan', icon: Award, description: 'Maintain a 104 week streak', check: () => stats.weekStreak >= 104 },
+
+    // === PERSONAL RECORDS (28-47) ===
+    { id: 28, category: 'PRs', name: 'First PR', icon: Star, description: 'Set your first personal record', check: () => stats.prs >= 1 },
+    { id: 29, category: 'PRs', name: 'PR Beginner', icon: Star, description: 'Set 3 personal records', check: () => stats.prs >= 3 },
+    { id: 30, category: 'PRs', name: 'PR Collector', icon: Star, description: 'Set 5 personal records', check: () => stats.prs >= 5 },
+    { id: 31, category: 'PRs', name: 'Breaking Through', icon: Star, description: 'Set 10 personal records', check: () => stats.prs >= 10 },
+    { id: 32, category: 'PRs', name: 'PR Hunter', icon: Star, description: 'Set 15 personal records', check: () => stats.prs >= 15 },
+    { id: 33, category: 'PRs', name: 'Record Breaker', icon: Star, description: 'Set 25 personal records', check: () => stats.prs >= 25 },
+    { id: 34, category: 'PRs', name: 'PR Machine', icon: Star, description: 'Set 40 personal records', check: () => stats.prs >= 40 },
+    { id: 35, category: 'PRs', name: 'Elite Lifter', icon: Star, description: 'Set 50 personal records', check: () => stats.prs >= 50 },
+    { id: 36, category: 'PRs', name: 'Record Destroyer', icon: Star, description: 'Set 75 personal records', check: () => stats.prs >= 75 },
+    { id: 37, category: 'PRs', name: 'Century of PRs', icon: Award, description: 'Set 100 personal records', check: () => stats.prs >= 100 },
+    { id: 38, category: 'PRs', name: 'PR Legend', icon: Award, description: 'Set 150 personal records', check: () => stats.prs >= 150 },
+    { id: 39, category: 'PRs', name: 'Strength Icon', icon: Award, description: 'Set 200 personal records', check: () => stats.prs >= 200 },
+    { id: 40, category: 'PRs', name: 'PR Immortal', icon: Award, description: 'Set 300 personal records', check: () => stats.prs >= 300 },
+
+    // === PROFILE & SETUP (41-55) ===
+    { id: 41, category: 'Profile', name: 'Hello World', icon: User, description: 'Create your account', check: () => !!user?.id },
+    { id: 42, category: 'Profile', name: 'Identity', icon: User, description: 'Set your username', check: () => !!profile?.username },
+    { id: 43, category: 'Profile', name: 'Picture Perfect', icon: User, description: 'Upload a profile photo', check: () => !!profile?.avatar_url },
+    { id: 44, category: 'Profile', name: 'Experienced', icon: TrendingUp, description: 'Set your experience level', check: () => !!experienceLevel },
+    { id: 45, category: 'Profile', name: 'Equipped', icon: Dumbbell, description: 'Select your gym equipment', check: () => selectedEquipment.length > 0 },
+    { id: 46, category: 'Profile', name: 'Fully Equipped', icon: Dumbbell, description: 'Select 5+ equipment types', check: () => selectedEquipment.length >= 5 },
+    { id: 47, category: 'Profile', name: 'Bio Writer', icon: User, description: 'Add a bio to your profile', check: () => !!profile?.bio },
+    { id: 48, category: 'Profile', name: 'Goal Setter', icon: TrendingUp, description: 'Set your fitness goals', check: () => !!profile?.goals },
+    { id: 49, category: 'Profile', name: 'Base Builder', icon: Dumbbell, description: 'Set a base lift weight', check: () => Object.keys(baseLifts || {}).length > 0 },
+    { id: 50, category: 'Profile', name: 'Foundation', icon: Dumbbell, description: 'Set 3+ base lift weights', check: () => Object.keys(baseLifts || {}).length >= 3 },
+
+    // === COMMUNITY & SOCIAL (51-70) ===
+    { id: 51, category: 'Social', name: 'Friendly', icon: User, description: 'Follow your first user', check: () => false },
+    { id: 52, category: 'Social', name: 'Social Butterfly', icon: User, description: 'Follow 5 users', check: () => false },
+    { id: 53, category: 'Social', name: 'Networker', icon: User, description: 'Follow 10 users', check: () => false },
+    { id: 54, category: 'Social', name: 'Connected', icon: User, description: 'Follow 25 users', check: () => false },
+    { id: 55, category: 'Social', name: 'Influencer', icon: User, description: 'Follow 50 users', check: () => false },
+    { id: 56, category: 'Social', name: 'First Fan', icon: Star, description: 'Get your first follower', check: () => false },
+    { id: 57, category: 'Social', name: 'Rising Star', icon: Star, description: 'Get 5 followers', check: () => false },
+    { id: 58, category: 'Social', name: 'Popular', icon: Star, description: 'Get 10 followers', check: () => false },
+    { id: 59, category: 'Social', name: 'Well Known', icon: Star, description: 'Get 25 followers', check: () => false },
+    { id: 60, category: 'Social', name: 'Famous', icon: Award, description: 'Get 50 followers', check: () => false },
+    { id: 61, category: 'Social', name: 'Celebrity', icon: Award, description: 'Get 100 followers', check: () => false },
+    { id: 62, category: 'Social', name: 'Superstar', icon: Award, description: 'Get 250 followers', check: () => false },
+    { id: 63, category: 'Social', name: 'Icon', icon: Award, description: 'Get 500 followers', check: () => false },
+
+    // === CHALLENGES (64-75) ===
+    { id: 64, category: 'Challenges', name: 'Challenger', icon: Zap, description: 'Join your first challenge', check: () => false },
+    { id: 65, category: 'Challenges', name: 'Competitive', icon: Zap, description: 'Join 3 challenges', check: () => false },
+    { id: 66, category: 'Challenges', name: 'Challenge Seeker', icon: Zap, description: 'Join 5 challenges', check: () => false },
+    { id: 67, category: 'Challenges', name: 'Challenge Veteran', icon: Zap, description: 'Join 10 challenges', check: () => false },
+    { id: 68, category: 'Challenges', name: 'First Victory', icon: Award, description: 'Complete your first challenge', check: () => false },
+    { id: 69, category: 'Challenges', name: 'Triple Crown', icon: Award, description: 'Complete 3 challenges', check: () => false },
+    { id: 70, category: 'Challenges', name: 'Champion', icon: Award, description: 'Complete 5 challenges', check: () => false },
+    { id: 71, category: 'Challenges', name: 'Master Champion', icon: Award, description: 'Complete 10 challenges', check: () => false },
+    { id: 72, category: 'Challenges', name: 'Challenge Creator', icon: Zap, description: 'Create your first challenge', check: () => false },
+    { id: 73, category: 'Challenges', name: 'Leader', icon: Award, description: 'Win a challenge leaderboard', check: () => false },
+
+    // === NUTRITION & TRACKING (74-85) ===
+    { id: 74, category: 'Nutrition', name: 'First Meal', icon: User, description: 'Log your first meal', check: () => false },
+    { id: 75, category: 'Nutrition', name: 'Meal Logger', icon: User, description: 'Log 10 meals', check: () => false },
+    { id: 76, category: 'Nutrition', name: 'Nutrition Tracker', icon: User, description: 'Log 50 meals', check: () => false },
+    { id: 77, category: 'Nutrition', name: 'Meal Master', icon: Award, description: 'Log 100 meals', check: () => false },
+    { id: 78, category: 'Nutrition', name: 'Hydrated', icon: User, description: 'Log water intake', check: () => false },
+    { id: 79, category: 'Nutrition', name: 'Water Warrior', icon: User, description: 'Hit daily water goal 7 days', check: () => false },
+    { id: 80, category: 'Nutrition', name: 'Hydration Hero', icon: Award, description: 'Hit daily water goal 30 days', check: () => false },
+    { id: 81, category: 'Nutrition', name: 'Macro Master', icon: Award, description: 'Hit macro goals 7 days', check: () => false },
+    { id: 82, category: 'Nutrition', name: 'Calorie Counter', icon: User, description: 'Log calories for a week', check: () => false },
+
+    // === TIME & DEDICATION (83-92) ===
+    { id: 83, category: 'Time', name: 'New Member', icon: User, description: 'Be a member for 1 week', check: () => false },
+    { id: 84, category: 'Time', name: 'One Month In', icon: User, description: 'Be a member for 1 month', check: () => false },
+    { id: 85, category: 'Time', name: 'Three Months', icon: User, description: 'Be a member for 3 months', check: () => false },
+    { id: 86, category: 'Time', name: 'Half Year', icon: User, description: 'Be a member for 6 months', check: () => false },
+    { id: 87, category: 'Time', name: 'Anniversary', icon: Award, description: 'Be a member for 1 year', check: () => false },
+    { id: 88, category: 'Time', name: 'Two Years Strong', icon: Award, description: 'Be a member for 2 years', check: () => false },
+    { id: 89, category: 'Time', name: 'Veteran Member', icon: Award, description: 'Be a member for 3 years', check: () => false },
+    { id: 90, category: 'Time', name: 'OG Member', icon: Award, description: 'Be a member for 5 years', check: () => false },
+
+    // === SPECIAL & MISC (91-100) ===
+    { id: 91, category: 'Special', name: 'Night Owl', icon: Star, description: 'Complete a workout after 10 PM', check: () => false },
+    { id: 92, category: 'Special', name: 'Early Bird', icon: Star, description: 'Complete a workout before 6 AM', check: () => false },
+    { id: 93, category: 'Special', name: 'Weekend Warrior', icon: Star, description: 'Workout on both Saturday and Sunday', check: () => false },
+    { id: 94, category: 'Special', name: 'Explorer', icon: Star, description: 'Try 10 different exercises', check: () => false },
+    { id: 95, category: 'Special', name: 'Variety King', icon: Star, description: 'Try 25 different exercises', check: () => false },
+    { id: 96, category: 'Special', name: 'Exercise Master', icon: Award, description: 'Try 50 different exercises', check: () => false },
+    { id: 97, category: 'Special', name: 'Marathon Session', icon: Star, description: 'Complete a 90+ minute workout', check: () => false },
+    { id: 98, category: 'Special', name: 'Quick & Efficient', icon: Star, description: 'Complete 10 workouts under 30 min', check: () => false },
+    { id: 99, category: 'Special', name: 'Perfectionist', icon: Award, description: 'Complete all sets in a workout', check: () => false },
+    { id: 100, category: 'Special', name: 'Ultimate Achiever', icon: Award, description: 'Unlock 50 achievements', check: () => false },
   ];
+
+  // Group achievements by category
+  const achievementCategories = ['Workouts', 'Streaks', 'PRs', 'Profile', 'Social', 'Challenges', 'Nutrition', 'Time', 'Special'];
+
+  // Calculate unlocked achievements
+  const unlockedAchievements = achievementDefinitions.filter(a => a.check());
+  const achievements = achievementDefinitions.slice(0, 8); // Show first 8 in grid
 
   return (
     <SafeAreaView style={styles.container}>
@@ -598,11 +762,11 @@ const ProfileScreen = () => {
               ) : profile?.avatar_url ? (
                 <Image source={{ uri: profile.avatar_url }} style={styles.avatarImage} />
               ) : (
-                <User size={50} color={COLORS.primary} />
+                <Image source={require('../../assets/logo.png')} style={styles.avatarFallbackLogo} resizeMode="contain" />
               )}
             </View>
             <View style={styles.avatarPlusBadge}>
-              <Camera size={14} color={COLORS.textOnPrimary} />
+              <Text style={styles.avatarPlusBadgeText}>+</Text>
             </View>
           </TouchableOpacity>
           {Platform.OS === 'web' && (
@@ -620,12 +784,12 @@ const ProfileScreen = () => {
 
           {/* Followers / Following */}
           <View style={styles.followRow}>
-            <TouchableOpacity style={styles.followItem} onPress={() => navigation.navigate('Community', { initialTab: 'followers' })} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.followItem} onPress={() => navigation.navigate('Community', { initialTab: 'profile' })} activeOpacity={0.7}>
               <Text style={styles.followCount}>0</Text>
               <Text style={styles.followLabel}>followers</Text>
             </TouchableOpacity>
             <View style={styles.followDivider} />
-            <TouchableOpacity style={styles.followItem} onPress={() => navigation.navigate('Community', { initialTab: 'following' })} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.followItem} onPress={() => navigation.navigate('Community', { initialTab: 'profile' })} activeOpacity={0.7}>
               <Text style={styles.followCount}>0</Text>
               <Text style={styles.followLabel}>following</Text>
             </TouchableOpacity>
@@ -633,30 +797,8 @@ const ProfileScreen = () => {
 
           {/* Edit Profile Button */}
           <TouchableOpacity style={styles.editProfileBtn} onPress={() => navigation.navigate('EditProfile')} activeOpacity={0.7}>
-            <Edit2 size={16} color={COLORS.text} />
             <Text style={styles.editProfileText}>Edit Profile</Text>
           </TouchableOpacity>
-        </View>
-
-        {/* STATS Section */}
-        <Text style={styles.sectionLabel}>STATS</Text>
-        <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <Text style={[styles.statValue, { color: COLORS.primary }]}>{stats.workouts}</Text>
-            <Text style={styles.statLabel}>workouts</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={[styles.statValue, { color: COLORS.success }]}>{stats.weekStreak}</Text>
-            <Text style={styles.statLabel}>week streak</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={[styles.statValue, { color: COLORS.primary }]}>{stats.prs}</Text>
-            <Text style={styles.statLabel}>PRs</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={[styles.statValue, { color: COLORS.primary }]}>{stats.badges}</Text>
-            <Text style={styles.statLabel}>badges</Text>
-          </View>
         </View>
 
         {/* EXPERIENCE LEVEL Section */}
@@ -666,9 +808,6 @@ const ProfileScreen = () => {
           onPress={() => setShowExperienceModal(true)}
           activeOpacity={0.7}
         >
-          <View style={[styles.menuIcon, { backgroundColor: COLORS.primary + '20' }]}>
-            <TrendingUp size={20} color={COLORS.primary} />
-          </View>
           <View style={styles.menuInfo}>
             <Text style={styles.menuTitle}>
               {EXPERIENCE_LEVELS[experienceLevel]?.label || 'Novice'}
@@ -676,6 +815,22 @@ const ProfileScreen = () => {
             <Text style={styles.menuSubtitle}>
               {EXPERIENCE_LEVELS[experienceLevel]?.desc || 'Learning the basics (6-18 months)'}
             </Text>
+            <View style={styles.experienceBars}>
+              {['beginner', 'novice', 'experienced', 'expert'].map((level, index) => {
+                const levelOrder = { beginner: 0, novice: 1, experienced: 2, expert: 3 };
+                const currentLevelIndex = levelOrder[experienceLevel] ?? 1;
+                const isFilled = index <= currentLevelIndex;
+                return (
+                  <View
+                    key={level}
+                    style={[
+                      styles.experienceBar,
+                      isFilled && styles.experienceBarFilled,
+                    ]}
+                  />
+                );
+              })}
+            </View>
           </View>
           <ChevronRight size={20} color={COLORS.textMuted} />
         </TouchableOpacity>
@@ -687,9 +842,6 @@ const ProfileScreen = () => {
           onPress={openEquipmentModal}
           activeOpacity={0.7}
         >
-          <View style={[styles.menuIcon, { backgroundColor: COLORS.warning + '20' }]}>
-            <Dumbbell size={20} color={COLORS.warning} />
-          </View>
           <View style={styles.menuInfo}>
             <Text style={styles.menuTitle}>{selectedEquipment.length} items selected</Text>
             <Text style={styles.menuSubtitle} numberOfLines={1}>
@@ -702,33 +854,34 @@ const ProfileScreen = () => {
         {/* ACHIEVEMENTS Section */}
         <View style={styles.achievementsHeader}>
           <Text style={styles.sectionLabel}>ACHIEVEMENTS</Text>
-          <Text style={styles.achievementsCount}>0/24 unlocked</Text>
+          <Text style={styles.achievementsCount}>{unlockedAchievements.length}/{achievementDefinitions.length} unlocked</Text>
         </View>
         <View style={styles.achievementsCard}>
           <View style={styles.achievementsGrid}>
             {achievements.map((achievement) => {
               const Icon = achievement.icon;
+              const isUnlocked = achievement.check();
               return (
                 <TouchableOpacity
                   key={achievement.id}
                   style={styles.achievementItem}
-                  onPress={() => showToast(`${achievement.name} - Coming soon!`, 'info')}
+                  onPress={() => setSelectedAchievement(achievement)}
                   activeOpacity={0.7}
                 >
-                  <View style={styles.achievementIcon}>
-                    <Icon size={24} color={COLORS.textMuted} />
+                  <View style={[styles.achievementIcon, isUnlocked && styles.achievementIconUnlocked]}>
+                    <Icon size={24} color={isUnlocked ? COLORS.primary : COLORS.textMuted} />
                   </View>
-                  <Text style={styles.achievementName} numberOfLines={1}>{achievement.name}</Text>
+                  <Text style={[styles.achievementName, isUnlocked && styles.achievementNameUnlocked]} numberOfLines={1}>{achievement.name}</Text>
                 </TouchableOpacity>
               );
             })}
           </View>
           <TouchableOpacity
             style={styles.viewAllBtn}
-            onPress={() => showToast('Achievements coming soon!', 'info')}
+            onPress={() => setShowAchievementsModal(true)}
             activeOpacity={0.7}
           >
-            <Text style={styles.viewAllText}>View All 24 Achievements</Text>
+            <Text style={styles.viewAllText}>View All {achievementDefinitions.length} Achievements</Text>
           </TouchableOpacity>
         </View>
 
@@ -737,9 +890,6 @@ const ProfileScreen = () => {
         <View style={styles.settingsCard}>
           {/* Dark Mode Toggle */}
           <View style={styles.settingsItem}>
-            <View style={[styles.settingsIcon, { backgroundColor: COLORS.primary + '20' }]}>
-              {isDark ? <Moon size={18} color={COLORS.primary} /> : <Sun size={18} color={COLORS.primary} />}
-            </View>
             <View style={styles.settingsLabelContainer}>
               <Text style={styles.settingsLabel}>Dark Mode</Text>
               <Text style={styles.settingsSubLabel}>{isDark ? 'Dark theme active' : 'Light theme active'}</Text>
@@ -754,9 +904,6 @@ const ProfileScreen = () => {
 
           {/* Units */}
           <TouchableOpacity style={styles.settingsItem} onPress={() => setShowUnitsModal(true)} activeOpacity={0.7}>
-            <View style={[styles.settingsIcon, { backgroundColor: COLORS.primary + '20' }]}>
-              <Settings size={18} color={COLORS.primary} />
-            </View>
             <Text style={styles.settingsLabel}>Units</Text>
             <Text style={styles.settingsValue}>{units === 'metric' ? 'Metric (kg)' : 'Imperial (lbs)'}</Text>
             <ChevronRight size={18} color={COLORS.textMuted} />
@@ -764,36 +911,24 @@ const ProfileScreen = () => {
 
           {/* Notifications */}
           <TouchableOpacity style={styles.settingsItem} onPress={() => setShowNotificationsModal(true)} activeOpacity={0.7}>
-            <View style={[styles.settingsIcon, { backgroundColor: COLORS.success + '20' }]}>
-              <Zap size={18} color={COLORS.success} />
-            </View>
             <Text style={styles.settingsLabel}>Notifications</Text>
             <ChevronRight size={18} color={COLORS.textMuted} />
           </TouchableOpacity>
 
           {/* Privacy */}
           <TouchableOpacity style={styles.settingsItem} onPress={() => setShowPrivacyModal(true)} activeOpacity={0.7}>
-            <View style={[styles.settingsIcon, { backgroundColor: COLORS.primary + '20' }]}>
-              <Eye size={18} color={COLORS.primary} />
-            </View>
             <Text style={styles.settingsLabel}>Privacy</Text>
             <ChevronRight size={18} color={COLORS.textMuted} />
           </TouchableOpacity>
 
           {/* Tracking Preferences */}
           <TouchableOpacity style={styles.settingsItem} onPress={() => setShowTrackingModal(true)} activeOpacity={0.7}>
-            <View style={[styles.settingsIcon, { backgroundColor: COLORS.success + '20' }]}>
-              <BarChart3 size={18} color={COLORS.success} />
-            </View>
             <Text style={styles.settingsLabel}>Tracking Preferences</Text>
             <ChevronRight size={18} color={COLORS.textMuted} />
           </TouchableOpacity>
 
           {/* Suggested Rest Timer */}
           <View style={styles.settingsItem}>
-            <View style={[styles.settingsIcon, { backgroundColor: COLORS.warning + '20' }]}>
-              <Timer size={18} color={COLORS.warning} />
-            </View>
             <View style={styles.settingsLabelContainer}>
               <Text style={styles.settingsLabel}>Suggested Rest Timer</Text>
               <Text style={styles.settingsSubLabel}>Show rest timer between sets</Text>
@@ -808,9 +943,6 @@ const ProfileScreen = () => {
 
           {/* Base Lifts */}
           <TouchableOpacity style={styles.settingsItem} onPress={() => setShowBaseLiftsModal(true)} activeOpacity={0.7}>
-            <View style={[styles.settingsIcon, { backgroundColor: COLORS.primary + '20' }]}>
-              <Dumbbell size={18} color={COLORS.primary} />
-            </View>
             <View style={styles.settingsLabelContainer}>
               <Text style={styles.settingsLabel}>Base Lifts</Text>
               <Text style={styles.settingsSubLabel}>{countBaseLifts()} lifts set for weight estimation</Text>
@@ -818,42 +950,25 @@ const ProfileScreen = () => {
             <ChevronRight size={18} color={COLORS.textMuted} />
           </TouchableOpacity>
 
-          {/* Account */}
-          <TouchableOpacity style={[styles.settingsItem, { borderBottomWidth: 0 }]} onPress={() => showToast('Account settings coming soon!', 'info')} activeOpacity={0.7}>
-            <View style={[styles.settingsIcon, { backgroundColor: COLORS.surfaceLight }]}>
-              <User size={18} color={COLORS.textMuted} />
-            </View>
-            <Text style={styles.settingsLabel}>Account</Text>
-            <ChevronRight size={18} color={COLORS.textMuted} />
-          </TouchableOpacity>
         </View>
 
         {/* Support Section */}
         <Text style={styles.sectionLabelLarge}>Support</Text>
         <View style={styles.settingsCard}>
           {/* Help Center */}
-          <TouchableOpacity style={styles.settingsItem} onPress={() => showToast('Help center coming soon!', 'info')} activeOpacity={0.7}>
-            <View style={[styles.settingsIcon, { backgroundColor: 'transparent', borderWidth: 1, borderColor: COLORS.textMuted }]}>
-              <HelpCircle size={18} color={COLORS.textMuted} />
-            </View>
+          <TouchableOpacity style={styles.settingsItem} onPress={() => setShowHelpModal(true)} activeOpacity={0.7}>
             <Text style={styles.settingsLabel}>Help Center</Text>
             <ChevronRight size={18} color={COLORS.textMuted} />
           </TouchableOpacity>
 
           {/* Send Feedback */}
-          <TouchableOpacity style={styles.settingsItem} onPress={() => showToast('Feedback coming soon!', 'info')} activeOpacity={0.7}>
-            <View style={[styles.settingsIcon, { backgroundColor: 'transparent', borderWidth: 1, borderColor: COLORS.textMuted }]}>
-              <MessageSquare size={18} color={COLORS.textMuted} />
-            </View>
+          <TouchableOpacity style={styles.settingsItem} onPress={() => setShowFeedbackModal(true)} activeOpacity={0.7}>
             <Text style={styles.settingsLabel}>Send Feedback</Text>
             <ChevronRight size={18} color={COLORS.textMuted} />
           </TouchableOpacity>
 
           {/* About UpRep */}
-          <TouchableOpacity style={[styles.settingsItem, { borderBottomWidth: 0 }]} onPress={() => showToast('UpRep v5.0.0 - Built with React Native', 'info')} activeOpacity={0.7}>
-            <View style={[styles.settingsIcon, { backgroundColor: 'transparent', borderWidth: 1, borderColor: COLORS.textMuted }]}>
-              <Info size={18} color={COLORS.textMuted} />
-            </View>
+          <TouchableOpacity style={[styles.settingsItem, { borderBottomWidth: 0 }]} onPress={() => setShowAboutModal(true)} activeOpacity={0.7}>
             <Text style={styles.settingsLabel}>About UpRep</Text>
             <Text style={styles.settingsValue}>v5.0.0</Text>
             <ChevronRight size={18} color={COLORS.textMuted} />
@@ -874,12 +989,12 @@ const ProfileScreen = () => {
           </View>
           <View style={styles.storeButtons}>
             <TouchableOpacity style={styles.storeBtn} onPress={() => showToast('App Store link coming soon!', 'info')} activeOpacity={0.7}>
-              <Text style={styles.storeEmoji}>🍎</Text>
-              <Text style={styles.storeBtnText}>App Store</Text>
+              <Smartphone size={18} color={COLORS.text} />
+              <Text style={styles.storeBtnText}>iOS</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.storeBtn} onPress={() => showToast('Google Play link coming soon!', 'info')} activeOpacity={0.7}>
-              <Text style={styles.storeEmoji}>🤖</Text>
-              <Text style={styles.storeBtnText}>Google Play</Text>
+              <Smartphone size={18} color={COLORS.text} />
+              <Text style={styles.storeBtnText}>Android</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1069,6 +1184,283 @@ const ProfileScreen = () => {
         </SafeAreaView>
       </Modal>
 
+      {/* Achievements Modal */}
+      <Modal
+        visible={showAchievementsModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowAchievementsModal(false)}
+      >
+        <SafeAreaView style={[styles.modalContainer, { backgroundColor: COLORS.background }]}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setShowAchievementsModal(false)}>
+              <X size={24} color={COLORS.text} />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Achievements</Text>
+            <View style={{ width: 24 }} />
+          </View>
+
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }}>
+            <Text style={styles.achievementsModalSubtitle}>
+              {unlockedAchievements.length}/{achievementDefinitions.length} unlocked
+            </Text>
+
+            {achievementCategories.map(category => {
+              const categoryAchievements = achievementDefinitions.filter(a => a.category === category);
+              const unlockedInCategory = categoryAchievements.filter(a => a.check()).length;
+              return (
+                <View key={category}>
+                  <View style={styles.achievementCategoryHeader}>
+                    <Text style={styles.achievementCategoryTitle}>{category}</Text>
+                    <Text style={styles.achievementCategoryCount}>{unlockedInCategory}/{categoryAchievements.length}</Text>
+                  </View>
+                  {categoryAchievements.map((achievement) => {
+                    const Icon = achievement.icon;
+                    const isUnlocked = achievement.check();
+                    return (
+                      <TouchableOpacity
+                        key={achievement.id}
+                        style={styles.achievementModalRow}
+                        onPress={() => {
+                          setShowAchievementsModal(false);
+                          setSelectedAchievement(achievement);
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <View style={[styles.achievementModalIcon, isUnlocked && styles.achievementIconUnlocked]}>
+                          <Icon size={24} color={isUnlocked ? COLORS.primary : COLORS.textMuted} />
+                        </View>
+                        <View style={styles.achievementModalInfo}>
+                          <Text style={[styles.achievementModalName, isUnlocked && { color: COLORS.text }]}>
+                            {achievement.name}
+                          </Text>
+                          <Text style={styles.achievementModalDescription}>
+                            {achievement.description}
+                          </Text>
+                        </View>
+                        {isUnlocked && (
+                          <View style={styles.achievementUnlockedBadge}>
+                            <Text style={styles.achievementUnlockedText}>Unlocked</Text>
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              );
+            })}
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
+
+      {/* Single Achievement Detail Modal */}
+      <Modal
+        visible={!!selectedAchievement}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSelectedAchievement(null)}
+      >
+        <View style={styles.achievementDetailOverlay}>
+          <View style={styles.achievementDetailContent}>
+            {selectedAchievement && (() => {
+              const Icon = selectedAchievement.icon;
+              const isUnlocked = selectedAchievement.check();
+              return (
+                <>
+                  <View style={[styles.achievementDetailIcon, isUnlocked && styles.achievementDetailIconUnlocked]}>
+                    <Icon size={40} color={isUnlocked ? COLORS.primary : COLORS.textMuted} />
+                  </View>
+                  <Text style={styles.achievementDetailName}>{selectedAchievement.name}</Text>
+                  <Text style={styles.achievementDetailDescription}>{selectedAchievement.description}</Text>
+                  {isUnlocked ? (
+                    <View style={styles.achievementDetailUnlockedBadge}>
+                      <Text style={styles.achievementDetailUnlockedText}>Unlocked</Text>
+                    </View>
+                  ) : (
+                    <View style={styles.achievementDetailLockedBadge}>
+                      <Text style={styles.achievementDetailLockedText}>Locked</Text>
+                    </View>
+                  )}
+                  <TouchableOpacity
+                    style={styles.achievementDetailCloseBtn}
+                    onPress={() => setSelectedAchievement(null)}
+                  >
+                    <Text style={styles.achievementDetailCloseBtnText}>Close</Text>
+                  </TouchableOpacity>
+                </>
+              );
+            })()}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Feedback Modal */}
+      <Modal
+        visible={showFeedbackModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowFeedbackModal(false)}
+      >
+        <View style={styles.feedbackModalOverlay}>
+          <View style={styles.feedbackModalContent}>
+            <View style={styles.feedbackModalHeader}>
+              <Text style={styles.feedbackModalTitle}>Send Feedback</Text>
+              <TouchableOpacity onPress={() => setShowFeedbackModal(false)}>
+                <X size={24} color={COLORS.text} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.feedbackLabel}>Type</Text>
+            <View style={styles.feedbackTypeRow}>
+              {['suggestion', 'bug', 'other'].map(type => (
+                <TouchableOpacity
+                  key={type}
+                  style={[styles.feedbackTypeBtn, feedbackType === type && styles.feedbackTypeBtnActive]}
+                  onPress={() => setFeedbackType(type)}
+                >
+                  <Text style={[styles.feedbackTypeBtnText, feedbackType === type && styles.feedbackTypeBtnTextActive]}>
+                    {type.charAt(0).toUpperCase() + type.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={styles.feedbackLabel}>Message</Text>
+            <TextInput
+              style={styles.feedbackInput}
+              placeholder="Tell us what's on your mind..."
+              placeholderTextColor={COLORS.textMuted}
+              multiline
+              numberOfLines={5}
+              textAlignVertical="top"
+              value={feedbackMessage}
+              onChangeText={setFeedbackMessage}
+            />
+
+            <TouchableOpacity
+              style={[styles.feedbackSubmitBtn, feedbackSubmitting && { opacity: 0.6 }]}
+              onPress={submitFeedback}
+              disabled={feedbackSubmitting}
+            >
+              <Text style={styles.feedbackSubmitBtnText}>
+                {feedbackSubmitting ? 'Submitting...' : 'Submit Feedback'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Help Center Modal */}
+      <Modal
+        visible={showHelpModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowHelpModal(false)}
+      >
+        <SafeAreaView style={[styles.modalContainer, { backgroundColor: COLORS.background }]}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setShowHelpModal(false)}>
+              <X size={24} color={COLORS.text} />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Help Center</Text>
+            <View style={{ width: 24 }} />
+          </View>
+
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }}>
+            <Text style={styles.helpSectionTitle}>Getting Started</Text>
+            <View style={styles.helpCard}>
+              <Text style={styles.helpQuestion}>How do I start a workout?</Text>
+              <Text style={styles.helpAnswer}>Go to the Workouts tab, select a workout template or create a custom workout, then tap "Start Workout".</Text>
+            </View>
+            <View style={styles.helpCard}>
+              <Text style={styles.helpQuestion}>How do I track my food?</Text>
+              <Text style={styles.helpAnswer}>On the Home screen, tap "Add Meal" to log food with macros, or use "Quick Water" to track hydration.</Text>
+            </View>
+
+            <Text style={styles.helpSectionTitle}>Workouts</Text>
+            <View style={styles.helpCard}>
+              <Text style={styles.helpQuestion}>How do I create a custom workout?</Text>
+              <Text style={styles.helpAnswer}>In the Workouts tab, tap the "+" button to create a new template. Add exercises, set reps and sets, then save.</Text>
+            </View>
+            <View style={styles.helpCard}>
+              <Text style={styles.helpQuestion}>What is a superset?</Text>
+              <Text style={styles.helpAnswer}>A superset is two exercises performed back-to-back with no rest. Tap "Add Superset" when building a workout.</Text>
+            </View>
+            <View style={styles.helpCard}>
+              <Text style={styles.helpQuestion}>How do I see my workout history?</Text>
+              <Text style={styles.helpAnswer}>Go to the Progress tab to see all your past workouts, personal records, and stats.</Text>
+            </View>
+
+            <Text style={styles.helpSectionTitle}>Community</Text>
+            <View style={styles.helpCard}>
+              <Text style={styles.helpQuestion}>How do I follow other users?</Text>
+              <Text style={styles.helpAnswer}>In the Community tab, search for users or browse suggestions. Tap "Follow" on their profile.</Text>
+            </View>
+            <View style={styles.helpCard}>
+              <Text style={styles.helpQuestion}>How do challenges work?</Text>
+              <Text style={styles.helpAnswer}>Join or create challenges in the Community tab. Complete the goal (workouts, volume, etc.) before the deadline to win!</Text>
+            </View>
+
+            <Text style={styles.helpSectionTitle}>Account</Text>
+            <View style={styles.helpCard}>
+              <Text style={styles.helpQuestion}>How do I change my units?</Text>
+              <Text style={styles.helpAnswer}>Go to Profile → Settings → Units to switch between metric (kg) and imperial (lbs).</Text>
+            </View>
+            <View style={styles.helpCard}>
+              <Text style={styles.helpQuestion}>How do I log out?</Text>
+              <Text style={styles.helpAnswer}>Scroll to the bottom of your Profile page and tap "Log Out".</Text>
+            </View>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
+
+      {/* About UpRep Modal */}
+      <Modal
+        visible={showAboutModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowAboutModal(false)}
+      >
+        <SafeAreaView style={[styles.modalContainer, { backgroundColor: COLORS.background }]}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setShowAboutModal(false)}>
+              <X size={24} color={COLORS.text} />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>About UpRep</Text>
+            <View style={{ width: 24 }} />
+          </View>
+
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, alignItems: 'center' }}>
+            <Image source={require('../../assets/logo.png')} style={styles.aboutLogo} resizeMode="contain" />
+            <Text style={styles.aboutAppName}>UpRep</Text>
+            <Text style={styles.aboutVersion}>Version 5.0.0</Text>
+
+            <Text style={styles.aboutDescription}>
+              UpRep is your all-in-one fitness companion. Track workouts, monitor nutrition, set personal records, and connect with a community of fitness enthusiasts.
+            </Text>
+
+            <View style={styles.aboutSection}>
+              <Text style={styles.aboutSectionTitle}>Features</Text>
+              <Text style={styles.aboutFeature}>• Workout tracking with custom templates</Text>
+              <Text style={styles.aboutFeature}>• Personal record tracking</Text>
+              <Text style={styles.aboutFeature}>• Nutrition and macro logging</Text>
+              <Text style={styles.aboutFeature}>• Water intake tracking</Text>
+              <Text style={styles.aboutFeature}>• Progress analytics and charts</Text>
+              <Text style={styles.aboutFeature}>• Social features and challenges</Text>
+              <Text style={styles.aboutFeature}>• 500+ exercise library</Text>
+            </View>
+
+            <View style={styles.aboutSection}>
+              <Text style={styles.aboutSectionTitle}>Built With</Text>
+              <Text style={styles.aboutFeature}>React Native & Expo</Text>
+              <Text style={styles.aboutFeature}>Supabase Backend</Text>
+            </View>
+
+            <Text style={styles.aboutCopyright}>© 2024 UpRep. All rights reserved.</Text>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
+
       {/* Toast */}
       <Toast
         visible={toastVisible}
@@ -1115,6 +1507,11 @@ const getStyles = (COLORS) => StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
+  },
+  avatarFallbackLogo: {
+    width: 60,
+    height: 60,
+    opacity: 0.7,
   },
   avatarPlusBadge: {
     position: 'absolute',
@@ -1242,6 +1639,20 @@ const getStyles = (COLORS) => StyleSheet.create({
     fontSize: 13,
     marginTop: 2,
   },
+  experienceBars: {
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 10,
+  },
+  experienceBar: {
+    flex: 1,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: COLORS.surfaceLight,
+  },
+  experienceBarFilled: {
+    backgroundColor: COLORS.primary,
+  },
   achievementsHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1282,6 +1693,15 @@ const getStyles = (COLORS) => StyleSheet.create({
     fontSize: 10,
     textAlign: 'center',
   },
+  achievementIconUnlocked: {
+    backgroundColor: COLORS.primary + '20',
+    borderWidth: 2,
+    borderColor: COLORS.primary,
+  },
+  achievementNameUnlocked: {
+    color: COLORS.text,
+    fontWeight: '600',
+  },
   viewAllBtn: {
     alignItems: 'center',
     paddingTop: 8,
@@ -1290,6 +1710,296 @@ const getStyles = (COLORS) => StyleSheet.create({
     color: COLORS.primary,
     fontSize: 14,
     fontWeight: '600',
+  },
+  achievementsModalSubtitle: {
+    color: COLORS.textMuted,
+    fontSize: 14,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  achievementCategoryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 16,
+    marginBottom: 12,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.surfaceLight,
+  },
+  achievementCategoryTitle: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  achievementCategoryCount: {
+    color: COLORS.textMuted,
+    fontSize: 13,
+  },
+  achievementModalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  achievementModalIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 12,
+    backgroundColor: COLORS.surfaceLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  achievementModalInfo: {
+    flex: 1,
+  },
+  achievementModalName: {
+    color: COLORS.textMuted,
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  achievementModalDescription: {
+    color: COLORS.textMuted,
+    fontSize: 13,
+  },
+  achievementUnlockedBadge: {
+    backgroundColor: COLORS.success + '20',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  achievementUnlockedText: {
+    color: COLORS.success,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  achievementDetailOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  achievementDetailContent: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 300,
+  },
+  achievementDetailIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 20,
+    backgroundColor: COLORS.surfaceLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  achievementDetailIconUnlocked: {
+    backgroundColor: COLORS.primary + '20',
+    borderWidth: 3,
+    borderColor: COLORS.primary,
+  },
+  achievementDetailName: {
+    color: COLORS.text,
+    fontSize: 20,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  achievementDetailDescription: {
+    color: COLORS.textMuted,
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  achievementDetailUnlockedBadge: {
+    backgroundColor: COLORS.success + '20',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 12,
+    marginBottom: 20,
+  },
+  achievementDetailUnlockedText: {
+    color: COLORS.success,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  achievementDetailLockedBadge: {
+    backgroundColor: COLORS.textMuted + '20',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 12,
+    marginBottom: 20,
+  },
+  achievementDetailLockedText: {
+    color: COLORS.textMuted,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  achievementDetailCloseBtn: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  achievementDetailCloseBtnText: {
+    color: COLORS.textOnPrimary,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  feedbackModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  feedbackModalContent: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    padding: 20,
+    width: '100%',
+    maxWidth: 400,
+  },
+  feedbackModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  feedbackModalTitle: {
+    color: COLORS.text,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  feedbackLabel: {
+    color: COLORS.textMuted,
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  feedbackTypeRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+  },
+  feedbackTypeBtn: {
+    flex: 1,
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  feedbackTypeBtnActive: {
+    backgroundColor: COLORS.primary,
+  },
+  feedbackTypeBtnText: {
+    color: COLORS.textMuted,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  feedbackTypeBtnTextActive: {
+    color: COLORS.textOnPrimary,
+  },
+  feedbackInput: {
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 12,
+    padding: 14,
+    color: COLORS.text,
+    fontSize: 15,
+    minHeight: 120,
+    marginBottom: 16,
+  },
+  feedbackSubmitBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  feedbackSubmitBtnText: {
+    color: COLORS.textOnPrimary,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  helpSectionTitle: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '700',
+    marginTop: 16,
+    marginBottom: 12,
+  },
+  helpCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  helpQuestion: {
+    color: COLORS.text,
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  helpAnswer: {
+    color: COLORS.textMuted,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  aboutLogo: {
+    width: 80,
+    height: 80,
+    marginTop: 20,
+    marginBottom: 16,
+  },
+  aboutAppName: {
+    color: COLORS.text,
+    fontSize: 28,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  aboutVersion: {
+    color: COLORS.textMuted,
+    fontSize: 14,
+    marginBottom: 24,
+  },
+  aboutDescription: {
+    color: COLORS.textSecondary,
+    fontSize: 15,
+    lineHeight: 22,
+    textAlign: 'center',
+    paddingHorizontal: 20,
+    marginBottom: 24,
+  },
+  aboutSection: {
+    width: '100%',
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  aboutSectionTitle: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  aboutFeature: {
+    color: COLORS.textMuted,
+    fontSize: 14,
+    marginBottom: 6,
+  },
+  aboutCopyright: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    marginTop: 16,
+    marginBottom: 32,
   },
   settingsCard: {
     backgroundColor: COLORS.surface,

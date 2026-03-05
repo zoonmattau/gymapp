@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Play, X } from 'lucide-react-native';
+import { X } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useColors } from '../contexts/ThemeContext';
 import { useActiveWorkout } from '../contexts/ActiveWorkoutContext';
@@ -66,7 +66,7 @@ const WorkoutBanner = () => {
     clearBackgroundWorkout();
   };
 
-  const styles = getStyles(COLORS, isNudge);
+  const styles = getStyles(COLORS);
 
   return (
     <>
@@ -76,7 +76,6 @@ const WorkoutBanner = () => {
             <Text style={styles.nudgeText}>Still training?</Text>
             <View style={styles.nudgeButtons}>
               <TouchableOpacity style={styles.resumeButton} onPress={handleResume}>
-                <Play size={14} color={COLORS.textOnPrimary} />
                 <Text style={styles.resumeButtonText}>Resume</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.endButton} onPress={handleEnd}>
@@ -111,12 +110,12 @@ const WorkoutBanner = () => {
   );
 };
 
-const getStyles = (COLORS, isNudge) => StyleSheet.create({
+const getStyles = (COLORS) => StyleSheet.create({
   banner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: isNudge ? '#D97706' : COLORS.primary,
+    backgroundColor: COLORS.primary,
     paddingHorizontal: 16,
     paddingVertical: 10,
   },
@@ -149,9 +148,6 @@ const getStyles = (COLORS, isNudge) => StyleSheet.create({
     gap: 8,
   },
   resumeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
     backgroundColor: 'rgba(255,255,255,0.2)',
     paddingHorizontal: 12,
     paddingVertical: 6,

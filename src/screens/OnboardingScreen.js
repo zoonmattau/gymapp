@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Dimensions,
   Alert,
   Platform,
+  Image,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -27,6 +28,7 @@ import {
   Scale,
   ChevronDown,
   ChevronUp,
+  Info,
 } from 'lucide-react-native';
 import { COLORS } from '../constants/colors';
 import { useColors } from '../contexts/ThemeContext';
@@ -36,6 +38,7 @@ import { WORKOUT_TEMPLATES } from '../constants/workoutTemplates';
 import { useAuth } from '../contexts/AuthContext';
 import { profileService } from '../services/profileService';
 import { workoutService } from '../services/workoutService';
+import DetailedAnatomy from '../components/DetailedAnatomy';
 
 const { width } = Dimensions.get('window');
 
@@ -126,14 +129,14 @@ const EXPERIENCE_OPTIONS = Object.values(EXPERIENCE_LEVELS).map(level => ({
 
 
 const EQUIPMENT = [
-  { id: 'dumbbells', name: 'Dumbbells', icon: '🏋️' },
-  { id: 'barbells', name: 'Barbells', icon: '🏋️‍♂️' },
-  { id: 'cables', name: 'Cable Machine', icon: '🔗' },
-  { id: 'kettlebells', name: 'Kettlebells', icon: '🔔' },
-  { id: 'bands', name: 'Resistance Bands', icon: '🎗️' },
-  { id: 'smith', name: 'Smith Machine', icon: '🔧' },
-  { id: 'pullup_bar', name: 'Pull-up Bar', icon: '📊' },
-  { id: 'bench', name: 'Adjustable Bench', icon: '🛋️' },
+  { id: 'dumbbells', name: 'Dumbbells' },
+  { id: 'barbells', name: 'Barbells' },
+  { id: 'cables', name: 'Cable Machine' },
+  { id: 'kettlebells', name: 'Kettlebells' },
+  { id: 'bands', name: 'Resistance Bands' },
+  { id: 'smith', name: 'Smith Machine' },
+  { id: 'pullup_bar', name: 'Pull-up Bar' },
+  { id: 'bench', name: 'Adjustable Bench' },
 ];
 
 const OnboardingScreen = ({ navigation }) => {
@@ -142,6 +145,10 @@ const OnboardingScreen = ({ navigation }) => {
   const { user, refreshProfile, signOut } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [saving, setSaving] = useState(false);
+  const [showExpInfo, setShowExpInfo] = useState(false);
+  const sleepSliderRef = useRef(null);
+  const sleepSliderWidth = useRef(0);
+  const isDragging = useRef(false);
 
   // Form data
   const [formData, setFormData] = useState({
@@ -193,6 +200,18 @@ const OnboardingScreen = ({ navigation }) => {
       }
     });
   };
+
+  const handleSleepSliderTouch = useCallback((e) => {
+    if (!sleepSliderRef.current) return;
+    sleepSliderRef.current.measure((x, y, width) => {
+      const touch = e.nativeEvent.locationX ?? e.nativeEvent.touches?.[0]?.locationX;
+      if (touch != null && width > 0) {
+        const ratio = Math.max(0, Math.min(1, touch / width));
+        const hours = Math.round(5 + ratio * 7);
+        updateForm('sleepGoal', Math.min(12, Math.max(5, hours)));
+      }
+    });
+  }, []);
 
   const canProceed = () => {
     switch (currentStep) {
@@ -332,7 +351,7 @@ const OnboardingScreen = ({ navigation }) => {
       if (formData.gender) updateData.gender = formData.gender;
       if (formData.bio) updateData.bio = formData.bio;
       if (formData.currentWeight) updateData.current_weight = parseFloat(formData.currentWeight);
-      if (formData.goalWeight) updateData.goal_weight = parseFloat(formData.goalWeight);
+      if (formData.goalWeight) updateData.target_weight = parseFloat(formData.goalWeight);
       if (formData.weightUnit) updateData.weight_unit = formData.weightUnit;
       if (formData.experienceLevel) updateData.experience_level = formData.experienceLevel;
       if (formData.goal) updateData.fitness_goal = formData.goal;
@@ -401,7 +420,9 @@ const OnboardingScreen = ({ navigation }) => {
   const renderProgressBar = () => (
     <View style={styles.progressContainer}>
       <View style={styles.progressHeader}>
-        <View style={{ width: 80 }} />
+        <View style={styles.logoWrapper}>
+          <Image source={require('../../assets/logo.png')} style={styles.logo} resizeMode="contain" />
+        </View>
         <Text style={styles.progressText}>Step {currentStep} of 7</Text>
         <TouchableOpacity onPress={handleSignOut} style={styles.signOutButton}>
           <Text style={styles.signOutText}>Sign Out</Text>
@@ -416,7 +437,6 @@ const OnboardingScreen = ({ navigation }) => {
   const renderStep1 = () => (
     <View style={styles.stepContent}>
       <View style={styles.stepHeader}>
-        <User size={40} color={COLORS.primary} />
         <Text style={styles.stepTitle}>Create Your Profile</Text>
         <Text style={styles.stepSubtitle}>Choose a username your friends will see</Text>
       </View>
@@ -477,7 +497,6 @@ const OnboardingScreen = ({ navigation }) => {
   const renderStep2 = () => (
     <View style={styles.stepContent}>
       <View style={styles.stepHeader}>
-        <Target size={40} color={COLORS.primary} />
         <Text style={styles.stepTitle}>What's Your Goal?</Text>
         <Text style={styles.stepSubtitle}>This helps us customize your program</Text>
       </View>
@@ -491,12 +510,13 @@ const OnboardingScreen = ({ navigation }) => {
           return (
             <View key={goal.id}>
               <TouchableOpacity
-                style={[styles.goalCard, isSelected && styles.goalCardSelected]}
+                style={[
+                  styles.goalCard,
+                  { borderLeftColor: goal.color },
+                  isSelected && { borderColor: goal.color, backgroundColor: goal.color + '15' }
+                ]}
                 onPress={() => updateForm('goal', goal.id)}
               >
-                <View style={[styles.goalIcon, { backgroundColor: goal.color + '20' }]}>
-                  <Icon size={24} color={goal.color} />
-                </View>
                 <View style={styles.goalInfo}>
                   <Text style={styles.goalTitle}>{goal.title}</Text>
                   <Text style={styles.goalSubtitle}>{goal.subtitle}</Text>
@@ -537,7 +557,6 @@ const OnboardingScreen = ({ navigation }) => {
   const renderStep3 = () => (
     <View style={styles.stepContent}>
       <View style={styles.stepHeader}>
-        <Scale size={40} color={COLORS.primary} />
         <Text style={styles.stepTitle}>Weight Goals</Text>
         <Text style={styles.stepSubtitle}>Where are you now and where do you want to be?</Text>
       </View>
@@ -546,7 +565,7 @@ const OnboardingScreen = ({ navigation }) => {
         <Text style={styles.inputLabel}>Current Weight ({formData.weightUnit})</Text>
         <TextInput
           style={styles.input}
-          placeholder="e.g., 75"
+          placeholder="75.5"
           placeholderTextColor={COLORS.textMuted}
           value={formData.currentWeight}
           onChangeText={(v) => updateForm('currentWeight', v)}
@@ -556,12 +575,53 @@ const OnboardingScreen = ({ navigation }) => {
         <Text style={styles.inputLabel}>Goal Weight ({formData.weightUnit})</Text>
         <TextInput
           style={styles.input}
-          placeholder="e.g., 80"
+          placeholder="80.5"
           placeholderTextColor={COLORS.textMuted}
           value={formData.goalWeight}
           onChangeText={(v) => updateForm('goalWeight', v)}
           keyboardType="numeric"
         />
+
+        {(() => {
+          const current = parseFloat(formData.currentWeight) || 75.5;
+          const goal = parseFloat(formData.goalWeight) || 80.5;
+          const diff = Math.abs(goal - current);
+          const isGaining = goal > current;
+          const isExample = !formData.currentWeight || !formData.goalWeight;
+          // Safe rate: ~0.5-1 kg/week for loss, ~0.5 kg/week for gain
+          const weeklyRate = formData.weightUnit === 'kg'
+            ? (isGaining ? 0.5 : 0.75)
+            : (isGaining ? 1.0 : 1.5);
+          const weeks = Math.ceil(diff / weeklyRate);
+          // Muscle estimate: ~80% of weight gain, Fat loss: ~95% of weight loss
+          const muscleGain = isGaining ? (diff * 0.8).toFixed(1) : null;
+          const fatLoss = !isGaining ? (diff * 0.95).toFixed(1) : null;
+
+          return (
+            <View style={[styles.weightDiff, isExample && { opacity: 0.6 }]}>
+              <Text style={styles.weightDiffText}>
+                {diff.toFixed(1)} {formData.weightUnit} {isGaining ? 'to gain' : 'to lose'}
+              </Text>
+              {diff > 0 && (
+                <>
+                  <Text style={styles.weightDiffSubtext}>
+                    ~{weeklyRate} {formData.weightUnit}/week • ~{weeks} {weeks === 1 ? 'week' : 'weeks'}
+                  </Text>
+                  {isGaining && (
+                    <Text style={styles.weightDiffSubtext}>
+                      Est. muscle gain: ~{muscleGain} {formData.weightUnit}
+                    </Text>
+                  )}
+                  {!isGaining && (
+                    <Text style={styles.weightDiffSubtext}>
+                      Est. fat loss: ~{fatLoss} {formData.weightUnit}
+                    </Text>
+                  )}
+                </>
+              )}
+            </View>
+          );
+        })()}
 
         <View style={styles.unitToggle}>
           <TouchableOpacity
@@ -577,16 +637,6 @@ const OnboardingScreen = ({ navigation }) => {
             <Text style={[styles.unitText, formData.weightUnit === 'lbs' && styles.unitTextActive]}>lbs</Text>
           </TouchableOpacity>
         </View>
-
-        {formData.currentWeight && formData.goalWeight && (
-          <View style={styles.weightDiff}>
-            <Text style={styles.weightDiffText}>
-              {parseFloat(formData.goalWeight) > parseFloat(formData.currentWeight) ? '📈' : '📉'}{' '}
-              {Math.abs(parseFloat(formData.goalWeight) - parseFloat(formData.currentWeight)).toFixed(1)} {formData.weightUnit}{' '}
-              {parseFloat(formData.goalWeight) > parseFloat(formData.currentWeight) ? 'to gain' : 'to lose'}
-            </Text>
-          </View>
-        )}
       </View>
     </View>
   );
@@ -594,9 +644,20 @@ const OnboardingScreen = ({ navigation }) => {
   const renderStep4 = () => (
     <View style={styles.stepContent}>
       <View style={styles.stepHeader}>
-        <Dumbbell size={40} color={COLORS.primary} />
         <Text style={styles.stepTitle}>Experience Level</Text>
-        <Text style={styles.stepSubtitle}>How long have you been training?</Text>
+        <View style={styles.subtitleRow}>
+          <Text style={styles.stepSubtitle}>How long have you been training?</Text>
+          <TouchableOpacity onPress={() => setShowExpInfo(!showExpInfo)} style={styles.infoButton}>
+            <Info size={16} color={COLORS.textMuted} />
+          </TouchableOpacity>
+        </View>
+        {showExpInfo && (
+          <View style={styles.infoTooltip}>
+            <Text style={styles.infoTooltipText}>
+              UpRep uses your experience level to customize workout intensity, volume, and exercise selection.
+            </Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.experienceContainer}>
@@ -630,7 +691,6 @@ const OnboardingScreen = ({ navigation }) => {
   const renderStep5 = () => (
     <View style={styles.stepContent}>
       <View style={styles.stepHeader}>
-        <TrendingUp size={40} color={COLORS.primary} />
         <Text style={styles.stepTitle}>What Can You Lift?</Text>
         <Text style={styles.stepSubtitle}>Enter weights for exercises you do (optional)</Text>
       </View>
@@ -638,93 +698,105 @@ const OnboardingScreen = ({ navigation }) => {
       <View style={styles.formSection}>
         <Text style={styles.liftSectionLabel}>PUSH</Text>
         {[
-          { id: 'bench', name: 'Bench Press' },
-          { id: 'dbPress', name: 'Dumbbell Press' },
-          { id: 'ohp', name: 'Overhead Press' },
+          { id: 'bench', name: 'Bench Press', muscle: 'Chest', view: 'front' },
+          { id: 'dbPress', name: 'Dumbbell Press', muscle: 'Chest', view: 'front' },
         ].map((lift) => (
           <View key={lift.id} style={styles.liftRow}>
-            <Text style={styles.liftLabel}>{lift.name}</Text>
-            <View style={styles.liftInputContainer}>
-              <TextInput
-                style={styles.liftInput}
-                placeholder="0"
-                placeholderTextColor={COLORS.textMuted}
-                value={formData.lifts[lift.id] || ''}
-                onChangeText={(v) => updateLift(lift.id, v.replace(/[^0-9]/g, ''))}
-                keyboardType="numeric"
-              />
-              <Text style={styles.liftUnit}>{formData.weightUnit} x</Text>
-              <TextInput
-                style={styles.liftInput}
-                placeholder="0"
-                placeholderTextColor={COLORS.textMuted}
-                value={formData.lifts[lift.id + '_reps'] || ''}
-                onChangeText={(v) => updateLift(lift.id + '_reps', v.replace(/[^0-9]/g, ''))}
-                keyboardType="numeric"
-              />
-              <Text style={styles.liftUnit}>reps</Text>
+            <View style={styles.liftContent}>
+              <Text style={styles.liftLabel}>{lift.name}</Text>
+              <View style={styles.liftInputContainer}>
+                <TextInput
+                  style={styles.liftInput}
+                  placeholder="0"
+                  placeholderTextColor={COLORS.textMuted}
+                  value={formData.lifts[lift.id] || ''}
+                  onChangeText={(v) => updateLift(lift.id, v.replace(/[^0-9]/g, ''))}
+                  keyboardType="numeric"
+                />
+                <Text style={styles.liftUnit}>{formData.weightUnit} x</Text>
+                <TextInput
+                  style={styles.liftInput}
+                  placeholder="0"
+                  placeholderTextColor={COLORS.textMuted}
+                  value={formData.lifts[lift.id + '_reps'] || ''}
+                  onChangeText={(v) => updateLift(lift.id + '_reps', v.replace(/[^0-9]/g, ''))}
+                  keyboardType="numeric"
+                />
+                <Text style={styles.liftUnit}>reps</Text>
+              </View>
+            </View>
+            <View style={styles.liftAnatomy}>
+              <DetailedAnatomy view={lift.view} primaryMuscle={lift.muscle} width={40} />
             </View>
           </View>
         ))}
 
         <Text style={styles.liftSectionLabel}>PULL</Text>
         {[
-          { id: 'deadlift', name: 'Deadlift' },
-          { id: 'row', name: 'Barbell Row' },
-          { id: 'pullup', name: 'Pull-up / Lat Pulldown' },
+          { id: 'deadlift', name: 'Deadlift', muscle: 'Back', view: 'back' },
+          { id: 'row', name: 'Barbell Row', muscle: 'Back', view: 'back' },
         ].map((lift) => (
           <View key={lift.id} style={styles.liftRow}>
-            <Text style={styles.liftLabel}>{lift.name}</Text>
-            <View style={styles.liftInputContainer}>
-              <TextInput
-                style={styles.liftInput}
-                placeholder="0"
-                placeholderTextColor={COLORS.textMuted}
-                value={formData.lifts[lift.id] || ''}
-                onChangeText={(v) => updateLift(lift.id, v.replace(/[^0-9]/g, ''))}
-                keyboardType="numeric"
-              />
-              <Text style={styles.liftUnit}>{formData.weightUnit} x</Text>
-              <TextInput
-                style={styles.liftInput}
-                placeholder="0"
-                placeholderTextColor={COLORS.textMuted}
-                value={formData.lifts[lift.id + '_reps'] || ''}
-                onChangeText={(v) => updateLift(lift.id + '_reps', v.replace(/[^0-9]/g, ''))}
-                keyboardType="numeric"
-              />
-              <Text style={styles.liftUnit}>reps</Text>
+            <View style={styles.liftContent}>
+              <Text style={styles.liftLabel}>{lift.name}</Text>
+              <View style={styles.liftInputContainer}>
+                <TextInput
+                  style={styles.liftInput}
+                  placeholder="0"
+                  placeholderTextColor={COLORS.textMuted}
+                  value={formData.lifts[lift.id] || ''}
+                  onChangeText={(v) => updateLift(lift.id, v.replace(/[^0-9]/g, ''))}
+                  keyboardType="numeric"
+                />
+                <Text style={styles.liftUnit}>{formData.weightUnit} x</Text>
+                <TextInput
+                  style={styles.liftInput}
+                  placeholder="0"
+                  placeholderTextColor={COLORS.textMuted}
+                  value={formData.lifts[lift.id + '_reps'] || ''}
+                  onChangeText={(v) => updateLift(lift.id + '_reps', v.replace(/[^0-9]/g, ''))}
+                  keyboardType="numeric"
+                />
+                <Text style={styles.liftUnit}>reps</Text>
+              </View>
+            </View>
+            <View style={styles.liftAnatomy}>
+              <DetailedAnatomy view={lift.view} primaryMuscle={lift.muscle} width={40} />
             </View>
           </View>
         ))}
 
         <Text style={styles.liftSectionLabel}>LEGS</Text>
         {[
-          { id: 'squat', name: 'Squat' },
-          { id: 'legPress', name: 'Leg Press' },
-          { id: 'rdl', name: 'Romanian Deadlift' },
+          { id: 'squat', name: 'Squat', muscle: 'Quads', view: 'front' },
+          { id: 'legPress', name: 'Leg Press', muscle: 'Quads', view: 'front' },
         ].map((lift) => (
           <View key={lift.id} style={styles.liftRow}>
-            <Text style={styles.liftLabel}>{lift.name}</Text>
-            <View style={styles.liftInputContainer}>
-              <TextInput
-                style={styles.liftInput}
-                placeholder="0"
-                placeholderTextColor={COLORS.textMuted}
-                value={formData.lifts[lift.id] || ''}
-                onChangeText={(v) => updateLift(lift.id, v.replace(/[^0-9]/g, ''))}
-                keyboardType="numeric"
-              />
-              <Text style={styles.liftUnit}>{formData.weightUnit} x</Text>
-              <TextInput
-                style={styles.liftInput}
-                placeholder="0"
-                placeholderTextColor={COLORS.textMuted}
-                value={formData.lifts[lift.id + '_reps'] || ''}
-                onChangeText={(v) => updateLift(lift.id + '_reps', v.replace(/[^0-9]/g, ''))}
-                keyboardType="numeric"
-              />
-              <Text style={styles.liftUnit}>reps</Text>
+            <View style={styles.liftContent}>
+              <Text style={styles.liftLabel}>{lift.name}</Text>
+              <View style={styles.liftInputContainer}>
+                <TextInput
+                  style={styles.liftInput}
+                  placeholder="0"
+                  placeholderTextColor={COLORS.textMuted}
+                  value={formData.lifts[lift.id] || ''}
+                  onChangeText={(v) => updateLift(lift.id, v.replace(/[^0-9]/g, ''))}
+                  keyboardType="numeric"
+                />
+                <Text style={styles.liftUnit}>{formData.weightUnit} x</Text>
+                <TextInput
+                  style={styles.liftInput}
+                  placeholder="0"
+                  placeholderTextColor={COLORS.textMuted}
+                  value={formData.lifts[lift.id + '_reps'] || ''}
+                  onChangeText={(v) => updateLift(lift.id + '_reps', v.replace(/[^0-9]/g, ''))}
+                  keyboardType="numeric"
+                />
+                <Text style={styles.liftUnit}>reps</Text>
+              </View>
+            </View>
+            <View style={styles.liftAnatomy}>
+              <DetailedAnatomy view={lift.view} primaryMuscle={lift.muscle} width={40} />
             </View>
           </View>
         ))}
@@ -741,7 +813,6 @@ const OnboardingScreen = ({ navigation }) => {
   const renderStep6 = () => (
     <View style={styles.stepContent}>
       <View style={styles.stepHeader}>
-        <Dumbbell size={40} color={COLORS.primary} />
         <Text style={styles.stepTitle}>Available Equipment</Text>
         <Text style={styles.stepSubtitle}>Select all that you have access to</Text>
       </View>
@@ -755,7 +826,6 @@ const OnboardingScreen = ({ navigation }) => {
               style={[styles.equipmentCard, isSelected && styles.equipmentCardSelected]}
               onPress={() => toggleEquipment(item.id)}
             >
-              <Text style={styles.equipmentIcon}>{item.icon}</Text>
               <Text style={[styles.equipmentName, isSelected && styles.equipmentNameSelected]}>
                 {item.name}
               </Text>
@@ -774,7 +844,6 @@ const OnboardingScreen = ({ navigation }) => {
   const renderStep7 = () => (
     <View style={styles.stepContent}>
       <View style={styles.stepHeader}>
-        <Moon size={40} color={COLORS.sleep} />
         <Text style={styles.stepTitle}>Sleep Goal</Text>
         <Text style={styles.stepSubtitle}>Recovery is essential for progress</Text>
       </View>
@@ -785,23 +854,56 @@ const OnboardingScreen = ({ navigation }) => {
           <Text style={styles.sleepUnit}>hours/night</Text>
         </View>
 
-        <View style={styles.sleepPresets}>
-          {[6, 7, 7.5, 8, 9].map((hours) => (
-            <TouchableOpacity
-              key={hours}
-              style={[styles.sleepPreset, formData.sleepGoal === hours && styles.sleepPresetActive]}
-              onPress={() => updateForm('sleepGoal', hours)}
-            >
-              <Text style={[styles.sleepPresetText, formData.sleepGoal === hours && styles.sleepPresetTextActive]}>
-                {hours}h
-              </Text>
-            </TouchableOpacity>
-          ))}
+        <View
+          style={styles.sleepSliderContainer}
+          ref={sleepSliderRef}
+          onLayout={(e) => { sleepSliderWidth.current = e.nativeEvent.layout.width; }}
+          onStartShouldSetResponder={() => true}
+          onMoveShouldSetResponder={() => true}
+          onResponderGrant={(e) => {
+            const touch = e.nativeEvent.locationX;
+            if (touch != null && sleepSliderWidth.current > 0) {
+              const ratio = Math.max(0, Math.min(1, touch / sleepSliderWidth.current));
+              const hours = Math.round((5 + ratio * 7) * 2) / 2; // Round to nearest 0.5
+              setFormData(prev => ({ ...prev, sleepGoal: Math.min(12, Math.max(5, hours)) }));
+            }
+          }}
+          onResponderMove={(e) => {
+            const touch = e.nativeEvent.locationX;
+            if (touch != null && sleepSliderWidth.current > 0) {
+              const ratio = Math.max(0, Math.min(1, touch / sleepSliderWidth.current));
+              const hours = Math.round((5 + ratio * 7) * 2) / 2; // Round to nearest 0.5
+              setFormData(prev => ({ ...prev, sleepGoal: Math.min(12, Math.max(5, hours)) }));
+            }
+          }}
+        >
+          <View style={styles.sleepSliderTrack} />
+          <View style={[
+            styles.sleepSliderFill,
+            { width: `${((formData.sleepGoal - 5) / 7) * 100}%` },
+          ]} />
+          <View style={[
+            styles.sleepSliderThumb,
+            { left: `${((formData.sleepGoal - 5) / 7) * 100}%` },
+          ]} />
+          <View style={styles.sleepSliderTicks}>
+            {[5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10, 10.5, 11, 11.5, 12].map((h) => (
+              <View key={h} style={[
+                styles.sleepSliderTick,
+                h % 1 === 0 && styles.sleepSliderTickMajor,
+                h <= formData.sleepGoal && styles.sleepSliderTickActive
+              ]} />
+            ))}
+          </View>
+        </View>
+        <View style={styles.sleepSliderLabels}>
+          <Text style={styles.sleepSliderLabel}>5h</Text>
+          <Text style={styles.sleepSliderLabel}>12h</Text>
         </View>
 
         <View style={styles.sleepInfo}>
           <Text style={styles.sleepInfoText}>
-            💤 Most adults need 7-9 hours of sleep for optimal recovery and muscle growth.
+            Most adults need 7-9 hours of sleep for optimal recovery and muscle growth.
           </Text>
         </View>
       </View>
@@ -871,6 +973,14 @@ const getStyles = (COLORS) => StyleSheet.create({
     display: 'flex',
     flexDirection: 'column',
   },
+  logoWrapper: {
+    width: 80,
+    alignItems: 'flex-start',
+  },
+  logo: {
+    width: 40,
+    height: 40,
+  },
   progressContainer: {
     paddingHorizontal: 20,
     paddingTop: 16,
@@ -932,6 +1042,34 @@ const getStyles = (COLORS) => StyleSheet.create({
     fontSize: 14,
     marginTop: 8,
     textAlign: 'center',
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  subtitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    marginTop: 8,
+  },
+  infoButton: {
+    padding: 4,
+  },
+  infoTooltip: {
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 12,
+    marginHorizontal: 16,
+  },
+  infoTooltipText: {
+    color: COLORS.textMuted,
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 18,
   },
   formSection: {
     gap: 16,
@@ -1012,18 +1150,12 @@ const getStyles = (COLORS) => StyleSheet.create({
     alignItems: 'center',
     borderWidth: 2,
     borderColor: 'transparent',
+    borderLeftWidth: 4,
+    borderLeftColor: 'transparent',
   },
   goalCardSelected: {
     borderColor: COLORS.primary,
     backgroundColor: COLORS.primary + '10',
-  },
-  goalIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
   },
   goalInfo: {
     flex: 1,
@@ -1050,10 +1182,10 @@ const getStyles = (COLORS) => StyleSheet.create({
     padding: 4,
   },
   goalExpanded: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.surfaceLight,
     borderRadius: 12,
     padding: 16,
-    marginTop: -8,
+    marginTop: 12,
     marginBottom: 4,
     borderLeftWidth: 3,
   },
@@ -1110,6 +1242,11 @@ const getStyles = (COLORS) => StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  weightDiffSubtext: {
+    color: COLORS.textMuted,
+    fontSize: 13,
+    marginTop: 4,
+  },
   // Experience
   experienceContainer: {
     gap: 12,
@@ -1157,9 +1294,9 @@ const getStyles = (COLORS) => StyleSheet.create({
   // Skip button (in nav area)
   skipStepButton: {
     alignSelf: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    marginBottom: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    marginBottom: 2,
   },
   skipStepButtonText: {
     color: COLORS.primary,
@@ -1173,14 +1310,25 @@ const getStyles = (COLORS) => StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.5,
     marginTop: 12,
-    marginBottom: 8,
+    marginBottom: 4,
   },
   liftRow: {
-    flexDirection: 'column',
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: COLORS.surface,
     borderRadius: 12,
-    padding: 12,
+    padding: 10,
     marginBottom: 8,
+  },
+  liftContent: {
+    flex: 1,
+    paddingLeft: 4,
+  },
+  liftAnatomy: {
+    width: 56,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    paddingLeft: 8,
   },
   liftLabel: {
     color: COLORS.text,
@@ -1270,7 +1418,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     marginBottom: 24,
   },
   sleepValue: {
-    color: COLORS.sleep,
+    color: COLORS.primary,
     fontSize: 64,
     fontWeight: 'bold',
   },
@@ -1278,30 +1426,78 @@ const getStyles = (COLORS) => StyleSheet.create({
     color: COLORS.textMuted,
     fontSize: 16,
   },
-  sleepPresets: {
+  sleepSliderContainer: {
+    width: '100%',
+    height: 40,
+    justifyContent: 'center',
+    position: 'relative',
+    marginBottom: 8,
+    ...(Platform.OS === 'web' ? { cursor: 'pointer', userSelect: 'none' } : {}),
+  },
+  sleepSliderTrack: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 8,
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 4,
+    pointerEvents: 'none',
+  },
+  sleepSliderFill: {
+    position: 'absolute',
+    left: 0,
+    height: 8,
+    backgroundColor: COLORS.primary,
+    borderRadius: 4,
+    pointerEvents: 'none',
+  },
+  sleepSliderThumb: {
+    position: 'absolute',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: COLORS.primary,
+    marginLeft: -12,
+    top: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+    pointerEvents: 'none',
+  },
+  sleepSliderTicks: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
     flexDirection: 'row',
-    gap: 12,
+    justifyContent: 'space-between',
+    paddingHorizontal: 0,
+    pointerEvents: 'none',
+  },
+  sleepSliderTick: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: COLORS.surfaceLight,
+  },
+  sleepSliderTickMajor: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+  },
+  sleepSliderTickActive: {
+    backgroundColor: COLORS.primary + '60',
+  },
+  sleepSliderLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
     marginBottom: 24,
   },
-  sleepPreset: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  sleepPresetActive: {
-    borderColor: COLORS.sleep,
-    backgroundColor: COLORS.sleep + '15',
-  },
-  sleepPresetText: {
+  sleepSliderLabel: {
     color: COLORS.textMuted,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  sleepPresetTextActive: {
-    color: COLORS.sleep,
+    fontSize: 12,
   },
   sleepInfo: {
     backgroundColor: COLORS.surface,
@@ -1320,13 +1516,14 @@ const getStyles = (COLORS) => StyleSheet.create({
     backgroundColor: COLORS.background,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
-    paddingBottom: 20,
+    paddingTop: 4,
+    paddingBottom: 8,
     flexShrink: 0,
   },
   navButtons: {
     flexDirection: 'row',
     paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingTop: 4,
     paddingBottom: 8,
     gap: 12,
   },

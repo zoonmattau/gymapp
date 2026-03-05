@@ -31,7 +31,23 @@ const EditProfileScreen = () => {
   const [lastName, setLastName] = useState('');
   const [username, setUsername] = useState('');
   const [bio, setBio] = useState('');
+  const [email, setEmail] = useState('');
+  const [targetWeight, setTargetWeight] = useState('');
+  const [weightUnit, setWeightUnit] = useState('kg');
+  const [fitnessGoal, setFitnessGoal] = useState('');
   const [saving, setSaving] = useState(false);
+
+  const FITNESS_GOALS = [
+    { id: 'bulk', label: 'Mass Building (Bulk)' },
+    { id: 'bodybuilding', label: 'Classic Bodybuilding' },
+    { id: 'build_muscle', label: 'Lean Muscle Building' },
+    { id: 'strength', label: 'Strength & Power' },
+    { id: 'recomp', label: 'Body Recomposition' },
+    { id: 'fitness', label: 'General Fitness' },
+    { id: 'athletic', label: 'Athletic Performance' },
+    { id: 'lean', label: 'Getting Lean (Cut)' },
+    { id: 'lose_fat', label: 'Fat Loss' },
+  ];
 
   // Toast
   const [toastVisible, setToastVisible] = useState(false);
@@ -123,8 +139,20 @@ const EditProfileScreen = () => {
       setLastName(profile.last_name || '');
       setUsername(profile.username || '');
       setBio(profile.bio || '');
+      setWeightUnit(profile.weight_unit || 'kg');
+      setFitnessGoal(profile.fitness_goal || '');
+      if (profile.target_weight) {
+        const unit = profile.weight_unit || 'kg';
+        const displayWeight = unit === 'lbs'
+          ? (profile.target_weight * 2.205).toFixed(0)
+          : profile.target_weight.toString();
+        setTargetWeight(displayWeight);
+      }
     }
-  }, [profile]);
+    if (user?.email) {
+      setEmail(user.email);
+    }
+  }, [profile, user]);
 
   const handleSave = async () => {
     if (!username.trim()) {
@@ -134,6 +162,26 @@ const EditProfileScreen = () => {
 
     setSaving(true);
     try {
+      // Convert weight to kg for storage if entered in lbs
+      let targetWeightKg = null;
+      if (targetWeight) {
+        const weight = parseFloat(targetWeight);
+        targetWeightKg = weightUnit === 'lbs' ? weight / 2.205 : weight;
+      }
+
+      // Update email if changed
+      if (email.trim() && email.trim() !== user?.email) {
+        const { error: emailError } = await supabase.auth.updateUser({
+          email: email.trim(),
+        });
+        if (emailError) {
+          showToast('Error updating email: ' + emailError.message, 'error');
+          setSaving(false);
+          return;
+        }
+        showToast('Confirmation email sent to new address', 'success');
+      }
+
       const { error } = await supabase
         .from('profiles')
         .update({
@@ -141,6 +189,8 @@ const EditProfileScreen = () => {
           last_name: lastName.trim(),
           username: username.trim(),
           bio: bio.trim(),
+          target_weight: targetWeightKg,
+          fitness_goal: fitnessGoal || null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', user.id);
@@ -262,17 +312,71 @@ const EditProfileScreen = () => {
         </View>
       </View>
 
-      {/* Email (read-only) */}
+      {/* Fitness Goals Section */}
+      <View style={styles.formSection}>
+        <Text style={styles.sectionLabel}>FITNESS GOALS</Text>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Goal Weight ({weightUnit})</Text>
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.input}
+              value={targetWeight}
+              onChangeText={setTargetWeight}
+              placeholder={`Enter target weight in ${weightUnit}`}
+              placeholderTextColor={COLORS.textMuted}
+              keyboardType="decimal-pad"
+            />
+          </View>
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Fitness Program</Text>
+          <View style={styles.goalOptionsContainer}>
+            {FITNESS_GOALS.map((goal) => (
+              <TouchableOpacity
+                key={goal.id}
+                style={[
+                  styles.goalOption,
+                  fitnessGoal === goal.id && styles.goalOptionActive,
+                ]}
+                onPress={() => setFitnessGoal(goal.id)}
+              >
+                <Text
+                  style={[
+                    styles.goalOptionText,
+                    fitnessGoal === goal.id && styles.goalOptionTextActive,
+                  ]}
+                >
+                  {goal.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      </View>
+
+      {/* Email */}
       <View style={styles.formSection}>
         <Text style={styles.sectionLabel}>ACCOUNT</Text>
 
         <View style={styles.inputGroup}>
           <Text style={styles.inputLabel}>Email</Text>
-          <View style={[styles.inputContainer, styles.readOnlyContainer]}>
+          <View style={styles.inputContainer}>
             <Mail size={18} color={COLORS.textMuted} />
-            <Text style={styles.readOnlyText}>{user?.email || 'Not set'}</Text>
+            <TextInput
+              style={styles.input}
+              value={email}
+              onChangeText={setEmail}
+              placeholder="Enter email"
+              placeholderTextColor={COLORS.textMuted}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
           </View>
-          <Text style={styles.helperText}>Contact support to change your email</Text>
+          {email !== user?.email && (
+            <Text style={styles.helperText}>A confirmation will be sent to the new email</Text>
+          )}
         </View>
       </View>
 
@@ -519,6 +623,31 @@ const getStyles = (COLORS) => StyleSheet.create({
     color: COLORS.textOnPrimary,
     fontSize: 16,
     fontWeight: '600',
+  },
+  goalOptionsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  goalOption: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  goalOptionActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  goalOptionText: {
+    color: COLORS.text,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  goalOptionTextActive: {
+    color: COLORS.textOnPrimary,
   },
 });
 

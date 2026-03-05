@@ -98,6 +98,7 @@ const BACK_MUSCLES = {
 const MuscleMap = ({
   view = 'front',
   highlightedMuscle,
+  highlightedMuscles = [],
   size = 40,
   highlightColor = '#06B6D4',
   baseColor = '#4A5568',
@@ -106,6 +107,12 @@ const MuscleMap = ({
   const muscles = view === 'front' ? FRONT_MUSCLES : BACK_MUSCLES;
 
   const isHighlighted = (muscleName) => {
+    // Support array of muscles
+    if (highlightedMuscles.length > 0) {
+      if (highlightedMuscles.includes('Full Body')) return true;
+      return highlightedMuscles.includes(muscleName);
+    }
+    // Fallback to single muscle (backwards compatible)
     if (!highlightedMuscle) return false;
     if (highlightedMuscle === 'Full Body') return true;
     return muscleName === highlightedMuscle;

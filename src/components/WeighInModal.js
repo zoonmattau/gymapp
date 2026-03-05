@@ -13,7 +13,15 @@ import {
 import { X, Scale, Plus, Minus, ChevronLeft, ChevronRight, Calendar } from 'lucide-react-native';
 import { useColors } from '../contexts/ThemeContext';
 
-const WeighInModal = ({ visible, onClose, onSave, unit = 'kg', currentWeight = 0, lastWeighInDate = null }) => {
+// Helper to get local date string (YYYY-MM-DD) - avoids UTC timezone issues
+const getLocalDateString = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const WeighInModal = ({ visible, onClose, onSave, unit = 'kg', currentWeight = 0, lastWeighInDate = null, weightHistory = [] }) => {
   const COLORS = useColors();
   const styles = getStyles(COLORS);
   const [weight, setWeight] = useState('');
@@ -38,7 +46,7 @@ const WeighInModal = ({ visible, onClose, onSave, unit = 'kg', currentWeight = 0
   const handleSave = () => {
     const weightValue = parseFloat(weight);
     if (weightValue > 0) {
-      const dateStr = selectedDate.toISOString().split('T')[0];
+      const dateStr = getLocalDateString(selectedDate);
       onSave(weightValue, unit, dateStr);
       onClose();
       setWeight('');
@@ -95,11 +103,6 @@ const WeighInModal = ({ visible, onClose, onSave, unit = 'kg', currentWeight = 0
       </View>
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
-        {/* Icon */}
-        <View style={styles.iconContainer}>
-          <Scale size={48} color={COLORS.primary} />
-        </View>
-
         {/* Weight Input */}
         <View style={styles.inputSection}>
           <Text style={styles.sectionLabel}>YOUR WEIGHT ({unit.toUpperCase()})</Text>
@@ -121,6 +124,15 @@ const WeighInModal = ({ visible, onClose, onSave, unit = 'kg', currentWeight = 0
                 textAlign="center"
               />
               <Text style={styles.unitLabel}>{unit}</Text>
+              {currentWeight > 0 && weight && parseFloat(weight) !== currentWeight && (
+                <Text style={[
+                  styles.weightDiff,
+                  { color: parseFloat(weight) > currentWeight ? COLORS.success : COLORS.primary }
+                ]}>
+                  {parseFloat(weight) > currentWeight ? '+' : ''}
+                  {(parseFloat(weight) - currentWeight).toFixed(1)} {unit}
+                </Text>
+              )}
             </View>
             <TouchableOpacity
               style={styles.adjustButton}
@@ -142,7 +154,6 @@ const WeighInModal = ({ visible, onClose, onSave, unit = 'kg', currentWeight = 0
               <ChevronLeft size={24} color={COLORS.text} />
             </TouchableOpacity>
             <View style={styles.dateDisplay}>
-              <Calendar size={16} color={COLORS.primary} />
               <Text style={styles.dateValue}>{formatSelectedDate()}</Text>
             </View>
             <TouchableOpacity
@@ -162,9 +173,41 @@ const WeighInModal = ({ visible, onClose, onSave, unit = 'kg', currentWeight = 0
           onPress={handleSave}
           disabled={!weight}
         >
-          <Scale size={20} color={COLORS.textOnPrimary} />
           <Text style={styles.saveButtonText}>Save Weigh-In</Text>
         </TouchableOpacity>
+
+        {/* Recent Weigh-Ins */}
+        {weightHistory.length > 0 && (
+          <View style={styles.historySection}>
+            <Text style={styles.historyLabel}>RECENT WEIGH-INS</Text>
+            {weightHistory.slice(0, 5).map((entry, index) => {
+              const date = new Date(entry.log_date + 'T00:00:00');
+              const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+              const displayWeight = unit === 'lbs' ? (entry.weight * 2.205).toFixed(1) : entry.weight?.toFixed(1);
+              const nextEntry = weightHistory[index + 1];
+              const diff = nextEntry ? entry.weight - nextEntry.weight : 0;
+              const diffDisplay = unit === 'lbs' ? (diff * 2.205).toFixed(1) : diff.toFixed(1);
+              const selectedDateStr = getLocalDateString(selectedDate);
+              const isSelected = entry.log_date === selectedDateStr;
+
+              return (
+                <View key={entry.id || index} style={[styles.historyRow, isSelected && styles.historyRowSelected]}>
+                  <Text style={[styles.historyDate, isSelected && styles.historyTextSelected]}>{dateStr}</Text>
+                  <Text style={[styles.historyWeight, isSelected && styles.historyTextSelected]}>{displayWeight} {unit}</Text>
+                  {nextEntry && (
+                    <Text style={[
+                      styles.historyDiff,
+                      { color: diff > 0 ? COLORS.success : diff < 0 ? COLORS.primary : COLORS.textMuted },
+                      isSelected && styles.historyTextSelected
+                    ]}>
+                      {diff > 0 ? '+' : ''}{diffDisplay}
+                    </Text>
+                  )}
+                </View>
+              );
+            })}
+          </View>
+        )}
       </ScrollView>
     </>
   );
@@ -237,15 +280,11 @@ const getStyles = (COLORS) => StyleSheet.create({
     paddingHorizontal: 16,
   },
   contentContainer: {
-    paddingTop: 24,
+    paddingTop: 16,
     paddingBottom: 20,
   },
-  iconContainer: {
-    alignItems: 'center',
-    marginBottom: 32,
-  },
   inputSection: {
-    marginBottom: 24,
+    marginBottom: 12,
   },
   sectionLabel: {
     color: COLORS.textMuted,
@@ -256,23 +295,26 @@ const getStyles = (COLORS) => StyleSheet.create({
   },
   weightRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 16,
+    paddingTop: 16,
   },
   adjustButton: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: COLORS.surface,
+    backgroundColor: 'transparent',
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 8,
   },
   inputWrapper: {
     flex: 1,
-    backgroundColor: COLORS.surface,
+    backgroundColor: 'transparent',
     borderRadius: 12,
-    paddingVertical: 16,
+    paddingBottom: 24,
     alignItems: 'center',
+    position: 'relative',
   },
   weightInput: {
     color: COLORS.text,
@@ -286,11 +328,17 @@ const getStyles = (COLORS) => StyleSheet.create({
     fontSize: 16,
     marginTop: 4,
   },
+  weightDiff: {
+    fontSize: 14,
+    fontWeight: '600',
+    position: 'absolute',
+    bottom: -4,
+  },
   dateCard: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: 'transparent',
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
+    padding: 8,
+    marginBottom: 12,
   },
   dateLabel: {
     color: COLORS.textMuted,
@@ -307,7 +355,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: COLORS.surfaceLight,
+    backgroundColor: 'transparent',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -335,12 +383,12 @@ const getStyles = (COLORS) => StyleSheet.create({
   saveButton: {
     backgroundColor: COLORS.primary,
     borderRadius: 12,
-    paddingVertical: 16,
+    paddingVertical: 14,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
-    marginTop: 24,
+    marginTop: 8,
   },
   saveButtonDisabled: {
     opacity: 0.5,
@@ -349,6 +397,51 @@ const getStyles = (COLORS) => StyleSheet.create({
     color: COLORS.textOnPrimary,
     fontSize: 18,
     fontWeight: '600',
+  },
+  historySection: {
+    marginTop: 20,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  historyLabel: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    marginBottom: 12,
+  },
+  historyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    marginHorizontal: -8,
+  },
+  historyRowSelected: {
+    backgroundColor: COLORS.primary + '20',
+  },
+  historyTextSelected: {
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
+  historyDate: {
+    color: COLORS.textMuted,
+    fontSize: 13,
+    width: 60,
+  },
+  historyWeight: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '500',
+    flex: 1,
+  },
+  historyDiff: {
+    fontSize: 13,
+    fontWeight: '500',
+    width: 50,
+    textAlign: 'right',
   },
 });
 

@@ -930,6 +930,20 @@ export const EXERCISES = [
 
   // ─── SHOULDERS ────────────────────────────────────────────────────────────
   {
+    name: 'Overhead Press',
+    muscleGroup: 'Shoulders',
+    equipment: 'Barbell',
+    type: 'Compound',
+    description: 'The premier overhead strength movement. Builds front delts, upper traps, and triceps.',
+    tips: [
+      'Grip slightly wider than shoulder-width. Elbows slightly forward (in front of the bar).',
+      'Move your head back slightly as the bar passes your face, then move it back under.',
+      'Press in a slight arc — bar travels slightly back as it rises overhead.',
+      'Lock out fully at the top and shrug slightly to engage traps.',
+      'Brace your core hard and avoid excessive lower back arch.',
+    ],
+  },
+  {
     name: 'Barbell Overhead Press',
     muscleGroup: 'Shoulders',
     equipment: 'Barbell',

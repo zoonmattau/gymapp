@@ -1,87 +1,89 @@
-// UpRep Color Theme
+// UpRep Color Theme - Based on Logo (Cyan R + Charcoal U)
 
-// Dark Mode (Original)
+// Dark Mode
 export const DARK_COLORS = {
-  // Primary - Cyan theme
-  primary: '#06B6D4',
-  primaryDark: '#0891B2',
-  primaryLight: '#22D3EE',
+  // Primary - Logo Cyan (from the R) - exact: #67C6D8
+  primary: '#67C6D8',
+  primaryDark: '#52B8CC',
+  primaryLight: '#7DD3E4',
 
-  // Accent
-  accent: '#22D3EE',
-  accentLight: '#67E8F9',
+  // Accent - Logo Charcoal (from the U)
+  accent: '#8B9199',
+  accentLight: '#A8AEB5',
 
-  // Background
-  background: '#0D0F12',
-  surface: '#121417',
-  surfaceLight: '#1E2024',
+  // Background - Deep darks
+  background: '#0A0A0C',
+  surface: '#141418',
+  surfaceLight: '#1E1E24',
+  surfaceHover: '#2A2A32',
 
-  // Text
-  text: '#F3F4F6',
-  textSecondary: '#D1D5DB',
-  textMuted: '#9CA3AF',
+  // Text - Clean hierarchy
+  text: '#FAFAFA',
+  textSecondary: '#A8AEB5',
+  textMuted: '#6B7280',
 
   // Status
-  success: '#22C55E',
-  warning: '#FBBF24',
-  error: '#EF4444',
+  success: '#4ADE80',
+  warning: '#FCD34D',
+  error: '#F87171',
 
   // Category colors
-  water: '#60A5FA',
+  water: '#5DD3D3',
   sleep: '#C4B5FD',
-  fats: '#F59E0B',
-  protein: '#F472B6',
-  carbs: '#FB923C',
-  supplements: '#FBBF24',
+  fats: '#FDBA74',
+  protein: '#F9A8D4',
+  carbs: '#FCA5A5',
+  supplements: '#FDE047',
 
-  // On-primary text (text on primary/success/error backgrounds)
-  textOnPrimary: '#F3F4F6',
+  // On-primary text
+  textOnPrimary: '#0A0A0C',
 
   // Borders
-  border: '#2A2D32',
-  borderLight: '#3D4A5C',
+  border: '#2A2A32',
+  borderLight: '#3A3A44',
 };
 
 // Light Mode
 export const LIGHT_COLORS = {
-  // Primary - Deep indigo/blue for strong contrast on white
-  primary: '#4F46E5',
-  primaryDark: '#4338CA',
-  primaryLight: '#6366F1',
+  // Primary - Logo Cyan (from the R) - exact: #67C6D8
+  primary: '#67C6D8',
+  primaryDark: '#52B8CC',
+  primaryLight: '#7DD3E4',
 
-  // Accent
-  accent: '#6366F1',
-  accentLight: '#818CF8',
+  // Accent - Logo Charcoal (from the U)
+  accent: '#6B7280',
+  accentLight: '#8B9199',
 
-  // Background
-  background: '#F8FAFC',
+  // Background - Clean whites
+  background: '#FAFAFA',
   surface: '#FFFFFF',
-  surfaceLight: '#F1F5F9',
+  surfaceLight: '#F5F5F7',
+  surfaceHover: '#EBEBED',
 
-  // Text
-  text: '#0F172A',
-  textSecondary: '#475569',
-  textMuted: '#94A3B8',
+  // Text - Sharp hierarchy
+  text: '#1A1A1E',
+  textSecondary: '#4A4A52',
+  textMuted: '#8B9199',
 
   // Status
-  success: '#16A34A',
-  warning: '#D97706',
-  error: '#DC2626',
+  success: '#22C55E',
+  warning: '#F59E0B',
+  error: '#EF4444',
 
   // Category colors
-  water: '#3B82F6',
+  water: '#4BC5C5',
   sleep: '#8B5CF6',
-  fats: '#D97706',
+  fats: '#F59E0B',
   protein: '#EC4899',
-  carbs: '#EA580C',
-  supplements: '#D97706',
+  carbs: '#F97316',
+  supplements: '#EAB308',
 
-  // On-primary text (text on primary/success/error backgrounds)
-  textOnPrimary: '#FFFFFF',
+  // On-primary text - Logo Charcoal (from the U)
+  textOnPrimary: '#3D3D42',
 
   // Borders
-  border: '#E2E8F0',
-  borderLight: '#F1F5F9',
+  border: '#E5E5E8',
+  borderLight: '#F0F0F2',
 };
 
 export const themes = {

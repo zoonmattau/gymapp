@@ -221,7 +221,7 @@ export const nutritionService = {
       .select('*')
       .eq('user_id', userId)
       .eq('log_date', logDate)
-      .order('created_at', { ascending: false });
+      .order('logged_at', { ascending: false });
 
     return { data, error };
   },
@@ -294,22 +294,24 @@ export const nutritionService = {
     return { data, error };
   },
 
-  // Log supplement taken
+  // Log supplement taken (allows multiple logs per day for multi-dose supplements)
   async logSupplement(userId, supplementId, date = null) {
     const logDate = date || getLocalDateString();
 
+    // Always insert a new log entry (supports multi-dose per day)
     const { data, error } = await supabase
       .from('supplement_logs')
-      .upsert({
+      .insert({
         user_id: userId,
         supplement_id: supplementId,
         log_date: logDate,
-      }, { onConflict: 'supplement_id,log_date' })
+      })
       .select()
-      .maybeSingle();
+      .single();
 
     return { data, error };
   },
+
 
   // Get supplement logs for a date
   async getSupplementLogs(userId, date = null) {

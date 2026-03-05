@@ -165,6 +165,26 @@ export const sleepService = {
     return !!data;
   },
 
+  // Delete sleep log for a specific date
+  async deleteSleepLog(userId, date) {
+    try {
+      const { error } = await supabase
+        .from('sleep_logs')
+        .delete()
+        .eq('user_id', userId)
+        .eq('log_date', date);
+
+      if (error) {
+        console.warn('deleteSleepLog error:', error?.message);
+        return { success: false, error };
+      }
+      return { success: true, error: null };
+    } catch (err) {
+      console.warn('deleteSleepLog error:', err?.message);
+      return { success: false, error: err };
+    }
+  },
+
   // Alias for getSleepRange
   async getSleepRange(userId, startDate, endDate) {
     return this.getSleepHistory(userId, startDate, endDate);

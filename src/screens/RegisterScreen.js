@@ -10,6 +10,7 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
+  Image,
 } from 'react-native';
 import { Mail, Lock, Eye, EyeOff, ArrowLeft } from 'lucide-react-native';
 import { useColors } from '../contexts/ThemeContext';
@@ -119,7 +120,11 @@ const RegisterScreen = ({ navigation }) => {
 
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.logo}>UpRep</Text>
+            <Image
+              source={require('../../assets/logo.png')}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
             <Text style={styles.subtitle}>Create your account</Text>
             <Text style={styles.description}>
               Enter your email and password to get started.{'\n'}
@@ -247,10 +252,9 @@ const getStyles = (COLORS) => StyleSheet.create({
     alignItems: 'center',
     marginBottom: 40,
   },
-  logo: {
-    fontSize: 42,
-    fontWeight: 'bold',
-    color: COLORS.primary,
+  logoImage: {
+    width: 120,
+    height: 120,
     marginBottom: 8,
   },
   subtitle: {

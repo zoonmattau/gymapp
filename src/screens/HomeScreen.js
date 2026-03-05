@@ -10,8 +10,11 @@ import {
   Platform,
   Modal,
   TextInput,
+  Dimensions,
+  Image,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { LineChart } from 'react-native-chart-kit';
 import {
   Bell,
   Play,
@@ -24,6 +27,8 @@ import {
   Plus,
   Bookmark,
   TrendingUp,
+  TrendingDown,
+  Minus,
   Utensils,
   Search,
   ChevronRight,
@@ -31,6 +36,7 @@ import {
   X,
   Pencil,
 } from 'lucide-react-native';
+import Svg, { Circle } from 'react-native-svg';
 import { useColors } from '../contexts/ThemeContext';
 import { WORKOUT_TEMPLATES } from '../constants/workoutTemplates';
 import { EXERCISES } from '../constants/exercises';
@@ -41,6 +47,9 @@ import { streakService } from '../services/streakService';
 import { weightService } from '../services/weightService';
 import { sleepService } from '../services/sleepService';
 import { publishedWorkoutService } from '../services/publishedWorkoutService';
+import { socialService } from '../services/socialService';
+import { competitionService } from '../services/competitionService';
+import { profileService } from '../services/profileService';
 import { getPausedWorkout, clearPausedWorkout } from '../utils/workoutStore';
 import { getCustomTemplates } from '../utils/customTemplateStore';
 import { useAuth } from '../contexts/AuthContext';
@@ -50,6 +59,14 @@ import WaterEntryModal from '../components/WaterEntryModal';
 import WeighInModal from '../components/WeighInModal';
 import SleepEntryModal from '../components/SleepEntryModal';
 import RepertoireModal from '../components/RepertoireModal';
+
+// Helper to get local date string (YYYY-MM-DD) - avoids UTC timezone issues
+const getLocalDateString = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 // Muscle group display configuration
 const MUSCLE_DISPLAY_GROUPS = [
@@ -103,6 +120,9 @@ const HomeScreen = () => {
   const [savedWorkouts, setSavedWorkouts] = useState([]);
   const [repertoireLoading, setRepertoireLoading] = useState(false);
   const [weightHistory, setWeightHistory] = useState([]);
+  const [sleepHistory, setSleepHistory] = useState([]);
+  const [sleepGoal, setSleepGoal] = useState(8);
+  const [waterEntries, setWaterEntries] = useState([]);
 
   // Start workout modal
   const [showStartWorkoutModal, setShowStartWorkoutModal] = useState(false);
@@ -113,9 +133,19 @@ const HomeScreen = () => {
   // Social stats
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
+  const [showSocialModal, setShowSocialModal] = useState(false);
+  const [socialModalTab, setSocialModalTab] = useState('followers'); // 'followers' | 'following'
+  const [followersList, setFollowersList] = useState([]);
+  const [followingList, setFollowingList] = useState([]);
+
+  // Active challenges
+  const [activeChallenges, setActiveChallenges] = useState([]);
 
   // Weekly muscle sets tracking
   const [weeklyMuscleSets, setWeeklyMuscleSets] = useState({});
+  const [weeklyMuscleVolume, setWeeklyMuscleVolume] = useState({});
+  const [muscleViewMode, setMuscleViewMode] = useState('sets'); // 'sets' | 'volume'
+  const [userBodyweight, setUserBodyweight] = useState(70); // Default 70kg
   const [muscleTargets, setMuscleTargets] = useState(() => {
     const defaults = {};
     MUSCLE_DISPLAY_GROUPS.forEach(g => { defaults[g.key] = g.defaultTarget; });
@@ -133,6 +163,16 @@ const HomeScreen = () => {
       }
     } catch (e) { /* ignore */ }
   }, []);
+
+  // Fetch user's bodyweight for volume calculations
+  useEffect(() => {
+    const fetchBodyweight = async () => {
+      if (!user?.id) return;
+      const { data } = await profileService.getLatestWeight(user.id);
+      if (data?.weight) setUserBodyweight(data.weight);
+    };
+    fetchBodyweight();
+  }, [user?.id]);
 
   const nutritionGoals = {
     calories: profile?.calorie_goal || 2200,
@@ -191,7 +231,12 @@ const HomeScreen = () => {
         loadStreaks(),
         loadSleepStatus(),
         loadWeightHistory(),
+        loadSleepHistory(),
+        loadSocialStats(),
         loadWeeklyMuscleSets(),
+        loadActiveChallenges(),
+        loadWaterEntries(),
+        loadSupplements(),
       ]);
       console.log('loadHomeData completed');
     } catch (error) {
@@ -208,6 +253,63 @@ const HomeScreen = () => {
       setLastNightSleepLogged(isLogged);
     } catch (error) {
       console.log('Error checking sleep status:', error);
+    }
+  };
+
+  const loadSleepHistory = async () => {
+    try {
+      const { data } = await sleepService.getRecentSleep(user.id, 14);
+      // Sort by date descending (most recent first)
+      const sorted = (data || []).sort((a, b) => new Date(b.log_date) - new Date(a.log_date));
+      setSleepHistory(sorted);
+
+      // Load sleep goal
+      const { data: goals } = await sleepService.getSleepGoals(user.id);
+      if (goals?.target_hours) {
+        setSleepGoal(goals.target_hours);
+      }
+    } catch (error) {
+      console.log('Error loading sleep history:', error);
+    }
+  };
+
+  const loadSocialStats = async () => {
+    try {
+      const [followersResult, followingResult] = await Promise.all([
+        socialService.getFollowers(user.id),
+        socialService.getFollowing(user.id),
+      ]);
+
+      setFollowersCount(followersResult.data?.length || 0);
+      setFollowingCount(followingResult.data?.length || 0);
+    } catch (error) {
+      console.log('Error loading social stats:', error);
+    }
+  };
+
+  const loadActiveChallenges = async () => {
+    try {
+      const { data } = await competitionService.getActiveChallenges(user.id);
+      setActiveChallenges(data || []);
+    } catch (error) {
+      console.log('Error loading challenges:', error);
+    }
+  };
+
+  const openSocialModal = async (tab) => {
+    setSocialModalTab(tab);
+    setShowSocialModal(true);
+
+    // Load the lists
+    try {
+      const [followersResult, followingResult] = await Promise.all([
+        socialService.getFollowersList(user.id),
+        socialService.getFollowingList(user.id),
+      ]);
+      setFollowersList(followersResult.data || []);
+      setFollowingList(followingResult.data || []);
+    } catch (error) {
+      console.log('Error loading social lists:', error);
     }
   };
 
@@ -271,6 +373,44 @@ const HomeScreen = () => {
       }
     } catch (error) {
       console.log('Error loading nutrition:', error);
+    }
+  };
+
+  const loadWaterEntries = async () => {
+    try {
+      const { data } = await nutritionService.getWaterLogs(user.id);
+      if (data) {
+        setWaterEntries(data.map(log => ({
+          id: log.id,
+          amount: log.amount_ml,
+          logged_at: log.logged_at,
+          log_date: log.log_date,
+        })));
+      }
+    } catch (error) {
+      console.log('Error loading water entries:', error);
+    }
+  };
+
+  const loadSupplements = async () => {
+    try {
+      const { data } = await nutritionService.getSupplements(user.id);
+      if (data) {
+        const today = getLocalDateString();
+        const { data: logs } = await nutritionService.getSupplementLogs(user.id, today);
+
+        // Calculate total doses needed and taken
+        const totalDoses = data.reduce((acc, s) => acc + (s.times_per_day || 1), 0);
+        const takenDoses = data.reduce((acc, s) => {
+          const takenCount = logs?.filter(l => l.supplement_id === s.id).length || 0;
+          return acc + takenCount;
+        }, 0);
+
+        setSupplementsTotal(totalDoses);
+        setSupplementsTaken(takenDoses);
+      }
+    } catch (error) {
+      console.log('Error loading supplements:', error);
     }
   };
 
@@ -345,21 +485,31 @@ const HomeScreen = () => {
 
       const completedIds = (sessionsData || []).filter(s => s.ended_at).map(s => s.id);
       const counts = {};
-      MUSCLE_DISPLAY_GROUPS.forEach(g => { counts[g.key] = 0; });
+      const volumes = {};
+      MUSCLE_DISPLAY_GROUPS.forEach(g => {
+        counts[g.key] = 0;
+        volumes[g.key] = 0;
+      });
 
       if (completedIds.length > 0) {
         const { data: setsData } = await supabase
           .from('workout_sets')
-          .select('exercise_name')
+          .select('exercise_name, weight, reps')
           .in('session_id', completedIds)
           .eq('is_warmup', false);
 
         (setsData || []).forEach(s => {
           const groupKey = exerciseToGroupMap[s.exercise_name];
-          if (groupKey) counts[groupKey] += 1;
+          if (groupKey) {
+            counts[groupKey] += 1;
+            // Use userBodyweight for bodyweight exercises (weight = 0)
+            const weight = s.weight > 0 ? s.weight : userBodyweight;
+            volumes[groupKey] += weight * (s.reps || 0);
+          }
         });
       }
       setWeeklyMuscleSets(counts);
+      setWeeklyMuscleVolume(volumes);
     } catch (error) {
       console.log('Error loading weekly muscle sets:', error);
     }
@@ -440,8 +590,19 @@ const HomeScreen = () => {
       await nutritionService.logWater(user.id, amount);
       setWaterIntake(prev => prev + amount);
       setShowWaterModal(false);
+      loadWaterEntries();
     } catch (error) {
       console.log('Error adding water:', error);
+    }
+  };
+
+  const handleDeleteWater = async (entry) => {
+    try {
+      await nutritionService.deleteWaterLog(user.id, entry.id, entry.log_date);
+      setWaterIntake(prev => prev - entry.amount);
+      setWaterEntries(prev => prev.filter(e => e.id !== entry.id));
+    } catch (error) {
+      console.log('Error deleting water:', error);
     }
   };
 
@@ -461,6 +622,8 @@ const HomeScreen = () => {
       await sleepService.logSleep(user.id, sleepData);
       setLastNightSleepLogged(true);
       setShowSleepModal(false);
+      // Refresh sleep history to update graph immediately
+      loadSleepHistory();
     } catch (error) {
       console.log('Error saving sleep:', error);
     }
@@ -635,7 +798,7 @@ const HomeScreen = () => {
     } else if (statId === 'water') {
       setShowWaterModal(true);
     } else if (statId === 'supplements') {
-      navigation.navigate('Health');
+      navigation.navigate('Health', { tab: 'supplements' });
     }
   };
 
@@ -645,17 +808,21 @@ const HomeScreen = () => {
     const percentage = Math.round(progress * 100);
     const progressColor = isComplete ? COLORS.success : stat.color;
 
-    const completeVal = stat.id === 'water'
-      ? `${(stat.current / 1000).toFixed(1)}L`
-      : stat.displayValue || stat.current;
+    let completeVal;
+    if (stat.id === 'water') {
+      completeVal = `${(stat.current / 1000).toFixed(1)}L`;
+    } else if (stat.id === 'calories') {
+      completeVal = stat.current >= 1000 ? `${(stat.current / 1000).toFixed(1)}k` : stat.current;
+    } else {
+      completeVal = stat.displayValue || `${stat.current}g`;
+    }
 
-    // Calculate degrees for conic gradient (starts from top, so -90deg offset)
-    const progressDegrees = progress * 360;
-
-    // Web uses conic-gradient for smooth circular progress
-    const webProgressStyle = Platform.OS === 'web' ? {
-      background: `conic-gradient(from -90deg, ${progressColor} ${progressDegrees}deg, ${COLORS.surfaceLight} ${progressDegrees}deg)`,
-    } : {};
+    // SVG progress ring calculations
+    const size = 52;
+    const strokeWidth = 5;
+    const radius = (size - strokeWidth) / 2;
+    const circumference = 2 * Math.PI * radius;
+    const strokeDashoffset = circumference * (1 - progress);
 
     return (
       <TouchableOpacity
@@ -663,12 +830,36 @@ const HomeScreen = () => {
         style={styles.statItem}
         onPress={() => handleStatTap(stat.id)}
       >
-        <View style={[styles.progressRing, webProgressStyle]}>
+        <View style={styles.progressRingWrapper}>
+          <Svg width={size} height={size} style={{ transform: [{ rotate: '-90deg' }] }}>
+            {/* Background ring (faint) */}
+            <Circle
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
+              stroke={COLORS.surfaceLight}
+              strokeWidth={strokeWidth}
+              fill="none"
+            />
+            {/* Progress ring (fills in based on percentage) */}
+            <Circle
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
+              stroke={progressColor}
+              strokeWidth={strokeWidth}
+              fill="none"
+              strokeDasharray={circumference}
+              strokeDashoffset={strokeDashoffset}
+              strokeLinecap="round"
+            />
+          </Svg>
+          {/* Inner content */}
           <View style={styles.progressRingInner}>
             {isComplete ? (
               <>
                 <Check size={14} color={COLORS.success} strokeWidth={3} />
-                <Text style={[styles.circleValue, { color: COLORS.success, fontSize: 9 }]}>
+                <Text style={[styles.circleValue, { color: COLORS.success, fontSize: 9 }]} numberOfLines={1}>
                   {completeVal}
                 </Text>
               </>
@@ -698,25 +889,19 @@ const HomeScreen = () => {
       );
 
       return (
-        <View style={[styles.workoutCard, { borderLeftColor: COLORS.warning }]}>
-          <View style={styles.workoutRow}>
-            <View style={[styles.workoutIconBox, { backgroundColor: COLORS.warning + '20' }]}>
-              <Pause size={28} color={COLORS.warning} />
-            </View>
-            <View style={styles.workoutInfo}>
-              <Text style={[styles.workoutBadge, { color: COLORS.warning }]}>WORKOUT IN PROGRESS</Text>
-              <Text style={styles.workoutName}>{savedWorkout.workoutName || 'Workout'}</Text>
-              <Text style={styles.workoutFocus}>
-                {exerciseCount} exercise{exerciseCount !== 1 ? 's' : ''} • {completedSets}/{totalSets} sets done
-              </Text>
-            </View>
+        <View style={styles.workoutCard}>
+          <View style={styles.workoutInfo}>
+            <Text style={[styles.workoutBadge, { color: COLORS.primary }]}>WORKOUT IN PROGRESS</Text>
+            <Text style={styles.workoutName}>{savedWorkout.workoutName || 'Workout'}</Text>
+            <Text style={styles.workoutFocus}>
+              {exerciseCount} exercise{exerciseCount !== 1 ? 's' : ''} • {completedSets}/{totalSets} sets done
+            </Text>
           </View>
           <View style={styles.savedWorkoutActions}>
             <TouchableOpacity
-              style={[styles.workoutButton, { backgroundColor: '#D97706', flex: 1 }]}
+              style={[styles.workoutButton, { backgroundColor: COLORS.primary, flex: 1 }]}
               onPress={resumeSavedWorkout}
             >
-              <Play size={18} color={COLORS.textOnPrimary} />
               <Text style={styles.workoutButtonText}>Continue Workout</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -732,21 +917,16 @@ const HomeScreen = () => {
 
     if (isPaused) {
       return (
-        <View style={[styles.workoutCard, { borderLeftColor: COLORS.warning }]}>
-          <View style={styles.workoutRow}>
-            <View style={[styles.workoutIconBox, { backgroundColor: COLORS.warning + '20' }]}>
-              <Pause size={28} color={COLORS.warning} />
-            </View>
-            <View style={styles.workoutInfo}>
-              <Text style={[styles.workoutBadge, { color: COLORS.warning }]}>PAUSED</Text>
-              <Text style={styles.workoutName}>Enjoying your break</Text>
-            </View>
+        <View style={styles.workoutCard}>
+          <View style={styles.workoutInfo}>
+            <Text style={[styles.workoutBadge, { color: COLORS.primary }]}>PAUSED</Text>
+            <Text style={styles.workoutName}>Enjoying your break</Text>
           </View>
           <TouchableOpacity
-            style={[styles.workoutButton, { backgroundColor: COLORS.warning }]}
+            style={[styles.workoutButton, { backgroundColor: COLORS.primary }]}
             onPress={() => setIsPaused(false)}
           >
-            <Text style={[styles.workoutButtonText, { color: COLORS.background }]}>Resume Plan</Text>
+            <Text style={styles.workoutButtonText}>Resume Plan</Text>
           </TouchableOpacity>
         </View>
       );
@@ -754,16 +934,11 @@ const HomeScreen = () => {
 
     if (todayWorkout?.isCompleted) {
       return (
-        <View style={[styles.workoutCard, { borderLeftColor: COLORS.success }]}>
-          <View style={styles.workoutRow}>
-            <View style={[styles.workoutIconBox, { backgroundColor: COLORS.success + '20' }]}>
-              <Check size={28} color={COLORS.success} />
-            </View>
-            <View style={styles.workoutInfo}>
-              <Text style={[styles.workoutBadge, { color: COLORS.success }]}>COMPLETED ✓</Text>
-              <Text style={styles.workoutName}>{todayWorkout?.name || 'Workout'}</Text>
-              <Text style={styles.workoutFocus}>Great work today! 💪</Text>
-            </View>
+        <View style={styles.workoutCard}>
+          <View style={styles.workoutInfo}>
+            <Text style={[styles.workoutBadge, { color: COLORS.success }]}>COMPLETED</Text>
+            <Text style={styles.workoutName}>{todayWorkout?.name || 'Workout'}</Text>
+            <Text style={styles.workoutFocus}>Great work today</Text>
           </View>
         </View>
       );
@@ -771,22 +946,16 @@ const HomeScreen = () => {
 
     if (isRestDay) {
       return (
-        <View style={[styles.workoutCard, { borderLeftColor: COLORS.sleep }]}>
-          <View style={styles.workoutRow}>
-            <View style={[styles.workoutIconBox, { backgroundColor: COLORS.sleep + '20' }]}>
-              <Moon size={28} color={COLORS.sleep} />
-            </View>
-            <View style={styles.workoutInfo}>
-              <Text style={[styles.workoutBadge, { color: COLORS.sleep }]}>REST DAY 😴</Text>
-              <Text style={styles.workoutName}>Recovery Time</Text>
-              <Text style={styles.workoutFocus}>Your muscles grow while you rest</Text>
-            </View>
+        <View style={styles.workoutCard}>
+          <View style={styles.workoutInfo}>
+            <Text style={[styles.workoutBadge, { color: COLORS.sleep }]}>REST DAY</Text>
+            <Text style={styles.workoutName}>Recovery Time</Text>
+            <Text style={styles.workoutFocus}>Your muscles grow while you rest</Text>
           </View>
           <TouchableOpacity
             style={[styles.workoutButton, { backgroundColor: COLORS.primary }]}
             onPress={openStartWorkoutModal}
           >
-            <Play size={18} color={COLORS.textOnPrimary} />
             <Text style={styles.workoutButtonText}>Start Workout Anyway</Text>
           </TouchableOpacity>
         </View>
@@ -795,30 +964,18 @@ const HomeScreen = () => {
 
     if (!todayWorkout) {
       return (
-        <View style={[styles.workoutCard, { borderLeftColor: COLORS.primary }]}>
-          <View style={styles.workoutRow}>
-            <View style={[styles.workoutIconBox, { backgroundColor: COLORS.primary + '20' }]}>
-              <Dumbbell size={28} color={COLORS.primary} />
-            </View>
-            <View style={styles.workoutInfo}>
-              <Text style={[styles.workoutBadge, { color: COLORS.textMuted }]}>NO SCHEDULED WORKOUT</Text>
-              <Text style={styles.workoutName}>Ready to train?</Text>
-              <Text style={styles.workoutFocus}>Start blank or pick a template</Text>
-            </View>
-          </View>
-          <TouchableOpacity
-            style={[styles.workoutButton, { backgroundColor: COLORS.primary }]}
-            onPress={openStartWorkoutModal}
-          >
-            <Play size={18} color={COLORS.textOnPrimary} />
-            <Text style={styles.workoutButtonText}>Start Workout</Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          style={[styles.workoutCard, { justifyContent: 'center', alignItems: 'center', paddingVertical: 20 }]}
+          onPress={openStartWorkoutModal}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.workoutButtonText, { color: COLORS.primary, fontSize: 16 }]}>Start Workout</Text>
+        </TouchableOpacity>
       );
     }
 
     return (
-      <View style={[styles.workoutCard, { borderLeftColor: COLORS.primary }]}>
+      <View style={styles.workoutCard}>
         <View style={styles.workoutHeader}>
           <View style={styles.todayBadgeContainer}>
             <Text style={styles.todayBadgeText}>TODAY</Text>
@@ -830,7 +987,6 @@ const HomeScreen = () => {
           style={[styles.workoutButton, { backgroundColor: COLORS.primary }]}
           onPress={openStartWorkoutModal}
         >
-          <Play size={18} color={COLORS.textOnPrimary} />
           <Text style={styles.workoutButtonText}>Start Workout</Text>
         </TouchableOpacity>
       </View>
@@ -873,17 +1029,17 @@ const HomeScreen = () => {
               </Text>
             </TouchableOpacity>
             <View style={styles.userInfo}>
-              <Text style={styles.username}>@{profile?.username || 'username'}</Text>
+              <Text style={styles.username}>@{profile?.username || user?.email?.split('@')[0] || 'user'}</Text>
               {profile?.bio && (
                 <Text style={styles.userBio} numberOfLines={1}>{profile.bio}</Text>
               )}
               <View style={styles.followStats}>
-                <TouchableOpacity onPress={() => navigation.navigate('Community')}>
+                <TouchableOpacity onPress={() => openSocialModal('followers')}>
                   <Text style={styles.followText}>
                     <Text style={styles.followCount}>{followersCount}</Text> followers
                   </Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => navigation.navigate('Community')}>
+                <TouchableOpacity onPress={() => openSocialModal('following')}>
                   <Text style={styles.followText}>
                     <Text style={styles.followCount}>{followingCount}</Text> following
                   </Text>
@@ -892,6 +1048,11 @@ const HomeScreen = () => {
             </View>
           </View>
           <View style={styles.headerRight}>
+            <Image
+              source={require('../../assets/logo.png')}
+              style={styles.headerLogo}
+              resizeMode="contain"
+            />
             <TouchableOpacity style={styles.iconButton}>
               <Bell size={18} color={COLORS.textMuted} />
             </TouchableOpacity>
@@ -902,9 +1063,6 @@ const HomeScreen = () => {
         {!bannerActive && savedWorkout && savedWorkout.exercises?.length > 0 && (
           <View style={styles.savedWorkoutBanner}>
             <View style={styles.savedWorkoutInfo}>
-              <View style={styles.savedWorkoutIcon}>
-                <Pause size={20} color={COLORS.warning} />
-              </View>
               <View style={styles.savedWorkoutText}>
                 <Text style={styles.savedWorkoutTitle}>Workout in Progress</Text>
                 <Text style={styles.savedWorkoutSubtitle}>
@@ -925,7 +1083,6 @@ const HomeScreen = () => {
                 onPress={resumeSavedWorkout}
                 onClick={resumeSavedWorkout}
               >
-                <Play size={16} color={COLORS.textOnPrimary} />
                 <Text style={styles.savedWorkoutResumeText}>Resume</Text>
               </TouchableOpacity>
             </View>
@@ -955,24 +1112,13 @@ const HomeScreen = () => {
               style={styles.addMealCard}
               onPress={() => setShowMealModal(true)}
             >
-              <View style={styles.mealIconBox}>
-                <Utensils size={24} color={COLORS.primary} />
-              </View>
-              <View style={styles.mealInfo}>
-                <Text style={styles.mealTitle}>Add Meal</Text>
-                <Text style={styles.mealSubtitle}>Log with macros</Text>
-              </View>
+              <Text style={styles.mealTitle}>Add Meal</Text>
+              <Text style={styles.mealSubtitle}>Log with macros</Text>
             </TouchableOpacity>
 
             {/* Quick Water Card */}
             <View style={styles.quickWaterCard}>
-              <View style={styles.waterHeader}>
-                <Droplets size={18} color={COLORS.water} />
-                <Text style={styles.waterLabel}>Quick Water</Text>
-                <View style={styles.waterTotalBadge}>
-                  <Text style={styles.waterTotalText}>{(waterIntake / 1000).toFixed(1)}L</Text>
-                </View>
-              </View>
+              <Text style={[styles.waterLabel, { textAlign: 'center', marginBottom: 8 }]}>Quick Water</Text>
               <View style={styles.waterButtons}>
                 <TouchableOpacity
                   style={styles.waterQuickBtn}
@@ -997,57 +1143,105 @@ const HomeScreen = () => {
           </View>
         </View>
 
-        {/* Weekly Sets by Muscle */}
+        {/* Weekly Sets/Volume by Muscle */}
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>WEEKLY SETS BY MUSCLE</Text>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionLabel}>WEEKLY PROGRESS</Text>
+            <View style={styles.muscleToggleContainer}>
+              <TouchableOpacity
+                style={[styles.muscleToggleBtn, muscleViewMode === 'sets' && styles.muscleToggleBtnActive]}
+                onPress={() => setMuscleViewMode('sets')}
+              >
+                <Text style={[styles.muscleToggleText, muscleViewMode === 'sets' && styles.muscleToggleTextActive]}>
+                  Sets
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.muscleToggleBtn, muscleViewMode === 'volume' && styles.muscleToggleBtnActive]}
+                onPress={() => setMuscleViewMode('volume')}
+              >
+                <Text style={[styles.muscleToggleText, muscleViewMode === 'volume' && styles.muscleToggleTextActive]}>
+                  Volume
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
           <View style={styles.muscleCard}>
             {MUSCLE_DISPLAY_GROUPS.map(group => {
-              const done = weeklyMuscleSets[group.key] || 0;
-              const target = muscleTargets[group.key] || group.defaultTarget;
-              const pct = target > 0 ? Math.min(done / target, 1) : 0;
-              const met = done >= target;
-              const barColor = met ? COLORS.success : group.color;
+              const sets = weeklyMuscleSets[group.key] || 0;
+              const volume = weeklyMuscleVolume[group.key] || 0;
+              const value = muscleViewMode === 'sets' ? sets : volume;
+              const maxValue = muscleViewMode === 'sets'
+                ? Math.max(...Object.values(weeklyMuscleSets), 1)
+                : Math.max(...Object.values(weeklyMuscleVolume), 1);
+              const pct = maxValue > 0 ? value / maxValue : 0;
 
               return (
                 <View key={group.key} style={styles.muscleRow}>
                   <Text style={styles.muscleLabel}>{group.label}</Text>
                   <View style={styles.muscleBarTrack}>
-                    <View style={[styles.muscleBarFill, { width: `${pct * 100}%`, backgroundColor: barColor }]} />
+                    <View style={[styles.muscleBarFill, { width: `${pct * 100}%`, backgroundColor: group.color }]} />
                   </View>
-                  <Text style={[styles.muscleCount, met && { color: COLORS.success }]}>
-                    {done}/{target}
+                  <Text style={styles.muscleCount}>
+                    {muscleViewMode === 'sets' ? sets : volume > 1000 ? `${(volume / 1000).toFixed(1)}k` : volume}
                   </Text>
-                  {met && <Check size={14} color={COLORS.success} />}
                 </View>
               );
             })}
             {(() => {
-              const totalDone = Object.values(weeklyMuscleSets).reduce((a, b) => a + b, 0);
-              const totalTarget = MUSCLE_DISPLAY_GROUPS.reduce((sum, g) => sum + (muscleTargets[g.key] || g.defaultTarget), 0);
+              const totalSets = Object.values(weeklyMuscleSets).reduce((a, b) => a + b, 0);
+              const totalVolume = Object.values(weeklyMuscleVolume).reduce((a, b) => a + b, 0);
               return (
                 <View style={styles.muscleTotalRow}>
                   <Text style={styles.muscleTotalLabel}>Total</Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <Text style={styles.muscleTotalCount}>{totalDone}/{totalTarget} sets</Text>
-                    <TouchableOpacity
-                      style={styles.muscleEditBtn}
-                      onPress={() => {
-                        const current = {};
-                        MUSCLE_DISPLAY_GROUPS.forEach(g => {
-                          current[g.key] = String(muscleTargets[g.key] || g.defaultTarget);
-                        });
-                        setTempTargets(current);
-                        setShowMuscleTargetModal(true);
-                      }}
-                    >
-                      <Pencil size={12} color={COLORS.textMuted} />
-                    </TouchableOpacity>
-                  </View>
+                  <Text style={styles.muscleTotalCount}>
+                    {muscleViewMode === 'sets'
+                      ? `${totalSets} sets`
+                      : totalVolume > 1000 ? `${(totalVolume / 1000).toFixed(1)}k kg` : `${totalVolume} kg`}
+                  </Text>
                 </View>
               );
             })()}
           </View>
         </View>
+
+        {/* Active Challenges */}
+        {activeChallenges.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>YOUR CHALLENGES</Text>
+            {activeChallenges.slice(0, 2).map((challenge) => (
+              <TouchableOpacity
+                key={challenge.id}
+                style={styles.challengeHomeCard}
+                onPress={() => navigation.navigate('Community', { initialTab: 'community' })}
+                activeOpacity={0.7}
+              >
+                <View style={styles.challengeHomeInfo}>
+                  <Text style={styles.challengeHomeName}>{challenge.name}</Text>
+                  <Text style={styles.challengeHomeGoal}>
+                    {challenge.goal_type === 'streak' && `${challenge.goal_value} day streak`}
+                    {challenge.goal_type === 'volume' && `Lift ${challenge.goal_value?.toLocaleString()} kg`}
+                    {challenge.goal_type === 'prs' && `Set ${challenge.goal_value} PRs`}
+                    {challenge.goal_type === 'workouts' && `Complete ${challenge.goal_value} workouts`}
+                  </Text>
+                </View>
+                <View style={styles.challengeHomeProgress}>
+                  <View style={styles.challengeHomeProgressBar}>
+                    <View
+                      style={[
+                        styles.challengeHomeProgressFill,
+                        { width: `${Math.min((challenge.user_progress || 0) / (challenge.goal_value || 1) * 100, 100)}%` }
+                      ]}
+                    />
+                  </View>
+                  <Text style={styles.challengeHomeProgressText}>
+                    {challenge.user_progress || 0}/{challenge.goal_value || 0}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
 
         {/* Edit muscle targets modal */}
         <Modal
@@ -1123,9 +1317,6 @@ const HomeScreen = () => {
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>MY REP-ERTOIRE</Text>
           <TouchableOpacity style={styles.repertoireCard} onPress={loadRepertoire}>
-            <View style={styles.repertoireIconBox}>
-              <Bookmark size={24} color={COLORS.warning} />
-            </View>
             <View style={styles.repertoireInfo}>
               <Text style={styles.repertoireTitle}>My Saved Workouts</Text>
               <Text style={styles.repertoireSubtitle}>Tap to view your Rep-Ertoire</Text>
@@ -1140,9 +1331,6 @@ const HomeScreen = () => {
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>TRENDING WORKOUTS</Text>
           <View style={styles.trendingCard}>
-            <View style={styles.trendingIconBox}>
-              <TrendingUp size={32} color={COLORS.textMuted} />
-            </View>
             <Text style={styles.trendingTitle}>No workouts currently trending</Text>
             <Text style={styles.trendingSubtitle}>Check back later or explore the community</Text>
             <TouchableOpacity
@@ -1157,62 +1345,295 @@ const HomeScreen = () => {
         {/* Weight Tracking Section */}
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>WEIGHT TRACKING</Text>
-          <TouchableOpacity
-            style={styles.weighInButton}
-            onPress={() => setShowWeighInModal(true)}
-          >
-            <Plus size={20} color={COLORS.textOnPrimary} />
-            <Text style={styles.weighInButtonText}>Log Weigh-In</Text>
-          </TouchableOpacity>
-
-          {weightHistory.length > 0 && (
-            <View style={styles.weightHistoryContainer}>
-              <ScrollView
-                style={styles.weightHistoryScroll}
-                nestedScrollEnabled={true}
-                showsVerticalScrollIndicator={true}
-              >
-                {weightHistory.map((entry, index) => {
-                  const date = new Date(entry.log_date + 'T00:00:00');
-                  const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
-                  const monthDay = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                  const weight = entry.weight?.toFixed(1) || '0';
-                  const unit = profile?.weight_unit || 'kg';
-                  const displayWeight = unit === 'lbs' ? (entry.weight * 2.205).toFixed(1) : weight;
-
-                  return (
-                    <View key={entry.id || index} style={styles.weightHistoryItem}>
-                      <Text style={styles.weightHistoryDate}>
-                        {dayName} {monthDay}
-                      </Text>
-                      <Text style={styles.weightHistoryValue}>
-                        {displayWeight} {unit}
+          {(() => {
+            const currentWeight = weightHistory[0]?.weight || 0;
+            const targetWeight = profile?.target_weight || 0;
+            const weightGoalReached = targetWeight > 0 && currentWeight > 0 && Math.abs(currentWeight - targetWeight) < 0.5;
+            return (
+          <View style={[styles.weightCard, weightGoalReached && styles.weightCardGoalReached]}>
+            {weightHistory.length > 0 ? (
+              <>
+                <View style={styles.weightCurrentRow}>
+                  <View style={styles.weightCurrentInfo}>
+                    <Text style={styles.weightCurrentLabel}>Current</Text>
+                    <View style={styles.weightNumbersRow}>
+                      <Text style={styles.weightCurrentValue}>
+                        {(() => {
+                          const unit = profile?.weight_unit || 'kg';
+                          const w = weightHistory[0]?.weight || 0;
+                          return unit === 'lbs' ? (w * 2.205).toFixed(1) : w.toFixed(1);
+                        })()} {profile?.weight_unit || 'kg'}
                       </Text>
                     </View>
-                  );
-                })}
-              </ScrollView>
-            </View>
-          )}
+                    {weightHistory.length > 1 && (
+                      <Text style={styles.weightChangeText}>
+                        {(() => {
+                          const unit = profile?.weight_unit || 'kg';
+                          const current = weightHistory[0]?.weight || 0;
+                          const start = weightHistory[weightHistory.length - 1]?.weight || 0;
+                          const change = current - start;
+                          const displayChange = unit === 'lbs' ? (change * 2.205).toFixed(1) : change.toFixed(1);
+                          const sign = change > 0 ? '+' : '';
+                          return `${sign}${displayChange} ${unit} total`;
+                        })()}
+                      </Text>
+                    )}
+                  </View>
+                  <View style={styles.weightGoalInfo}>
+                    <Text style={styles.weightGoalLabel}>Goal</Text>
+                    <Text style={styles.weightGoalValue}>
+                      {profile?.target_weight ? (
+                        (() => {
+                          const unit = profile?.weight_unit || 'kg';
+                          const g = profile.target_weight;
+                          return `${unit === 'lbs' ? (g * 2.205).toFixed(0) : g.toFixed(0)} ${unit}`;
+                        })()
+                      ) : 'Not set'}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.weighInBtn}
+                    onPress={() => setShowWeighInModal(true)}
+                  >
+                    <Plus size={18} color={COLORS.textOnPrimary} />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Split Layout: Graph + History */}
+                {weightHistory.length >= 2 && (
+                  <View style={styles.weightSplitContainer}>
+                    {/* Mini Chart - Left Half */}
+                    <View style={styles.weightChartHalf}>
+                      <View style={styles.chartWithLabel}>
+                        {(() => {
+                          const unit = profile?.weight_unit || 'kg';
+                          const weightData = weightHistory.slice(0, 7).reverse().map(e =>
+                            unit === 'lbs' ? e.weight * 2.205 : e.weight
+                          );
+                          const goalWeight = profile?.goal_weight
+                            ? (unit === 'lbs' ? profile.goal_weight * 2.205 : profile.goal_weight)
+                            : null;
+
+                          return (
+                            <LineChart
+                              data={{
+                                labels: [],
+                                datasets: [
+                                  {
+                                    data: weightData,
+                                    color: () => COLORS.primary,
+                                    strokeWidth: 2,
+                                  },
+                                  ...(goalWeight ? [{
+                                    data: Array(weightData.length).fill(goalWeight),
+                                    color: () => COLORS.textMuted,
+                                    strokeWidth: 1,
+                                    withDots: false,
+                                  }] : []),
+                                ],
+                              }}
+                              width={(Dimensions.get('window').width - 64) * 0.55}
+                              height={80}
+                              withVerticalLabels={false}
+                              withHorizontalLabels={false}
+                              withInnerLines={false}
+                              withOuterLines={false}
+                              withDots={true}
+                              fromZero={false}
+                              chartConfig={{
+                                backgroundColor: 'transparent',
+                                backgroundGradientFrom: COLORS.surface,
+                                backgroundGradientTo: COLORS.surface,
+                                decimalPlaces: 1,
+                                color: () => COLORS.primary,
+                                labelColor: () => COLORS.textMuted,
+                                propsForDots: {
+                                  r: '3',
+                                  strokeWidth: '0',
+                                  fill: COLORS.primary,
+                                },
+                                propsForLabels: {
+                                  fontSize: 11,
+                                  fontWeight: '500',
+                                },
+                              }}
+                              bezier
+                              style={styles.weightChart}
+                            />
+                          );
+                        })()}
+                      </View>
+                    </View>
+
+                    {/* History List - Right Half */}
+                    <View style={styles.weightHistoryHalf}>
+                      {weightHistory.slice(0, 5).map((entry, index) => {
+                        const date = new Date(entry.log_date + 'T00:00:00');
+                        const monthDay = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                        const unit = profile?.weight_unit || 'kg';
+                        const displayWeight = unit === 'lbs' ? (entry.weight * 2.205).toFixed(1) : entry.weight?.toFixed(1);
+                        const nextEntry = weightHistory[index + 1];
+                        const diff = nextEntry ? entry.weight - nextEntry.weight : 0;
+
+                        return (
+                          <View key={entry.id || index} style={styles.weightHistoryRow}>
+                            <Text style={styles.weightHistoryDate}>{monthDay}</Text>
+                            <View style={styles.weightHistoryTrend}>
+                              {diff > 0.05 && <TrendingUp size={12} color={COLORS.success} />}
+                              {diff < -0.05 && <TrendingDown size={12} color={COLORS.primary} />}
+                              {Math.abs(diff) <= 0.05 && <Minus size={12} color={COLORS.textMuted} />}
+                            </View>
+                            <Text style={styles.weightHistoryValue}>{displayWeight}</Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  </View>
+                )}
+              </>
+            ) : (
+              <TouchableOpacity
+                style={styles.weightEmptyState}
+                onPress={() => setShowWeighInModal(true)}
+              >
+                <Text style={styles.weightEmptyText}>Log your first weigh-in</Text>
+                <Plus size={18} color={COLORS.primary} />
+              </TouchableOpacity>
+            )}
+          </View>
+            );
+          })()}
         </View>
 
         {/* Sleep Tracking Section */}
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>SLEEP TRACKING</Text>
-          {lastNightSleepLogged ? (
-            <View style={styles.sleepLoggedButton}>
-              <Check size={20} color="#FFFFFF" />
-              <Text style={styles.sleepLoggedButtonText}>Sleep Logged</Text>
-            </View>
-          ) : (
-            <TouchableOpacity
-              style={styles.sleepButton}
-              onPress={() => setShowSleepModal(true)}
-            >
-              <Moon size={20} color={COLORS.textOnPrimary} />
-              <Text style={styles.sleepButtonText}>Log Last Night's Sleep</Text>
-            </TouchableOpacity>
-          )}
+          <View style={styles.weightCard}>
+            {sleepHistory.length > 0 ? (
+              <>
+                <View style={styles.weightCurrentRow}>
+                  <View style={styles.weightCurrentInfo}>
+                    <Text style={styles.weightCurrentLabel}>Last Night</Text>
+                    <View style={styles.weightNumbersRow}>
+                      <Text style={styles.weightCurrentValue}>
+                        {sleepHistory[0]?.hours_slept?.toFixed(1) || '0'}h
+                      </Text>
+                    </View>
+                    {sleepHistory.length > 1 && (
+                      <Text style={styles.weightChangeText}>
+                        Avg: {(sleepHistory.reduce((sum, s) => sum + (s.hours_slept || 0), 0) / sleepHistory.length).toFixed(1)}h
+                      </Text>
+                    )}
+                  </View>
+                  <View style={styles.weightGoalInfo}>
+                    <Text style={styles.weightGoalLabel}>Goal</Text>
+                    <Text style={styles.weightGoalValue}>{sleepGoal}h</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.weighInBtn}
+                    onPress={() => setShowSleepModal(true)}
+                  >
+                    <Plus size={18} color={COLORS.textOnPrimary} />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Split Layout: Graph + History */}
+                {sleepHistory.length >= 2 && (
+                  <View style={styles.weightSplitContainer}>
+                    {/* Mini Chart - Left Half */}
+                    <View style={styles.weightChartHalf}>
+                      <View style={styles.chartWithLabel}>
+                        {(() => {
+                          const sleepData = sleepHistory.slice(0, 7).reverse().map(e => e.hours_slept || 0);
+
+                          return (
+                            <LineChart
+                              data={{
+                                labels: [],
+                                datasets: [
+                                  {
+                                    data: sleepData.length > 0 ? sleepData : [0],
+                                    color: () => '#8B5CF6',
+                                    strokeWidth: 2,
+                                  },
+                                  {
+                                    data: Array(sleepData.length || 1).fill(sleepGoal),
+                                    color: () => COLORS.textMuted,
+                                    strokeWidth: 1,
+                                    withDots: false,
+                                  },
+                                ],
+                              }}
+                              width={(Dimensions.get('window').width - 64) * 0.55}
+                              height={80}
+                              withVerticalLabels={false}
+                              withHorizontalLabels={false}
+                              withInnerLines={false}
+                              withOuterLines={false}
+                              withDots={true}
+                              fromZero={true}
+                              chartConfig={{
+                                backgroundColor: 'transparent',
+                                backgroundGradientFrom: COLORS.surface,
+                                backgroundGradientTo: COLORS.surface,
+                                decimalPlaces: 1,
+                                color: () => '#8B5CF6',
+                                labelColor: () => COLORS.textMuted,
+                                propsForDots: {
+                                  r: '3',
+                                  strokeWidth: '0',
+                                  fill: '#8B5CF6',
+                                },
+                                propsForLabels: {
+                                  fontSize: 11,
+                                  fontWeight: '500',
+                                },
+                              }}
+                              bezier
+                              style={styles.weightChart}
+                              getDotColor={(dataPoint) =>
+                                dataPoint >= sleepGoal ? '#8B5CF6' : '#EF4444'
+                              }
+                            />
+                          );
+                        })()}
+                      </View>
+                    </View>
+
+                    {/* History List - Right Half */}
+                    <View style={styles.weightHistoryHalf}>
+                      {sleepHistory.slice(0, 5).map((entry, index) => {
+                        const date = new Date(entry.log_date + 'T00:00:00');
+                        const monthDay = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+                        const nextEntry = sleepHistory[index + 1];
+                        const diff = nextEntry ? entry.hours_slept - nextEntry.hours_slept : 0;
+
+                        return (
+                          <View key={entry.id || index} style={styles.weightHistoryRow}>
+                            <Text style={styles.weightHistoryDate}>{monthDay}</Text>
+                            <View style={styles.weightHistoryTrend}>
+                              {diff > 0.25 && <TrendingUp size={12} color={COLORS.success} />}
+                              {diff < -0.25 && <TrendingDown size={12} color="#EF4444" />}
+                              {Math.abs(diff) <= 0.25 && <Minus size={12} color={COLORS.textMuted} />}
+                            </View>
+                            <Text style={styles.weightHistoryValue}>{entry.hours_slept?.toFixed(1)}h</Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  </View>
+                )}
+              </>
+            ) : (
+              <TouchableOpacity
+                style={styles.weightEmptyState}
+                onPress={() => setShowSleepModal(true)}
+              >
+                <Text style={styles.weightEmptyText}>Log your first sleep</Text>
+                <Plus size={18} color={COLORS.primary} />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
         <View style={{ height: 100 }} />
@@ -1229,7 +1650,10 @@ const HomeScreen = () => {
         visible={showWaterModal}
         onClose={() => setShowWaterModal(false)}
         onAdd={handleAddWater}
+        onDelete={handleDeleteWater}
         currentIntake={waterIntake}
+        waterGoal={nutritionGoals.water}
+        waterEntries={waterEntries}
       />
 
       <WeighInModal
@@ -1239,6 +1663,7 @@ const HomeScreen = () => {
         unit={profile?.weight_unit || 'kg'}
         currentWeight={lastWeight}
         lastWeighInDate={weightHistory.length > 0 ? weightHistory[0].log_date : null}
+        weightHistory={weightHistory}
       />
 
       <SleepEntryModal
@@ -1246,6 +1671,64 @@ const HomeScreen = () => {
         onClose={() => setShowSleepModal(false)}
         onSave={handleSaveSleep}
       />
+
+      {/* Followers/Following Modal */}
+      <Modal
+        visible={showSocialModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowSocialModal(false)}
+      >
+        <View style={styles.socialModalOverlay}>
+          <View style={styles.socialModalContainer}>
+            <View style={styles.socialModalHeader}>
+              <TouchableOpacity onPress={() => setShowSocialModal(false)}>
+                <X size={24} color={COLORS.text} />
+              </TouchableOpacity>
+              <View style={styles.socialModalTabs}>
+                <TouchableOpacity
+                  style={[styles.socialModalTab, socialModalTab === 'followers' && styles.socialModalTabActive]}
+                  onPress={() => setSocialModalTab('followers')}
+                >
+                  <Text style={[styles.socialModalTabText, socialModalTab === 'followers' && styles.socialModalTabTextActive]}>
+                    Followers ({followersCount})
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.socialModalTab, socialModalTab === 'following' && styles.socialModalTabActive]}
+                  onPress={() => setSocialModalTab('following')}
+                >
+                  <Text style={[styles.socialModalTabText, socialModalTab === 'following' && styles.socialModalTabTextActive]}>
+                    Following ({followingCount})
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              <View style={{ width: 24 }} />
+            </View>
+            <ScrollView style={styles.socialModalList}>
+              {(socialModalTab === 'followers' ? followersList : followingList).map((person) => (
+                <View key={person.id} style={styles.socialPersonRow}>
+                  <View style={styles.socialPersonAvatar}>
+                    <Text style={styles.socialPersonAvatarText}>
+                      {person.name?.[0]?.toUpperCase() || '?'}
+                    </Text>
+                  </View>
+                  <View style={styles.socialPersonInfo}>
+                    <Text style={styles.socialPersonName}>{person.name}</Text>
+                    <Text style={styles.socialPersonUsername}>@{person.username}</Text>
+                  </View>
+                  <Text style={styles.socialPersonStats}>{person.workouts} workouts</Text>
+                </View>
+              ))}
+              {(socialModalTab === 'followers' ? followersList : followingList).length === 0 && (
+                <Text style={styles.socialEmptyText}>
+                  {socialModalTab === 'followers' ? 'No followers yet' : 'Not following anyone'}
+                </Text>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       <RepertoireModal
         visible={showRepertoireModal}
@@ -1482,13 +1965,13 @@ const getStyles = (COLORS) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: COLORS.warning + '20',
+    backgroundColor: COLORS.primary + '20',
     borderRadius: 12,
     padding: 12,
     marginHorizontal: 16,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: COLORS.warning + '40',
+    borderColor: COLORS.primary + '40',
   },
   savedWorkoutInfo: {
     flexDirection: 'row',
@@ -1529,9 +2012,9 @@ const getStyles = (COLORS) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: COLORS.warning,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
     borderRadius: 8,
   },
   savedWorkoutResumeText: {
@@ -1594,7 +2077,12 @@ const getStyles = (COLORS) => StyleSheet.create({
   },
   headerRight: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
+  },
+  headerLogo: {
+    width: 36,
+    height: 36,
   },
   iconButton: {
     padding: 8,
@@ -1605,18 +2093,24 @@ const getStyles = (COLORS) => StyleSheet.create({
     paddingHorizontal: 16,
     marginTop: 16,
   },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   sectionLabel: {
     color: COLORS.textMuted,
     fontSize: 11,
     fontWeight: '600',
-    marginBottom: 8,
     letterSpacing: 0.5,
+    marginBottom: 10,
   },
   workoutCard: {
     backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: 16,
-    borderLeftWidth: 4,
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
   },
   workoutRow: {
     flexDirection: 'row',
@@ -1632,22 +2126,25 @@ const getStyles = (COLORS) => StyleSheet.create({
     alignItems: 'center',
   },
   workoutInfo: {
-    flex: 1,
+    alignItems: 'center',
+    marginBottom: 16,
   },
   workoutBadge: {
     fontSize: 10,
     fontWeight: '600',
     marginBottom: 4,
+    textAlign: 'center',
   },
   workoutHeader: {
     marginBottom: 16,
+    alignItems: 'center',
   },
   todayBadgeContainer: {
     backgroundColor: COLORS.primary + '20',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
-    alignSelf: 'flex-start',
+    alignSelf: 'center',
     marginBottom: 8,
   },
   todayBadgeText: {
@@ -1659,24 +2156,31 @@ const getStyles = (COLORS) => StyleSheet.create({
     color: COLORS.text,
     fontSize: 20,
     fontWeight: 'bold',
+    textAlign: 'center',
+    marginTop: 2,
   },
   workoutFocus: {
     color: COLORS.textMuted,
     fontSize: 14,
-    marginTop: 4,
+    marginTop: 0,
+    textAlign: 'center',
   },
   workoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    paddingVertical: 14,
-    borderRadius: 12,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignSelf: 'stretch',
+    borderWidth: 0,
+    outlineWidth: 0,
   },
   workoutButtonText: {
     color: COLORS.textOnPrimary,
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '500',
+    letterSpacing: 0.3,
   },
   savedWorkoutActions: {
     flexDirection: 'row',
@@ -1702,20 +2206,18 @@ const getStyles = (COLORS) => StyleSheet.create({
   statItem: {
     alignItems: 'center',
   },
-  progressRing: {
+  progressRingWrapper: {
     width: 52,
     height: 52,
-    borderRadius: 26,
-    backgroundColor: COLORS.surfaceLight,
-    justifyContent: 'center',
-    alignItems: 'center',
+    position: 'relative',
     marginBottom: 6,
   },
   progressRingInner: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.surface,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1730,63 +2232,64 @@ const getStyles = (COLORS) => StyleSheet.create({
   logFoodRow: {
     flexDirection: 'row',
     gap: 12,
+    alignItems: 'stretch',
   },
   addMealCard: {
     flex: 1,
     backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  mealIconBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: COLORS.primary + '20',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  mealIconBox: {
+    display: 'none',
+  },
   mealInfo: {
-    flex: 1,
+    alignItems: 'center',
   },
   mealTitle: {
     color: COLORS.text,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
+    letterSpacing: 0.2,
+    textAlign: 'center',
   },
   mealSubtitle: {
     color: COLORS.textMuted,
     fontSize: 12,
-    marginTop: 2,
+    marginTop: 4,
+    textAlign: 'center',
   },
   quickWaterCard: {
     flex: 1,
     backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: 12,
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   waterHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 10,
+    justifyContent: 'space-between',
+    marginBottom: 12,
   },
   waterLabel: {
     color: COLORS.text,
-    fontSize: 14,
-    fontWeight: '500',
-    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: 0.2,
   },
   waterTotalBadge: {
-    backgroundColor: COLORS.surfaceLight,
-    paddingHorizontal: 8,
+    backgroundColor: COLORS.primary + '15',
+    paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: 6,
   },
   waterTotalText: {
-    color: COLORS.text,
+    color: COLORS.primary,
     fontSize: 12,
     fontWeight: '600',
   },
@@ -1800,9 +2303,11 @@ const getStyles = (COLORS) => StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 8,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   waterQuickBtnText: {
-    color: COLORS.text,
+    color: COLORS.textSecondary,
     fontSize: 13,
     fontWeight: '500',
   },
@@ -1846,15 +2351,17 @@ const getStyles = (COLORS) => StyleSheet.create({
     marginTop: 2,
   },
   discoverButton: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    backgroundColor: 'transparent',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   discoverButtonText: {
-    color: COLORS.textOnPrimary,
-    fontSize: 14,
-    fontWeight: '600',
+    color: COLORS.text,
+    fontSize: 13,
+    fontWeight: '500',
   },
 
   // Trending Workouts Section
@@ -1886,85 +2393,224 @@ const getStyles = (COLORS) => StyleSheet.create({
     textAlign: 'center',
   },
   exploreCommunityButton: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 10,
+    backgroundColor: COLORS.surface,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   exploreCommunityText: {
-    color: COLORS.textOnPrimary,
-    fontSize: 15,
-    fontWeight: '600',
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '500',
   },
 
   // Weight Tracking Section
-  weighInButton: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 12,
-    paddingVertical: 18,
+  weightCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  weightCardGoalReached: {
+    borderColor: COLORS.success + '60',
+    borderWidth: 2,
+  },
+  weightCurrentRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
   },
-  weighInButtonText: {
-    color: COLORS.textOnPrimary,
+  weightCurrentInfo: {
+    flex: 1,
+  },
+  weightCurrentLabel: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    marginBottom: 2,
+  },
+  weightCurrentValue: {
+    color: COLORS.text,
+    fontSize: 28,
+    fontWeight: '700',
+  },
+  weightNumbersRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  weightGoalInline: {
+    color: COLORS.textMuted,
     fontSize: 16,
+    fontWeight: '500',
+    marginLeft: 4,
+  },
+  weightUnitInline: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  weightChangeText: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
+    marginTop: 4,
+  },
+  weightGoalInfo: {
+    alignItems: 'flex-end',
+    marginRight: 12,
+  },
+  weightGoalLabel: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    marginBottom: 2,
+  },
+  weightGoalValue: {
+    color: COLORS.textSecondary,
+    fontSize: 18,
     fontWeight: '600',
   },
-  weightHistoryContainer: {
+  weightGoalMessage: {
     marginTop: 12,
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    maxHeight: 200,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
   },
-  weightHistoryScroll: {
-    padding: 12,
-  },
-  weightHistoryItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  weightHistoryDate: {
+  weightGoalText: {
     color: COLORS.textSecondary,
     fontSize: 14,
+    textAlign: 'center',
+  },
+  weightChartContainer: {
+    marginTop: 16,
+  },
+  weightChart: {
+    borderRadius: 8,
+    marginLeft: -10,
+  },
+  weightChartLegend: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 16,
+    marginTop: 8,
+  },
+  weightChartLegendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  weightChartDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  weightChartLegendText: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+  },
+  weighInBtn: {
+    backgroundColor: COLORS.primary,
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  weightHistoryList: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  weightHistoryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  weightHistoryDate: {
+    color: COLORS.textMuted,
+    fontSize: 13,
+    width: 60,
+  },
+  weightHistoryTrend: {
+    width: 20,
+    alignItems: 'center',
   },
   weightHistoryValue: {
     color: COLORS.text,
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '500',
+    marginLeft: 8,
   },
-  sleepButton: {
-    backgroundColor: COLORS.sleep || '#8B5CF6',
-    borderRadius: 12,
-    paddingVertical: 14,
+  weightEmptyState: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 20,
     gap: 8,
   },
+  weightEmptyText: {
+    color: COLORS.textMuted,
+    fontSize: 15,
+  },
+  weightSplitContainer: {
+    flexDirection: 'row',
+    marginTop: 16,
+    gap: 8,
+  },
+  weightChartHalf: {
+    flex: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chartWithLabel: {
+    position: 'relative',
+  },
+  goalLabelOnChart: {
+    position: 'absolute',
+    right: 8,
+    top: 4,
+    backgroundColor: COLORS.surface,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  goalLabelText: {
+    color: COLORS.textMuted,
+    fontSize: 10,
+    fontWeight: '500',
+  },
+  weightHistoryHalf: {
+    flex: 1,
+  },
+  sleepButton: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+  },
   sleepButtonText: {
-    color: COLORS.textOnPrimary,
-    fontSize: 16,
-    fontWeight: '600',
+    color: COLORS.primary,
+    fontSize: 14,
+    fontWeight: '500',
   },
   sleepLoggedButton: {
     flexDirection: 'row',
-    backgroundColor: COLORS.success,
+    backgroundColor: COLORS.surface,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    borderWidth: 1,
+    borderColor: COLORS.success,
   },
   sleepLoggedButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+    color: COLORS.success,
+    fontSize: 15,
+    fontWeight: '500',
   },
   // Start Workout Modal Styles
   startModalOverlay: {
@@ -2159,6 +2805,28 @@ const getStyles = (COLORS) => StyleSheet.create({
   },
 
   // Weekly Sets by Muscle
+  muscleToggleContainer: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.surface,
+    borderRadius: 6,
+    padding: 2,
+  },
+  muscleToggleBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  muscleToggleBtnActive: {
+    backgroundColor: COLORS.primary,
+  },
+  muscleToggleText: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  muscleToggleTextActive: {
+    color: COLORS.textOnPrimary,
+  },
   muscleCard: {
     backgroundColor: COLORS.surface,
     borderRadius: 12,
@@ -2298,6 +2966,138 @@ const getStyles = (COLORS) => StyleSheet.create({
     color: COLORS.textOnPrimary,
     fontSize: 14,
     fontWeight: '600',
+  },
+
+  // Social Modal
+  socialModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'flex-end',
+  },
+  socialModalContainer: {
+    backgroundColor: COLORS.background,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '80%',
+  },
+  socialModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  socialModalTabs: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  socialModalTab: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  socialModalTabActive: {
+    borderBottomWidth: 2,
+    borderBottomColor: COLORS.primary,
+  },
+  socialModalTabText: {
+    color: COLORS.textMuted,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  socialModalTabTextActive: {
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
+  socialModalList: {
+    padding: 16,
+  },
+  socialPersonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.surfaceLight,
+  },
+  socialPersonAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  socialPersonAvatarText: {
+    color: COLORS.textOnPrimary,
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  socialPersonInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  socialPersonName: {
+    color: COLORS.text,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  socialPersonUsername: {
+    color: COLORS.textMuted,
+    fontSize: 13,
+  },
+  socialPersonStats: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+  },
+  socialEmptyText: {
+    color: COLORS.textMuted,
+    fontSize: 14,
+    textAlign: 'center',
+    paddingVertical: 40,
+  },
+
+  // Challenge cards on home
+  challengeHomeCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  challengeHomeInfo: {
+    flex: 1,
+  },
+  challengeHomeName: {
+    color: COLORS.text,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  challengeHomeGoal: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  challengeHomeProgress: {
+    alignItems: 'flex-end',
+    minWidth: 80,
+  },
+  challengeHomeProgressBar: {
+    width: 80,
+    height: 6,
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginBottom: 4,
+  },
+  challengeHomeProgressFill: {
+    height: '100%',
+    backgroundColor: COLORS.primary,
+    borderRadius: 3,
+  },
+  challengeHomeProgressText: {
+    color: COLORS.textMuted,
+    fontSize: 11,
   },
 });
 

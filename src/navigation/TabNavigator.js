@@ -41,7 +41,7 @@ const TabNavigator = () => {
 
   // For web, use compact height with minimal padding
   // For native, use safe area insets
-  const tabBarHeight = Platform.OS === 'web' ? 70 : (60 + insets.bottom);
+  const tabBarHeight = Platform.OS === 'web' ? 64 : (56 + insets.bottom);
 
   return (
     <View style={{ flex: 1 }}>
@@ -54,18 +54,17 @@ const TabNavigator = () => {
           borderTopColor: COLORS.border,
           borderTopWidth: 1,
           height: tabBarHeight,
-          paddingBottom: Platform.OS === 'web' ? 16 : insets.bottom,
-          paddingTop: 6,
+          paddingBottom: Platform.OS === 'web' ? 4 : insets.bottom,
+          paddingTop: 8,
         },
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.textMuted,
         tabBarLabelStyle: {
-          fontSize: 9,
+          fontSize: 10,
           fontWeight: '600',
-          marginTop: -2,
         },
         tabBarIconStyle: {
-          marginTop: 2,
+          marginTop: 0,
         },
       }}
     >

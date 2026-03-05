@@ -58,16 +58,16 @@ export const profileService = {
     }
   },
 
-  // Update profile
+  // Update profile (uses upsert to create if not exists)
   async updateProfile(userId, updates) {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .update({
+        .upsert({
+          id: userId,
           ...updates,
           updated_at: new Date().toISOString(),
-        })
-        .eq('id', userId)
+        }, { onConflict: 'id' })
         .select()
         .single();
 
