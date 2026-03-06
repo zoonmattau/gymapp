@@ -38,6 +38,7 @@ import MuscleMap, { PRIMARY_VIEW } from '../components/MuscleMap';
 import { EXERCISES } from '../constants/exercises';
 import { LineChart } from 'react-native-chart-kit';
 import { supabase } from '../lib/supabase';
+import ExerciseLink from '../components/ExerciseLink';
 
 const WorkoutSummaryScreen = ({ route, navigation }) => {
   const COLORS = useColors();
@@ -88,6 +89,7 @@ const WorkoutSummaryScreen = ({ route, navigation }) => {
     newPRs = [],
     isFromHistory = false,
     startTime = null,
+    saveError = false,
   } = summary || {};
 
   // Use startTime from workout, fallback to current time only if not available
@@ -635,6 +637,14 @@ const WorkoutSummaryScreen = ({ route, navigation }) => {
   // Render content (shared between web and native)
   const renderContent = () => (
     <>
+      {/* Save Error Warning */}
+      {saveError && (
+        <View style={styles.saveErrorBanner}>
+          <Text style={styles.saveErrorText}>
+            Some workout data may not have saved. Check your connection and try again later.
+          </Text>
+        </View>
+      )}
       {/* Card Carousel */}
       {Platform.OS === 'web' ? (
         <div
@@ -756,7 +766,7 @@ const WorkoutSummaryScreen = ({ route, navigation }) => {
                   </View>
                   <View style={styles.exerciseInfo}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Text style={[styles.exerciseName, hasPR && { color: COLORS.primary }]}>{exercise.name}</Text>
+                      <ExerciseLink exerciseName={exercise.name} style={[styles.exerciseName, hasPR && { color: COLORS.primary }]} />
                       {hasPR && <Trophy size={14} color="COLORS.primary" />}
                     </View>
                     <Text style={styles.exerciseSets}>{completedSets.length} sets{topWeight > 0 ? ` · Top: ${displayTopWeight}${weightUnit}` : ''}</Text>
@@ -1073,6 +1083,19 @@ const getStyles = (COLORS) => StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 16,
     paddingBottom: 100,
+  },
+  saveErrorBanner: {
+    backgroundColor: '#ff4444',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    marginTop: 8,
+  },
+  saveErrorText: {
+    color: '#fff',
+    fontSize: 14,
+    textAlign: 'center',
+    fontWeight: '500',
   },
   // Share Card Styles
   shareCard: {

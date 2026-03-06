@@ -28,6 +28,7 @@ import {
   Pencil,
   Trash2,
   Star,
+  Trophy,
 } from 'lucide-react-native';
 import { WORKOUT_TEMPLATES, AVAILABLE_PROGRAMS, GOAL_TO_PROGRAM } from '../constants/workoutTemplates';
 import { useColors } from '../contexts/ThemeContext';
@@ -37,6 +38,7 @@ import { getPausedWorkout, clearPausedWorkout } from '../utils/workoutStore';
 import { getCustomTemplates } from '../utils/customTemplateStore';
 import { workoutService } from '../services/workoutService';
 import { supabase } from '../lib/supabase';
+import ExerciseLink from '../components/ExerciseLink';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -83,6 +85,7 @@ const WorkoutsScreen = () => {
 
   // History stats
   const [workoutSetCounts, setWorkoutSetCounts] = useState({});
+  const [todayPRs, setTodayPRs] = useState([]);
   const [mostActiveDay, setMostActiveDay] = useState(null);
   const [workoutToDelete, setWorkoutToDelete] = useState(null);
 
@@ -398,6 +401,22 @@ const WorkoutsScreen = () => {
             counts[s.session_id].reps += (s.reps || 0);
           });
           setWorkoutSetCounts(counts);
+
+          // Find today's workout and fetch its PRs
+          const today = new Date().toDateString();
+          const todayWorkout = displayHistory.find(w => {
+            const workoutDate = new Date(w.ended_at || w.started_at);
+            return workoutDate.toDateString() === today;
+          });
+          if (todayWorkout) {
+            const { data: prData } = await supabase
+              .from('personal_records')
+              .select('exercise_name, weight, reps')
+              .eq('workout_session_id', todayWorkout.id);
+            setTodayPRs(prData || []);
+          } else {
+            setTodayPRs([]);
+          }
         }
       }
 
@@ -852,6 +871,16 @@ const WorkoutsScreen = () => {
   const weekDates = getWeekDates();
   const todaySchedule = weekDates.find(d => d.isToday);
 
+  // Find today's completed workout for stats
+  const todayCompletedWorkout = todaySchedule?.completed
+    ? workoutHistory.find(w => {
+        const workoutDate = new Date(w.ended_at || w.started_at);
+        const today = new Date();
+        return workoutDate.toDateString() === today.toDateString();
+      })
+    : null;
+  const todayWorkoutCounts = todayCompletedWorkout ? workoutSetCounts[todayCompletedWorkout.id] : null;
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
@@ -961,13 +990,16 @@ const WorkoutsScreen = () => {
                       {day.dateNum}
                     </Text>
                     <View style={styles.dayWorkoutRow}>
-                      <Text style={[
-                        styles.dayWorkout,
-                        isCompleted && styles.textCompleted,
-                        day.isToday && styles.textToday,
-                      ]} numberOfLines={1}>
-                        {day.isRest ? 'Rest' : getShortWorkoutName(day.workout)}
-                      </Text>
+                      {isCompleted ? (
+                        <Check size={16} color={COLORS.primary} strokeWidth={3} />
+                      ) : (
+                        <Text style={[
+                          styles.dayWorkout,
+                          day.isToday && styles.textToday,
+                        ]} numberOfLines={1}>
+                          {day.isRest ? 'Rest' : getShortWorkoutName(day.workout)}
+                        </Text>
+                      )}
                     </View>
                   </div>
                 );
@@ -1005,14 +1037,17 @@ const WorkoutsScreen = () => {
                       {day.dateNum}
                     </Text>
                     <View style={styles.dayWorkoutRow}>
-                      <Text style={[
-                        styles.dayWorkout,
-                        isCompleted && styles.textCompleted,
-                        isMissed && styles.textMissed,
-                        day.isToday && styles.textToday,
-                      ]} numberOfLines={1}>
-                        {day.isRest ? 'Rest' : getShortWorkoutName(day.workout)}
-                      </Text>
+                      {isCompleted ? (
+                        <Check size={16} color={COLORS.primary} strokeWidth={3} />
+                      ) : (
+                        <Text style={[
+                          styles.dayWorkout,
+                          isMissed && styles.textMissed,
+                          day.isToday && styles.textToday,
+                        ]} numberOfLines={1}>
+                          {day.isRest ? 'Rest' : getShortWorkoutName(day.workout)}
+                        </Text>
+                      )}
                     </View>
                   </View>
                 );
@@ -1050,30 +1085,84 @@ const WorkoutsScreen = () => {
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>TODAY'S WORKOUT</Text>
 
-          <View style={styles.todayCard}>
+          <View style={[styles.todayCard, todaySchedule?.completed && styles.todayCardCompleted]}>
             <View style={styles.todayContent}>
               <Text style={styles.todayTitle}>
-                {todaySchedule?.workout ? todaySchedule.workout : todaySchedule?.isRest ? 'Rest Day' : 'No workout scheduled'}
+                {todaySchedule?.completed
+                  ? 'Workout Complete'
+                  : todaySchedule?.workout
+                    ? todaySchedule.workout
+                    : todaySchedule?.isRest
+                      ? 'Rest Day'
+                      : 'No workout scheduled'}
               </Text>
-              <Text style={styles.todaySubtitle}>
-                {todaySchedule?.workout
-                  ? 'Ready to train'
-                  : todaySchedule?.isRest
-                    ? 'Recovery is part of the process'
-                    : 'Tap Start to begin'}
-              </Text>
+              {todaySchedule?.completed && todayCompletedWorkout ? (
+                <View style={styles.todayStatsContainer}>
+                  <View style={styles.todayStats}>
+                    {todayCompletedWorkout.duration_minutes > 0 && (
+                      <View style={styles.todayStatItem}>
+                        <Text style={styles.todayStatValue}>{todayCompletedWorkout.duration_minutes}</Text>
+                        <Text style={styles.todayStatLabel}>min</Text>
+                      </View>
+                    )}
+                    {todayWorkoutCounts?.sets > 0 && (
+                      <View style={styles.todayStatItem}>
+                        <Text style={styles.todayStatValue}>{todayWorkoutCounts.sets}</Text>
+                        <Text style={styles.todayStatLabel}>sets</Text>
+                      </View>
+                    )}
+                    {todayWorkoutCounts?.reps > 0 && (
+                      <View style={styles.todayStatItem}>
+                        <Text style={styles.todayStatValue}>{todayWorkoutCounts.reps}</Text>
+                        <Text style={styles.todayStatLabel}>reps</Text>
+                      </View>
+                    )}
+                    {todayCompletedWorkout.total_volume > 0 && (
+                      <View style={styles.todayStatItem}>
+                        <Text style={styles.todayStatValue}>{Math.round(todayCompletedWorkout.total_volume / 1000)}k</Text>
+                        <Text style={styles.todayStatLabel}>{weightUnit}</Text>
+                      </View>
+                    )}
+                  </View>
+                  {todayPRs.length > 0 && (
+                    <View style={styles.todayPRsContainer}>
+                      <Text style={styles.todayPRsTitle}>{todayPRs.length} New PR{todayPRs.length > 1 ? 's' : ''}</Text>
+                      {todayPRs.map((pr, idx) => {
+                        const e1rm = pr.reps === 1 ? pr.weight : Math.round(pr.weight * (1 + pr.reps / 30));
+                        const displayE1rm = weightUnit === 'lbs' ? Math.round(e1rm * 2.205) : e1rm;
+                        return (
+                          <View key={idx} style={styles.todayPRRow}>
+                            <Text style={styles.todayPRExercise} numberOfLines={1}>{pr.exercise_name}</Text>
+                            <Text style={styles.todayPRWeight}>{displayE1rm}{weightUnit}</Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  )}
+                </View>
+              ) : (
+                <Text style={styles.todaySubtitle}>
+                  {todaySchedule?.workout
+                    ? 'Ready to train'
+                    : todaySchedule?.isRest
+                      ? 'Recovery is part of the process'
+                      : 'Tap Start to begin'}
+                </Text>
+              )}
             </View>
           </View>
 
-          <TouchableOpacity
-            style={[styles.startButton, !bannerActive && pausedWorkout && styles.continueButton]}
-            onPress={startWorkout}
-            onClick={startWorkout}
-          >
-            <Text style={styles.startButtonText}>
-              {!bannerActive && pausedWorkout ? 'Continue Workout' : 'Start Workout'}
-            </Text>
-          </TouchableOpacity>
+          {!todaySchedule?.completed && (
+            <TouchableOpacity
+              style={[styles.startButton, !bannerActive && pausedWorkout && styles.continueButton]}
+              onPress={startWorkout}
+              onClick={startWorkout}
+            >
+              <Text style={styles.startButtonText}>
+                {!bannerActive && pausedWorkout ? 'Continue Workout' : 'Start Workout'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* RECENT ACTIVITY Section */}
@@ -1191,7 +1280,7 @@ const WorkoutsScreen = () => {
                                 onPress={() => toggleExerciseGraph(exercise.name)}
                               >
                                 <View style={styles.exerciseDetailLeft}>
-                                  <Text style={styles.exerciseDetailName} numberOfLines={1}>{exercise.name}</Text>
+                                  <ExerciseLink exerciseName={exercise.name} style={styles.exerciseDetailName} numberOfLines={1} />
                                   <Text style={styles.exerciseDetailStats}>
                                     {workingSets.length} sets{topWeight > 0 ? ` · ${displayWeight}${weightUnit}` : ''}
                                   </Text>
@@ -1924,9 +2013,11 @@ const getStyles = (COLORS) => StyleSheet.create({
   dayWorkoutRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 2,
     width: '100%',
     paddingHorizontal: 4,
+    minHeight: 18,
   },
   dayWorkout: {
     color: COLORS.textMuted,
@@ -1981,6 +2072,62 @@ const getStyles = (COLORS) => StyleSheet.create({
     color: COLORS.textMuted,
     fontSize: 14,
     textAlign: 'center',
+  },
+  todayCardCompleted: {
+    borderWidth: 2,
+    borderColor: COLORS.success,
+  },
+  todayStatsContainer: {
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+  },
+  todayStats: {
+    flexDirection: 'row',
+    gap: 20,
+  },
+  todayStatItem: {
+    alignItems: 'center',
+  },
+  todayStatValue: {
+    color: COLORS.success,
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  todayStatLabel: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  todayPRsContainer: {
+    marginTop: 12,
+    backgroundColor: COLORS.warning + '15',
+    borderRadius: 10,
+    padding: 12,
+  },
+  todayPRsTitle: {
+    color: COLORS.warning,
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  todayPRRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  todayPRExercise: {
+    color: COLORS.text,
+    fontSize: 13,
+    fontWeight: '500',
+    flex: 1,
+    marginRight: 8,
+  },
+  todayPRWeight: {
+    color: COLORS.warning,
+    fontSize: 13,
+    fontWeight: '700',
   },
   startButton: {
     flexDirection: 'row',

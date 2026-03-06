@@ -4,6 +4,7 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
+  Pressable,
   StyleSheet,
   SafeAreaView,
   RefreshControl,
@@ -36,7 +37,7 @@ import {
   X,
   Pencil,
 } from 'lucide-react-native';
-import Svg, { Circle } from 'react-native-svg';
+import Svg, { Circle, G, Rect, Text as SvgText } from 'react-native-svg';
 import { useColors } from '../contexts/ThemeContext';
 import { WORKOUT_TEMPLATES } from '../constants/workoutTemplates';
 import { EXERCISES } from '../constants/exercises';
@@ -122,6 +123,8 @@ const HomeScreen = () => {
   const [weightHistory, setWeightHistory] = useState([]);
   const [sleepHistory, setSleepHistory] = useState([]);
   const [sleepGoal, setSleepGoal] = useState(8);
+  const [selectedWeightPoint, setSelectedWeightPoint] = useState(null);
+  const [selectedSleepPoint, setSelectedSleepPoint] = useState(null);
   const [waterEntries, setWaterEntries] = useState([]);
 
   // Start workout modal
@@ -140,6 +143,11 @@ const HomeScreen = () => {
 
   // Active challenges
   const [activeChallenges, setActiveChallenges] = useState([]);
+
+  // Notifications
+  const [showNotificationsModal, setShowNotificationsModal] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
 
   // Weekly muscle sets tracking
   const [weeklyMuscleSets, setWeeklyMuscleSets] = useState({});
@@ -237,6 +245,7 @@ const HomeScreen = () => {
         loadActiveChallenges(),
         loadWaterEntries(),
         loadSupplements(),
+        loadNotifications(),
       ]);
       console.log('loadHomeData completed');
     } catch (error) {
@@ -294,6 +303,66 @@ const HomeScreen = () => {
     } catch (error) {
       console.log('Error loading challenges:', error);
     }
+  };
+
+  const loadNotifications = async () => {
+    if (!user?.id) return;
+    setNotificationsLoading(true);
+    try {
+      // Get pending friend requests
+      const { data: requests } = await supabase
+        .from('follows')
+        .select('id, follower_id, created_at, profiles:follower_id(id, first_name, last_name, username, avatar_url)')
+        .eq('following_id', user.id)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
+
+      const notifs = (requests || []).map(req => ({
+        id: req.id,
+        type: 'friend_request',
+        fromUser: req.profiles,
+        createdAt: req.created_at,
+      }));
+
+      setNotifications(notifs);
+    } catch (error) {
+      console.log('Error loading notifications:', error);
+    } finally {
+      setNotificationsLoading(false);
+    }
+  };
+
+  const handleAcceptRequest = async (notif) => {
+    try {
+      await supabase
+        .from('follows')
+        .update({ status: 'accepted' })
+        .eq('id', notif.id);
+
+      // Remove from list
+      setNotifications(prev => prev.filter(n => n.id !== notif.id));
+    } catch (error) {
+      console.log('Error accepting request:', error);
+    }
+  };
+
+  const handleDeclineRequest = async (notif) => {
+    try {
+      await supabase
+        .from('follows')
+        .delete()
+        .eq('id', notif.id);
+
+      // Remove from list
+      setNotifications(prev => prev.filter(n => n.id !== notif.id));
+    } catch (error) {
+      console.log('Error declining request:', error);
+    }
+  };
+
+  const openNotifications = () => {
+    loadNotifications();
+    setShowNotificationsModal(true);
   };
 
   const openSocialModal = async (tab) => {
@@ -1016,6 +1085,10 @@ const HomeScreen = () => {
             tintColor={COLORS.primary}
           />
         }
+        onScrollBeginDrag={() => {
+          setSelectedWeightPoint(null);
+          setSelectedSleepPoint(null);
+        }}
       >
         {/* User Header with Stats */}
         <View style={styles.header}>
@@ -1053,8 +1126,16 @@ const HomeScreen = () => {
               style={styles.headerLogo}
               resizeMode="contain"
             />
-            <TouchableOpacity style={styles.iconButton}>
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={openNotifications}
+            >
               <Bell size={18} color={COLORS.textMuted} />
+              {notifications.length > 0 && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>{notifications.length}</Text>
+                </View>
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -1407,12 +1488,14 @@ const HomeScreen = () => {
                       <View style={styles.chartWithLabel}>
                         {(() => {
                           const unit = profile?.weight_unit || 'kg';
-                          const weightData = weightHistory.slice(0, 7).reverse().map(e =>
+                          const reversedHistory = weightHistory.slice(0, 7).reverse();
+                          const weightData = reversedHistory.map(e =>
                             unit === 'lbs' ? e.weight * 2.205 : e.weight
                           );
                           const goalWeight = profile?.goal_weight
                             ? (unit === 'lbs' ? profile.goal_weight * 2.205 : profile.goal_weight)
                             : null;
+                          const chartWidth = Dimensions.get('window').width * 0.8;
 
                           return (
                             <LineChart
@@ -1432,8 +1515,8 @@ const HomeScreen = () => {
                                   }] : []),
                                 ],
                               }}
-                              width={(Dimensions.get('window').width - 64) * 0.55}
-                              height={80}
+                              width={chartWidth}
+                              height={200}
                               withVerticalLabels={false}
                               withHorizontalLabels={false}
                               withInnerLines={false}
@@ -1447,8 +1530,10 @@ const HomeScreen = () => {
                                 decimalPlaces: 1,
                                 color: () => COLORS.primary,
                                 labelColor: () => COLORS.textMuted,
+                                paddingRight: 0,
+                                paddingLeft: 0,
                                 propsForDots: {
-                                  r: '3',
+                                  r: '4',
                                   strokeWidth: '0',
                                   fill: COLORS.primary,
                                 },
@@ -1458,7 +1543,84 @@ const HomeScreen = () => {
                                 },
                               }}
                               bezier
-                              style={styles.weightChart}
+                              style={{ borderRadius: 8, marginLeft: -60, marginRight: -20 }}
+                              onDataPointClick={({ index }) => {
+                                setSelectedWeightPoint(selectedWeightPoint === index ? null : index);
+                                setSelectedSleepPoint(null);
+                              }}
+                              renderDotContent={({ x, y, index: idx }) => {
+                                if (selectedWeightPoint !== idx) return null;
+                                const value = weightData[idx];
+                                if (value === undefined) return null;
+                                const entry = reversedHistory[idx];
+                                const date = new Date(entry.log_date + 'T00:00:00');
+                                const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                                const prevValue = idx > 0 ? weightData[idx - 1] : null;
+                                const diff = prevValue !== null ? value - prevValue : 0;
+                                const trendStr = diff > 0 ? `+${diff.toFixed(1)}` : diff < 0 ? diff.toFixed(1) : '0';
+                                const trendColor = diff > 0 ? '#EF4444' : diff < 0 ? '#22C55E' : COLORS.textMuted;
+
+                                // Position tooltip to stay in bounds
+                                const tooltipWidth = 70;
+                                const tooltipHeight = 42;
+                                const visibleLeft = 70;
+                                const visibleRight = chartWidth - 40;
+                                let tooltipX = x - tooltipWidth / 2;
+                                if (tooltipX < visibleLeft) tooltipX = visibleLeft;
+                                if (tooltipX + tooltipWidth > visibleRight) tooltipX = visibleRight - tooltipWidth;
+
+                                // Flip tooltip below point if too close to top
+                                const showBelow = y < 60;
+                                const tooltipY = showBelow ? y + 10 : y - 50;
+
+                                return (
+                                  <G key={idx}>
+                                    <Rect
+                                      x={tooltipX}
+                                      y={tooltipY}
+                                      width={tooltipWidth}
+                                      height={tooltipHeight}
+                                      rx={6}
+                                      fill={COLORS.surface}
+                                      stroke={COLORS.primary}
+                                      strokeWidth={1}
+                                    />
+                                    <SvgText
+                                      x={tooltipX + tooltipWidth / 2}
+                                      y={tooltipY + 14}
+                                      fontSize={10}
+                                      fill={COLORS.textMuted}
+                                      textAnchor="middle"
+                                      fontFamily="System"
+                                    >
+                                      {dateStr}
+                                    </SvgText>
+                                    <SvgText
+                                      x={tooltipX + tooltipWidth / 2}
+                                      y={tooltipY + 28}
+                                      fontSize={12}
+                                      fontWeight="600"
+                                      fill={COLORS.text}
+                                      textAnchor="middle"
+                                      fontFamily="System"
+                                    >
+                                      {value.toFixed(1)}{unit}
+                                    </SvgText>
+                                    {prevValue !== null && (
+                                      <SvgText
+                                        x={tooltipX + tooltipWidth / 2}
+                                        y={tooltipY + 40}
+                                        fontSize={10}
+                                        fill={trendColor}
+                                        textAnchor="middle"
+                                        fontFamily="System"
+                                      >
+                                        {trendStr}{unit}
+                                      </SvgText>
+                                    )}
+                                  </G>
+                                );
+                              }}
                             />
                           );
                         })()}
@@ -1466,7 +1628,13 @@ const HomeScreen = () => {
                     </View>
 
                     {/* History List - Right Half */}
-                    <View style={styles.weightHistoryHalf}>
+                    <Pressable
+                      style={styles.weightHistoryHalf}
+                      onPress={() => {
+                        setSelectedWeightPoint(null);
+                        setSelectedSleepPoint(null);
+                      }}
+                    >
                       {weightHistory.slice(0, 5).map((entry, index) => {
                         const date = new Date(entry.log_date + 'T00:00:00');
                         const monthDay = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -1487,7 +1655,7 @@ const HomeScreen = () => {
                           </View>
                         );
                       })}
-                    </View>
+                    </Pressable>
                   </View>
                 )}
               </>
@@ -1544,7 +1712,9 @@ const HomeScreen = () => {
                     <View style={styles.weightChartHalf}>
                       <View style={styles.chartWithLabel}>
                         {(() => {
-                          const sleepData = sleepHistory.slice(0, 7).reverse().map(e => e.hours_slept || 0);
+                          const reversedSleepHistory = sleepHistory.slice(0, 7).reverse();
+                          const sleepData = reversedSleepHistory.map(e => e.hours_slept || 0);
+                          const chartWidth = Dimensions.get('window').width * 0.8;
 
                           return (
                             <LineChart
@@ -1564,8 +1734,8 @@ const HomeScreen = () => {
                                   },
                                 ],
                               }}
-                              width={(Dimensions.get('window').width - 64) * 0.55}
-                              height={80}
+                              width={chartWidth}
+                              height={200}
                               withVerticalLabels={false}
                               withHorizontalLabels={false}
                               withInnerLines={false}
@@ -1579,8 +1749,10 @@ const HomeScreen = () => {
                                 decimalPlaces: 1,
                                 color: () => '#8B5CF6',
                                 labelColor: () => COLORS.textMuted,
+                                paddingRight: 0,
+                                paddingLeft: 0,
                                 propsForDots: {
-                                  r: '3',
+                                  r: '4',
                                   strokeWidth: '0',
                                   fill: '#8B5CF6',
                                 },
@@ -1590,10 +1762,87 @@ const HomeScreen = () => {
                                 },
                               }}
                               bezier
-                              style={styles.weightChart}
+                              style={{ borderRadius: 8, marginLeft: -60, marginRight: -20 }}
                               getDotColor={(dataPoint) =>
                                 dataPoint >= sleepGoal ? '#8B5CF6' : '#EF4444'
                               }
+                              onDataPointClick={({ index }) => {
+                                setSelectedSleepPoint(selectedSleepPoint === index ? null : index);
+                                setSelectedWeightPoint(null);
+                              }}
+                              renderDotContent={({ x, y, index: idx }) => {
+                                if (selectedSleepPoint !== idx) return null;
+                                const value = sleepData[idx];
+                                if (value === undefined) return null;
+                                const entry = reversedSleepHistory[idx];
+                                const date = new Date(entry.log_date + 'T00:00:00');
+                                const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                                const prevValue = idx > 0 ? sleepData[idx - 1] : null;
+                                const diff = prevValue !== null ? value - prevValue : 0;
+                                const trendStr = diff > 0 ? `+${diff.toFixed(1)}` : diff < 0 ? diff.toFixed(1) : '0';
+                                const trendColor = diff > 0 ? '#22C55E' : diff < 0 ? '#EF4444' : COLORS.textMuted;
+
+                                // Position tooltip to stay in bounds
+                                const tooltipWidth = 65;
+                                const tooltipHeight = 42;
+                                const visibleLeft = 70;
+                                const visibleRight = chartWidth - 40;
+                                let tooltipX = x - tooltipWidth / 2;
+                                if (tooltipX < visibleLeft) tooltipX = visibleLeft;
+                                if (tooltipX + tooltipWidth > visibleRight) tooltipX = visibleRight - tooltipWidth;
+
+                                // Flip tooltip below point if too close to top
+                                const showBelow = y < 60;
+                                const tooltipY = showBelow ? y + 10 : y - 50;
+
+                                return (
+                                  <G key={idx}>
+                                    <Rect
+                                      x={tooltipX}
+                                      y={tooltipY}
+                                      width={tooltipWidth}
+                                      height={tooltipHeight}
+                                      rx={6}
+                                      fill={COLORS.surface}
+                                      stroke="#8B5CF6"
+                                      strokeWidth={1}
+                                    />
+                                    <SvgText
+                                      x={tooltipX + tooltipWidth / 2}
+                                      y={tooltipY + 14}
+                                      fontSize={10}
+                                      fill={COLORS.textMuted}
+                                      textAnchor="middle"
+                                      fontFamily="System"
+                                    >
+                                      {dateStr}
+                                    </SvgText>
+                                    <SvgText
+                                      x={tooltipX + tooltipWidth / 2}
+                                      y={tooltipY + 28}
+                                      fontSize={12}
+                                      fontWeight="600"
+                                      fill={COLORS.text}
+                                      textAnchor="middle"
+                                      fontFamily="System"
+                                    >
+                                      {value.toFixed(1)}h
+                                    </SvgText>
+                                    {prevValue !== null && (
+                                      <SvgText
+                                        x={tooltipX + tooltipWidth / 2}
+                                        y={tooltipY + 40}
+                                        fontSize={10}
+                                        fill={trendColor}
+                                        textAnchor="middle"
+                                        fontFamily="System"
+                                      >
+                                        {trendStr}h
+                                      </SvgText>
+                                    )}
+                                  </G>
+                                );
+                              }}
                             />
                           );
                         })()}
@@ -1601,7 +1850,13 @@ const HomeScreen = () => {
                     </View>
 
                     {/* History List - Right Half */}
-                    <View style={styles.weightHistoryHalf}>
+                    <Pressable
+                      style={styles.weightHistoryHalf}
+                      onPress={() => {
+                        setSelectedWeightPoint(null);
+                        setSelectedSleepPoint(null);
+                      }}
+                    >
                       {sleepHistory.slice(0, 5).map((entry, index) => {
                         const date = new Date(entry.log_date + 'T00:00:00');
                         const monthDay = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
@@ -1620,7 +1875,7 @@ const HomeScreen = () => {
                           </View>
                         );
                       })}
-                    </View>
+                    </Pressable>
                   </View>
                 )}
               </>
@@ -1737,6 +1992,77 @@ const HomeScreen = () => {
         loading={repertoireLoading}
         onStartWorkout={handleStartRepertoireWorkout}
       />
+
+      {/* Notifications Modal */}
+      <Modal
+        visible={showNotificationsModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowNotificationsModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.notifModalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowNotificationsModal(false)}
+        >
+          <View style={styles.notifModalContainer}>
+            <View style={styles.notifModalHeader}>
+              <Text style={styles.notifModalTitle}>Notifications</Text>
+              <TouchableOpacity onPress={() => setShowNotificationsModal(false)}>
+                <X size={20} color={COLORS.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.notifModalContent} showsVerticalScrollIndicator={false}>
+              {notificationsLoading ? (
+                <Text style={styles.notifEmptyText}>Loading...</Text>
+              ) : notifications.length === 0 ? (
+                <View style={styles.notifEmpty}>
+                  <Bell size={32} color={COLORS.textMuted} />
+                  <Text style={styles.notifEmptyText}>No notifications</Text>
+                </View>
+              ) : (
+                notifications.map(notif => (
+                  <View key={notif.id} style={styles.notifItem}>
+                    <View style={styles.notifItemLeft}>
+                      <View style={styles.notifAvatar}>
+                        <Text style={styles.notifAvatarText}>
+                          {notif.fromUser?.first_name?.[0] || '?'}
+                        </Text>
+                      </View>
+                      <View style={styles.notifInfo}>
+                        <Text style={styles.notifText}>
+                          <Text style={styles.notifName}>
+                            {notif.fromUser?.first_name} {notif.fromUser?.last_name}
+                          </Text>
+                          {' wants to follow you'}
+                        </Text>
+                        <Text style={styles.notifTime}>
+                          {new Date(notif.createdAt).toLocaleDateString()}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={styles.notifActions}>
+                      <TouchableOpacity
+                        style={styles.notifAcceptBtn}
+                        onPress={() => handleAcceptRequest(notif)}
+                      >
+                        <Check size={16} color="#FFF" />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.notifDeclineBtn}
+                        onPress={() => handleDeclineRequest(notif)}
+                      >
+                        <X size={16} color={COLORS.textMuted} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))
+              )}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Start Workout Modal */}
       <Modal
@@ -2088,6 +2414,125 @@ const getStyles = (COLORS) => StyleSheet.create({
     padding: 8,
     backgroundColor: COLORS.surface,
     borderRadius: 8,
+    position: 'relative',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    backgroundColor: '#EF4444',
+    borderRadius: 10,
+    minWidth: 16,
+    height: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  notificationBadgeText: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  // Notifications Modal
+  notifModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-start',
+    paddingTop: 100,
+    paddingHorizontal: 16,
+  },
+  notifModalContainer: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    maxHeight: 400,
+    overflow: 'hidden',
+  },
+  notifModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.surfaceLight,
+  },
+  notifModalTitle: {
+    color: COLORS.text,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  notifModalContent: {
+    padding: 16,
+  },
+  notifEmpty: {
+    alignItems: 'center',
+    paddingVertical: 32,
+  },
+  notifEmptyText: {
+    color: COLORS.textMuted,
+    fontSize: 14,
+    marginTop: 12,
+  },
+  notifItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.surfaceLight,
+  },
+  notifItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  notifAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#3B82F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  notifAvatarText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  notifInfo: {
+    flex: 1,
+  },
+  notifText: {
+    color: COLORS.text,
+    fontSize: 14,
+  },
+  notifName: {
+    fontWeight: '600',
+  },
+  notifTime: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  notifActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  notifAcceptBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#3B82F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  notifDeclineBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.surfaceLight,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   section: {
     paddingHorizontal: 16,
@@ -2170,8 +2615,9 @@ const getStyles = (COLORS) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    paddingVertical: 12,
-    borderRadius: 10,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 12,
     alignSelf: 'stretch',
     borderWidth: 0,
     outlineWidth: 0,
@@ -2485,7 +2931,6 @@ const getStyles = (COLORS) => StyleSheet.create({
   },
   weightChart: {
     borderRadius: 8,
-    marginLeft: -10,
   },
   weightChartLegend: {
     flexDirection: 'row',
@@ -2559,11 +3004,10 @@ const getStyles = (COLORS) => StyleSheet.create({
   },
   weightChartHalf: {
     flex: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   chartWithLabel: {
     position: 'relative',
+    width: '100%',
   },
   goalLabelOnChart: {
     position: 'absolute',

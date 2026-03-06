@@ -46,6 +46,10 @@ import {
   Plus,
   Camera,
   Smartphone,
+  Upload,
+  FileText,
+  Check,
+  AlertCircle,
 } from 'lucide-react-native';
 import { useColors, useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -130,6 +134,12 @@ const ProfileScreen = () => {
     setToastType(type);
     setToastVisible(true);
   };
+
+  // CSV Import
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importResult, setImportResult] = useState(null); // { success: true, sessions: X, sets: Y } or { success: false, error: 'msg' }
+  const csvInputRef = useRef(null);
 
   // Avatar upload
   const fileInputRef = useRef(null);
@@ -607,6 +617,280 @@ const ProfileScreen = () => {
     }
   };
 
+  // CSV Import Handler - supports many formats and column orderings
+  const handleCSVImport = async (csvText) => {
+    if (!user?.id) return;
+    setImportLoading(true);
+    setImportResult(null);
+
+    try {
+      // Remove BOM if present
+      let cleanText = csvText.replace(/^\uFEFF/, '');
+
+      // Detect delimiter (comma, semicolon, or tab)
+      const firstLine = cleanText.split('\n')[0];
+      let delimiter = ',';
+      if (firstLine.includes('\t') && !firstLine.includes(',')) delimiter = '\t';
+      else if (firstLine.includes(';') && !firstLine.includes(',')) delimiter = ';';
+
+      // Parse CSV with proper handling
+      const parseCSVLine = (line) => {
+        const values = [];
+        let current = '';
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+          const char = line[i];
+          if (char === '"') {
+            if (inQuotes && line[i + 1] === '"') {
+              current += '"';
+              i++;
+            } else {
+              inQuotes = !inQuotes;
+            }
+          } else if (char === delimiter && !inQuotes) {
+            values.push(current.trim().replace(/^["']|["']$/g, ''));
+            current = '';
+          } else {
+            current += char;
+          }
+        }
+        values.push(current.trim().replace(/^["']|["']$/g, ''));
+        return values;
+      };
+
+      const lines = cleanText.split(/\r?\n/).filter(l => l.trim());
+      if (lines.length < 2) {
+        setImportResult({ success: false, error: 'CSV file is empty or has no data rows' });
+        setImportLoading(false);
+        return;
+      }
+
+      // Parse header - normalize to lowercase, remove special chars
+      const rawHeader = parseCSVLine(lines[0]);
+      const header = rawHeader.map(h => h.toLowerCase().replace(/[^a-z0-9]/g, ''));
+
+      // Flexible column matching with many variations
+      const findCol = (patterns) => {
+        for (let i = 0; i < header.length; i++) {
+          const h = header[i];
+          for (const p of patterns) {
+            if (h === p || h.includes(p) || p.includes(h)) return i;
+          }
+        }
+        return -1;
+      };
+
+      // Column patterns for different app exports and spreadsheet formats
+      const dateCol = findCol(['date', 'datetime', 'time', 'timestamp', 'when', 'day', 'workoutdate', 'trainingdate', 'performedat']);
+      const exerciseCol = findCol(['exercise', 'exercisename', 'movement', 'lift', 'name', 'activity', 'workout', 'exercisetitle']);
+      const weightCol = findCol(['weight', 'load', 'kg', 'lbs', 'lb', 'kgs', 'weightkg', 'weightlbs', 'weightlifted', 'resistance']);
+      const repsCol = findCol(['reps', 'rep', 'repetitions', 'repetition', 'repsperformed', 'numreps', 'repcount']);
+      const setsCol = findCol(['sets', 'set', 'setcount', 'numsets', 'setnumber', 'setnum']);
+      const workoutNameCol = findCol(['workoutname', 'routine', 'program', 'session', 'workouttype', 'sessionname']);
+      const notesCol = findCol(['notes', 'note', 'comment', 'comments', 'description']);
+      const rpeCol = findCol(['rpe', 'rir', 'intensity', 'effort', 'perceived']);
+      const durationCol = findCol(['duration', 'time', 'seconds', 'minutes', 'timeseconds']);
+
+      // Must have at least exercise column
+      if (exerciseCol === -1) {
+        // Try to find any column that might contain exercise names
+        const sampleRow = parseCSVLine(lines[1]);
+        let possibleExerciseCol = -1;
+        for (let i = 0; i < sampleRow.length; i++) {
+          const val = sampleRow[i];
+          // Check if it looks like an exercise name (contains letters, reasonable length)
+          if (val && /^[a-zA-Z]/.test(val) && val.length > 2 && val.length < 100 && !/^\d+$/.test(val)) {
+            possibleExerciseCol = i;
+            break;
+          }
+        }
+        if (possibleExerciseCol === -1) {
+          setImportResult({ success: false, error: 'Could not identify exercise column. Please ensure your CSV has a column for exercise names.' });
+          setImportLoading(false);
+          return;
+        }
+      }
+
+      const finalExerciseCol = exerciseCol >= 0 ? exerciseCol : 0;
+
+      // Parse date in multiple formats
+      const parseDate = (dateStr) => {
+        if (!dateStr || dateStr.trim() === '') return null;
+        const s = dateStr.trim();
+
+        // ISO format: 2024-01-15 or 2024-01-15T10:30:00
+        if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+          const d = new Date(s);
+          if (!isNaN(d.getTime())) return d;
+        }
+
+        // US format: 01/15/2024 or 1/15/2024
+        const usMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+        if (usMatch) {
+          const year = usMatch[3].length === 2 ? 2000 + parseInt(usMatch[3]) : parseInt(usMatch[3]);
+          const d = new Date(year, parseInt(usMatch[1]) - 1, parseInt(usMatch[2]));
+          if (!isNaN(d.getTime())) return d;
+        }
+
+        // EU format: 15/01/2024 or 15-01-2024 or 15.01.2024
+        const euMatch = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})$/);
+        if (euMatch) {
+          const day = parseInt(euMatch[1]);
+          const month = parseInt(euMatch[2]);
+          const year = euMatch[3].length === 2 ? 2000 + parseInt(euMatch[3]) : parseInt(euMatch[3]);
+          // If day > 12, it's definitely EU format
+          if (day > 12) {
+            const d = new Date(year, month - 1, day);
+            if (!isNaN(d.getTime())) return d;
+          }
+        }
+
+        // Try native parsing as fallback
+        const d = new Date(s);
+        if (!isNaN(d.getTime())) return d;
+
+        return null;
+      };
+
+      // Parse weight (handle units in the value like "80kg" or "175 lbs")
+      const parseWeight = (weightStr) => {
+        if (!weightStr) return 0;
+        const s = weightStr.toString().trim().toLowerCase();
+        const num = parseFloat(s.replace(/[^0-9.\-]/g, ''));
+        if (isNaN(num)) return 0;
+        // Convert lbs to kg if specified
+        if (s.includes('lb')) return Math.round(num / 2.205 * 10) / 10;
+        return num;
+      };
+
+      // Group data by date
+      const workoutsByDate = {};
+      const today = new Date().toISOString().split('T')[0];
+      let skippedRows = 0;
+
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        const values = parseCSVLine(line);
+
+        const exercise = values[finalExerciseCol]?.trim();
+        if (!exercise || exercise.length < 2) {
+          skippedRows++;
+          continue;
+        }
+
+        // Skip header-like rows that might be repeated
+        if (exercise.toLowerCase() === 'exercise' || exercise.toLowerCase() === 'name') {
+          continue;
+        }
+
+        const dateStr = dateCol >= 0 ? values[dateCol] : null;
+        const parsedDate = parseDate(dateStr);
+        const normalizedDate = parsedDate ? parsedDate.toISOString().split('T')[0] : today;
+
+        const weight = weightCol >= 0 ? parseWeight(values[weightCol]) : 0;
+        const reps = repsCol >= 0 ? parseInt(values[repsCol]?.replace(/[^0-9]/g, '')) || 0 : 0;
+        const numSets = setsCol >= 0 ? parseInt(values[setsCol]?.replace(/[^0-9]/g, '')) || 1 : 1;
+        const workoutName = workoutNameCol >= 0 ? values[workoutNameCol]?.trim() : null;
+        const rpe = rpeCol >= 0 ? parseInt(values[rpeCol]?.replace(/[^0-9]/g, '')) || null : null;
+        const notes = notesCol >= 0 ? values[notesCol]?.trim() : null;
+
+        const dateKey = workoutName ? `${normalizedDate}|${workoutName}` : normalizedDate;
+
+        if (!workoutsByDate[dateKey]) {
+          workoutsByDate[dateKey] = { date: normalizedDate, name: workoutName, sets: [] };
+        }
+
+        // Add sets (if numSets > 1, duplicate the entry)
+        for (let s = 0; s < Math.min(numSets, 20); s++) { // Cap at 20 sets per entry
+          workoutsByDate[dateKey].sets.push({ exercise, weight, reps, rpe, notes });
+        }
+      }
+
+      if (Object.keys(workoutsByDate).length === 0) {
+        setImportResult({ success: false, error: `No valid workout data found. ${skippedRows > 0 ? `${skippedRows} rows were skipped.` : ''} Please check your CSV format.` });
+        setImportLoading(false);
+        return;
+      }
+
+      // Create workout sessions and sets
+      let totalSessions = 0;
+      let totalSets = 0;
+
+      for (const [key, workout] of Object.entries(workoutsByDate)) {
+        // Create session
+        const sessionDate = new Date(workout.date);
+        const { data: session, error: sessionError } = await supabase
+          .from('workout_sessions')
+          .insert({
+            user_id: user.id,
+            workout_name: workout.name || 'Imported Workout',
+            started_at: sessionDate.toISOString(),
+            ended_at: new Date(sessionDate.getTime() + 60 * 60 * 1000).toISOString(),
+          })
+          .select()
+          .single();
+
+        if (sessionError) {
+          console.error('Error creating session:', sessionError);
+          continue;
+        }
+
+        totalSessions++;
+
+        // Group by exercise for proper set numbering
+        const exerciseSetNumbers = {};
+
+        for (const set of workout.sets) {
+          if (!exerciseSetNumbers[set.exercise]) {
+            exerciseSetNumbers[set.exercise] = 1;
+          }
+
+          const insertData = {
+            session_id: session.id,
+            exercise_name: set.exercise,
+            set_number: exerciseSetNumbers[set.exercise]++,
+            weight: set.weight,
+            reps: set.reps,
+            is_warmup: false,
+          };
+          if (set.rpe) insertData.rpe = set.rpe;
+
+          const { error: setError } = await supabase
+            .from('workout_sets')
+            .insert(insertData);
+
+          if (!setError) {
+            totalSets++;
+          }
+        }
+      }
+
+      setImportResult({ success: true, sessions: totalSessions, sets: totalSets });
+      showToast(`Imported ${totalSessions} workouts with ${totalSets} sets!`, 'success');
+    } catch (error) {
+      console.error('CSV import error:', error);
+      setImportResult({ success: false, error: error.message || 'Failed to import CSV' });
+    } finally {
+      setImportLoading(false);
+    }
+  };
+
+  const handleFileSelect = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result;
+      if (typeof text === 'string') {
+        handleCSVImport(text);
+      }
+    };
+    reader.readAsText(file);
+  };
+
   const getDisplayName = () => {
     if (profile?.first_name && profile?.last_name) {
       return `${profile.first_name} ${profile.last_name}`;
@@ -950,6 +1234,22 @@ const ProfileScreen = () => {
             <ChevronRight size={18} color={COLORS.textMuted} />
           </TouchableOpacity>
 
+        </View>
+
+        {/* Data & Import Section */}
+        <Text style={styles.sectionLabelLarge}>Data & Import</Text>
+        <View style={styles.settingsCard}>
+          <TouchableOpacity
+            style={[styles.settingsItem, { borderBottomWidth: 0 }]}
+            onPress={() => setShowImportModal(true)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.settingsItemLeft}>
+              <Upload size={20} color={COLORS.primary} />
+              <Text style={[styles.settingsLabel, { marginLeft: 12 }]}>Import Workout History</Text>
+            </View>
+            <ChevronRight size={18} color={COLORS.textMuted} />
+          </TouchableOpacity>
         </View>
 
         {/* Support Section */}
@@ -1459,6 +1759,103 @@ const ProfileScreen = () => {
             <Text style={styles.aboutCopyright}>© 2024 UpRep. All rights reserved.</Text>
           </ScrollView>
         </SafeAreaView>
+      </Modal>
+
+      {/* Import CSV Modal */}
+      <Modal visible={showImportModal} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.importModalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Import Workout History</Text>
+              <TouchableOpacity onPress={() => { setShowImportModal(false); setImportResult(null); }}>
+                <X size={24} color={COLORS.text} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.importModalBody} showsVerticalScrollIndicator={false}>
+              <View style={styles.importInstructions}>
+                <FileText size={48} color={COLORS.primary} style={{ marginBottom: 16 }} />
+                <Text style={styles.importTitle}>Upload a CSV File</Text>
+                <Text style={styles.importDescription}>
+                  Import your workout history from other apps or spreadsheets.
+                </Text>
+              </View>
+
+              <View style={styles.importFormatSection}>
+                <Text style={styles.importFormatTitle}>Supported Formats</Text>
+                <Text style={styles.importFormatText}>
+                  Works with exports from Strong, Hevy, JEFIT, and most fitness apps. We auto-detect columns including:
+                </Text>
+                <View style={styles.importFormatList}>
+                  <Text style={styles.importFormatItem}>• <Text style={styles.importFormatBold}>Exercise</Text> - name, movement, lift, activity</Text>
+                  <Text style={styles.importFormatItem}>• <Text style={styles.importFormatBold}>Date</Text> - any common format (01/15/2024, 2024-01-15, etc.)</Text>
+                  <Text style={styles.importFormatItem}>• <Text style={styles.importFormatBold}>Weight</Text> - kg or lbs (auto-converted)</Text>
+                  <Text style={styles.importFormatItem}>• <Text style={styles.importFormatBold}>Reps</Text> - repetitions, rep count</Text>
+                  <Text style={styles.importFormatItem}>• <Text style={styles.importFormatBold}>Sets</Text> - number of sets (optional)</Text>
+                  <Text style={styles.importFormatItem}>• <Text style={styles.importFormatBold}>RPE</Text> - rate of perceived exertion (optional)</Text>
+                </View>
+                <Text style={styles.importFormatSubtext}>
+                  Columns can be in any order. Extra columns are ignored.
+                </Text>
+              </View>
+
+              {importLoading && (
+                <View style={styles.importLoadingContainer}>
+                  <ActivityIndicator size="large" color={COLORS.primary} />
+                  <Text style={styles.importLoadingText}>Importing workouts...</Text>
+                </View>
+              )}
+
+              {importResult && !importLoading && (
+                <View style={[
+                  styles.importResultContainer,
+                  importResult.success ? styles.importResultSuccess : styles.importResultError
+                ]}>
+                  {importResult.success ? (
+                    <>
+                      <Check size={24} color="#10B981" />
+                      <Text style={styles.importResultSuccessText}>
+                        Successfully imported {importResult.sessions} workouts with {importResult.sets} sets!
+                      </Text>
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle size={24} color="#EF4444" />
+                      <Text style={styles.importResultErrorText}>{importResult.error}</Text>
+                    </>
+                  )}
+                </View>
+              )}
+
+              {Platform.OS === 'web' && (
+                <input
+                  ref={csvInputRef}
+                  type="file"
+                  accept=".csv"
+                  onChange={handleFileSelect}
+                  style={{ display: 'none' }}
+                />
+              )}
+
+              <TouchableOpacity
+                style={[styles.importButton, importLoading && styles.importButtonDisabled]}
+                onPress={() => {
+                  if (Platform.OS === 'web') {
+                    csvInputRef.current?.click();
+                  } else {
+                    showToast('CSV import available on web version', 'info');
+                  }
+                }}
+                disabled={importLoading}
+              >
+                <Upload size={20} color="#FFF" />
+                <Text style={styles.importButtonText}>
+                  {importLoading ? 'Importing...' : 'Select CSV File'}
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
       </Modal>
 
       {/* Toast */}
@@ -2216,6 +2613,134 @@ const getStyles = (COLORS) => StyleSheet.create({
     color: COLORS.textOnPrimary,
     fontSize: 16,
     fontWeight: '600',
+  },
+
+  // Import Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  importModalContent: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    width: '100%',
+    maxWidth: 450,
+    maxHeight: '80%',
+  },
+  importModalBody: {
+    padding: 20,
+  },
+  importInstructions: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  importTitle: {
+    color: COLORS.text,
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  importDescription: {
+    color: COLORS.textMuted,
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  importFormatSection: {
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+  },
+  importFormatTitle: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  importFormatText: {
+    color: COLORS.textMuted,
+    fontSize: 13,
+    marginBottom: 8,
+  },
+  importFormatList: {
+    marginBottom: 12,
+  },
+  importFormatItem: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
+    lineHeight: 22,
+  },
+  importFormatBold: {
+    color: COLORS.text,
+    fontWeight: '600',
+  },
+  importFormatSubtext: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    fontStyle: 'italic',
+    marginTop: 8,
+  },
+  importLoadingContainer: {
+    alignItems: 'center',
+    padding: 20,
+    marginBottom: 16,
+  },
+  importLoadingText: {
+    color: COLORS.textMuted,
+    fontSize: 14,
+    marginTop: 12,
+  },
+  importResultContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  importResultSuccess: {
+    backgroundColor: '#10B98120',
+  },
+  importResultError: {
+    backgroundColor: '#EF444420',
+  },
+  importResultSuccessText: {
+    color: '#10B981',
+    fontSize: 14,
+    fontWeight: '500',
+    flex: 1,
+  },
+  importResultErrorText: {
+    color: '#EF4444',
+    fontSize: 14,
+    fontWeight: '500',
+    flex: 1,
+  },
+  importButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: COLORS.primary,
+    borderRadius: 12,
+    paddingVertical: 16,
+    marginBottom: 16,
+  },
+  importButtonDisabled: {
+    opacity: 0.6,
+  },
+  importButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  settingsItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 });
 

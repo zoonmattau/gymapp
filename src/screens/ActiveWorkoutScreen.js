@@ -10,6 +10,8 @@ import {
   Platform,
   ActivityIndicator,
   Modal,
+  Animated,
+  Share,
 } from 'react-native';
 // LineChart removed — no longer showing e1RM graph
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -26,6 +28,7 @@ import {
   ChevronUp,
   Pencil,
   Lightbulb,
+  Share2,
 } from 'lucide-react-native';
 import { useColors } from '../contexts/ThemeContext';
 import { EXERCISES } from '../constants/exercises';
@@ -38,6 +41,7 @@ import AnatomyModal from '../components/AnatomyModal';
 import { useAuth } from '../contexts/AuthContext';
 import { useActiveWorkout } from '../contexts/ActiveWorkoutContext';
 import { workoutService } from '../services/workoutService';
+import ExerciseLink from '../components/ExerciseLink';
 import { setPausedWorkout, clearPausedWorkout } from '../utils/workoutStore';
 
 // Find exercise tips from the library by name (case-insensitive, partial match)
@@ -176,6 +180,10 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
   const [anatomyModalVisible, setAnatomyModalVisible] = useState(false);
   const [anatomyMuscle, setAnatomyMuscle] = useState(null);
   const [anatomyExercise, setAnatomyExercise] = useState(null);
+  const [showPRCelebration, setShowPRCelebration] = useState(false);
+  const [prCelebrationData, setPRCelebrationData] = useState(null); // { exercise, weight, reps, e1rm, improvement }
+  const [existingPRs, setExistingPRs] = useState({}); // { exerciseName: { weight, reps, e1rm } }
+  const prAnimValue = useRef(new Animated.Value(0)).current;
   const timerRef = useRef(null);
   const restTimerRef = useRef(null);
   const sessionIdRef = useRef(sessionId);
@@ -283,6 +291,31 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
     loadExerciseHistory();
   }, [user?.id]);
 
+  // Load existing PRs for comparison during workout
+  useEffect(() => {
+    const loadExistingPRs = async () => {
+      if (user?.id) {
+        try {
+          const { data } = await workoutService.getPersonalRecords(user.id);
+          if (data && data.length > 0) {
+            const prMap = {};
+            data.forEach(pr => {
+              const name = pr.exercise_name || pr.exercise;
+              const e1rm = pr.reps === 1 ? pr.weight : Math.round(pr.weight * (1 + pr.reps / 30));
+              // Keep the best E1RM for each exercise
+              if (!prMap[name] || e1rm > prMap[name].e1rm) {
+                prMap[name] = { weight: pr.weight, reps: pr.reps, e1rm };
+              }
+            });
+            setExistingPRs(prMap);
+          }
+        } catch (error) {
+          console.log('Error loading existing PRs:', error);
+        }
+      }
+    };
+    loadExistingPRs();
+  }, [user?.id]);
 
   // Create a workout session on mount if one doesn't exist
   useEffect(() => {
@@ -495,10 +528,93 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
     setShowLogSetModal(true);
   };
 
+  // Check if set is a PR and trigger celebration
+  const checkForPR = (exerciseName, weight, reps, isWarmup) => {
+    // Don't count warmup sets as PRs
+    if (isWarmup) return;
+
+    // Skip timed exercises and bodyweight-only
+    if (isTimedExercise(exerciseName) || weight === 'BW' || weight === 0) return;
+
+    const numWeight = parseFloat(weight) || 0;
+    const numReps = parseInt(reps) || 0;
+    if (numWeight <= 0 || numReps <= 0) return;
+
+    // Calculate E1RM using Epley formula
+    const newE1rm = numReps === 1 ? numWeight : Math.round(numWeight * (1 + numReps / 30));
+
+    const existingPR = existingPRs[exerciseName];
+    const existingE1rm = existingPR?.e1rm || 0;
+
+    // Check if this is a new PR (better E1RM)
+    if (newE1rm > existingE1rm) {
+      const improvement = existingE1rm > 0 ? newE1rm - existingE1rm : 0;
+
+      // Update existing PRs to track during this workout
+      setExistingPRs(prev => ({
+        ...prev,
+        [exerciseName]: { weight: numWeight, reps: numReps, e1rm: newE1rm }
+      }));
+
+      // Trigger celebration
+      setPRCelebrationData({
+        exercise: exerciseName,
+        weight: numWeight,
+        reps: numReps,
+        e1rm: newE1rm,
+        improvement,
+        isFirstPR: existingE1rm === 0,
+      });
+      setShowPRCelebration(true);
+
+      // Animate
+      prAnimValue.setValue(0);
+      Animated.sequence([
+        Animated.spring(prAnimValue, {
+          toValue: 1,
+          friction: 4,
+          tension: 40,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      // Auto-dismiss after 5 seconds (longer to allow sharing)
+      setTimeout(() => {
+        setShowPRCelebration(false);
+      }, 5000);
+    }
+  };
+
+  const sharePR = async () => {
+    if (!prCelebrationData) return;
+
+    const displayWeight = weightUnit === 'lbs'
+      ? Math.round(prCelebrationData.weight * 2.205)
+      : prCelebrationData.weight;
+    const displayE1rm = weightUnit === 'lbs'
+      ? Math.round(prCelebrationData.e1rm * 2.205)
+      : prCelebrationData.e1rm;
+
+    const message = `🏆 NEW PR!\n\n${prCelebrationData.exercise}\n${displayWeight}${weightUnit} × ${prCelebrationData.reps} reps\n\nEst. 1RM: ${displayE1rm}${weightUnit}${prCelebrationData.improvement > 0 ? `\n📈 +${weightUnit === 'lbs' ? Math.round(prCelebrationData.improvement * 2.205) : prCelebrationData.improvement}${weightUnit} improvement!` : ''}\n\n#UpRep`;
+
+    try {
+      await Share.share({
+        message,
+        title: 'New Personal Record!',
+      });
+      setShowPRCelebration(false);
+    } catch (error) {
+      console.log('Error sharing PR:', error);
+    }
+  };
+
   const handleLogSet = (setData) => {
     if (!selectedSetToLog) return;
 
-    const { exerciseId, setNumber } = selectedSetToLog;
+    const { exerciseId, exerciseName, setNumber } = selectedSetToLog;
+
+    // Check for PR before adding the set
+    checkForPR(exerciseName, setData.weight, setData.reps, setData.isWarmup);
 
     // Add a new set with the logged data
     setExercises(exercises.map(ex => {
@@ -514,6 +630,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
           supersetWeight: setData.supersetWeight,
           supersetReps: setData.supersetReps,
           drops: setData.drops,
+          weightMode: setData.weightMode,
           completed: true,
         };
         return {
@@ -594,6 +711,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
       supersetWeight: set.supersetWeight,
       supersetReps: set.supersetReps,
       drops: set.drops,
+      weightMode: set.weightMode,
       isEdit: true,
     });
     setSelectedSetToLog({
@@ -726,82 +844,100 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
     });
 
     // Save data FIRST, then navigate
+    let saveError = false;
     if (currentSessionId && currentUserId) {
-      // Log sets - don't let failures prevent completing the session
-      try {
-        for (const exercise of currentExercises) {
-          let setNumber = 1;
-          for (const set of exercise.sets) {
-            if (set.completed) {
-              try {
-                await workoutService.logSet(currentSessionId, null, exercise.name, {
-                  setNumber: setNumber++,  // Use incrementing number, not set.id
-                  weight: set.weight === 'BW' ? 0 : parseFloat(set.weight) || 0,
-                  reps: parseInt(set.reps) || 0,
-                  rpe: set.rpe || null,
-                  isWarmup: set.isWarmup || set.setType === 'warmup',
-                });
-              } catch (setErr) {
-                console.error('Error logging set:', exercise.name, setErr);
-              }
-            }
+      // Delete existing sets first (in case we're re-saving an edited workout)
+      await workoutService.deleteSessionSets(currentSessionId);
+
+      // Log all sets in parallel for faster saves
+      const setPromises = [];
+      for (const exercise of currentExercises) {
+        let setNumber = 1;
+        for (const set of exercise.sets) {
+          if (set.completed) {
+            setPromises.push(
+              workoutService.logSet(currentSessionId, null, exercise.name, {
+                setNumber: setNumber++,
+                weight: set.weight === 'BW' ? 0 : parseFloat(set.weight) || 0,
+                reps: parseInt(set.reps) || 0,
+                rpe: set.rpe || null,
+                isWarmup: set.isWarmup || set.setType === 'warmup',
+              })
+            );
           }
         }
-      } catch (err) {
-        console.error('Error in set logging loop:', err);
       }
 
-      // Always mark the session as complete, even if sets failed
+      // Wait for all sets to save in parallel
+      const setResults = await Promise.allSettled(setPromises);
+      const failedSets = setResults.filter(r => r.status === 'rejected' || r.value?.error);
+      if (failedSets.length > 0) {
+        console.error('Failed to save', failedSets.length, 'sets');
+        saveError = true;
+      }
+
+      // Mark the session as complete
       try {
-        await workoutService.completeWorkout(currentSessionId, {
+        const { error } = await workoutService.completeWorkout(currentSessionId, {
           durationMinutes: Math.floor(currentWorkoutTime / 60),
           totalVolume,
           exerciseCount: currentExercises.length,
           totalSets: completedSetsCount,
         });
+        if (error) {
+          console.error('Error completing workout:', error);
+          saveError = true;
+        }
       } catch (err) {
         console.error('Error completing workout:', err);
+        saveError = true;
       }
 
-      // Check for PRs on each exercise
-      for (const exercise of currentExercises) {
-        // Skip timed/isometric exercises for PR tracking
-        if (isTimedExercise(exercise.name)) continue;
+      // Check for PRs in parallel
+      console.log('Checking PRs for exercises:', currentExercises.map(e => ({ name: e.name, sets: e.sets })));
+      const prPromises = currentExercises
+        .filter(exercise => !isTimedExercise(exercise.name))
+        .map(exercise => {
+          const completedSets = exercise.sets.filter(s => s.completed && s.weight && s.reps);
+          console.log('PR check for', exercise.name, '- completed sets:', completedSets.length);
+          if (completedSets.length === 0) return null;
 
-        // Find best set (highest weight with at least 1 rep)
-        const completedSets = exercise.sets.filter(s => s.completed && s.weight && s.reps);
-        if (completedSets.length === 0) continue;
+          const bestSet = completedSets.reduce((best, set) => {
+            const weight = set.weight === 'BW' ? 0 : parseFloat(set.weight) || 0;
+            const reps = parseInt(set.reps) || 0;
+            const bestWeight = best.weight === 'BW' ? 0 : parseFloat(best.weight) || 0;
+            const bestReps = parseInt(best.reps) || 0;
+            const e1rm = weight * (1 + reps / 30);
+            const bestE1rm = bestWeight * (1 + bestReps / 30);
+            return e1rm > bestE1rm ? set : best;
+          }, completedSets[0]);
 
-        const bestSet = completedSets.reduce((best, set) => {
-          const weight = set.weight === 'BW' ? 0 : parseFloat(set.weight) || 0;
-          const reps = parseInt(set.reps) || 0;
-          const bestWeight = best.weight === 'BW' ? 0 : parseFloat(best.weight) || 0;
-          const bestReps = parseInt(best.reps) || 0;
-          // Compare by estimated 1RM (weight × (1 + reps/30))
-          const e1rm = weight * (1 + reps / 30);
-          const bestE1rm = bestWeight * (1 + bestReps / 30);
-          return e1rm > bestE1rm ? set : best;
-        }, completedSets[0]);
-
-        try {
           const weight = bestSet.weight === 'BW' ? 0 : parseFloat(bestSet.weight) || 0;
           const reps = parseInt(bestSet.reps) || 0;
+          console.log('Best set for', exercise.name, ':', weight, 'x', reps);
           if (weight > 0 && reps > 0) {
-            await workoutService.checkAndCreatePR(
+            return workoutService.checkAndCreatePR(
               currentUserId,
               null,
               exercise.name,
               weight,
               reps,
               currentSessionId
-            );
+            ).catch(err => console.error('Error checking PR for', exercise.name, err));
           }
-        } catch (prErr) {
-          console.error('Error checking PR for', exercise.name, prErr);
-        }
-      }
+          return null;
+        })
+        .filter(Boolean);
+
+      await Promise.allSettled(prPromises);
     } else {
       console.error('Cannot save workout - missing sessionId:', currentSessionId, 'or userId:', currentUserId);
+      saveError = true;
+    }
+
+    // Show error toast if save had issues
+    if (saveError) {
+      showToast('Some workout data may not have saved. Check your connection.', 'error');
     }
 
     // Clear saved workout from localStorage and banner
@@ -855,6 +991,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
       newPRs,
       startTime: workoutStartTime,
       isFromHistory: false, // Explicitly set to false for new workouts
+      saveError: saveError, // Pass save error to summary screen
     };
 
     // Navigate to WorkoutSummaryScreen
@@ -978,7 +1115,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
           onClick={cancelWorkout}
           style={styles.backButton}
         >
-          <ArrowLeft size={24} color={COLORS.text} />
+          <ArrowLeft size={24} color="#FFFFFF" />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.workoutName}>{workoutName}</Text>
@@ -1136,11 +1273,11 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
                 </TouchableOpacity>
               ) : (
                 <View style={styles.exerciseIcon}>
-                  <Dumbbell size={18} color={COLORS.primary} />
+                  <Dumbbell size={20} color="#3B82F6" />
                 </View>
               )}
               <View style={styles.exerciseInfo}>
-                <Text style={styles.exerciseName}>{exercise.name}</Text>
+                <ExerciseLink exerciseName={exercise.name} style={styles.exerciseName} />
                 <Text style={styles.exerciseSets}>
                   {exercise.sets.filter(s => s.completed).length}/{exercise.sets.length} sets
                 </Text>
@@ -1350,7 +1487,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
                                 ]}>
                                   {isTimedExercise(exercise.name)
                                     ? `${set.weight && set.weight !== '0' ? `${set.weight}${weightUnit} · ` : ''}${formatDuration(set.reps)}`
-                                    : `${set.weight || 0}${weightUnit} × ${set.reps || 0}`
+                                    : `${set.weightMode === 'assisted' ? '−' : set.weightMode === 'added' ? '+' : ''}${set.weight || 0}${weightUnit} × ${set.reps || 0}`
                                   }
                                 </Text>
 
@@ -1372,6 +1509,16 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
                                 {set.rpe && (
                                   <View style={[styles.setBadge, { backgroundColor: getRpeColor(set.rpe) }]}>
                                     <Text style={styles.setBadgeText}>RPE {set.rpe}</Text>
+                                  </View>
+                                )}
+                                {set.weightMode === 'assisted' && (
+                                  <View style={[styles.setBadge, styles.assistedBadge]}>
+                                    <Text style={styles.setBadgeText}>Assisted</Text>
+                                  </View>
+                                )}
+                                {set.weightMode === 'added' && (
+                                  <View style={[styles.setBadge, styles.addedBadge]}>
+                                    <Text style={styles.setBadgeText}>+Weight</Text>
                                   </View>
                                 )}
 
@@ -1427,7 +1574,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
                   style={styles.addSetButton}
                   onPress={() => openAddSetModal(exercise.id, exercise.name)}
                 >
-                  <Plus size={16} color={COLORS.primary} />
+                  <Plus size={16} color="#3B82F6" />
                   <Text style={styles.addSetText}>Add Set</Text>
                 </TouchableOpacity>
               </View>
@@ -1441,7 +1588,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
           style={styles.addExerciseButton}
           onPress={() => setShowExerciseModal(true)}
         >
-          <Plus size={20} color={COLORS.primary} />
+          <Plus size={20} color="#3B82F6" />
           <Text style={styles.addExerciseText}>Add Exercise</Text>
         </TouchableOpacity>
 
@@ -1587,6 +1734,70 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
         exerciseName={anatomyExercise}
       />
 
+      {/* PR Celebration Modal */}
+      {showPRCelebration && prCelebrationData && (
+        <TouchableOpacity
+          style={styles.prCelebrationOverlay}
+          activeOpacity={1}
+          onPress={() => setShowPRCelebration(false)}
+        >
+          <Animated.View
+            style={[
+              styles.prCelebrationCard,
+              {
+                transform: [
+                  {
+                    scale: prAnimValue.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.5, 1],
+                    }),
+                  },
+                ],
+                opacity: prAnimValue,
+              },
+            ]}
+          >
+            <Text style={styles.prCelebrationEmoji}>🏆</Text>
+            <Text style={styles.prCelebrationTitle}>NEW PR!</Text>
+            <Text style={styles.prCelebrationExercise}>{prCelebrationData.exercise}</Text>
+            <View style={styles.prCelebrationStats}>
+              <Text style={styles.prCelebrationWeight}>
+                {weightUnit === 'lbs' ? Math.round(prCelebrationData.weight * 2.205) : prCelebrationData.weight}{weightUnit}
+              </Text>
+              <Text style={styles.prCelebrationReps}>× {prCelebrationData.reps} reps</Text>
+            </View>
+            <View style={styles.prCelebrationE1rm}>
+              <Text style={styles.prCelebrationE1rmLabel}>Est. 1RM</Text>
+              <Text style={styles.prCelebrationE1rmValue}>
+                {weightUnit === 'lbs' ? Math.round(prCelebrationData.e1rm * 2.205) : prCelebrationData.e1rm}{weightUnit}
+              </Text>
+            </View>
+            {prCelebrationData.improvement > 0 && (
+              <View style={styles.prCelebrationImprovement}>
+                <ArrowUp size={16} color="#10B981" />
+                <Text style={styles.prCelebrationImprovementText}>
+                  +{weightUnit === 'lbs' ? Math.round(prCelebrationData.improvement * 2.205) : prCelebrationData.improvement}{weightUnit} from previous best
+                </Text>
+              </View>
+            )}
+            {prCelebrationData.isFirstPR && (
+              <Text style={styles.prCelebrationFirst}>First recorded PR for this exercise!</Text>
+            )}
+
+            {/* Share Button */}
+            <TouchableOpacity
+              style={styles.prShareButton}
+              onPress={sharePR}
+            >
+              <Share2 size={20} color="#FFF" />
+              <Text style={styles.prShareButtonText}>Share Your PR</Text>
+            </TouchableOpacity>
+
+            <Text style={styles.prDismissHint}>Tap anywhere to dismiss</Text>
+          </Animated.View>
+        </TouchableOpacity>
+      )}
+
       {/* Finishing Workout Loading Overlay */}
       {isFinishing && (
         <View style={styles.finishingOverlay}>
@@ -1612,9 +1823,8 @@ const getStyles = (COLORS) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    paddingVertical: 14,
+    backgroundColor: '#3B82F6',
   },
   backButton: {
     padding: 4,
@@ -1624,7 +1834,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     alignItems: 'center',
   },
   workoutName: {
-    color: COLORS.text,
+    color: '#FFFFFF',
     fontSize: 18,
     fontWeight: 'bold',
   },
@@ -1635,13 +1845,13 @@ const getStyles = (COLORS) => StyleSheet.create({
     marginTop: 2,
   },
   timerText: {
-    color: COLORS.textMuted,
+    color: 'rgba(255,255,255,0.8)',
     fontSize: 14,
   },
   restBanner: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: '#2563EB',
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 12,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -1651,14 +1861,14 @@ const getStyles = (COLORS) => StyleSheet.create({
     alignItems: 'center',
   },
   restText: {
-    color: COLORS.text,
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
     textDecorationLine: 'underline',
     textDecorationStyle: 'dotted',
   },
   restLabel: {
-    color: COLORS.text,
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
   },
@@ -1738,23 +1948,25 @@ const getStyles = (COLORS) => StyleSheet.create({
   },
   exerciseCard: {
     backgroundColor: COLORS.surface,
-    borderRadius: 12,
+    borderRadius: 16,
     marginBottom: 12,
     overflow: 'hidden',
+    borderLeftWidth: 4,
+    borderLeftColor: '#3B82F6',
   },
   exerciseHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
+    padding: 16,
   },
   exerciseIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: COLORS.primary + '20',
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#3B82F620',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 14,
   },
   exerciseInfo: {
     flex: 1,
@@ -1794,32 +2006,34 @@ const getStyles = (COLORS) => StyleSheet.create({
   },
   // Compact Set Row
   setRowWrapper: {
-    marginBottom: 8,
+    marginBottom: 6,
   },
   setRowCompact: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: COLORS.surfaceLight,
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    backgroundColor: COLORS.background,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: COLORS.surfaceLight,
   },
   setRowLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
   },
   setCheckmark: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: COLORS.surface,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: COLORS.surfaceLight,
     justifyContent: 'center',
     alignItems: 'center',
   },
   setCheckmarkDone: {
-    backgroundColor: COLORS.success,
+    backgroundColor: '#3B82F6',
   },
   setLabel: {
     color: COLORS.text,
@@ -1854,6 +2068,12 @@ const getStyles = (COLORS) => StyleSheet.create({
   },
   supersetBadge: {
     backgroundColor: '#D97706', // Darker amber/yellow
+  },
+  assistedBadge: {
+    backgroundColor: '#6366F1', // Indigo for assisted
+  },
+  addedBadge: {
+    backgroundColor: '#10B981', // Green for added weight
   },
   rpeBadge: {
     backgroundColor: COLORS.primary,
@@ -1985,27 +2205,31 @@ const getStyles = (COLORS) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    gap: 6,
+    paddingVertical: 12,
+    gap: 8,
+    backgroundColor: '#3B82F615',
+    borderRadius: 10,
+    marginTop: 4,
   },
   addSetText: {
-    color: COLORS.primary,
+    color: '#3B82F6',
     fontWeight: '600',
+    fontSize: 14,
   },
   addExerciseButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    paddingVertical: 16,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: COLORS.primary + '40',
+    backgroundColor: '#3B82F610',
+    borderRadius: 14,
+    paddingVertical: 18,
+    gap: 10,
+    borderWidth: 2,
+    borderColor: '#3B82F640',
     borderStyle: 'dashed',
   },
   addExerciseText: {
-    color: COLORS.primary,
+    color: '#3B82F6',
     fontSize: 16,
     fontWeight: '600',
   },
@@ -2026,18 +2250,18 @@ const getStyles = (COLORS) => StyleSheet.create({
     fontWeight: '600',
   },
   finishButton: {
-    backgroundColor: COLORS.success,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
-    minWidth: 70,
+    backgroundColor: '#3B82F6',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 10,
+    minWidth: 80,
     alignItems: 'center',
     ...(Platform.OS === 'web' ? { cursor: 'pointer' } : {}),
   },
   finishButtonText: {
-    color: COLORS.textOnPrimary,
-    fontSize: 14,
-    fontWeight: '600',
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
   },
   buttonDisabled: {
     opacity: 0.6,
@@ -2306,6 +2530,132 @@ const getStyles = (COLORS) => StyleSheet.create({
     fontSize: 14,
     marginTop: 8,
     textAlign: 'center',
+  },
+
+  // PR Celebration
+  prCelebrationOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  prCelebrationCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 24,
+    padding: 32,
+    alignItems: 'center',
+    width: '85%',
+    maxWidth: 340,
+    borderWidth: 3,
+    borderColor: '#F59E0B',
+    shadowColor: '#F59E0B',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 20,
+  },
+  prCelebrationEmoji: {
+    fontSize: 64,
+    marginBottom: 8,
+  },
+  prCelebrationTitle: {
+    color: '#F59E0B',
+    fontSize: 32,
+    fontWeight: '900',
+    letterSpacing: 2,
+    marginBottom: 8,
+  },
+  prCelebrationExercise: {
+    color: COLORS.text,
+    fontSize: 20,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  prCelebrationStats: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
+    marginBottom: 16,
+  },
+  prCelebrationWeight: {
+    color: COLORS.text,
+    fontSize: 48,
+    fontWeight: '800',
+  },
+  prCelebrationReps: {
+    color: COLORS.textMuted,
+    fontSize: 24,
+    fontWeight: '600',
+  },
+  prCelebrationE1rm: {
+    backgroundColor: COLORS.surfaceLight,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
+  prCelebrationE1rmLabel: {
+    color: COLORS.textMuted,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  prCelebrationE1rmValue: {
+    color: COLORS.primary,
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  prCelebrationImprovement: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#10B98120',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginBottom: 8,
+  },
+  prCelebrationImprovementText: {
+    color: '#10B981',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  prCelebrationFirst: {
+    color: '#F59E0B',
+    fontSize: 14,
+    fontWeight: '500',
+    fontStyle: 'italic',
+    marginTop: 8,
+  },
+  prShareButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#F59E0B',
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginTop: 20,
+    width: '100%',
+  },
+  prShareButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  prDismissHint: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    marginTop: 16,
   },
 });
 

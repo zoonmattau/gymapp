@@ -1,8 +1,10 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import { profileService } from '../services/profileService';
 
 const AuthContext = createContext({});
+const PROFILE_CACHE_KEY = 'cached_profile';
 
 export const useAuth = () => useContext(AuthContext);
 
@@ -12,8 +14,39 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check initial auth state
-    checkUser();
+    // Load cache and session together
+    const init = async () => {
+      // Load cached profile first (fast, local)
+      let cachedProfile = null;
+      try {
+        const cached = await AsyncStorage.getItem(PROFILE_CACHE_KEY);
+        if (cached) {
+          cachedProfile = JSON.parse(cached);
+        }
+      } catch (e) {
+        console.log('Error loading cached profile:', e);
+      }
+
+      // Get session
+      const { data: { session } } = await supabase.auth.getSession();
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+
+      if (currentUser) {
+        // If cache matches current user, use it immediately
+        if (cachedProfile && cachedProfile.id === currentUser.id) {
+          setProfile(cachedProfile);
+        }
+        // Refresh from network in background
+        loadProfile(currentUser.id);
+      } else {
+        setProfile(null);
+      }
+
+      setLoading(false);
+    };
+
+    init();
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -33,28 +66,6 @@ export const AuthProvider = ({ children }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const checkUser = async () => {
-    console.log('checkUser starting...');
-    try {
-      console.log('Getting session...');
-      const { data: { session }, error } = await supabase.auth.getSession();
-      console.log('Session result:', session ? 'logged in' : 'no session', error);
-
-      setUser(session?.user ?? null);
-
-      if (session?.user) {
-        console.log('Loading profile for user:', session.user.id);
-        await loadProfile(session.user.id);
-        console.log('Profile loaded');
-      }
-    } catch (error) {
-      console.log('Error checking auth:', error);
-    } finally {
-      console.log('Setting loading to false');
-      setLoading(false);
-    }
-  };
-
   const loadProfile = async (userId) => {
     console.log('loadProfile starting for:', userId);
     try {
@@ -70,10 +81,13 @@ export const AuthProvider = ({ children }) => {
 
       if (data) {
         setProfile(data);
+        // Cache profile for instant load next time
+        AsyncStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(data)).catch(() => {});
       } else {
         // No profile found - set null, don't set fake onboarding_completed: false
         // The AppNavigator will handle this case
         setProfile(null);
+        AsyncStorage.removeItem(PROFILE_CACHE_KEY).catch(() => {});
       }
     } catch (error) {
       console.log('Error loading profile:', error);
@@ -116,6 +130,7 @@ export const AuthProvider = ({ children }) => {
     if (!error) {
       setUser(null);
       setProfile(null);
+      AsyncStorage.removeItem(PROFILE_CACHE_KEY).catch(() => {});
     }
     return { error };
   };

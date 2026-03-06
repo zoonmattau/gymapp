@@ -13,6 +13,13 @@ import {
 import { X, Plus, Minus, Check, Play, Square, RotateCcw } from 'lucide-react-native';
 import { useColors } from '../contexts/ThemeContext';
 
+// Exercises that can have assisted or added weight
+const ASSISTED_WEIGHT_EXERCISES = [
+  'Pull Ups', 'Chin Ups', 'Neutral Grip Pull Ups', 'Chin Up (Close Grip)',
+  'Chest Dips', 'Tricep Dips', 'Bench Dips', 'Towel Pull Ups',
+  'Dips', 'Wide Grip Pull Ups', 'Muscle Ups',
+];
+
 const LogSetModal = ({
   visible,
   onClose,
@@ -26,9 +33,12 @@ const LogSetModal = ({
   pendingSupersetExercise = null, // Exercise selected from superset flow
   isReturningFromSuperset = false,
   isEdit = false,
-  editData = null, // { rpe, setType, supersetExercise, supersetWeight, supersetReps, drops }
+  editData = null, // { rpe, setType, supersetExercise, supersetWeight, supersetReps, drops, weightMode }
   isTimedExercise = false,
 }) => {
+  const supportsAssistedWeight = ASSISTED_WEIGHT_EXERCISES.some(
+    ex => exerciseName?.toLowerCase().includes(ex.toLowerCase()) || ex.toLowerCase().includes(exerciseName?.toLowerCase() || '')
+  );
   const COLORS = useColors();
   const styles = getStyles(COLORS);
 
@@ -43,6 +53,7 @@ const LogSetModal = ({
   const [supersetWeight, setSupersetWeight] = useState('');
   const [supersetReps, setSupersetReps] = useState('');
   const [drops, setDrops] = useState([{ weight: '', reps: '' }]);
+  const [weightMode, setWeightMode] = useState(null); // 'added' or 'assisted' for bodyweight exercises
   const [hasInitialized, setHasInitialized] = useState(false);
 
   // Reset state when modal opens fresh (not returning from superset)
@@ -58,6 +69,7 @@ const LogSetModal = ({
         setSupersetWeight(editData.supersetWeight?.toString() || '');
         setSupersetReps(editData.supersetReps?.toString() || '');
         setDrops(editData.drops?.length > 0 ? editData.drops : [{ weight: '', reps: '' }]);
+        setWeightMode(editData.weightMode || null);
       } else {
         setRpe(null);
         setSetType(setNumber === 1 ? 'warmup' : null);
@@ -65,6 +77,7 @@ const LogSetModal = ({
         setSupersetWeight('');
         setSupersetReps('');
         setDrops([{ weight: '', reps: '' }]);
+        setWeightMode(null);
       }
       setHasInitialized(true);
     }
@@ -184,6 +197,7 @@ const LogSetModal = ({
     const setData = {
       weight: weight === 'BW' ? 'BW' : (parseFloat(weight) || 0),
       isBodyweight: weight === 'BW',
+      weightMode: supportsAssistedWeight ? weightMode : null, // 'added' or 'assisted'
       reps: parseInt(reps) || 0,
       rpe,
       setType,
@@ -270,6 +284,43 @@ const LogSetModal = ({
                 Bodyweight
               </Text>
             </TouchableOpacity>
+
+            {/* Assisted/Added Weight Toggle for bodyweight exercises */}
+            {supportsAssistedWeight && weight !== 'BW' && parseFloat(weight) > 0 && (
+              <View style={styles.weightModeContainer}>
+                <Text style={styles.weightModeLabel}>Weight Type</Text>
+                <View style={styles.weightModeRow}>
+                  <TouchableOpacity
+                    style={[
+                      styles.weightModeButton,
+                      weightMode === 'added' && styles.weightModeButtonActive,
+                    ]}
+                    onPress={() => setWeightMode(weightMode === 'added' ? null : 'added')}
+                  >
+                    <Text style={[
+                      styles.weightModeText,
+                      weightMode === 'added' && styles.weightModeTextActive,
+                    ]}>
+                      + Added
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.weightModeButton,
+                      weightMode === 'assisted' && styles.weightModeAssistedActive,
+                    ]}
+                    onPress={() => setWeightMode(weightMode === 'assisted' ? null : 'assisted')}
+                  >
+                    <Text style={[
+                      styles.weightModeText,
+                      weightMode === 'assisted' && styles.weightModeTextActive,
+                    ]}>
+                      − Assisted
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
 
             {/* Reps or Duration Input */}
             {isTimedExercise ? (
@@ -822,6 +873,45 @@ const getStyles = (COLORS) => StyleSheet.create({
     fontWeight: '600',
   },
   bodyweightTextSelected: {
+    color: COLORS.textOnPrimary,
+  },
+
+  // Weight Mode (assisted/added)
+  weightModeContainer: {
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  weightModeLabel: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  weightModeRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  weightModeButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: COLORS.surface,
+    minWidth: 100,
+    alignItems: 'center',
+  },
+  weightModeButtonActive: {
+    backgroundColor: COLORS.success,
+  },
+  weightModeAssistedActive: {
+    backgroundColor: COLORS.info || '#3B82F6',
+  },
+  weightModeText: {
+    color: COLORS.textMuted,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  weightModeTextActive: {
     color: COLORS.textOnPrimary,
   },
 

@@ -3792,17 +3792,17 @@ const getStyles = (COLORS) => StyleSheet.create({
     backgroundColor: COLORS.surfaceLight,
   },
   acceptButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.success,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#3B82F6',
     justifyContent: 'center',
     alignItems: 'center',
   },
   rejectButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
     backgroundColor: COLORS.surfaceLight,
     justifyContent: 'center',
     alignItems: 'center',
@@ -4441,13 +4441,13 @@ const getStyles = (COLORS) => StyleSheet.create({
 
   // Accept/Reject buttons
   acceptButtonText: {
-    color: COLORS.textOnPrimary,
-    fontSize: 13,
+    color: '#FFFFFF',
+    fontSize: 14,
     fontWeight: '600',
   },
   rejectButtonText: {
-    color: COLORS.error,
-    fontSize: 13,
+    color: COLORS.textMuted,
+    fontSize: 14,
     fontWeight: '600',
   },
 

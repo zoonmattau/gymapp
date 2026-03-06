@@ -14,6 +14,7 @@ import { ArrowLeft, Search, Dumbbell, ChevronDown, ChevronUp } from 'lucide-reac
 import { useColors } from '../contexts/ThemeContext';
 
 import { EXERCISES } from '../constants/exercises';
+import ExerciseLink from '../components/ExerciseLink';
 
 const MUSCLE_GROUPS = [
   'All', 'Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps',
@@ -51,7 +52,7 @@ const ExerciseLibraryScreen = ({ navigation }) => {
       >
         <View style={styles.exerciseHeader}>
           <View style={styles.exerciseInfo}>
-            <Text style={styles.exerciseName}>{item.name}</Text>
+            <ExerciseLink exerciseName={item.name} style={styles.exerciseName} />
             <Text style={styles.exerciseDetails}>{item.muscleGroup} · {item.equipment}</Text>
           </View>
           <View style={styles.exerciseRight}>

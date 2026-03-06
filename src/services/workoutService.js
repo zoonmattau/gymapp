@@ -215,19 +215,33 @@ export const workoutService = {
     return { data, error };
   },
 
+  // Delete all sets for a session (used when re-saving edited workout)
+  async deleteSessionSets(sessionId) {
+    const { error } = await supabase
+      .from('workout_sets')
+      .delete()
+      .eq('session_id', sessionId);
+
+    if (error) {
+      console.error('deleteSessionSets error:', error);
+    }
+    return { error };
+  },
+
   // Complete workout session
   async completeWorkout(sessionId, summary) {
+    console.log('completeWorkout called:', { sessionId, summary });
     // Only update fields that definitely exist
     const updateData = {
       ended_at: new Date().toISOString(),
     };
 
-    // Add optional fields only if they have values
+    // Add optional fields only if they have values (only columns that exist in DB)
     if (summary.durationMinutes !== undefined) updateData.duration_minutes = summary.durationMinutes;
     if (summary.totalVolume !== undefined) updateData.total_volume = summary.totalVolume;
-    if (summary.exerciseCount !== undefined) updateData.exercise_count = summary.exerciseCount;
-    if (summary.totalSets !== undefined) updateData.total_sets = summary.totalSets;
+    // Note: exercise_count and total_sets columns don't exist in DB
 
+    console.log('Updating workout_sessions with:', updateData);
     const { data, error } = await supabase
       .from('workout_sessions')
       .update(updateData)
@@ -235,6 +249,11 @@ export const workoutService = {
       .select()
       .maybeSingle();
 
+    if (error) {
+      console.error('completeWorkout error:', error);
+    } else {
+      console.log('completeWorkout success:', data);
+    }
     return { data, error };
   },
 
@@ -543,6 +562,7 @@ export const workoutService = {
 
   // Check and create PR if applicable
   async checkAndCreatePR(userId, exerciseId, exerciseName, weight, reps, sessionId = null) {
+    console.log('checkAndCreatePR called:', { userId, exerciseName, weight, reps, sessionId });
     // Calculate estimated 1RM using Epley formula
     const e1rm = weight * (1 + reps / 30);
 
@@ -565,6 +585,7 @@ export const workoutService = {
 
     // Check if new PR
     if (!currentPR || e1rm > currentPR.e1rm) {
+      console.log('Creating new PR for', exerciseName, '- e1rm:', e1rm);
       const { data, error } = await supabase
         .from('personal_records')
         .insert({
@@ -580,6 +601,11 @@ export const workoutService = {
         .select()
         .single();
 
+      if (error) {
+        console.error('PR insert error:', error);
+      } else {
+        console.log('PR created successfully:', data);
+      }
       return { data, error, isNewPR: true };
     }
 
