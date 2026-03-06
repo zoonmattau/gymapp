@@ -10,9 +10,8 @@ import {
   Platform,
   ActivityIndicator,
   Modal,
-  Dimensions,
 } from 'react-native';
-import { LineChart } from 'react-native-chart-kit';
+// LineChart removed — no longer showing e1RM graph
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   ArrowLeft,
@@ -318,6 +317,24 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
   useEffect(() => {
     sessionIdRef.current = sessionId;
   }, [sessionId]);
+
+  // Auto-fetch exercise history when expanding an exercise
+  useEffect(() => {
+    if (!expandedExercise || !user?.id) return;
+    const exercise = exercises.find(ex => ex.id === expandedExercise);
+    if (!exercise || historyCache[exercise.name]) return;
+
+    // Mark as loading and fetch
+    setHistoryCache(prev => ({ ...prev, [exercise.name]: { loading: true, data: [] } }));
+    workoutService.getDetailedExerciseHistory(user.id, exercise.name, 5)
+      .then(({ data }) => {
+        setHistoryCache(prev => ({ ...prev, [exercise.name]: { loading: false, data: data || [] } }));
+      })
+      .catch(err => {
+        console.log('Error fetching exercise history:', err);
+        setHistoryCache(prev => ({ ...prev, [exercise.name]: { loading: false, data: [] } }));
+      });
+  }, [expandedExercise, user?.id]);
 
   // Load rest timer setting from storage
   useEffect(() => {
@@ -1199,86 +1216,73 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
                   );
                 })()}
 
-                {/* Previous Best (max set from last session) */}
-                {exerciseHistory[exercise.name] && (
-                  <View style={styles.previousBestRow}>
-                    <Text style={styles.previousBestLabel}>Previous Best:</Text>
-                    <Text style={styles.previousBestValue}>
-                      {exerciseHistory[exercise.name].lastWeight}{weightUnit} × {exerciseHistory[exercise.name].lastReps}
-                      {' '}({Math.round((parseFloat(exerciseHistory[exercise.name].lastWeight) || 0) * (1 + (parseInt(exerciseHistory[exercise.name].lastReps) || 0) / 30))} e1RM)
-                    </Text>
-                  </View>
-                )}
-
-                {/* 1RM History Graph */}
+                {/* Recent Sessions (collapsible) */}
                 {(() => {
-                  const history = historyCache[exercise.name]?.data || [];
-                  if (history.length < 2 || isTimedExercise(exercise.name)) return null;
-
-                  // Group sets by session date and find max e1RM per session
-                  const sessionE1rms = {};
-                  history.forEach(h => {
-                    const date = h.started_at ? h.started_at.split('T')[0] : 'unknown';
-                    const weight = parseFloat(h.weight) || 0;
-                    const reps = parseInt(h.reps) || 0;
-                    const e1rm = weight * (1 + reps / 30);
-                    if (!sessionE1rms[date] || e1rm > sessionE1rms[date].e1rm) {
-                      sessionE1rms[date] = { date, e1rm, weight, reps };
-                    }
-                  });
-
-                  const sortedSessions = Object.values(sessionE1rms)
-                    .sort((a, b) => a.date.localeCompare(b.date))
-                    .slice(-10); // Last 10 sessions
-
-                  if (sortedSessions.length < 2) return null;
-
-                  const chartData = sortedSessions.map(s => Math.round(s.e1rm));
-                  const labels = sortedSessions.map(s => {
-                    const d = new Date(s.date);
-                    return `${d.getDate()}/${d.getMonth() + 1}`;
-                  });
+                  const history = historyCache[exercise.name];
+                  if (!history) return null;
+                  if (history.loading) {
+                    return (
+                      <View style={styles.historyWrapper}>
+                        <View style={styles.historyToggle}>
+                          <View style={styles.historyToggleLeft}>
+                            <Clock size={14} color="#D97706" />
+                            <Text style={styles.historyToggleText}>Recent Sessions</Text>
+                          </View>
+                          <ActivityIndicator size="small" color="#D97706" />
+                        </View>
+                      </View>
+                    );
+                  }
+                  const sessions = history.data || [];
+                  if (sessions.length === 0) return null;
+                  const historyOpen = expandedHistory === exercise.id;
 
                   return (
-                    <View style={styles.e1rmGraphSection}>
-                      <Text style={styles.e1rmGraphTitle}>Estimated 1RM Progress</Text>
-                      <LineChart
-                        data={{
-                          labels: labels.length > 5 ? labels.filter((_, i) => i % 2 === 0) : labels,
-                          datasets: [{ data: chartData, color: () => COLORS.primary, strokeWidth: 2 }],
-                        }}
-                        width={Dimensions.get('window').width - 80}
-                        height={120}
-                        withVerticalLabels={true}
-                        withHorizontalLabels={true}
-                        withInnerLines={false}
-                        withOuterLines={false}
-                        withDots={true}
-                        fromZero={false}
-                        chartConfig={{
-                          backgroundColor: 'transparent',
-                          backgroundGradientFrom: COLORS.surface,
-                          backgroundGradientTo: COLORS.surface,
-                          decimalPlaces: 0,
-                          color: () => COLORS.primary,
-                          labelColor: () => COLORS.textMuted,
-                          propsForDots: { r: '4', strokeWidth: '0', fill: COLORS.primary },
-                          propsForLabels: { fontSize: 10 },
-                        }}
-                        bezier
-                        style={styles.e1rmChart}
-                      />
-                      <View style={styles.e1rmStatsRow}>
-                        <Text style={styles.e1rmStatText}>
-                          Start: {chartData[0]}{weightUnit}
-                        </Text>
-                        <Text style={styles.e1rmStatText}>
-                          Current: {chartData[chartData.length - 1]}{weightUnit}
-                        </Text>
-                        <Text style={[styles.e1rmStatText, { color: chartData[chartData.length - 1] > chartData[0] ? COLORS.success : COLORS.error }]}>
-                          {chartData[chartData.length - 1] > chartData[0] ? '+' : ''}{chartData[chartData.length - 1] - chartData[0]}{weightUnit}
-                        </Text>
-                      </View>
+                    <View style={styles.historyWrapper}>
+                      <TouchableOpacity
+                        style={styles.historyToggle}
+                        onPress={() => setExpandedHistory(historyOpen ? null : exercise.id)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.historyToggleLeft}>
+                          <Clock size={14} color="#D97706" />
+                          <Text style={styles.historyToggleText}>Recent Sessions</Text>
+                        </View>
+                        {historyOpen ? (
+                          <ChevronUp size={14} color={COLORS.textMuted} />
+                        ) : (
+                          <ChevronDown size={14} color={COLORS.textMuted} />
+                        )}
+                      </TouchableOpacity>
+                      {historyOpen && (
+                        <View style={styles.historyContent}>
+                          {sessions.map((session, idx) => {
+                            const dateStr = formatRelativeDate(session.date);
+                            return (
+                              <View key={session.sessionId || idx} style={styles.historySession}>
+                                <Text style={styles.historySessionDate}>{dateStr}</Text>
+                                <View style={styles.historyPills}>
+                                  {session.sets.map((s, i) => (
+                                    <View key={i} style={styles.historyPill}>
+                                      <Text style={styles.historyPillText}>
+                                        {isTimedExercise(exercise.name)
+                                          ? formatDuration(s.reps)
+                                          : `${s.weight}${weightUnit} × ${s.reps}`
+                                        }
+                                      </Text>
+                                      {s.rpe && (
+                                        <View style={[styles.historyRpeBadge, { backgroundColor: getRpeColor(s.rpe) }]}>
+                                          <Text style={styles.historyRpeText}>{s.rpe}</Text>
+                                        </View>
+                                      )}
+                                    </View>
+                                  ))}
+                                </View>
+                              </View>
+                            );
+                          })}
+                        </View>
+                      )}
                     </View>
                   );
                 })()}
@@ -1349,12 +1353,6 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
                                     : `${set.weight || 0}${weightUnit} × ${set.reps || 0}`
                                   }
                                 </Text>
-                                {/* Estimated 1RM for completed sets */}
-                                {set.completed && !isTimedExercise(exercise.name) && set.weight && set.reps && (
-                                  <Text style={styles.setE1rm}>
-                                    {Math.round((parseFloat(set.weight) || 0) * (1 + (parseInt(set.reps) || 0) / 30))} e1RM
-                                  </Text>
-                                )}
 
                                 {set.setType === 'warmup' && (
                                   <View style={[styles.setBadge, styles.warmupBadge]}>
