@@ -940,6 +940,21 @@ const CommunityScreen = ({ route }) => {
       // Load user's recent completed workouts
       const { data } = await workoutService.getCompletedSessions(user?.id, 10);
       if (data && data.length > 0) {
+        // Fetch exercise counts from workout_sets for these sessions
+        const sessionIds = data.map(s => s.id);
+        const { data: setsData } = await supabase
+          .from('workout_sets')
+          .select('session_id, exercise_name')
+          .in('session_id', sessionIds);
+
+        const exerciseCountMap = {};
+        (setsData || []).forEach(s => {
+          if (!exerciseCountMap[s.session_id]) {
+            exerciseCountMap[s.session_id] = new Set();
+          }
+          if (s.exercise_name) exerciseCountMap[s.session_id].add(s.exercise_name);
+        });
+
         const formattedWorkouts = data.map(session => ({
           id: session.id,
           name: session.workout_name || 'Workout',
@@ -950,7 +965,7 @@ const CommunityScreen = ({ route }) => {
               })
             : 'Recently',
           duration: session.duration_minutes || 0,
-          exercises: session.exercise_count || 0,
+          exercises: exerciseCountMap[session.id]?.size || 0,
         }));
         setRecentWorkouts(formattedWorkouts);
       } else {
@@ -964,16 +979,51 @@ const CommunityScreen = ({ route }) => {
     }
   };
 
-  const handleSelectWorkoutToShare = (workout) => {
+  const handleSelectWorkoutToShare = async (workout) => {
     setShowShareModal(false);
 
-    const successMessage = `"${workout.name}" shared successfully!`;
-    if (Platform.OS === 'web') {
-      alert(successMessage);
-    } else {
-      Alert.alert('Success', successMessage);
+    try {
+      // Fetch exercises from workout_sets for this session
+      const { data: setsData } = await supabase
+        .from('workout_sets')
+        .select('exercise_name, set_number, weight, reps')
+        .eq('session_id', workout.id)
+        .order('set_number', { ascending: true });
+
+      const grouped = {};
+      (setsData || []).forEach(s => {
+        if (!grouped[s.exercise_name]) grouped[s.exercise_name] = 0;
+        grouped[s.exercise_name]++;
+      });
+
+      const exercises = Object.entries(grouped).map(([name, sets]) => ({
+        name,
+        sets,
+      }));
+
+      await publishedWorkoutService.publishWorkout(user.id, {
+        name: workout.name,
+        exercises,
+        exercise_count: exercises.length,
+        description: `${workout.duration} min • ${exercises.length} exercises`,
+      });
+
+      const successMessage = `"${workout.name}" shared successfully!`;
+      if (Platform.OS === 'web') {
+        alert(successMessage);
+      } else {
+        Alert.alert('Success', successMessage);
+      }
+      loadCommunityWorkouts();
+    } catch (err) {
+      console.log('Error sharing workout:', err);
+      const errorMessage = 'Failed to share workout. Please try again.';
+      if (Platform.OS === 'web') {
+        alert(errorMessage);
+      } else {
+        Alert.alert('Error', errorMessage);
+      }
     }
-    loadCommunityWorkouts();
   };
 
   const formatTimeAgo = (dateString) => {
