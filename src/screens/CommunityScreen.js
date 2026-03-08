@@ -836,8 +836,20 @@ const CommunityScreen = ({ route }) => {
     setShowRepertoireModal(true);
     setLoadingRepertoire(true);
     try {
-      const { data } = await publishedWorkoutService.getSavedWorkoutsWithDetails(user.id);
-      setSavedWorkoutsWithDetails(data || []);
+      const [ownResult, savedResult] = await Promise.all([
+        publishedWorkoutService.getUserPublishedWorkouts(user.id),
+        publishedWorkoutService.getSavedWorkoutsWithDetails(user.id),
+      ]);
+      // Merge own published + saved, dedupe by id
+      const seen = new Set();
+      const merged = [];
+      for (const w of [...(ownResult.data || []), ...(savedResult.data || [])]) {
+        if (!seen.has(w.id)) {
+          seen.add(w.id);
+          merged.push(w);
+        }
+      }
+      setSavedWorkoutsWithDetails(merged);
     } catch (error) {
       console.log('Error loading repertoire:', error);
       setSavedWorkoutsWithDetails([]);
@@ -1111,6 +1123,7 @@ const CommunityScreen = ({ route }) => {
         name: workout.name,
         exercises,
         exercise_count: exercises.length,
+        target_duration: workout.duration || null,
         description: `${workout.duration} min • ${exercises.length} exercises`,
       });
 
@@ -1593,7 +1606,7 @@ const CommunityScreen = ({ route }) => {
               <View style={styles.workoutStat}>
                 <Clock size={14} color={COLORS.textMuted} />
                 <Text style={styles.workoutStatText}>
-                  {workout.target_duration || 45} min
+                  {workout.target_duration ? `${Math.max(0, workout.target_duration - 10)}-${workout.target_duration + 10} min` : '—'}
                 </Text>
               </View>
             </View>
@@ -2725,7 +2738,7 @@ const CommunityScreen = ({ route }) => {
                     <View style={styles.shareWorkoutInfo}>
                       <Text style={styles.shareWorkoutName}>{workout.name}</Text>
                       <Text style={styles.shareWorkoutMeta}>
-                        {workout.exercise_count || workout.exercises?.length || 0} exercises • {workout.target_duration || 45} min
+                        {workout.exercise_count || workout.exercises?.length || 0} exercises{workout.target_duration ? ` • ${Math.max(0, workout.target_duration - 10)}-${workout.target_duration + 10} min` : ''}
                       </Text>
                     </View>
                   </TouchableOpacity>
