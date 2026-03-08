@@ -74,13 +74,14 @@ const formatDuration = (seconds) => {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 };
 
-// Get RPE color on a green to red scale (0-10)
+// Get RPE color on a light-to-dark blue scale (6-10 range)
 const getRpeColor = (rpe) => {
-  const value = parseFloat(rpe) || 0;
-  const clamped = Math.min(10, Math.max(0, value));
-  // Green (120°) to Red (0°) in HSL
-  const hue = 120 - (clamped / 10) * 120;
-  return `hsl(${hue}, 70%, 45%)`;
+  const value = parseFloat(rpe) || 6;
+  // Map RPE 6→light, 10→dark (most RPE values fall in 6-10)
+  const t = Math.min(1, Math.max(0, (value - 6) / 4));
+  // Light sky blue (lightness 72%) → deep navy (lightness 18%)
+  const lightness = 72 - t * 54;
+  return `hsl(195, 65%, ${lightness}%)`;
 };
 
 // Format a date as relative ("2 days ago") or short date ("Feb 20")
@@ -115,8 +116,8 @@ const WorkoutTimer = React.memo(({ workoutStartTime, COLORS }) => {
 
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
-      <Clock size={14} color={COLORS.textMuted} />
-      <Text style={{ color: COLORS.textMuted, fontSize: 14 }}>{formatted}</Text>
+      <Clock size={14} color={COLORS.text} />
+      <Text style={{ color: COLORS.text, fontSize: 14 }}>{formatted}</Text>
     </View>
   );
 });
@@ -2033,7 +2034,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     alignItems: 'center',
   },
   setCheckmarkDone: {
-    backgroundColor: '#3B82F6',
+    backgroundColor: COLORS.primary,
   },
   setLabel: {
     color: COLORS.text,

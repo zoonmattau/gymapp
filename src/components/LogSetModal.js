@@ -423,19 +423,23 @@ const LogSetModal = ({
                   9: '1 rep left',
                   10: 'Max effort',
                 };
+                // Light-to-dark blue scale per RPE value
+                const t = Math.min(1, Math.max(0, (value - 1) / 9));
+                const lightness = 75 - t * 55;
+                const rpeColor = `hsl(195, 65%, ${lightness}%)`;
                 return (
                   <TouchableOpacity
                     key={value}
                     style={[
                       styles.rpeButton,
-                      rpe === value && styles.rpeButtonSelected,
+                      rpe === value && { backgroundColor: rpeColor },
                     ]}
                     onPress={() => setRpe(rpe === value ? null : value)}
                     onClick={() => setRpe(rpe === value ? null : value)}
                   >
                     <Text style={[
                       styles.rpeText,
-                      rpe === value && styles.rpeTextSelected,
+                      rpe === value && { color: lightness < 45 ? '#fff' : '#0C3547' },
                     ]}>
                       {value}
                     </Text>
