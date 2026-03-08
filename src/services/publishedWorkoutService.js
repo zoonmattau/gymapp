@@ -14,7 +14,6 @@ export const publishedWorkoutService = {
           exercises: workoutData.exercises || [],
           goals: workoutData.goals || [],
           is_public: true,
-          ...(workoutData.target_duration && { target_duration: workoutData.target_duration }),
         })
         .select()
         .single();

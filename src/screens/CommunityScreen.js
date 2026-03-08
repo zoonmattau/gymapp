@@ -414,6 +414,12 @@ const FeedCard = ({ activity, weightUnit, navigation }) => {
 };
 
 // Collapsible exercise preview for community workout cards
+const getDurationRange = (workout) => {
+  const min = parseInt(workout.description?.match(/^(\d+)\s*min/)?.[1]);
+  if (!min || min <= 0) return null;
+  return `${Math.max(0, min - 10)}-${min + 10} min`;
+};
+
 const WorkoutExercisePreview = ({ exercises, COLORS }) => {
   const [expanded, setExpanded] = useState(false);
   const parsedExercises = typeof exercises === 'string' ? JSON.parse(exercises) : exercises;
@@ -1122,7 +1128,6 @@ const CommunityScreen = ({ route }) => {
       const { data, error } = await publishedWorkoutService.publishWorkout(user.id, {
         name: workout.name,
         exercises,
-        target_duration: workout.duration || null,
         description: `${workout.duration} min • ${exercises.length} exercises`,
       });
 
@@ -1616,7 +1621,7 @@ const CommunityScreen = ({ route }) => {
               <View style={styles.workoutStat}>
                 <Clock size={14} color={COLORS.textMuted} />
                 <Text style={styles.workoutStatText}>
-                  {workout.target_duration ? `${Math.max(0, workout.target_duration - 10)}-${workout.target_duration + 10} min` : '—'}
+                  {getDurationRange(workout) || '—'}
                 </Text>
               </View>
             </View>
@@ -2228,7 +2233,7 @@ const CommunityScreen = ({ route }) => {
                 <View style={[styles.workoutInfo, { flex: 1 }]}>
                   <Text style={styles.workoutName}>{workout.name}</Text>
                   <Text style={styles.workoutMeta}>
-                    by @{workout.creator?.username || workout.creator_username || 'unknown'} • {workout.exercises?.length || workout.exercise_count || 0} exercises
+                    by @{workout.creator?.username || workout.creator_username || 'unknown'} • {workout.exercises?.length || workout.exercise_count || 0} exercises{getDurationRange(workout) ? ` • ${getDurationRange(workout)}` : ''}
                   </Text>
                 </View>
                 {workout.creator_id === user?.id && (
@@ -2748,7 +2753,7 @@ const CommunityScreen = ({ route }) => {
                     <View style={styles.shareWorkoutInfo}>
                       <Text style={styles.shareWorkoutName}>{workout.name}</Text>
                       <Text style={styles.shareWorkoutMeta}>
-                        {workout.exercise_count || workout.exercises?.length || 0} exercises{workout.target_duration ? ` • ${Math.max(0, workout.target_duration - 10)}-${workout.target_duration + 10} min` : ''}
+                        {workout.exercise_count || workout.exercises?.length || 0} exercises{getDurationRange(workout) ? ` • ${getDurationRange(workout)}` : ''}
                       </Text>
                     </View>
                   </TouchableOpacity>
