@@ -1119,13 +1119,23 @@ const CommunityScreen = ({ route }) => {
         sets: ex.sets.length,
       }));
 
-      await publishedWorkoutService.publishWorkout(user.id, {
+      const { data, error } = await publishedWorkoutService.publishWorkout(user.id, {
         name: workout.name,
         exercises,
-        exercise_count: exercises.length,
         target_duration: workout.duration || null,
         description: `${workout.duration} min • ${exercises.length} exercises`,
       });
+
+      if (error) {
+        console.log('Publish error:', error);
+        const errorMessage = `Failed to share: ${error.message || 'Unknown error'}`;
+        if (Platform.OS === 'web') {
+          alert(errorMessage);
+        } else {
+          Alert.alert('Error', errorMessage);
+        }
+        return;
+      }
 
       const successMessage = `"${workout.name}" shared successfully!`;
       if (Platform.OS === 'web') {
@@ -1136,7 +1146,7 @@ const CommunityScreen = ({ route }) => {
       loadCommunityWorkouts();
     } catch (err) {
       console.log('Error sharing workout:', err);
-      const errorMessage = 'Failed to share workout. Please try again.';
+      const errorMessage = `Failed to share workout: ${err.message || 'Please try again.'}`;
       if (Platform.OS === 'web') {
         alert(errorMessage);
       } else {
