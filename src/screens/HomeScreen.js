@@ -736,11 +736,33 @@ const HomeScreen = () => {
     }
   };
 
+  const [browseRepertoire, setBrowseRepertoire] = useState([]);
+
   const openStartWorkoutModal = () => {
     // Set default selection based on whether there's a scheduled workout
     setSelectedWorkoutType(todayWorkout ? 'scheduled' : 'freeform');
     setWorkoutSearchQuery('');
     setShowStartWorkoutModal(true);
+    // Load repertoire: own published + saved workouts
+    if (user?.id) {
+      Promise.all([
+        publishedWorkoutService.getUserPublishedWorkouts(user.id),
+        publishedWorkoutService.getSavedWorkoutsWithDetails(user.id),
+      ]).then(([ownResult, savedResult]) => {
+        const own = (ownResult.data || []).map(w => ({ ...w, _source: 'published' }));
+        const saved = (savedResult.data || []).map(w => ({ ...w, _source: 'saved' }));
+        // Merge, dedupe by id (own published takes priority)
+        const seen = new Set();
+        const merged = [];
+        for (const w of [...own, ...saved]) {
+          if (!seen.has(w.id)) {
+            seen.add(w.id);
+            merged.push(w);
+          }
+        }
+        setBrowseRepertoire(merged);
+      }).catch(() => {});
+    }
   };
 
   const startFreeformWorkout = () => {
@@ -800,6 +822,22 @@ const HomeScreen = () => {
     });
   };
 
+  const startFromRepertoire = (workout) => {
+    setShowStartWorkoutModal(false);
+    const exercises = typeof workout.exercises === 'string' ? JSON.parse(workout.exercises) : workout.exercises;
+    navigation.navigate('ActiveWorkout', {
+      workoutName: workout.name,
+      workout: {
+        id: workout.id,
+        name: workout.name,
+        exercises: (exercises || []).map(ex => ({
+          name: ex.name,
+          sets: ex.sets || 3,
+        })),
+      },
+    });
+  };
+
   // Filter templates based on search
   const filteredTemplates = Object.entries(WORKOUT_TEMPLATES).filter(([id, template]) => {
     if (!workoutSearchQuery) return true;
@@ -818,6 +856,16 @@ const HomeScreen = () => {
       template.name?.toLowerCase().includes(query) ||
       template.focus?.toLowerCase().includes(query) ||
       template.exercises?.some(e => e.name?.toLowerCase().includes(query))
+    );
+  });
+
+  const filteredRepertoire = browseRepertoire.filter(workout => {
+    if (!workoutSearchQuery) return true;
+    const query = workoutSearchQuery.toLowerCase();
+    const exercises = typeof workout.exercises === 'string' ? JSON.parse(workout.exercises) : workout.exercises;
+    return (
+      workout.name?.toLowerCase().includes(query) ||
+      exercises?.some(e => e.name?.toLowerCase().includes(query))
     );
   });
 
@@ -2194,6 +2242,35 @@ const HomeScreen = () => {
                   showsVerticalScrollIndicator={true}
                   contentContainerStyle={{ paddingBottom: 20 }}
                 >
+                  {/* MY REP-ERTOIRE - Saved Community Workouts */}
+                  {filteredRepertoire.length > 0 && (
+                    <>
+                      <Text style={styles.templateSectionLabel}>MY REP-ERTOIRE</Text>
+                      {filteredRepertoire.map(workout => {
+                        const exercises = typeof workout.exercises === 'string' ? JSON.parse(workout.exercises) : workout.exercises;
+                        return (
+                          <TouchableOpacity
+                            key={workout.id}
+                            style={[styles.templateItem, { borderLeftWidth: 3, borderLeftColor: COLORS.primary }]}
+                            onPress={() => startFromRepertoire(workout)}
+                          >
+                            <View style={styles.templateIcon}>
+                              <Bookmark size={18} color={COLORS.primary} />
+                            </View>
+                            <View style={styles.templateInfo}>
+                              <Text style={styles.templateName}>{workout.name}</Text>
+                              <Text style={styles.templateFocus}>
+                                {workout._source === 'published' ? 'My workout' : `by @${workout.creator?.username || 'unknown'}`}
+                              </Text>
+                              <Text style={styles.templateExercises}>{exercises?.length || 0} exercises</Text>
+                            </View>
+                            <ChevronRight size={18} color={COLORS.textMuted} />
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </>
+                  )}
+
                   {/* MY WORKOUTS - Custom Templates */}
                   {filteredCustomTemplates.length > 0 && (
                     <>
@@ -2215,9 +2292,10 @@ const HomeScreen = () => {
                           <ChevronRight size={18} color={COLORS.textMuted} />
                         </TouchableOpacity>
                       ))}
-                      <Text style={styles.templateSectionLabel}>BROWSE TEMPLATES</Text>
                     </>
                   )}
+
+                  <Text style={styles.templateSectionLabel}>BROWSE TEMPLATES</Text>
                   {filteredTemplates.map(([id, template]) => (
                     <TouchableOpacity
                       key={id}
@@ -2235,7 +2313,7 @@ const HomeScreen = () => {
                       <ChevronRight size={18} color={COLORS.textMuted} />
                     </TouchableOpacity>
                   ))}
-                  {filteredTemplates.length === 0 && filteredCustomTemplates.length === 0 && (
+                  {filteredTemplates.length === 0 && filteredCustomTemplates.length === 0 && filteredRepertoire.length === 0 && (
                     <View style={styles.noResultsContainer}>
                       <Text style={styles.noResultsText}>No templates found</Text>
                     </View>

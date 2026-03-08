@@ -33,6 +33,8 @@ import {
   X,
   Check,
   Bell,
+  ChevronRight,
+  Trash2,
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useColors } from '../contexts/ThemeContext';
@@ -411,6 +413,55 @@ const FeedCard = ({ activity, weightUnit, navigation }) => {
   );
 };
 
+// Collapsible exercise preview for community workout cards
+const WorkoutExercisePreview = ({ exercises, COLORS }) => {
+  const [expanded, setExpanded] = useState(false);
+  const parsedExercises = typeof exercises === 'string' ? JSON.parse(exercises) : exercises;
+  const hasExercises = parsedExercises && parsedExercises.length > 0;
+
+  return (
+    <View style={{ marginTop: 8 }}>
+      <TouchableOpacity
+        onPress={() => setExpanded(!expanded)}
+        style={{
+          flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+          paddingVertical: 6, gap: 4,
+        }}
+      >
+        <Text style={{ color: COLORS.primary, fontSize: 13, fontWeight: '600' }}>
+          {expanded ? 'Hide Exercises' : 'Preview Exercises'}
+        </Text>
+        {expanded
+          ? <ChevronDown size={14} color={COLORS.primary} style={{ transform: [{ rotate: '180deg' }] }} />
+          : <ChevronDown size={14} color={COLORS.primary} />
+        }
+      </TouchableOpacity>
+      {expanded && (
+        <View style={{ marginTop: 4, gap: 4 }}>
+          {hasExercises ? parsedExercises.map((ex, idx) => (
+            <View key={idx} style={{
+              flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+              backgroundColor: COLORS.surfaceLight, borderRadius: 8,
+              paddingHorizontal: 12, paddingVertical: 8,
+            }}>
+              <Text style={{ color: COLORS.text, fontSize: 14, fontWeight: '500', flex: 1 }}>
+                {ex.name}
+              </Text>
+              <Text style={{ color: COLORS.textMuted, fontSize: 13 }}>
+                {ex.sets} {ex.sets === 1 ? 'set' : 'sets'}
+              </Text>
+            </View>
+          )) : (
+            <Text style={{ color: COLORS.textMuted, fontSize: 13, textAlign: 'center', paddingVertical: 8 }}>
+              Exercise details not available — re-share to include them
+            </Text>
+          )}
+        </View>
+      )}
+    </View>
+  );
+};
+
 const CommunityScreen = ({ route }) => {
   const navigation = useNavigation();
   const COLORS = useColors();
@@ -468,6 +519,7 @@ const CommunityScreen = ({ route }) => {
 
   // Share Workout Modal
   const [showShareModal, setShowShareModal] = useState(false);
+  const [previewWorkout, setPreviewWorkout] = useState(null); // { ...workout, exerciseDetails: [...] }
 
   // Discover period filter
   const [discoverPeriod, setDiscoverPeriod] = useState('all');
@@ -641,7 +693,7 @@ const CommunityScreen = ({ route }) => {
 
       const { data: saved } = await publishedWorkoutService.getSavedWorkouts(user.id);
       if (saved) {
-        setSavedWorkoutIds(new Set(saved.map(w => w.workout_id)));
+        setSavedWorkoutIds(new Set(saved));
       }
     } catch (error) {
       console.log('Error loading workouts:', error);
@@ -796,19 +848,57 @@ const CommunityScreen = ({ route }) => {
 
   const handleStartRepertoireWorkout = (workout) => {
     setShowRepertoireModal(false);
-    // TODO: Navigate to active workout screen with this workout
-    const successMessage = `Starting "${workout.name}"`;
-    if (Platform.OS === 'web') {
-      alert(successMessage);
-    } else {
-      Alert.alert('Starting Workout', successMessage);
-    }
+    const exercises = typeof workout.exercises === 'string' ? JSON.parse(workout.exercises) : workout.exercises;
+    navigation.navigate('ActiveWorkout', {
+      workoutName: workout.name,
+      workout: {
+        id: workout.id,
+        name: workout.name,
+        exercises: (exercises || []).map(ex => ({
+          name: ex.name,
+          sets: ex.sets || 3,
+        })),
+      },
+    });
+  };
+
+  const handleStartCommunityWorkout = (workout) => {
+    const exercises = typeof workout.exercises === 'string' ? JSON.parse(workout.exercises) : workout.exercises;
+    navigation.navigate('ActiveWorkout', {
+      workoutName: workout.name,
+      workout: {
+        id: workout.id,
+        name: workout.name,
+        exercises: (exercises || []).map(ex => ({
+          name: ex.name,
+          sets: ex.sets || 3,
+        })),
+      },
+    });
   };
 
   const handleApplyFilters = () => {
     setShowFiltersModal(false);
     // Reload workouts with filters
     loadCommunityWorkouts();
+  };
+
+  const handleDeletePublishedWorkout = async (workoutId) => {
+    const doDelete = () => {
+      publishedWorkoutService.deleteWorkout(user.id, workoutId).then(({ error }) => {
+        if (!error) {
+          setCommunityWorkouts(prev => prev.filter(w => w.id !== workoutId));
+        }
+      });
+    };
+    if (Platform.OS === 'web') {
+      if (window.confirm('Remove this workout from the community?')) doDelete();
+    } else {
+      Alert.alert('Delete Workout', 'Remove this workout from the community?', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: doDelete },
+      ]);
+    }
   };
 
   const handleSaveWorkout = async (workoutId) => {
@@ -979,11 +1069,9 @@ const CommunityScreen = ({ route }) => {
     }
   };
 
-  const handleSelectWorkoutToShare = async (workout) => {
-    setShowShareModal(false);
-
+  const handlePreviewWorkout = async (workout) => {
+    // Fetch exercise details for preview
     try {
-      // Fetch exercises from workout_sets for this session
       const { data: setsData } = await supabase
         .from('workout_sets')
         .select('exercise_name, set_number, weight, reps')
@@ -992,13 +1080,31 @@ const CommunityScreen = ({ route }) => {
 
       const grouped = {};
       (setsData || []).forEach(s => {
-        if (!grouped[s.exercise_name]) grouped[s.exercise_name] = 0;
-        grouped[s.exercise_name]++;
+        if (!grouped[s.exercise_name]) grouped[s.exercise_name] = [];
+        grouped[s.exercise_name].push(s);
       });
 
-      const exercises = Object.entries(grouped).map(([name, sets]) => ({
+      const exerciseDetails = Object.entries(grouped).map(([name, sets]) => ({
         name,
         sets,
+      }));
+
+      setPreviewWorkout({ ...workout, exerciseDetails });
+    } catch (err) {
+      console.log('Error loading workout preview:', err);
+    }
+  };
+
+  const handleConfirmShare = async () => {
+    if (!previewWorkout) return;
+    const workout = previewWorkout;
+    setPreviewWorkout(null);
+    setShowShareModal(false);
+
+    try {
+      const exercises = workout.exerciseDetails.map(ex => ({
+        name: ex.name,
+        sets: ex.sets.length,
       }));
 
       await publishedWorkoutService.publishWorkout(user.id, {
@@ -1466,7 +1572,7 @@ const CommunityScreen = ({ route }) => {
               <View style={styles.workoutInfo}>
                 <Text style={styles.workoutName}>{workout.name}</Text>
                 <Text style={styles.workoutMeta}>
-                  by @{workout.creator_username} • {workout.exercise_count || 0} exercises
+                  by @{workout.creator?.username || workout.creator_username || 'unknown'} • {workout.exercises?.length || workout.exercise_count || 0} exercises
                 </Text>
               </View>
             </View>
@@ -1492,6 +1598,8 @@ const CommunityScreen = ({ route }) => {
               </View>
             </View>
 
+            <WorkoutExercisePreview exercises={workout.exercises} COLORS={COLORS} />
+
             <View style={styles.workoutActions}>
               <TouchableOpacity
                 style={[styles.saveButton, savedWorkoutIds.has(workout.id) && styles.saveButtonActive]}
@@ -1501,7 +1609,7 @@ const CommunityScreen = ({ route }) => {
                   {savedWorkoutIds.has(workout.id) ? 'Saved' : 'Save'}
                 </Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.startButton}>
+              <TouchableOpacity style={styles.startButton} onPress={() => handleStartCommunityWorkout(workout)}>
                 <Text style={styles.startButtonText}>Start</Text>
               </TouchableOpacity>
             </View>
@@ -2093,15 +2201,27 @@ const CommunityScreen = ({ route }) => {
         ) : (
           communityWorkouts.slice(0, 3).map((workout) => (
             <View key={workout.id} style={styles.workoutCard}>
-              <View style={styles.workoutInfo}>
-                <Text style={styles.workoutName}>{workout.name}</Text>
-                <Text style={styles.workoutMeta}>
-                  by @{workout.creator_username} • {workout.exercise_count || 0} exercises
-                </Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <View style={[styles.workoutInfo, { flex: 1 }]}>
+                  <Text style={styles.workoutName}>{workout.name}</Text>
+                  <Text style={styles.workoutMeta}>
+                    by @{workout.creator?.username || workout.creator_username || 'unknown'} • {workout.exercises?.length || workout.exercise_count || 0} exercises
+                  </Text>
+                </View>
+                {workout.creator_id === user?.id && (
+                  <TouchableOpacity
+                    onPress={() => handleDeletePublishedWorkout(workout.id)}
+                    style={{ padding: 6 }}
+                  >
+                    <Trash2 size={16} color={COLORS.textMuted} />
+                  </TouchableOpacity>
+                )}
               </View>
               <View style={styles.workoutStats}>
                 <Text style={styles.workoutStatText}>{(workout.average_rating || 0).toFixed(1)} rating • {workout.completion_count || 0} completions</Text>
               </View>
+              <WorkoutExercisePreview exercises={workout.exercises} COLORS={COLORS} />
+
               <View style={styles.workoutActions}>
                 <TouchableOpacity
                   style={[styles.saveButton, savedWorkoutIds.has(workout.id) && styles.saveButtonActive]}
@@ -2111,7 +2231,7 @@ const CommunityScreen = ({ route }) => {
                     {savedWorkoutIds.has(workout.id) ? 'Saved' : 'Save'}
                   </Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.startButton}>
+                <TouchableOpacity style={styles.startButton} onPress={() => handleStartCommunityWorkout(workout)}>
                   <Text style={styles.startButtonText}>Start</Text>
                 </TouchableOpacity>
               </View>
@@ -2417,7 +2537,7 @@ const CommunityScreen = ({ route }) => {
             <View style={styles.shareModalHeader}>
               <Text style={styles.shareModalTitle}>Share a Workout</Text>
               <TouchableOpacity
-                onPress={() => setShowShareModal(false)}
+                onPress={() => { setShowShareModal(false); setPreviewWorkout(null); }}
                 style={styles.shareModalClose}
               >
                 <Text style={styles.shareModalCloseText}>✕</Text>
@@ -2428,7 +2548,37 @@ const CommunityScreen = ({ route }) => {
               Select a workout to share with the community
             </Text>
 
-            {loadingWorkouts ? (
+            {previewWorkout ? (
+              <ScrollView style={styles.shareModalList}>
+                <View style={styles.previewHeader}>
+                  <TouchableOpacity onPress={() => setPreviewWorkout(null)}>
+                    <Text style={{ color: COLORS.primary, fontSize: 14, fontWeight: '600' }}>← Back</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.shareWorkoutName}>{previewWorkout.name}</Text>
+                  <Text style={styles.shareWorkoutMeta}>
+                    {previewWorkout.date} • {previewWorkout.duration} min
+                  </Text>
+                </View>
+                {previewWorkout.exerciseDetails.map((exercise, idx) => (
+                  <View key={idx} style={styles.previewExercise}>
+                    <Text style={styles.previewExerciseName}>{exercise.name}</Text>
+                    <View style={styles.previewSets}>
+                      {exercise.sets.map((s, i) => (
+                        <View key={i} style={styles.previewSetPill}>
+                          <Text style={styles.previewSetText}>
+                            {s.weight}{weightUnit} × {s.reps}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                ))}
+                <TouchableOpacity style={styles.confirmShareBtn} onPress={handleConfirmShare}>
+                  <Share2 size={18} color={COLORS.textOnPrimary} />
+                  <Text style={styles.confirmShareBtnText}>Share Workout</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            ) : loadingWorkouts ? (
               <View style={styles.shareModalLoading}>
                 <Text style={styles.shareModalLoadingText}>Loading workouts...</Text>
               </View>
@@ -2446,7 +2596,7 @@ const CommunityScreen = ({ route }) => {
                   <TouchableOpacity
                     key={workout.id}
                     style={styles.shareWorkoutItem}
-                    onPress={() => handleSelectWorkoutToShare(workout)}
+                    onPress={() => handlePreviewWorkout(workout)}
                   >
                     <View style={styles.shareWorkoutIcon}>
                       <Dumbbell size={18} color={COLORS.primary} />
@@ -2457,7 +2607,7 @@ const CommunityScreen = ({ route }) => {
                         {workout.date} • {workout.duration} min • {workout.exercises} exercises
                       </Text>
                     </View>
-                    <Share2 size={18} color={COLORS.primary} />
+                    <ChevronRight size={18} color={COLORS.textMuted} />
                   </TouchableOpacity>
                 ))}
               </ScrollView>
@@ -2465,7 +2615,7 @@ const CommunityScreen = ({ route }) => {
 
             <TouchableOpacity
               style={styles.shareModalCancelBtn}
-              onPress={() => setShowShareModal(false)}
+              onPress={() => { setShowShareModal(false); setPreviewWorkout(null); }}
             >
               <Text style={styles.shareModalCancelText}>Cancel</Text>
             </TouchableOpacity>
@@ -4056,6 +4206,53 @@ const getStyles = (COLORS) => StyleSheet.create({
     color: COLORS.textMuted,
     fontSize: 12,
     marginTop: 2,
+  },
+  previewHeader: {
+    marginBottom: 12,
+  },
+  previewExercise: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
+  },
+  previewExerciseName: {
+    color: COLORS.text,
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  previewSets: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  previewSetPill: {
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  previewSetText: {
+    color: COLORS.textSecondary || COLORS.textMuted,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  confirmShareBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.primary,
+    borderRadius: 12,
+    paddingVertical: 14,
+    gap: 8,
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  confirmShareBtnText: {
+    color: COLORS.textOnPrimary,
+    fontSize: 16,
+    fontWeight: '600',
   },
   shareModalCancelBtn: {
     backgroundColor: COLORS.surface,
