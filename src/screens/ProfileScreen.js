@@ -122,6 +122,7 @@ const ProfileScreen = () => {
     showActivity: true,
     showProgress: false,
   });
+  const [shareWorkoutsEnabled, setShareWorkoutsEnabled] = useState(true);
   const [privateAccount, setPrivateAccount] = useState(false);
 
   // Toast
@@ -303,6 +304,10 @@ const ProfileScreen = () => {
         const corePos = await AsyncStorage.getItem('@core_exercises_position');
         if (corePos !== null) {
           setCoreExercisesPosition(corePos);
+        }
+        const shareWorkouts = await AsyncStorage.getItem('@share_workouts_enabled');
+        if (shareWorkouts !== null) {
+          setShareWorkoutsEnabled(shareWorkouts === 'true');
         }
       } catch (error) {
         console.log('Error loading settings:', error);
@@ -1439,6 +1444,26 @@ const ProfileScreen = () => {
               <Switch
                 value={privateAccount}
                 onValueChange={handlePrivateAccountToggle}
+                trackColor={{ false: COLORS.surfaceLight, true: COLORS.success }}
+                thumbColor={COLORS.text}
+              />
+            </View>
+
+            <View style={styles.notifItem}>
+              <View style={styles.notifInfo}>
+                <Text style={styles.notifLabel}>Auto-Share Workouts</Text>
+                <Text style={styles.notifDesc}>Default the "Share to Community" toggle on after completing a workout</Text>
+              </View>
+              <Switch
+                value={shareWorkoutsEnabled}
+                onValueChange={async (value) => {
+                  setShareWorkoutsEnabled(value);
+                  try {
+                    await AsyncStorage.setItem('@share_workouts_enabled', value.toString());
+                  } catch (e) {
+                    console.log('Error saving share setting:', e);
+                  }
+                }}
                 trackColor={{ false: COLORS.surfaceLight, true: COLORS.success }}
                 thumbColor={COLORS.text}
               />

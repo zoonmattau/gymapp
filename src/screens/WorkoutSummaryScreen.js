@@ -38,6 +38,7 @@ import MuscleMap, { PRIMARY_VIEW } from '../components/MuscleMap';
 import { EXERCISES } from '../constants/exercises';
 import { LineChart } from 'react-native-chart-kit';
 import { supabase } from '../lib/supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import ExerciseLink from '../components/ExerciseLink';
 
 const WorkoutSummaryScreen = ({ route, navigation }) => {
@@ -52,6 +53,11 @@ const WorkoutSummaryScreen = ({ route, navigation }) => {
   const [newWorkoutName, setNewWorkoutName] = useState('');
   const [displayName, setDisplayName] = useState(summary?.workoutName || 'Workout');
   const [sharePublic, setSharePublic] = useState(true);
+  useEffect(() => {
+    AsyncStorage.getItem('@share_workouts_enabled').then(val => {
+      if (val !== null) setSharePublic(val === 'true');
+    }).catch(() => {});
+  }, []);
   const shareCardRef = useRef(null);
   const [activeCardIndex, setActiveCardIndex] = useState(0);
   const [exerciseSummaryExpanded, setExerciseSummaryExpanded] = useState(true);

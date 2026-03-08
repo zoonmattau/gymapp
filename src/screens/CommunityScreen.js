@@ -45,6 +45,7 @@ import { publishedWorkoutService } from '../services/publishedWorkoutService';
 import { competitionService } from '../services/competitionService';
 import { workoutService } from '../services/workoutService';
 import { supabase } from '../lib/supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const TABS = [
   { id: 'community', label: 'Community' },
@@ -526,6 +527,7 @@ const CommunityScreen = ({ route }) => {
   // Share Workout Modal
   const [showShareModal, setShowShareModal] = useState(false);
   const [previewWorkout, setPreviewWorkout] = useState(null); // { ...workout, exerciseDetails: [...] }
+  const [shareWorkoutsEnabled, setShareWorkoutsEnabled] = useState(true);
 
   // Discover period filter
   const [discoverPeriod, setDiscoverPeriod] = useState('all');
@@ -559,6 +561,10 @@ const CommunityScreen = ({ route }) => {
     if (user?.id) {
       loadInitialData();
     }
+    // Load share preference
+    AsyncStorage.getItem('@share_workouts_enabled').then(val => {
+      if (val !== null) setShareWorkoutsEnabled(val === 'true');
+    }).catch(() => {});
   }, [user]);
 
   useEffect(() => {
