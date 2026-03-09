@@ -63,11 +63,11 @@ export const profileService = {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .upsert({
-          id: userId,
+        .update({
           ...updates,
           updated_at: new Date().toISOString(),
-        }, { onConflict: 'id' })
+        })
+        .eq('id', userId)
         .select()
         .single();
 
