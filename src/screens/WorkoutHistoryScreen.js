@@ -10,13 +10,15 @@ import {
   Modal,
   TextInput,
   Alert,
+  Share,
   Platform,
 } from 'react-native';
-import { ArrowLeft, Dumbbell, Check, Clock, TrendingUp, Pencil, X, ChevronDown, ChevronUp, Trash2 } from 'lucide-react-native';
+import { ArrowLeft, Dumbbell, Check, Clock, TrendingUp, Pencil, X, ChevronDown, ChevronUp, Trash2, Users } from 'lucide-react-native';
 import { useColors } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { workoutService } from '../services/workoutService';
 import { supabase } from '../lib/supabase';
+import { socialService } from '../services/socialService';
 
 // Get RPE color on a green to red scale (0-10)
 const getRpeColor = (rpe) => {
@@ -40,6 +42,14 @@ const WorkoutHistoryScreen = ({ navigation }) => {
   const [selectedWorkout, setSelectedWorkout] = useState(null);
   const [workoutDetails, setWorkoutDetails] = useState(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
+  const [showShareChoiceModal, setShowShareChoiceModal] = useState(false);
+  const [showFriendPickerModal, setShowFriendPickerModal] = useState(false);
+  const [friendsList, setFriendsList] = useState([]);
+  const [selectedFriends, setSelectedFriends] = useState([]);
+  const [friendsLoading, setFriendsLoading] = useState(false);
+  const [shareSubmitting, setShareSubmitting] = useState(false);
+  const [shareTargetSessionId, setShareTargetSessionId] = useState(null);
+  const [shareTargetName, setShareTargetName] = useState('');
 
   useEffect(() => {
     loadWorkoutHistory();
@@ -118,6 +128,56 @@ const WorkoutHistoryScreen = ({ navigation }) => {
     } finally {
       setDetailsLoading(false);
     }
+  };
+
+  const handleShareWorkout = (sessionId, workoutName) => {
+    setShareTargetSessionId(sessionId);
+    setShareTargetName(workoutName);
+    setShowShareChoiceModal(true);
+  };
+
+  const handleOSShare = async () => {
+    setShowShareChoiceModal(false);
+    const item = workoutHistory.find(w => w.id === shareTargetSessionId);
+    if (!item) return;
+    const shareText = `Check out my ${item.name} workout!\n\n` +
+      `${item.duration} min · ${item.exercises} exercises · ${formatVolume(item.totalVolume)}\n\n#UPrep #Fitness`;
+
+    if (Platform.OS === 'web') {
+      if (navigator.share) {
+        try { await navigator.share({ title: 'Workout', text: shareText }); } catch {}
+      } else {
+        try { await navigator.clipboard.writeText(shareText); alert('Copied to clipboard!'); } catch {}
+      }
+    } else {
+      try { await Share.share({ message: shareText }); } catch {}
+    }
+  };
+
+  const handleShareToFriends = async () => {
+    setShowShareChoiceModal(false);
+    setFriendsLoading(true);
+    setSelectedFriends([]);
+    setShowFriendPickerModal(true);
+    const { data } = await socialService.getFriendsList(user?.id);
+    setFriendsList(data || []);
+    setFriendsLoading(false);
+  };
+
+  const toggleFriendSelection = (friendId) => {
+    setSelectedFriends(prev =>
+      prev.includes(friendId) ? prev.filter(id => id !== friendId) : [...prev, friendId]
+    );
+  };
+
+  const handleSendToFriends = async () => {
+    if (!selectedFriends.length || !shareTargetSessionId) return;
+    setShareSubmitting(true);
+    const userName = `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() || profile?.username || 'Someone';
+    await socialService.shareWorkoutToFriends(user.id, userName, shareTargetSessionId, selectedFriends);
+    setShareSubmitting(false);
+    setShowFriendPickerModal(false);
+    setSelectedFriends([]);
   };
 
   const handleRenameSubmit = async () => {
@@ -326,6 +386,14 @@ const WorkoutHistoryScreen = ({ navigation }) => {
             >
               <Text style={styles.viewSummaryButtonText}>View Summary</Text>
             </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.shareWorkoutButton}
+              onPress={() => handleShareWorkout(item.id, item.name)}
+            >
+              <Users size={16} color={COLORS.primary} />
+              <Text style={styles.shareWorkoutButtonText}>Share Workout</Text>
+            </TouchableOpacity>
           </View>
         )}
       </TouchableOpacity>
@@ -469,6 +537,97 @@ const WorkoutHistoryScreen = ({ navigation }) => {
             </View>
           </View>
         </Modal>
+
+        {/* Share Choice Modal */}
+        <Modal
+          visible={showShareChoiceModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowShareChoiceModal(false)}
+        >
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setShowShareChoiceModal(false)}
+          >
+            <View style={styles.modalContainer} onClick={e => e.stopPropagation()}>
+              <TouchableOpacity activeOpacity={1}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Share Workout</Text>
+                  <TouchableOpacity onPress={() => setShowShareChoiceModal(false)} style={styles.modalCloseButton}>
+                    <X size={20} color={COLORS.textMuted} />
+                  </TouchableOpacity>
+                </View>
+                <TouchableOpacity style={styles.shareChoiceButton} onPress={handleOSShare}>
+                  <Text style={styles.shareChoiceButtonText}>Share via...</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.shareChoiceButton, { marginTop: 10 }]} onPress={handleShareToFriends}>
+                  <Users size={18} color={COLORS.primary} style={{ marginRight: 8 }} />
+                  <Text style={styles.shareChoiceButtonText}>Share to Friends</Text>
+                </TouchableOpacity>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </Modal>
+
+        {/* Friend Picker Modal */}
+        <Modal
+          visible={showFriendPickerModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowFriendPickerModal(false)}
+        >
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setShowFriendPickerModal(false)}
+          >
+            <View style={[styles.modalContainer, { maxHeight: 480 }]} onClick={e => e.stopPropagation()}>
+              <TouchableOpacity activeOpacity={1}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Send to Friends</Text>
+                  <TouchableOpacity onPress={() => setShowFriendPickerModal(false)} style={styles.modalCloseButton}>
+                    <X size={20} color={COLORS.textMuted} />
+                  </TouchableOpacity>
+                </View>
+                <ScrollView style={{ maxHeight: 340 }} showsVerticalScrollIndicator={false}>
+                  {friendsLoading ? (
+                    <Text style={{ color: COLORS.textMuted, textAlign: 'center', paddingVertical: 24 }}>Loading friends...</Text>
+                  ) : friendsList.length === 0 ? (
+                    <Text style={{ color: COLORS.textMuted, textAlign: 'center', paddingVertical: 24 }}>No friends yet</Text>
+                  ) : (
+                    friendsList.map(friend => (
+                      <TouchableOpacity
+                        key={friend.id}
+                        style={styles.friendPickerItem}
+                        onPress={() => toggleFriendSelection(friend.id)}
+                      >
+                        <View style={styles.friendPickerAvatar}>
+                          <Text style={styles.friendPickerAvatarText}>{friend.first_name?.[0] || friend.username?.[0] || '?'}</Text>
+                        </View>
+                        <Text style={styles.friendPickerName}>{friend.name}</Text>
+                        <View style={[styles.friendPickerCheckbox, selectedFriends.includes(friend.id) && styles.friendPickerCheckboxActive]}>
+                          {selectedFriends.includes(friend.id) && <Check size={14} color="#FFF" />}
+                        </View>
+                      </TouchableOpacity>
+                    ))
+                  )}
+                </ScrollView>
+                {selectedFriends.length > 0 && (
+                  <TouchableOpacity
+                    style={styles.sendButton}
+                    onPress={handleSendToFriends}
+                    disabled={shareSubmitting}
+                  >
+                    <Text style={styles.sendButtonText}>
+                      {shareSubmitting ? 'Sending...' : `Send to ${selectedFriends.length} friend${selectedFriends.length > 1 ? 's' : ''}`}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </Modal>
       </div>
     );
   }
@@ -559,6 +718,103 @@ const WorkoutHistoryScreen = ({ navigation }) => {
             </View>
           </View>
         </View>
+      </Modal>
+
+      {/* Share Choice Modal */}
+      <Modal
+        visible={showShareChoiceModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowShareChoiceModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowShareChoiceModal(false)}
+        >
+          <View style={styles.modalContainer} {...(Platform.OS === 'web' ? { onClick: e => e.stopPropagation() } : {})}>
+            <TouchableOpacity activeOpacity={1}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Share Workout</Text>
+                <TouchableOpacity onPress={() => setShowShareChoiceModal(false)} style={styles.modalCloseButton}>
+                  <X size={20} color={COLORS.textMuted} />
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity
+                style={styles.shareChoiceButton}
+                onPress={handleOSShare}
+              >
+                <Text style={styles.shareChoiceButtonText}>Share via...</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.shareChoiceButton, { marginTop: 10 }]}
+                onPress={handleShareToFriends}
+              >
+                <Users size={18} color={COLORS.primary} style={{ marginRight: 8 }} />
+                <Text style={styles.shareChoiceButtonText}>Share to Friends</Text>
+              </TouchableOpacity>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Friend Picker Modal */}
+      <Modal
+        visible={showFriendPickerModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowFriendPickerModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowFriendPickerModal(false)}
+        >
+          <View style={[styles.modalContainer, { maxHeight: 480 }]} {...(Platform.OS === 'web' ? { onClick: e => e.stopPropagation() } : {})}>
+            <TouchableOpacity activeOpacity={1}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Send to Friends</Text>
+                <TouchableOpacity onPress={() => setShowFriendPickerModal(false)} style={styles.modalCloseButton}>
+                  <X size={20} color={COLORS.textMuted} />
+                </TouchableOpacity>
+              </View>
+              <ScrollView style={{ maxHeight: 340 }} showsVerticalScrollIndicator={false}>
+                {friendsLoading ? (
+                  <Text style={{ color: COLORS.textMuted, textAlign: 'center', paddingVertical: 24 }}>Loading friends...</Text>
+                ) : friendsList.length === 0 ? (
+                  <Text style={{ color: COLORS.textMuted, textAlign: 'center', paddingVertical: 24 }}>No friends yet</Text>
+                ) : (
+                  friendsList.map(friend => (
+                    <TouchableOpacity
+                      key={friend.id}
+                      style={styles.friendPickerItem}
+                      onPress={() => toggleFriendSelection(friend.id)}
+                    >
+                      <View style={styles.friendPickerAvatar}>
+                        <Text style={styles.friendPickerAvatarText}>{friend.first_name?.[0] || friend.username?.[0] || '?'}</Text>
+                      </View>
+                      <Text style={styles.friendPickerName}>{friend.name}</Text>
+                      <View style={[styles.friendPickerCheckbox, selectedFriends.includes(friend.id) && styles.friendPickerCheckboxActive]}>
+                        {selectedFriends.includes(friend.id) && <Check size={14} color="#FFF" />}
+                      </View>
+                    </TouchableOpacity>
+                  ))
+                )}
+              </ScrollView>
+              {selectedFriends.length > 0 && (
+                <TouchableOpacity
+                  style={styles.sendButton}
+                  onPress={handleSendToFriends}
+                  disabled={shareSubmitting}
+                >
+                  <Text style={styles.sendButtonText}>
+                    {shareSubmitting ? 'Sending...' : `Send to ${selectedFriends.length} friend${selectedFriends.length > 1 ? 's' : ''}`}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
       </Modal>
     </SafeAreaView>
   );
@@ -847,6 +1103,87 @@ const getStyles = (COLORS) => StyleSheet.create({
   viewSummaryButtonText: {
     color: COLORS.primary,
     fontSize: 14,
+    fontWeight: '600',
+  },
+  shareWorkoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    borderRadius: 10,
+    paddingVertical: 12,
+    marginTop: 8,
+  },
+  shareWorkoutButtonText: {
+    color: COLORS.primary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  shareChoiceButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 12,
+    paddingVertical: 14,
+  },
+  shareChoiceButtonText: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  friendPickerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.surfaceLight,
+  },
+  friendPickerAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.primary + '30',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  friendPickerAvatarText: {
+    color: COLORS.primary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  friendPickerName: {
+    color: COLORS.text,
+    fontSize: 15,
+    flex: 1,
+  },
+  friendPickerCheckbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: COLORS.surfaceLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  friendPickerCheckboxActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  sendButton: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  sendButtonText: {
+    color: COLORS.textOnPrimary,
+    fontSize: 16,
     fontWeight: '600',
   },
 });

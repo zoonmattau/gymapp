@@ -134,6 +134,18 @@ export const notificationService = {
     );
   },
 
+  // Helper: notify shared workout
+  async notifySharedWorkout(userId, fromUserId, fromUserName, sessionId) {
+    return this.createNotification(
+      userId,
+      'shared_workout',
+      'Workout Shared',
+      `${fromUserName} shared a workout with you`,
+      fromUserId,
+      sessionId
+    );
+  },
+
   // Helper: notify comment
   async notifyComment(userId, commenterId, commenterName, referenceId) {
     return this.createNotification(

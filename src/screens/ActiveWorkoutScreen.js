@@ -391,12 +391,22 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
       const initialExercises = workout.exercises.map((ex, idx) => ({
         id: idx + 1,
         name: ex.name,
-        sets: Array.from({ length: ex.sets || 3 }, (_, i) => ({
-          id: i + 1,
-          weight: '',
-          reps: '',
-          completed: false,
-        })),
+        targetReps: ex.targetReps,
+        suggestedWeight: ex.suggestedWeight,
+        targetRpe: ex.targetRpe,
+        sets: ex.setDetails
+          ? ex.setDetails.map((sd, i) => ({
+              id: i + 1,
+              weight: sd.weight != null ? String(sd.weight) : (ex.suggestedWeight ? String(ex.suggestedWeight) : ''),
+              reps: sd.reps != null ? String(sd.reps) : (ex.targetReps ? String(ex.targetReps) : ''),
+              completed: false,
+            }))
+          : Array.from({ length: ex.sets || 3 }, (_, i) => ({
+              id: i + 1,
+              weight: ex.suggestedWeight ? String(ex.suggestedWeight) : '',
+              reps: ex.targetReps ? String(ex.targetReps) : '',
+              completed: false,
+            })),
       }));
       setExercises(initialExercises);
       setExpandedExercise(1);
@@ -579,10 +589,6 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
         }),
       ]).start();
 
-      // Auto-dismiss after 5 seconds (longer to allow sharing)
-      setTimeout(() => {
-        setShowPRCelebration(false);
-      }, 5000);
     }
   };
 
@@ -627,6 +633,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
           rpe: setData.rpe,
           setType: setData.setType,
           isWarmup: setData.isWarmup || false,
+          isAmrap: setData.isAmrap || false,
           supersetExercise: setData.supersetExercise,
           supersetWeight: setData.supersetWeight,
           supersetReps: setData.supersetReps,
@@ -708,6 +715,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
       reps: set.reps,
       rpe: set.rpe,
       setType: set.setType,
+      isAmrap: set.isAmrap,
       supersetExercise: set.supersetExercise,
       supersetWeight: set.supersetWeight,
       supersetReps: set.supersetReps,
@@ -744,6 +752,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
                 rpe: setData.rpe,
                 setType: setData.setType,
                 isWarmup: setData.isWarmup || false,
+                isAmrap: setData.isAmrap || false,
                 supersetExercise: setData.supersetExercise,
                 supersetWeight: setData.supersetWeight,
                 supersetReps: setData.supersetReps,
@@ -1522,6 +1531,11 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
                                     <Text style={styles.setBadgeText}>+Weight</Text>
                                   </View>
                                 )}
+                                {set.isAmrap && (
+                                  <View style={[styles.setBadge, styles.amrapBadge]}>
+                                    <Text style={styles.setBadgeText}>AMRAP</Text>
+                                  </View>
+                                )}
 
                                 {/* Edit & Delete only visible when row is tapped */}
                                 {isActive && (
@@ -2034,7 +2048,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     alignItems: 'center',
   },
   setCheckmarkDone: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: '#22c55e',
   },
   setLabel: {
     color: COLORS.text,
@@ -2075,6 +2089,9 @@ const getStyles = (COLORS) => StyleSheet.create({
   },
   addedBadge: {
     backgroundColor: '#10B981', // Green for added weight
+  },
+  amrapBadge: {
+    backgroundColor: '#8B5CF6', // Purple for AMRAP
   },
   rpeBadge: {
     backgroundColor: COLORS.primary,

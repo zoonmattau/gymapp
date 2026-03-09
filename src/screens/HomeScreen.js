@@ -49,6 +49,7 @@ import { weightService } from '../services/weightService';
 import { sleepService } from '../services/sleepService';
 import { publishedWorkoutService } from '../services/publishedWorkoutService';
 import { socialService } from '../services/socialService';
+import { notificationService } from '../services/notificationService';
 import { competitionService } from '../services/competitionService';
 import { profileService } from '../services/profileService';
 import { getPausedWorkout, clearPausedWorkout } from '../utils/workoutStore';
@@ -317,14 +318,48 @@ const HomeScreen = () => {
         .eq('status', 'pending')
         .order('created_at', { ascending: false });
 
-      const notifs = (requests || []).map(req => ({
+      const friendNotifs = (requests || []).map(req => ({
         id: req.id,
         type: 'friend_request',
         fromUser: req.profiles,
         createdAt: req.created_at,
       }));
 
-      setNotifications(notifs);
+      // Get shared workout notifications
+      const { data: sharedNotifs } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('type', 'shared_workout')
+        .eq('read', false)
+        .order('created_at', { ascending: false });
+
+      // Enrich shared workout notifs with sender profile
+      const enrichedShared = await Promise.all((sharedNotifs || []).map(async (notif) => {
+        let fromUser = null;
+        if (notif.from_user_id) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name, username, avatar_url')
+            .eq('id', notif.from_user_id)
+            .single();
+          fromUser = profile;
+        }
+        return {
+          id: notif.id,
+          type: 'shared_workout',
+          fromUser,
+          createdAt: notif.created_at,
+          referenceId: notif.reference_id,
+          notificationId: notif.id,
+        };
+      }));
+
+      // Merge and sort by date descending
+      const allNotifs = [...friendNotifs, ...enrichedShared]
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+      setNotifications(allNotifs);
     } catch (error) {
       console.log('Error loading notifications:', error);
     } finally {
@@ -357,6 +392,66 @@ const HomeScreen = () => {
       setNotifications(prev => prev.filter(n => n.id !== notif.id));
     } catch (error) {
       console.log('Error declining request:', error);
+    }
+  };
+
+  const handleViewSharedWorkout = async (notif) => {
+    try {
+      // Mark notification as read
+      await notificationService.markAsRead(notif.notificationId);
+      // Remove from local list
+      setNotifications(prev => prev.filter(n => n.id !== notif.id));
+      setShowNotificationsModal(false);
+
+      // Fetch the workout session
+      const { data: session } = await supabase
+        .from('workout_sessions')
+        .select('*')
+        .eq('id', notif.referenceId)
+        .single();
+
+      if (!session) return;
+
+      // Fetch sets
+      const { data: sets } = await supabase
+        .from('workout_sets')
+        .select('*')
+        .eq('session_id', notif.referenceId)
+        .order('completed_at', { ascending: true });
+
+      // Group sets by exercise name
+      const exerciseMap = {};
+      (sets || []).forEach(set => {
+        const name = set.exercise_name || 'Unknown Exercise';
+        if (!exerciseMap[name]) {
+          exerciseMap[name] = { name, sets: [] };
+        }
+        exerciseMap[name].sets.push({
+          weight: set.weight,
+          reps: set.reps,
+          rpe: set.rpe,
+          completed: true,
+          isWarmup: set.is_warmup,
+        });
+      });
+
+      const exercises = Object.values(exerciseMap);
+
+      navigation.navigate('WorkoutSummary', {
+        summary: {
+          sessionId: session.id,
+          workoutName: session.workout_name || 'Workout',
+          duration: (session.duration_minutes || 0) * 60,
+          totalSets: session.total_sets || exercises.reduce((sum, ex) => sum + ex.sets.length, 0),
+          completedSets: session.total_sets || exercises.reduce((sum, ex) => sum + ex.sets.length, 0),
+          exercises,
+          totalVolume: session.total_volume || 0,
+          newPRs: [],
+          isFromHistory: true,
+        },
+      });
+    } catch (error) {
+      console.log('Error viewing shared workout:', error);
     }
   };
 
@@ -597,8 +692,20 @@ const HomeScreen = () => {
     setShowRepertoireModal(true);
     setRepertoireLoading(true);
     try {
-      const { data } = await publishedWorkoutService.getSavedWorkoutsWithDetails(user.id);
-      setSavedWorkouts(data || []);
+      const [ownResult, savedResult] = await Promise.all([
+        publishedWorkoutService.getUserPublishedWorkouts(user.id),
+        publishedWorkoutService.getSavedWorkoutsWithDetails(user.id),
+      ]);
+      // Merge own published + saved, dedupe by id
+      const seen = new Set();
+      const merged = [];
+      for (const w of [...(ownResult.data || []), ...(savedResult.data || [])]) {
+        if (!seen.has(w.id)) {
+          seen.add(w.id);
+          merged.push(w);
+        }
+      }
+      setSavedWorkouts(merged);
     } catch (error) {
       console.log('Error loading repertoire:', error);
     } finally {
@@ -624,11 +731,27 @@ const HomeScreen = () => {
           sets: ex.sets || 3,
           targetReps: ex.reps,
           suggestedWeight: ex.weight,
+          targetRpe: ex.rpe,
+          ...(ex.setDetails && { setDetails: ex.setDetails }),
         })),
       },
       fromRepertoire: true,
       publishedWorkoutId: workout.id,
     });
+  };
+
+  const handleRemoveRepertoireWorkout = async (workout) => {
+    try {
+      const isOwn = workout.creator_id === user.id;
+      if (isOwn) {
+        await publishedWorkoutService.deleteWorkout(user.id, workout.id);
+      } else {
+        await publishedWorkoutService.unsaveWorkout(user.id, workout.id);
+      }
+      setSavedWorkouts(prev => prev.filter(w => w.id !== workout.id));
+    } catch (error) {
+      console.log('Error removing workout:', error);
+    }
   };
 
   const onRefresh = () => {
@@ -833,6 +956,9 @@ const HomeScreen = () => {
         exercises: (exercises || []).map(ex => ({
           name: ex.name,
           sets: ex.sets || 3,
+          targetReps: ex.reps,
+          suggestedWeight: ex.weight,
+          targetRpe: ex.rpe,
         })),
       },
     });
@@ -2039,6 +2165,7 @@ const HomeScreen = () => {
         savedWorkouts={savedWorkouts}
         loading={repertoireLoading}
         onStartWorkout={handleStartRepertoireWorkout}
+        onRemoveWorkout={handleRemoveRepertoireWorkout}
       />
 
       {/* Notifications Modal */}
@@ -2083,27 +2210,36 @@ const HomeScreen = () => {
                           <Text style={styles.notifName}>
                             {notif.fromUser?.first_name} {notif.fromUser?.last_name}
                           </Text>
-                          {' wants to follow you'}
+                          {notif.type === 'shared_workout' ? ' shared a workout with you' : ' wants to follow you'}
                         </Text>
                         <Text style={styles.notifTime}>
                           {new Date(notif.createdAt).toLocaleDateString()}
                         </Text>
                       </View>
                     </View>
-                    <View style={styles.notifActions}>
+                    {notif.type === 'shared_workout' ? (
                       <TouchableOpacity
-                        style={styles.notifAcceptBtn}
-                        onPress={() => handleAcceptRequest(notif)}
+                        style={styles.notifViewBtn}
+                        onPress={() => handleViewSharedWorkout(notif)}
                       >
-                        <Check size={16} color="#FFF" />
+                        <Text style={styles.notifViewBtnText}>View</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.notifDeclineBtn}
-                        onPress={() => handleDeclineRequest(notif)}
-                      >
-                        <X size={16} color={COLORS.textMuted} />
-                      </TouchableOpacity>
-                    </View>
+                    ) : (
+                      <View style={styles.notifActions}>
+                        <TouchableOpacity
+                          style={styles.notifAcceptBtn}
+                          onPress={() => handleAcceptRequest(notif)}
+                        >
+                          <Check size={16} color="#FFF" />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.notifDeclineBtn}
+                          onPress={() => handleDeclineRequest(notif)}
+                        >
+                          <X size={16} color={COLORS.textMuted} />
+                        </TouchableOpacity>
+                      </View>
+                    )}
                   </View>
                 ))
               )}
@@ -2611,6 +2747,17 @@ const getStyles = (COLORS) => StyleSheet.create({
     backgroundColor: COLORS.surfaceLight,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  notifViewBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  notifViewBtnText: {
+    color: COLORS.textOnPrimary,
+    fontSize: 13,
+    fontWeight: '600',
   },
   section: {
     paddingHorizontal: 16,

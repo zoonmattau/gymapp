@@ -29,6 +29,7 @@ import {
   Trash2,
   Star,
   Trophy,
+  Bookmark,
 } from 'lucide-react-native';
 import { WORKOUT_TEMPLATES, AVAILABLE_PROGRAMS, GOAL_TO_PROGRAM } from '../constants/workoutTemplates';
 import { useColors } from '../contexts/ThemeContext';
@@ -37,6 +38,7 @@ import { useActiveWorkout } from '../contexts/ActiveWorkoutContext';
 import { getPausedWorkout, clearPausedWorkout } from '../utils/workoutStore';
 import { getCustomTemplates } from '../utils/customTemplateStore';
 import { workoutService } from '../services/workoutService';
+import { publishedWorkoutService } from '../services/publishedWorkoutService';
 import { supabase } from '../lib/supabase';
 import ExerciseLink from '../components/ExerciseLink';
 
@@ -89,6 +91,9 @@ const WorkoutsScreen = () => {
   const [mostActiveDay, setMostActiveDay] = useState(null);
   const [workoutToDelete, setWorkoutToDelete] = useState(null);
 
+  // Repertoire
+  const [repertoireWorkouts, setRepertoireWorkouts] = useState([]);
+
   // Program setup modal state
   const [showProgramModal, setShowProgramModal] = useState(false);
   const [settingUpProgram, setSettingUpProgram] = useState(false);
@@ -117,6 +122,18 @@ const WorkoutsScreen = () => {
       if (user?.id) {
         loadWorkoutData();
         getCustomTemplates(user.id).then(setCustomTemplates);
+        // Load repertoire
+        Promise.all([
+          publishedWorkoutService.getUserPublishedWorkouts(user.id),
+          publishedWorkoutService.getSavedWorkoutsWithDetails(user.id),
+        ]).then(([ownResult, savedResult]) => {
+          const seen = new Set();
+          const merged = [];
+          for (const w of [...(ownResult.data || []), ...(savedResult.data || [])]) {
+            if (!seen.has(w.id)) { seen.add(w.id); merged.push(w); }
+          }
+          setRepertoireWorkouts(merged);
+        }).catch(() => {});
       }
     }, [user])
   );
@@ -847,6 +864,25 @@ const WorkoutsScreen = () => {
     });
   };
 
+  const startFromRepertoire = (workout) => {
+    setShowStartModal(false);
+    const exercises = typeof workout.exercises === 'string' ? JSON.parse(workout.exercises) : workout.exercises;
+    navigation.navigate('ActiveWorkout', {
+      workoutName: workout.name,
+      workout: {
+        id: workout.id,
+        name: workout.name,
+        exercises: (exercises || []).map(ex => ({
+          name: ex.name,
+          sets: ex.sets || 3,
+          targetReps: ex.reps,
+          suggestedWeight: ex.weight,
+          targetRpe: ex.rpe,
+        })),
+      },
+    });
+  };
+
   // Filter templates based on search
   const filteredTemplates = Object.entries(WORKOUT_TEMPLATES).filter(([id, template]) => {
     if (!searchQuery) return true;
@@ -865,6 +901,16 @@ const WorkoutsScreen = () => {
       template.name.toLowerCase().includes(query) ||
       template.focus?.toLowerCase().includes(query) ||
       template.exercises?.some(ex => ex.name.toLowerCase().includes(query))
+    );
+  });
+
+  const filteredRepertoire = repertoireWorkouts.filter(workout => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    const exercises = typeof workout.exercises === 'string' ? JSON.parse(workout.exercises) : workout.exercises;
+    return (
+      workout.name?.toLowerCase().includes(query) ||
+      exercises?.some(e => e.name?.toLowerCase().includes(query))
     );
   });
 
@@ -1285,11 +1331,6 @@ const WorkoutsScreen = () => {
                                     {workingSets.length} sets{topWeight > 0 ? ` · ${displayWeight}${weightUnit}` : ''}
                                   </Text>
                                 </View>
-                                {bestE1rm > 0 && (
-                                  <View style={styles.e1rmBadge}>
-                                    <Text style={styles.e1rmBadgeText}>{Math.round(bestE1rm)} e1RM</Text>
-                                  </View>
-                                )}
                                 {isGraphExpanded ? (
                                   <ChevronUp size={16} color={COLORS.primary} />
                                 ) : (
@@ -1480,6 +1521,35 @@ const WorkoutsScreen = () => {
                 </TouchableOpacity>
               )}
             </View>
+
+            {/* MY REP-ERTOIRE */}
+            {filteredRepertoire.length > 0 && (
+              <View style={styles.customTemplatesSection}>
+                <Text style={styles.searchLabel}>MY REP-ERTOIRE</Text>
+                {filteredRepertoire.map(workout => {
+                  const exercises = typeof workout.exercises === 'string' ? JSON.parse(workout.exercises) : workout.exercises;
+                  return (
+                    <TouchableOpacity
+                      key={workout.id}
+                      style={[styles.customTemplateItem, { borderLeftWidth: 3, borderLeftColor: COLORS.primary }]}
+                      onPress={() => startFromRepertoire(workout)}
+                    >
+                      <View style={{ marginRight: 12 }}>
+                        <Bookmark size={18} color={COLORS.primary} />
+                      </View>
+                      <View style={styles.templateInfo}>
+                        <Text style={styles.templateName}>{workout.name}</Text>
+                        <Text style={styles.templateFocus}>
+                          {workout.creator?.username ? `by @${workout.creator.username}` : 'My workout'}
+                        </Text>
+                        <Text style={styles.templateExercises}>{exercises?.length || 0} exercises</Text>
+                      </View>
+                      <ChevronRight size={18} color={COLORS.textMuted} />
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
 
             {/* MY WORKOUTS - Custom Templates */}
             {filteredCustomTemplates.length > 0 && (

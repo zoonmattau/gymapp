@@ -4,19 +4,26 @@ export const publishedWorkoutService = {
   // Publish a workout to the community
   async publishWorkout(userId, workoutData) {
     try {
+      // Build insert object with only known columns
+      const insertData = {
+        creator_id: userId,
+        name: workoutData.workout_name || workoutData.name || 'Workout',
+        focus: workoutData.focus || null,
+        description: workoutData.notes || workoutData.description || null,
+        exercises: workoutData.exercises || [],
+        goals: workoutData.goals || [],
+        is_public: workoutData.is_public !== undefined ? workoutData.is_public : true,
+      };
+
       const { data, error } = await supabase
         .from('published_workouts')
-        .insert({
-          creator_id: userId,
-          name: workoutData.name,
-          focus: workoutData.focus,
-          description: workoutData.description,
-          exercises: workoutData.exercises || [],
-          goals: workoutData.goals || [],
-          is_public: true,
-        })
+        .insert(insertData)
         .select()
         .single();
+
+      if (error) {
+        console.warn('publishWorkout insert error:', error?.message);
+      }
 
       return { data, error };
     } catch (err) {
@@ -521,6 +528,35 @@ export const publishedWorkoutService = {
     } catch (err) {
       console.warn('incrementCompletion error:', err?.message);
       return { error: err };
+    }
+  },
+
+  // Batch publish multiple workouts at once (e.g. from template import)
+  async publishWorkoutsBatch(userId, workoutsArray) {
+    try {
+      const insertData = workoutsArray.map(w => ({
+        creator_id: userId,
+        name: w.name || 'Workout',
+        focus: w.focus || null,
+        description: w.description || null,
+        exercises: w.exercises || [],
+        goals: w.goals || [],
+        is_public: w.is_public !== undefined ? w.is_public : true,
+      }));
+
+      const { data, error } = await supabase
+        .from('published_workouts')
+        .insert(insertData)
+        .select();
+
+      if (error) {
+        console.warn('publishWorkoutsBatch insert error:', error?.message);
+      }
+
+      return { data, error };
+    } catch (err) {
+      console.warn('publishWorkoutsBatch error:', err?.message);
+      return { data: null, error: err };
     }
   },
 };

@@ -696,114 +696,77 @@ const OnboardingScreen = ({ navigation }) => {
       </View>
 
       <View style={styles.formSection}>
-        <Text style={styles.liftSectionLabel}>PUSH</Text>
         {[
-          { id: 'bench', name: 'Bench Press', muscle: 'Chest', view: 'front' },
-          { id: 'dbPress', name: 'Dumbbell Press', muscle: 'Chest', view: 'front' },
-        ].map((lift) => (
-          <View key={lift.id} style={styles.liftRow}>
-            <View style={styles.liftContent}>
-              <Text style={styles.liftLabel}>{lift.name}</Text>
-              <View style={styles.liftInputContainer}>
-                <TextInput
-                  style={styles.liftInput}
-                  placeholder="0"
-                  placeholderTextColor={COLORS.textMuted}
-                  value={formData.lifts[lift.id] || ''}
-                  onChangeText={(v) => updateLift(lift.id, v.replace(/[^0-9]/g, ''))}
-                  keyboardType="numeric"
-                />
-                <Text style={styles.liftUnit}>{formData.weightUnit} x</Text>
-                <TextInput
-                  style={styles.liftInput}
-                  placeholder="0"
-                  placeholderTextColor={COLORS.textMuted}
-                  value={formData.lifts[lift.id + '_reps'] || ''}
-                  onChangeText={(v) => updateLift(lift.id + '_reps', v.replace(/[^0-9]/g, ''))}
-                  keyboardType="numeric"
-                />
-                <Text style={styles.liftUnit}>reps</Text>
-              </View>
-            </View>
-            <View style={styles.liftAnatomy}>
-              <DetailedAnatomy view={lift.view} primaryMuscle={lift.muscle} width={40} />
-            </View>
-          </View>
-        ))}
-
-        <Text style={styles.liftSectionLabel}>PULL</Text>
-        {[
-          { id: 'deadlift', name: 'Deadlift', muscle: 'Back', view: 'back' },
-          { id: 'row', name: 'Barbell Row', muscle: 'Back', view: 'back' },
-        ].map((lift) => (
-          <View key={lift.id} style={styles.liftRow}>
-            <View style={styles.liftContent}>
-              <Text style={styles.liftLabel}>{lift.name}</Text>
-              <View style={styles.liftInputContainer}>
-                <TextInput
-                  style={styles.liftInput}
-                  placeholder="0"
-                  placeholderTextColor={COLORS.textMuted}
-                  value={formData.lifts[lift.id] || ''}
-                  onChangeText={(v) => updateLift(lift.id, v.replace(/[^0-9]/g, ''))}
-                  keyboardType="numeric"
-                />
-                <Text style={styles.liftUnit}>{formData.weightUnit} x</Text>
-                <TextInput
-                  style={styles.liftInput}
-                  placeholder="0"
-                  placeholderTextColor={COLORS.textMuted}
-                  value={formData.lifts[lift.id + '_reps'] || ''}
-                  onChangeText={(v) => updateLift(lift.id + '_reps', v.replace(/[^0-9]/g, ''))}
-                  keyboardType="numeric"
-                />
-                <Text style={styles.liftUnit}>reps</Text>
-              </View>
-            </View>
-            <View style={styles.liftAnatomy}>
-              <DetailedAnatomy view={lift.view} primaryMuscle={lift.muscle} width={40} />
-            </View>
-          </View>
-        ))}
-
-        <Text style={styles.liftSectionLabel}>LEGS</Text>
-        {[
-          { id: 'squat', name: 'Squat', muscle: 'Quads', view: 'front' },
-          { id: 'legPress', name: 'Leg Press', muscle: 'Quads', view: 'front' },
-        ].map((lift) => (
-          <View key={lift.id} style={styles.liftRow}>
-            <View style={styles.liftContent}>
-              <Text style={styles.liftLabel}>{lift.name}</Text>
-              <View style={styles.liftInputContainer}>
-                <TextInput
-                  style={styles.liftInput}
-                  placeholder="0"
-                  placeholderTextColor={COLORS.textMuted}
-                  value={formData.lifts[lift.id] || ''}
-                  onChangeText={(v) => updateLift(lift.id, v.replace(/[^0-9]/g, ''))}
-                  keyboardType="numeric"
-                />
-                <Text style={styles.liftUnit}>{formData.weightUnit} x</Text>
-                <TextInput
-                  style={styles.liftInput}
-                  placeholder="0"
-                  placeholderTextColor={COLORS.textMuted}
-                  value={formData.lifts[lift.id + '_reps'] || ''}
-                  onChangeText={(v) => updateLift(lift.id + '_reps', v.replace(/[^0-9]/g, ''))}
-                  keyboardType="numeric"
-                />
-                <Text style={styles.liftUnit}>reps</Text>
-              </View>
-            </View>
-            <View style={styles.liftAnatomy}>
-              <DetailedAnatomy view={lift.view} primaryMuscle={lift.muscle} width={40} />
-            </View>
-          </View>
+          { section: 'PUSH', lifts: [
+            { id: 'bench', name: 'Bench Press', muscle: 'Chest', view: 'front' },
+            { id: 'dbPress', name: 'Dumbbell Press', muscle: 'Chest', view: 'front' },
+          ]},
+          { section: 'PULL', lifts: [
+            { id: 'deadlift', name: 'Deadlift', muscle: 'Back', view: 'back' },
+            { id: 'row', name: 'Barbell Row', muscle: 'Back', view: 'back' },
+          ]},
+          { section: 'LEGS', lifts: [
+            { id: 'squat', name: 'Squat', muscle: 'Quads', view: 'front' },
+            { id: 'legPress', name: 'Leg Press', muscle: 'Quads', view: 'front' },
+          ]},
+        ].map(({ section, lifts }) => (
+          <React.Fragment key={section}>
+            <Text style={styles.liftSectionLabel}>{section}</Text>
+            {lifts.map((lift) => {
+              const isNA = formData.lifts[lift.id + '_na'] === true;
+              return (
+                <View key={lift.id} style={[styles.liftRow, isNA && { opacity: 0.45 }]}>
+                  <View style={styles.liftContent}>
+                    <View style={styles.liftLabelRow}>
+                      <Text style={styles.liftLabel}>{lift.name}</Text>
+                      <TouchableOpacity
+                        style={[styles.naButton, isNA && styles.naButtonActive]}
+                        onPress={() => {
+                          updateLift(lift.id + '_na', !isNA);
+                          if (!isNA) {
+                            updateLift(lift.id, '');
+                            updateLift(lift.id + '_reps', '');
+                          }
+                        }}
+                      >
+                        <Text style={[styles.naButtonText, isNA && styles.naButtonTextActive]}>N/A</Text>
+                      </TouchableOpacity>
+                    </View>
+                    {!isNA && (
+                      <View style={styles.liftInputContainer}>
+                        <TextInput
+                          style={styles.liftInput}
+                          placeholder="0"
+                          placeholderTextColor={COLORS.textMuted}
+                          value={formData.lifts[lift.id] || ''}
+                          onChangeText={(v) => updateLift(lift.id, v.replace(/[^0-9]/g, ''))}
+                          keyboardType="numeric"
+                        />
+                        <Text style={styles.liftUnit}>{formData.weightUnit} x</Text>
+                        <TextInput
+                          style={styles.liftInput}
+                          placeholder="0"
+                          placeholderTextColor={COLORS.textMuted}
+                          value={formData.lifts[lift.id + '_reps'] || ''}
+                          onChangeText={(v) => updateLift(lift.id + '_reps', v.replace(/[^0-9]/g, ''))}
+                          keyboardType="numeric"
+                        />
+                        <Text style={styles.liftUnit}>reps</Text>
+                      </View>
+                    )}
+                  </View>
+                  <View style={styles.liftAnatomy}>
+                    <DetailedAnatomy view={lift.view} primaryMuscle={lift.muscle} width={40} />
+                  </View>
+                </View>
+              );
+            })}
+          </React.Fragment>
         ))}
 
         <View style={styles.liftHintBox}>
           <Text style={styles.liftHint}>
-            We'll calculate your estimated 1RM and use it for weight suggestions.
+            We'll calculate your estimated 1RM and use it for weight suggestions. Tap N/A for exercises you don't do.
           </Text>
         </View>
       </View>
@@ -1335,6 +1298,32 @@ const getStyles = (COLORS) => StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     marginBottom: 8,
+  },
+  liftLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  naButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: COLORS.surfaceLight,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  naButtonActive: {
+    backgroundColor: COLORS.primary + '20',
+    borderColor: COLORS.primary,
+  },
+  naButtonText: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  naButtonTextActive: {
+    color: COLORS.primary,
   },
   liftInputContainer: {
     flexDirection: 'row',

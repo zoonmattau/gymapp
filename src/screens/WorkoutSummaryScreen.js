@@ -28,12 +28,14 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  Users,
 } from 'lucide-react-native';
 import { useColors } from '../contexts/ThemeContext';
 import { workoutService } from '../services/workoutService';
 import { publishedWorkoutService } from '../services/publishedWorkoutService';
 import { profileService } from '../services/profileService';
 import { useAuth } from '../contexts/AuthContext';
+import { socialService } from '../services/socialService';
 import MuscleMap, { PRIMARY_VIEW } from '../components/MuscleMap';
 import { EXERCISES } from '../constants/exercises';
 import { LineChart } from 'react-native-chart-kit';
@@ -58,6 +60,15 @@ const WorkoutSummaryScreen = ({ route, navigation }) => {
       if (val !== null) setSharePublic(val === 'true');
     }).catch(() => {});
   }, []);
+  const [showShareChoiceModal, setShowShareChoiceModal] = useState(false);
+  const [showFriendPickerModal, setShowFriendPickerModal] = useState(false);
+  const [friendsList, setFriendsList] = useState([]);
+  const [selectedFriends, setSelectedFriends] = useState([]);
+  const [friendsLoading, setFriendsLoading] = useState(false);
+  const [shareSubmitting, setShareSubmitting] = useState(false);
+  const [showRenameBeforeShare, setShowRenameBeforeShare] = useState(false);
+  const [shareRenameValue, setShareRenameValue] = useState('');
+  const [pendingShareAction, setPendingShareAction] = useState(null); // 'share_button' or 'community'
   const shareCardRef = useRef(null);
   const [activeCardIndex, setActiveCardIndex] = useState(0);
   const [exerciseSummaryExpanded, setExerciseSummaryExpanded] = useState(true);
@@ -108,7 +119,83 @@ const WorkoutSummaryScreen = ({ route, navigation }) => {
     ...exercises.map((ex, i) => ({ type: 'exercise', exercise: ex, index: i })),
   ];
 
-  const handleShare = async () => {
+  const handleSharePress = () => {
+    setShareRenameValue(displayName);
+    setPendingShareAction('share_button');
+    setShowRenameBeforeShare(true);
+  };
+
+  const handleCommunityToggle = () => {
+    if (!sharePublic) {
+      // Turning ON — prompt rename first
+      setShareRenameValue(displayName);
+      setPendingShareAction('community');
+      setShowRenameBeforeShare(true);
+    } else {
+      // Turning OFF — just toggle
+      setSharePublic(false);
+    }
+  };
+
+  const handleShareRenameConfirm = async () => {
+    const trimmed = shareRenameValue.trim();
+    if (trimmed && trimmed !== displayName) {
+      setDisplayName(trimmed);
+      if (sessionId) {
+        try {
+          await workoutService.renameWorkoutSession(sessionId, trimmed);
+        } catch (err) {
+          console.log('Error renaming workout:', err);
+        }
+      }
+    }
+    setShowRenameBeforeShare(false);
+    if (pendingShareAction === 'share_button') {
+      setShowShareChoiceModal(true);
+    } else if (pendingShareAction === 'community') {
+      setSharePublic(true);
+    }
+    setPendingShareAction(null);
+  };
+
+  const handleShareRenameSkip = () => {
+    setShowRenameBeforeShare(false);
+    if (pendingShareAction === 'share_button') {
+      setShowShareChoiceModal(true);
+    } else if (pendingShareAction === 'community') {
+      setSharePublic(true);
+    }
+    setPendingShareAction(null);
+  };
+
+  const handleShareToFriends = async () => {
+    setShowShareChoiceModal(false);
+    setFriendsLoading(true);
+    setSelectedFriends([]);
+    setShowFriendPickerModal(true);
+    const { data } = await socialService.getFriendsList(user?.id);
+    setFriendsList(data || []);
+    setFriendsLoading(false);
+  };
+
+  const toggleFriendSelection = (friendId) => {
+    setSelectedFriends(prev =>
+      prev.includes(friendId) ? prev.filter(id => id !== friendId) : [...prev, friendId]
+    );
+  };
+
+  const handleSendToFriends = async () => {
+    if (!selectedFriends.length || !sessionId) return;
+    setShareSubmitting(true);
+    const userName = `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() || profile?.username || 'Someone';
+    await socialService.shareWorkoutToFriends(user.id, userName, sessionId, selectedFriends);
+    setShareSubmitting(false);
+    setShowFriendPickerModal(false);
+    setSelectedFriends([]);
+  };
+
+  const handleOSShare = async () => {
+    setShowShareChoiceModal(false);
     const currentCard = shareCards[activeCardIndex];
     let shareText = '';
 
@@ -302,19 +389,14 @@ const WorkoutSummaryScreen = ({ route, navigation }) => {
     // Only publish if not viewing from history and share is enabled
     if (!isFromHistory && sharePublic && user?.id && sessionId) {
       try {
+        const durationMin = Math.floor(duration / 60);
         await publishedWorkoutService.publishWorkout(user.id, {
-          session_id: sessionId,
-          workout_name: displayName,
-          duration_minutes: Math.floor(duration / 60),
-          total_sets: completedSets,
-          total_volume: totalVolume,
-          exercise_count: exercises.length,
+          name: displayName,
           exercises: exercises.map(ex => ({
             name: ex.name,
             sets: ex.sets?.filter(s => s.completed).length || 0,
           })),
-          rating: rating,
-          notes: notes || null,
+          description: `${durationMin} min • ${exercises.length} exercises`,
         });
       } catch (err) {
         console.log('Error publishing workout:', err);
@@ -724,8 +806,8 @@ const WorkoutSummaryScreen = ({ route, navigation }) => {
       {/* Share Button */}
       <TouchableOpacity
         style={styles.shareButton}
-        onPress={handleShare}
-        onClick={handleShare}
+        onPress={handleSharePress}
+        onClick={handleSharePress}
       >
         <Text style={styles.shareButtonText}>Share Workout</Text>
       </TouchableOpacity>
@@ -937,8 +1019,8 @@ const WorkoutSummaryScreen = ({ route, navigation }) => {
       {!isFromHistory && (
         <TouchableOpacity
           style={styles.shareToggle}
-          onPress={() => setSharePublic(!sharePublic)}
-          onClick={() => setSharePublic(!sharePublic)}
+          onPress={handleCommunityToggle}
+          onClick={handleCommunityToggle}
           activeOpacity={0.7}
         >
           <View style={styles.shareToggleInfo}>
@@ -1037,6 +1119,152 @@ const WorkoutSummaryScreen = ({ route, navigation }) => {
             </View>
           </View>
         </View>
+      </Modal>
+
+      {/* Rename Before Share Modal */}
+      <Modal
+        visible={showRenameBeforeShare}
+        transparent
+        animationType="fade"
+        onRequestClose={() => { setShowRenameBeforeShare(false); setPendingShareAction(null); }}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => { setShowRenameBeforeShare(false); setPendingShareAction(null); }}
+        >
+          <View style={styles.modalContainer} {...(Platform.OS === 'web' ? { onClick: e => e.stopPropagation() } : {})}>
+            <TouchableOpacity activeOpacity={1}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Rename Before Sharing?</Text>
+                <TouchableOpacity onPress={() => { setShowRenameBeforeShare(false); setPendingShareAction(null); }} style={styles.modalCloseButton}>
+                  <X size={20} color={COLORS.textMuted} />
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.shareRenameHint}>Give your workout a memorable name so others know what it's about</Text>
+              <TextInput
+                style={styles.renameInput}
+                value={shareRenameValue}
+                onChangeText={setShareRenameValue}
+                placeholder="Workout name"
+                placeholderTextColor={COLORS.textMuted}
+                autoFocus
+                selectTextOnFocus
+              />
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={handleShareRenameSkip}
+                >
+                  <Text style={styles.cancelButtonText}>Keep Name</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.renameSubmitButton}
+                  onPress={handleShareRenameConfirm}
+                >
+                  <Text style={styles.renameSubmitButtonText}>Save & Share</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Share Choice Modal */}
+      <Modal
+        visible={showShareChoiceModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowShareChoiceModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowShareChoiceModal(false)}
+        >
+          <View style={styles.modalContainer} {...(Platform.OS === 'web' ? { onClick: e => e.stopPropagation() } : {})}>
+            <TouchableOpacity activeOpacity={1}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Share Workout</Text>
+                <TouchableOpacity onPress={() => setShowShareChoiceModal(false)} style={styles.modalCloseButton}>
+                  <X size={20} color={COLORS.textMuted} />
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity
+                style={styles.shareChoiceButton}
+                onPress={() => { handleOSShare(); }}
+              >
+                <Text style={styles.shareChoiceButtonText}>Share via...</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.shareChoiceButton, { marginTop: 10 }]}
+                onPress={handleShareToFriends}
+              >
+                <Users size={18} color={COLORS.primary} style={{ marginRight: 8 }} />
+                <Text style={styles.shareChoiceButtonText}>Share to Friends</Text>
+              </TouchableOpacity>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Friend Picker Modal */}
+      <Modal
+        visible={showFriendPickerModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowFriendPickerModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowFriendPickerModal(false)}
+        >
+          <View style={[styles.modalContainer, { maxHeight: 480 }]} {...(Platform.OS === 'web' ? { onClick: e => e.stopPropagation() } : {})}>
+            <TouchableOpacity activeOpacity={1}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Send to Friends</Text>
+                <TouchableOpacity onPress={() => setShowFriendPickerModal(false)} style={styles.modalCloseButton}>
+                  <X size={20} color={COLORS.textMuted} />
+                </TouchableOpacity>
+              </View>
+              <ScrollView style={{ maxHeight: 340 }} showsVerticalScrollIndicator={false}>
+                {friendsLoading ? (
+                  <Text style={{ color: COLORS.textMuted, textAlign: 'center', paddingVertical: 24 }}>Loading friends...</Text>
+                ) : friendsList.length === 0 ? (
+                  <Text style={{ color: COLORS.textMuted, textAlign: 'center', paddingVertical: 24 }}>No friends yet</Text>
+                ) : (
+                  friendsList.map(friend => (
+                    <TouchableOpacity
+                      key={friend.id}
+                      style={styles.friendPickerItem}
+                      onPress={() => toggleFriendSelection(friend.id)}
+                    >
+                      <View style={styles.friendPickerAvatar}>
+                        <Text style={styles.friendPickerAvatarText}>{friend.first_name?.[0] || friend.username?.[0] || '?'}</Text>
+                      </View>
+                      <Text style={styles.friendPickerName}>{friend.name}</Text>
+                      <View style={[styles.friendPickerCheckbox, selectedFriends.includes(friend.id) && styles.friendPickerCheckboxActive]}>
+                        {selectedFriends.includes(friend.id) && <Check size={14} color={COLORS.textOnPrimary} />}
+                      </View>
+                    </TouchableOpacity>
+                  ))
+                )}
+              </ScrollView>
+              {selectedFriends.length > 0 && (
+                <TouchableOpacity
+                  style={[styles.doneButton, { marginTop: 12 }]}
+                  onPress={handleSendToFriends}
+                  disabled={shareSubmitting}
+                >
+                  <Text style={styles.doneButtonText}>
+                    {shareSubmitting ? 'Sending...' : `Send to ${selectedFriends.length} friend${selectedFriends.length > 1 ? 's' : ''}`}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
       </Modal>
 
       <View style={{ height: 100 }} />
@@ -2223,6 +2451,12 @@ const getStyles = (COLORS) => StyleSheet.create({
   modalCloseButton: {
     padding: 4,
   },
+  shareRenameHint: {
+    color: COLORS.textMuted,
+    fontSize: 13,
+    marginBottom: 12,
+    lineHeight: 18,
+  },
   renameInput: {
     backgroundColor: COLORS.surfaceLight,
     borderRadius: 12,
@@ -2259,6 +2493,58 @@ const getStyles = (COLORS) => StyleSheet.create({
     color: COLORS.textOnPrimary,
     fontSize: 16,
     fontWeight: '600',
+  },
+  shareChoiceButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 12,
+    paddingVertical: 14,
+  },
+  shareChoiceButtonText: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  friendPickerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.surfaceLight,
+  },
+  friendPickerAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.primary + '30',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  friendPickerAvatarText: {
+    color: COLORS.primary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  friendPickerName: {
+    color: COLORS.text,
+    fontSize: 15,
+    flex: 1,
+  },
+  friendPickerCheckbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: COLORS.surfaceLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  friendPickerCheckboxActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
   },
 });
 

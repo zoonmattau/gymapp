@@ -50,6 +50,7 @@ import {
   FileText,
   Check,
   AlertCircle,
+  Download,
 } from 'lucide-react-native';
 import { useColors, useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -57,12 +58,14 @@ import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { EXPERIENCE_LEVELS, EQUIPMENT_OPTIONS } from '../constants/experience';
 import { workoutService } from '../services/workoutService';
+import { publishedWorkoutService } from '../services/publishedWorkoutService';
 import ExperienceLevelModal from '../components/ExperienceLevelModal';
 import EquipmentModal from '../components/EquipmentModal';
 import BaseLiftsModal from '../components/BaseLiftsModal';
 import UnitsModal from '../components/UnitsModal';
 import TrackingPreferencesModal from '../components/TrackingPreferencesModal';
 import Toast from '../components/Toast';
+import * as XLSX from 'xlsx';
 
 const ProfileScreen = () => {
   const navigation = useNavigation();
@@ -141,6 +144,13 @@ const ProfileScreen = () => {
   const [importLoading, setImportLoading] = useState(false);
   const [importResult, setImportResult] = useState(null); // { success: true, sessions: X, sets: Y } or { success: false, error: 'msg' }
   const csvInputRef = useRef(null);
+
+  // Template Import
+  const [showTemplateImportModal, setShowTemplateImportModal] = useState(false);
+  const [templateImportLoading, setTemplateImportLoading] = useState(false);
+  const [templateImportResult, setTemplateImportResult] = useState(null);
+  const [parsedWorkouts, setParsedWorkouts] = useState(null); // { workouts: {}, names: [], hasWeeks: bool }
+  const templateInputRef = useRef(null);
 
   // Avatar upload
   const fileInputRef = useRef(null);
@@ -325,8 +335,11 @@ const ProfileScreen = () => {
           .from('user_goals')
           .select('experience, equipment, base_bench, base_bench_reps, base_db_press, base_db_press_reps, base_ohp, base_ohp_reps, base_deadlift, base_deadlift_reps, base_row, base_row_reps, base_pullup, base_pullup_reps, base_squat, base_squat_reps, base_leg_press, base_leg_press_reps, base_rdl, base_rdl_reps, base_curl, base_curl_reps')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
 
+        if (error) {
+          console.warn('Error loading user goals:', error);
+        }
         if (data) {
           if (data.experience) {
             setExperienceLevel(data.experience);
@@ -380,19 +393,37 @@ const ProfileScreen = () => {
 
     if (user?.id) {
       try {
-        const { error } = await supabase
+        // Try update first (works if user_goals row exists)
+        const { data, error: updateError } = await supabase
           .from('user_goals')
-          .upsert({
-            user_id: user.id,
-            experience: levelId,
-            updated_at: new Date().toISOString(),
-          }, { onConflict: 'user_id' });
+          .update({ experience: levelId })
+          .eq('user_id', user.id)
+          .select()
+          .maybeSingle();
 
-        if (!error) {
-          showToast('Experience level updated', 'success');
+        if (updateError) {
+          console.warn('Experience update error:', updateError);
+          showToast('Failed to save experience level', 'error');
+          return;
         }
+
+        if (!data) {
+          // No row exists yet, insert with required 'goal' field
+          const { error: insertError } = await supabase
+            .from('user_goals')
+            .insert({ user_id: user.id, experience: levelId, goal: 'fitness' });
+
+          if (insertError) {
+            console.warn('Experience insert error:', insertError);
+            showToast('Failed to save experience level', 'error');
+            return;
+          }
+        }
+
+        showToast('Experience level updated', 'success');
       } catch (error) {
-        console.log('Error updating experience:', error);
+        console.warn('Error updating experience:', error);
+        showToast('Failed to save experience level', 'error');
       }
     }
   };
@@ -421,19 +452,34 @@ const ProfileScreen = () => {
 
     if (user?.id) {
       try {
-        const { error } = await supabase
+        const { data, error: updateError } = await supabase
           .from('user_goals')
-          .upsert({
-            user_id: user.id,
-            equipment: tempEquipment,
-            updated_at: new Date().toISOString(),
-          }, { onConflict: 'user_id' });
+          .update({ equipment: tempEquipment })
+          .eq('user_id', user.id)
+          .select()
+          .maybeSingle();
 
-        if (!error) {
-          showToast(`${tempEquipment.length} equipment items saved`, 'success');
+        if (updateError) {
+          console.warn('Equipment save error:', updateError);
+          showToast('Failed to save equipment', 'error');
+          return;
         }
+
+        if (!data) {
+          const { error: insertError } = await supabase
+            .from('user_goals')
+            .insert({ user_id: user.id, equipment: tempEquipment, goal: 'fitness' });
+
+          if (insertError) {
+            console.warn('Equipment insert error:', insertError);
+            showToast('Failed to save equipment', 'error');
+            return;
+          }
+        }
+
+        showToast(`${tempEquipment.length} equipment items saved`, 'success');
       } catch (error) {
-        console.log('Error saving equipment:', error);
+        console.warn('Error saving equipment:', error);
       }
     }
   };
@@ -444,39 +490,58 @@ const ProfileScreen = () => {
 
     if (user?.id) {
       try {
-        const { error } = await supabase
-          .from('user_goals')
-          .upsert({
-            user_id: user.id,
-            base_bench: parseInt(lifts.bench?.weight) || null,
-            base_bench_reps: parseInt(lifts.bench?.reps) || null,
-            base_db_press: parseInt(lifts.dbPress?.weight) || null,
-            base_db_press_reps: parseInt(lifts.dbPress?.reps) || null,
-            base_ohp: parseInt(lifts.ohp?.weight) || null,
-            base_ohp_reps: parseInt(lifts.ohp?.reps) || null,
-            base_deadlift: parseInt(lifts.deadlift?.weight) || null,
-            base_deadlift_reps: parseInt(lifts.deadlift?.reps) || null,
-            base_row: parseInt(lifts.row?.weight) || null,
-            base_row_reps: parseInt(lifts.row?.reps) || null,
-            base_pullup: parseInt(lifts.pullup?.weight) || null,
-            base_pullup_reps: parseInt(lifts.pullup?.reps) || null,
-            base_squat: parseInt(lifts.squat?.weight) || null,
-            base_squat_reps: parseInt(lifts.squat?.reps) || null,
-            base_leg_press: parseInt(lifts.legPress?.weight) || null,
-            base_leg_press_reps: parseInt(lifts.legPress?.reps) || null,
-            base_rdl: parseInt(lifts.rdl?.weight) || null,
-            base_rdl_reps: parseInt(lifts.rdl?.reps) || null,
-            base_curl: parseInt(lifts.curl?.weight) || null,
-            base_curl_reps: parseInt(lifts.curl?.reps) || null,
-            updated_at: new Date().toISOString(),
-          }, { onConflict: 'user_id' });
+        const liftData = {
+          base_bench: parseInt(lifts.bench?.weight) || null,
+          base_bench_reps: parseInt(lifts.bench?.reps) || null,
+          base_db_press: parseInt(lifts.dbPress?.weight) || null,
+          base_db_press_reps: parseInt(lifts.dbPress?.reps) || null,
+          base_ohp: parseInt(lifts.ohp?.weight) || null,
+          base_ohp_reps: parseInt(lifts.ohp?.reps) || null,
+          base_deadlift: parseInt(lifts.deadlift?.weight) || null,
+          base_deadlift_reps: parseInt(lifts.deadlift?.reps) || null,
+          base_row: parseInt(lifts.row?.weight) || null,
+          base_row_reps: parseInt(lifts.row?.reps) || null,
+          base_pullup: parseInt(lifts.pullup?.weight) || null,
+          base_pullup_reps: parseInt(lifts.pullup?.reps) || null,
+          base_squat: parseInt(lifts.squat?.weight) || null,
+          base_squat_reps: parseInt(lifts.squat?.reps) || null,
+          base_leg_press: parseInt(lifts.legPress?.weight) || null,
+          base_leg_press_reps: parseInt(lifts.legPress?.reps) || null,
+          base_rdl: parseInt(lifts.rdl?.weight) || null,
+          base_rdl_reps: parseInt(lifts.rdl?.reps) || null,
+          base_curl: parseInt(lifts.curl?.weight) || null,
+          base_curl_reps: parseInt(lifts.curl?.reps) || null,
+        };
 
-        if (!error) {
-          const count = Object.values(lifts).filter(l => l.weight && l.reps).length;
-          showToast(`${count} base lifts saved`, 'success');
+        const { data, error: updateError } = await supabase
+          .from('user_goals')
+          .update(liftData)
+          .eq('user_id', user.id)
+          .select()
+          .maybeSingle();
+
+        if (updateError) {
+          console.warn('Base lifts save error:', updateError);
+          showToast('Failed to save base lifts', 'error');
+          return;
         }
+
+        if (!data) {
+          const { error: insertError } = await supabase
+            .from('user_goals')
+            .insert({ user_id: user.id, goal: 'fitness', ...liftData });
+
+          if (insertError) {
+            console.warn('Base lifts insert error:', insertError);
+            showToast('Failed to save base lifts', 'error');
+            return;
+          }
+        }
+
+        const count = Object.values(lifts).filter(l => l.weight && l.reps).length;
+        showToast(`${count} base lifts saved`, 'success');
       } catch (error) {
-        console.log('Error saving base lifts:', error);
+        console.warn('Error saving base lifts:', error);
       }
     }
   };
@@ -886,14 +951,580 @@ const ProfileScreen = () => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result;
-      if (typeof text === 'string') {
-        handleCSVImport(text);
+    const fileName = file.name.toLowerCase();
+    const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
+
+    if (isExcel) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target?.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+          const csvText = XLSX.utils.sheet_to_csv(firstSheet);
+          handleCSVImport(csvText);
+        } catch (err) {
+          console.error('Excel parse error:', err);
+          setImportResult({ success: false, error: 'Failed to read Excel file. Please check the file format.' });
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target?.result;
+        if (typeof text === 'string') {
+          handleCSVImport(text);
+        }
+      };
+      reader.readAsText(file);
+    }
+  };
+
+  // Template Download - generates Excel file with example data
+  const handleDownloadTemplate = () => {
+    try {
+      const exampleData = [
+        ['Workout Name', 'Exercise', 'Set', 'Reps', 'Weight (kg)', 'RPE', 'Rest', 'Notes'],
+        ['Push Day', 'Bench Press', 1, 12, 60, 6, '2 min', 'Warm up'],
+        ['Push Day', 'Bench Press', 2, 10, 70, 7, '2 min', ''],
+        ['Push Day', 'Bench Press', 3, 8, 80, 8, '3 min', ''],
+        ['Push Day', 'Bench Press', 4, 6, 90, 9, '3 min', 'Last heavy set'],
+        ['Push Day', 'Incline DB Press', 1, 12, 24, 7, '90 sec', ''],
+        ['Push Day', 'Incline DB Press', 2, 10, 28, 7, '90 sec', ''],
+        ['Push Day', 'Incline DB Press', 3, 8, 32, 8, '90 sec', ''],
+        ['Push Day', 'Cable Fly', 1, 15, 10, 6, '60 sec', 'Squeeze at peak'],
+        ['Push Day', 'Cable Fly', 2, 12, 12.5, 7, '60 sec', ''],
+        ['Push Day', 'Cable Fly', 3, 12, 12.5, 7, '60 sec', ''],
+        ['Pull Day', 'Barbell Row', 1, 12, 50, 6, '2 min', ''],
+        ['Pull Day', 'Barbell Row', 2, 10, 60, 7, '2 min', ''],
+        ['Pull Day', 'Barbell Row', 3, 8, 70, 8, '3 min', ''],
+        ['Pull Day', 'Pull Ups', 1, 'AMRAP', '', 7, '2 min', 'Bodyweight'],
+        ['Pull Day', 'Pull Ups', 2, 'AMRAP', '', 8, '2 min', ''],
+        ['Pull Day', 'Pull Ups', 3, 'AMRAP', '', 9, '2 min', ''],
+        ['Pull Day', 'Barbell Curl', 1, 12, 20, 7, '60 sec', ''],
+        ['Pull Day', 'Barbell Curl', 2, 10, 25, 7, '60 sec', ''],
+        ['Pull Day', 'Barbell Curl', 3, 10, 25, 8, '60 sec', ''],
+      ];
+
+      const ws = XLSX.utils.aoa_to_sheet(exampleData);
+      ws['!cols'] = [
+        { wch: 16 }, { wch: 22 }, { wch: 5 }, { wch: 8 }, { wch: 14 }, { wch: 6 }, { wch: 10 }, { wch: 20 },
+      ];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Workout Program');
+      XLSX.writeFile(wb, 'UpRep_Workout_Template.xlsx');
+      showToast('Template downloaded!', 'success');
+    } catch (err) {
+      console.error('Template download error:', err);
+      showToast('Failed to download template', 'error');
+    }
+  };
+
+  // Parse CSV text into 2D array
+  const parseCSVToRows = (csvText) => {
+    const lines = csvText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    const parseCSVLine = (line) => {
+      const values = [];
+      let current = '';
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') { inQuotes = !inQuotes; }
+        else if (ch === ',' && !inQuotes) { values.push(current.trim()); current = ''; }
+        else { current += ch; }
       }
+      values.push(current.trim());
+      return values;
     };
-    reader.readAsText(file);
+    return lines.map(l => parseCSVLine(l));
+  };
+
+  // Template Import - smart parser that handles both simple templates and complex program spreadsheets
+  // Accepts a 2D array of rows (from Excel sheet_to_json or parsed CSV)
+  const handleTemplateImport = async (inputRows) => {
+    if (!user?.id) return;
+    setTemplateImportLoading(true);
+    setTemplateImportResult(null);
+
+    try {
+      // Accept either a string (CSV) or a 2D array
+      const rawRows = typeof inputRows === 'string' ? parseCSVToRows(inputRows) : inputRows;
+
+      if (!rawRows || rawRows.length < 2) {
+        setTemplateImportResult({ success: false, error: 'File is empty or has no data rows.' });
+        setTemplateImportLoading(false);
+        return;
+      }
+
+      // Normalize all cell values to strings (handles nulls, numbers, date serials from Excel)
+      const allRows = rawRows.map(row =>
+        (Array.isArray(row) ? row : []).map(cell =>
+          cell == null ? '' : String(cell)
+        )
+      );
+
+      // --- Step 1: Auto-detect header row ---
+      let headerRowIdx = 0;
+      const exerciseKeywords = ['exercise', 'movement', 'lift', 'activity'];
+      const setsRepsKeywords = ['set', 'rep', 'repetition'];
+      const wordMatch = (cell, keyword) => new RegExp(`\\b${keyword}s?\\b`).test(cell);
+      // Score-based detection: scan up to 200 rows to handle spreadsheets with long intros
+      // (warm-up protocols, weak point tables, copyright notices, etc.)
+      const columnKeywordGroups = [
+        exerciseKeywords,
+        setsRepsKeywords,
+        ['weight', 'load', 'kg', 'lbs'],
+        ['rpe', 'intensity'],
+        ['rest', 'recovery'],
+        ['notes', 'note', 'comment', 'instruction', 'cue'],
+      ];
+      let bestHeaderScore = 0;
+      for (let i = 0; i < Math.min(allRows.length, 200); i++) {
+        const rowLower = allRows[i].map(c => (c || '').toLowerCase().trim());
+        // Only consider short cells as potential header cells (skip prose paragraphs)
+        const hasExercise = rowLower.some(c => c.length < 50 && exerciseKeywords.some(k => wordMatch(c, k)));
+        const hasSetsReps = rowLower.some(c => c.length < 50 && setsRepsKeywords.some(k => wordMatch(c, k)));
+        if (hasExercise && hasSetsReps) {
+          let score = 0;
+          for (const group of columnKeywordGroups) {
+            if (rowLower.some(c => c.length < 50 && group.some(k => wordMatch(c, k)))) score++;
+          }
+          if (score > bestHeaderScore) {
+            bestHeaderScore = score;
+            headerRowIdx = i;
+          }
+        }
+      }
+
+      // --- Step 2: Detect 1RM reference values ---
+      const oneRepMaxes = {};
+      const ormExerciseMap = {
+        squat: ['squat', 'back squat'],
+        bench: ['bench', 'bench press'],
+        deadlift: ['deadlift', 'dead lift'],
+        ohp: ['ohp', 'overhead press', 'shoulder press', 'military press'],
+        row: ['row', 'barbell row', 'bent over row'],
+      };
+      for (let i = 0; i < headerRowIdx; i++) {
+        const rowStr = allRows[i].join(' ').toLowerCase();
+        if (rowStr.includes('1rm') || rowStr.includes('one rep max') || rowStr.includes('max')) {
+          // Check if this row or the next has exercise names with numeric values
+          const checkRows = [allRows[i]];
+          if (i + 1 < headerRowIdx) checkRows.push(allRows[i + 1]);
+          // Try to pair exercise labels with numbers
+          for (const row of checkRows) {
+            for (let j = 0; j < row.length; j++) {
+              const cellLower = (row[j] || '').toLowerCase().replace(/['"]/g, '');
+              for (const [key, aliases] of Object.entries(ormExerciseMap)) {
+                if (aliases.some(a => cellLower.includes(a))) {
+                  // Look for a number in the next cell or same cell after the name
+                  const numMatch = cellLower.match(/(\d+(\.\d+)?)\s*(kg|lbs)?/);
+                  if (numMatch) {
+                    oneRepMaxes[key] = parseFloat(numMatch[1]);
+                  } else if (j + 1 < row.length) {
+                    const nextVal = parseFloat(row[j + 1]);
+                    if (!isNaN(nextVal) && nextVal > 0) {
+                      oneRepMaxes[key] = nextVal;
+                    }
+                  }
+                }
+              }
+            }
+          }
+          break;
+        }
+      }
+
+      // Check for 2-row headers (e.g. "Working" / "Sets" split across rows)
+      let dataStartIdx = headerRowIdx + 1;
+      if (headerRowIdx + 1 < allRows.length) {
+        const nextRow = allRows[headerRowIdx + 1];
+        const nextLower = nextRow.map(c => (c || '').toLowerCase().trim());
+        const nonEmpty = nextLower.filter(c => c.length > 0);
+        // Sub-header: short text cells, no pure numbers, at least 2 non-empty cells
+        if (nonEmpty.length >= 2 && nonEmpty.every(c => c.length < 30 && isNaN(parseFloat(c)))) {
+          // Merge sub-header cells into the main header row
+          for (let c = 0; c < Math.max(allRows[headerRowIdx].length, nextRow.length); c++) {
+            const main = (allRows[headerRowIdx][c] || '').trim();
+            const sub = (nextRow[c] || '').trim();
+            if (sub && main) allRows[headerRowIdx][c] = `${main} ${sub}`;
+            else if (sub && !main) allRows[headerRowIdx][c] = sub;
+          }
+          dataStartIdx = headerRowIdx + 2;
+        }
+      }
+
+      // --- Step 3: Flexible column detection ---
+      const headers = allRows[headerRowIdx].map(h => (h || '').toLowerCase().replace(/['"]/g, ''));
+      const isHeaderRow = (row) => {
+        const lower = row.map(c => (c || '').toLowerCase().trim());
+        return lower.some(c => exerciseKeywords.some(k => wordMatch(c, k))) &&
+               lower.some(c => setsRepsKeywords.some(k => wordMatch(c, k)));
+      };
+
+      const findCol = (keywords) => {
+        // Prefer longer/more-specific keyword matches first
+        for (const kw of keywords) {
+          const idx = headers.findIndex(h => h.includes(kw));
+          if (idx !== -1) return idx;
+        }
+        return -1;
+      };
+
+      const weekCol = findCol(['week']);
+      const nameCol = findCol(['workout', 'day', 'session']);
+      const exerciseCol = findCol(['exercise', 'movement', 'lift', 'activity']);
+      const warmupSetsCol = findCol(['warmup', 'warm-up', 'warm up']);
+      const workingSetsCol = findCol(['working sets']);
+      const setsCol = workingSetsCol !== -1 ? workingSetsCol : findCol(['sets', 'set']);
+      const repsCol = findCol(['reps', 'rep', 'repetition', 'duration']);
+      const weightCol = findCol(['weight', 'load', 'kg', 'lbs']);
+      const rpeCol = findCol(['rpe', 'intensity', 'perceived', '%']);
+      const restCol = findCol(['rest', 'recovery']);
+      const notesCol = findCol(['notes', 'note', 'comment', 'instruction', 'cue']);
+
+      if (exerciseCol === -1) {
+        setTemplateImportResult({ success: false, error: 'Could not find an "Exercise" column. Please ensure your spreadsheet has a column with "Exercise" in the header.' });
+        setTemplateImportLoading(false);
+        return;
+      }
+
+      // --- Step 4 & 5: Parse rows with fill-down, week detection, and smart value parsing ---
+      const clean = (val) => (val || '').replace(/[\r\n]+/g, ' ').replace(/^['"]|['"]$/g, '').trim();
+
+      const parseReps = (raw) => {
+        if (!raw) return null;
+        const s = raw.toString().trim().toLowerCase();
+        if (s === 'amrap' || s === 'max' || s === 'failure') return null;
+        if (s.includes('rpe only') || s === '') return null;
+        // "15/15" → 15
+        const slashMatch = s.match(/^(\d+)\s*[\/\\]\s*\d+/);
+        if (slashMatch) return parseInt(slashMatch[1]);
+        // "10+2" → 10
+        const plusMatch = s.match(/^(\d+)\s*\+\s*\d+/);
+        if (plusMatch) return parseInt(plusMatch[1]);
+        // "3-5" → 4, "10-12 (dropset)" → 11, "6-8 per leg" → 7 (midpoint)
+        const rangeMatch = s.match(/^(\d+)\s*[-–]\s*(\d+)/);
+        if (rangeMatch) return Math.round((parseInt(rangeMatch[1]) + parseInt(rangeMatch[2])) / 2);
+        // Plain number
+        const num = parseInt(s);
+        return isNaN(num) ? null : num;
+      };
+
+      const matchExerciseTo1RM = (exerciseName) => {
+        const lower = exerciseName.toLowerCase();
+        for (const [key, aliases] of Object.entries(ormExerciseMap)) {
+          if (aliases.some(a => lower.includes(a)) && oneRepMaxes[key]) {
+            return oneRepMaxes[key];
+          }
+        }
+        return null;
+      };
+
+      const parseWeightAndRPE = (weightRaw, rpeRaw, exerciseName) => {
+        let weight = null;
+        let rpe = null;
+        let extraNotes = '';
+
+        const wStr = (weightRaw || '').toString().trim();
+        const rStr = (rpeRaw || '').toString().trim().toLowerCase();
+
+        // Parse weight
+        const wNum = parseFloat(wStr.replace(/[^\d.]/g, ''));
+        if (!isNaN(wNum) && wNum > 1) {
+          weight = wNum;
+        }
+
+        // Parse RPE / percentage from the RPE column
+        if (rStr) {
+          // "RPE8" or "RPE 8" → 8
+          const rpeMatch = rStr.match(/rpe\s*(\d+(\.\d+)?)/);
+          if (rpeMatch) {
+            rpe = parseFloat(rpeMatch[1]);
+          } else {
+            const rNum = parseFloat(rStr.replace(/[^\d.]/g, ''));
+            if (!isNaN(rNum)) {
+              if (rNum > 0 && rNum < 1) {
+                // It's a percentage of 1RM (e.g. 0.775 = 77.5%)
+                const orm = matchExerciseTo1RM(exerciseName);
+                if (orm && weight === null) {
+                  weight = Math.round(orm * rNum);
+                  extraNotes = `${Math.round(rNum * 100)}% 1RM`;
+                } else if (!orm && weight === null) {
+                  extraNotes = `${Math.round(rNum * 100)}% 1RM`;
+                }
+              } else if (rNum >= 1 && rNum <= 10) {
+                rpe = rNum;
+              } else if (rNum > 10 && rNum <= 100) {
+                // Likely a percentage like 77.5
+                const orm = matchExerciseTo1RM(exerciseName);
+                if (orm && weight === null) {
+                  weight = Math.round(orm * (rNum / 100));
+                  extraNotes = `${rNum}% 1RM`;
+                } else if (!orm && weight === null) {
+                  extraNotes = `${rNum}% 1RM`;
+                }
+              }
+            }
+          }
+        }
+
+        // Also check if weight column itself has a percentage
+        if (weight === null && wStr) {
+          const pctMatch = wStr.match(/([\d.]+)\s*%/);
+          if (pctMatch) {
+            const pct = parseFloat(pctMatch[1]);
+            const orm = matchExerciseTo1RM(exerciseName);
+            if (orm) {
+              weight = Math.round(orm * (pct / 100));
+              extraNotes = `${pct}% 1RM`;
+            } else {
+              extraNotes = `${pct}% 1RM`;
+            }
+          }
+        }
+
+        return { weight, rpe, extraNotes };
+      };
+
+      const workouts = {};
+      let currentWeek = null;
+      let currentWorkoutName = '';
+      let hasWeeks = false;
+      let weekWorkoutSeen = {};
+
+      // Check if the header row itself contains a week number (e.g. "Week 1" in a column)
+      for (let c = 0; c < Math.min(allRows[headerRowIdx].length, 3); c++) {
+        const hWeek = (allRows[headerRowIdx][c] || '').match(/week\s*(\d+)/i);
+        if (hWeek) {
+          currentWeek = parseInt(hWeek[1]);
+          hasWeeks = true;
+          break;
+        }
+      }
+
+      for (let i = dataStartIdx; i < allRows.length; i++) {
+        const row = allRows[i];
+
+        // Skip fully empty rows
+        const allEmpty = row.every(c => !(c || '').trim());
+        if (allEmpty) continue;
+
+        // Skip rest day rows
+        const rowJoined = row.join(' ').toLowerCase();
+        if (rowJoined.includes('rest day')) continue;
+
+        // Week detection FIRST — check before skipping header rows
+        let weekMatch = null;
+        if (weekCol !== -1) {
+          weekMatch = clean(row[weekCol] || '').match(/week\s*(\d+)/i);
+        }
+        if (!weekMatch) {
+          for (let c = 0; c < Math.min(row.length, 3); c++) {
+            weekMatch = clean(row[c] || '').match(/week\s*(\d+)/i);
+            if (weekMatch) break;
+          }
+        }
+        if (weekMatch) {
+          currentWeek = parseInt(weekMatch[1]);
+          hasWeeks = true;
+          weekWorkoutSeen = {};
+        }
+
+        // Skip re-appearing header rows (after extracting week)
+        if (isHeaderRow(row)) continue;
+
+        // If this row was ONLY a week marker (no exercise), skip it
+        if (weekMatch && !clean(row[exerciseCol] || '')) continue;
+
+        // Workout name with fill-down
+        let rawWorkoutName = nameCol !== -1 ? clean(row[nameCol] || '') : '';
+
+        // Fallback: if no workout name column, scan early columns for a label
+        if (!rawWorkoutName && nameCol === -1) {
+          for (let c = 0; c < exerciseCol; c++) {
+            const val = clean(row[c] || '');
+            if (val && !val.match(/^week\s*\d/i) && !val.match(/^\d+$/) && val.length > 1) {
+              rawWorkoutName = val;
+              break;
+            }
+          }
+        }
+
+        if (rawWorkoutName) {
+          // Track duplicates within same week (e.g. "Upper" appearing twice)
+          const countKey = `${currentWeek || 0}-${rawWorkoutName}`;
+          weekWorkoutSeen[countKey] = (weekWorkoutSeen[countKey] || 0) + 1;
+          if (weekWorkoutSeen[countKey] > 1) {
+            currentWorkoutName = `${rawWorkoutName} ${weekWorkoutSeen[countKey]}`;
+          } else {
+            currentWorkoutName = rawWorkoutName;
+          }
+        }
+
+        const exerciseName = clean(row[exerciseCol] || '');
+
+        // Skip if no exercise name
+        if (!exerciseName) continue;
+
+        // If we still have no workout name, use a default
+        if (!currentWorkoutName) {
+          currentWorkoutName = hasWeeks && currentWeek ? `Workout` : 'Imported Workout';
+        }
+
+        // Parse sets (prefer working sets over warmup)
+        let sets = 3;
+        if (setsCol !== -1) {
+          const setsVal = parseInt(row[setsCol]);
+          if (!isNaN(setsVal) && setsVal > 0) sets = setsVal;
+        }
+
+        // Parse reps
+        const reps = repsCol !== -1 ? parseReps(row[repsCol]) : null;
+
+        // Parse weight & RPE
+        const weightRaw = weightCol !== -1 ? row[weightCol] : '';
+        const rpeRaw = rpeCol !== -1 ? row[rpeCol] : '';
+        const { weight, rpe, extraNotes } = parseWeightAndRPE(weightRaw, rpeRaw, exerciseName);
+
+        // Parse rest and notes
+        const rest = restCol !== -1 ? clean(row[restCol] || '') : '';
+        let notes = notesCol !== -1 ? clean(row[notesCol] || '') : '';
+        if (extraNotes) {
+          notes = notes ? `${extraNotes} | ${notes}` : extraNotes;
+        }
+
+        // Build workout key
+        const workoutKey = hasWeeks && currentWeek
+          ? `W${currentWeek} - ${currentWorkoutName}`
+          : currentWorkoutName;
+
+        if (!workouts[workoutKey]) workouts[workoutKey] = [];
+
+        // Check if this is another set of the same exercise (consecutive rows)
+        const existingExercises = workouts[workoutKey];
+        const lastExercise = existingExercises[existingExercises.length - 1];
+
+        if (lastExercise && lastExercise.name.toLowerCase() === exerciseName.toLowerCase()) {
+          // Add as another set to the existing exercise
+          if (!lastExercise.setDetails) {
+            // Convert the first entry into setDetails format
+            lastExercise.setDetails = [{
+              reps: lastExercise.reps,
+              weight: lastExercise.weight,
+              rpe: lastExercise.rpe,
+              ...(lastExercise.notes && { notes: lastExercise.notes }),
+              ...(lastExercise.rest && { rest: lastExercise.rest }),
+            }];
+          }
+          lastExercise.setDetails.push({
+            reps, weight, rpe,
+            ...(notes && { notes }),
+            ...(rest && { rest }),
+          });
+          lastExercise.sets = lastExercise.setDetails.length;
+        } else {
+          // New exercise
+          const exercise = { name: exerciseName, sets, reps, weight, rpe };
+          if (notes) exercise.notes = notes;
+          if (rest) exercise.rest = rest;
+          existingExercises.push(exercise);
+        }
+      }
+
+      const workoutNames = Object.keys(workouts);
+      if (workoutNames.length === 0) {
+        setTemplateImportResult({ success: false, error: 'No valid workout data found. Check that your file has an Exercise column and data rows with exercise names.' });
+        setTemplateImportLoading(false);
+        return;
+      }
+
+      // Show preview — don't save yet
+      setParsedWorkouts({ workouts, names: workoutNames, hasWeeks });
+    } catch (err) {
+      console.error('Template import error:', err);
+      setTemplateImportResult({ success: false, error: err.message || 'Failed to import template.' });
+    }
+    setTemplateImportLoading(false);
+  };
+
+  // Save parsed workouts to repertoire
+  const handleSaveParsedWorkouts = async () => {
+    if (!user?.id || !parsedWorkouts) return;
+    setTemplateImportLoading(true);
+
+    try {
+      const { workouts, names: workoutNames, hasWeeks } = parsedWorkouts;
+      const workoutsArray = workoutNames.map(name => ({
+        name,
+        exercises: workouts[name],
+        is_public: false,
+      }));
+
+      const { data, error } = await publishedWorkoutService.publishWorkoutsBatch(user.id, workoutsArray);
+
+      if (error) {
+        setTemplateImportResult({ success: false, error: error.message || 'Failed to save workout templates.' });
+      } else {
+        setTemplateImportResult({ success: true, names: workoutNames, hasWeeks });
+        setParsedWorkouts(null);
+        showToast(`Created ${workoutNames.length} workout template${workoutNames.length > 1 ? 's' : ''}!`, 'success');
+      }
+    } catch (err) {
+      console.error('Save templates error:', err);
+      setTemplateImportResult({ success: false, error: err.message || 'Failed to save templates.' });
+    }
+    setTemplateImportLoading(false);
+  };
+
+  // File select handler for template import
+  const handleTemplateFileSelect = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const fileName = file.name.toLowerCase();
+    const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
+
+    if (isExcel) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target?.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          // Combine all sheets as 2D arrays using sheet_to_json for proper cell handling
+          // (avoids CSV issues with multiline cells and date serial numbers)
+          let combinedRows = [];
+          workbook.SheetNames.forEach((name, idx) => {
+            const sheet = workbook.Sheets[name];
+            // header: 1 gives us a 2D array, raw: false gives formatted strings (not date serials)
+            const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
+            // Inject a week marker row from sheet name if applicable
+            const weekMatch = name.match(/week\s*(\d+)/i);
+            if (weekMatch) {
+              combinedRows.push([`WEEK ${weekMatch[1]}`]);
+            } else if (workbook.SheetNames.length > 1) {
+              combinedRows.push([`WEEK ${idx + 1}`]);
+            }
+            combinedRows = combinedRows.concat(rows);
+          });
+          handleTemplateImport(combinedRows);
+        } catch (err) {
+          console.error('Excel parse error:', err);
+          setTemplateImportResult({ success: false, error: 'Failed to read Excel file. Please check the file format.' });
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target?.result;
+        if (typeof text === 'string') {
+          handleTemplateImport(text);
+        }
+      };
+      reader.readAsText(file);
+    }
   };
 
   const getDisplayName = () => {
@@ -1245,13 +1876,24 @@ const ProfileScreen = () => {
         <Text style={styles.sectionLabelLarge}>Data & Import</Text>
         <View style={styles.settingsCard}>
           <TouchableOpacity
-            style={[styles.settingsItem, { borderBottomWidth: 0 }]}
+            style={styles.settingsItem}
             onPress={() => setShowImportModal(true)}
             activeOpacity={0.7}
           >
             <View style={styles.settingsItemLeft}>
               <Upload size={20} color={COLORS.primary} />
               <Text style={[styles.settingsLabel, { marginLeft: 12 }]}>Import Workout History</Text>
+            </View>
+            <ChevronRight size={18} color={COLORS.textMuted} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.settingsItem, { borderBottomWidth: 0 }]}
+            onPress={() => setShowTemplateImportModal(true)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.settingsItemLeft}>
+              <FileText size={20} color={COLORS.primary} />
+              <Text style={[styles.settingsLabel, { marginLeft: 12 }]}>Import Workout Templates</Text>
             </View>
             <ChevronRight size={18} color={COLORS.textMuted} />
           </TouchableOpacity>
@@ -1800,16 +2442,16 @@ const ProfileScreen = () => {
             <ScrollView style={styles.importModalBody} showsVerticalScrollIndicator={false}>
               <View style={styles.importInstructions}>
                 <FileText size={48} color={COLORS.primary} style={{ marginBottom: 16 }} />
-                <Text style={styles.importTitle}>Upload a CSV File</Text>
+                <Text style={styles.importTitle}>Upload Your Workout File</Text>
                 <Text style={styles.importDescription}>
-                  Import your workout history from other apps or spreadsheets.
+                  Import your workout history from other apps, Google Sheets, or Excel spreadsheets. Supports CSV, XLSX, and XLS files.
                 </Text>
               </View>
 
               <View style={styles.importFormatSection}>
                 <Text style={styles.importFormatTitle}>Supported Formats</Text>
                 <Text style={styles.importFormatText}>
-                  Works with exports from Strong, Hevy, JEFIT, and most fitness apps. We auto-detect columns including:
+                  Works with Excel (.xlsx, .xls), Google Sheets (download as .xlsx or .csv), and exports from Strong, Hevy, JEFIT, and most fitness apps. We auto-detect columns including:
                 </Text>
                 <View style={styles.importFormatList}>
                   <Text style={styles.importFormatItem}>• <Text style={styles.importFormatBold}>Exercise</Text> - name, movement, lift, activity</Text>
@@ -1856,7 +2498,7 @@ const ProfileScreen = () => {
                 <input
                   ref={csvInputRef}
                   type="file"
-                  accept=".csv"
+                  accept=".csv,.xlsx,.xls"
                   onChange={handleFileSelect}
                   style={{ display: 'none' }}
                 />
@@ -1875,7 +2517,188 @@ const ProfileScreen = () => {
               >
                 <Upload size={20} color="#FFF" />
                 <Text style={styles.importButtonText}>
-                  {importLoading ? 'Importing...' : 'Select CSV File'}
+                  {importLoading ? 'Importing...' : 'Select File (.csv, .xlsx, .xls)'}
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Template Import Modal */}
+      <Modal visible={showTemplateImportModal} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.importModalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Import Workout Templates</Text>
+              <TouchableOpacity onPress={() => { setShowTemplateImportModal(false); setTemplateImportResult(null); setParsedWorkouts(null); }}>
+                <X size={24} color={COLORS.text} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.importModalBody} showsVerticalScrollIndicator={false}>
+              <View style={styles.importInstructions}>
+                <FileText size={48} color={COLORS.primary} style={{ marginBottom: 16 }} />
+                <Text style={styles.importTitle}>Import a Workout Program</Text>
+                <Text style={styles.importDescription}>
+                  Use our template to build your own program, or upload any gym program spreadsheet (like Jeff Nippard, GZCL, etc.) and we'll try to read it automatically.
+                </Text>
+              </View>
+
+              <View style={styles.importFormatSection}>
+                <Text style={styles.importFormatTitle}>Option 1: Use Our Template</Text>
+                <Text style={styles.importFormatText}>
+                  Download the template, fill in your exercises (each row is one set with its own weight and reps), then upload it below.
+                </Text>
+                <TouchableOpacity
+                  style={[styles.importButton, { backgroundColor: '#F59E0B', marginBottom: 0, marginTop: 8 }]}
+                  onPress={handleDownloadTemplate}
+                >
+                  <Download size={20} color="#FFF" />
+                  <Text style={styles.importButtonText}>Download Template</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={[styles.importFormatSection, { marginTop: 16 }]}>
+                <Text style={styles.importFormatTitle}>Option 2: Upload Any Program</Text>
+                <Text style={styles.importFormatText}>
+                  Already have a program spreadsheet? Upload it directly — we'll auto-detect the layout, weeks, exercises, and weights. Supports .xlsx and .csv files.
+                </Text>
+              </View>
+
+              {templateImportLoading && (
+                <View style={styles.importLoadingContainer}>
+                  <ActivityIndicator size="large" color={COLORS.primary} />
+                  <Text style={styles.importLoadingText}>
+                    {parsedWorkouts ? 'Saving to repertoire...' : 'Reading spreadsheet...'}
+                  </Text>
+                </View>
+              )}
+
+              {/* Preview parsed workouts — user confirms before saving */}
+              {parsedWorkouts && !templateImportLoading && !templateImportResult && (
+                <View style={[styles.importResultContainer, { backgroundColor: COLORS.surface, borderColor: COLORS.primary, borderWidth: 1 }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.importResultSuccessText, { color: COLORS.text, fontWeight: '700', fontSize: 16, marginBottom: 4 }]}>
+                      Found {parsedWorkouts.names.length} workout{parsedWorkouts.names.length > 1 ? 's' : ''}
+                    </Text>
+                    {parsedWorkouts.hasWeeks ? (
+                      Object.entries(
+                        parsedWorkouts.names.reduce((acc, name) => {
+                          const weekMatch = name.match(/^W(\d+)\s*-\s*/);
+                          const week = weekMatch ? `Week ${weekMatch[1]}` : 'General';
+                          if (!acc[week]) acc[week] = [];
+                          acc[week].push(weekMatch ? name.replace(/^W\d+\s*-\s*/, '') : name);
+                          return acc;
+                        }, {})
+                      ).map(([week, names], wi) => (
+                        <View key={wi} style={{ marginTop: 6 }}>
+                          <Text style={{ color: COLORS.text, fontSize: 13, fontWeight: '600' }}>{week}</Text>
+                          {names.map((name, ni) => (
+                            <Text key={ni} style={{ color: COLORS.textMuted, fontSize: 12, marginTop: 1, marginLeft: 8 }}>
+                              {'\u2022'} {name} ({parsedWorkouts.workouts[`W${week.replace('Week ', '')} - ${name}`]?.length || '?'} exercises)
+                            </Text>
+                          ))}
+                        </View>
+                      ))
+                    ) : (
+                      parsedWorkouts.names.map((name, i) => (
+                        <Text key={i} style={{ color: COLORS.textMuted, fontSize: 13, marginTop: 2 }}>
+                          {'\u2022'} {name} ({parsedWorkouts.workouts[name]?.length || 0} exercises)
+                        </Text>
+                      ))
+                    )}
+                    <TouchableOpacity
+                      style={[styles.importButton, { marginTop: 12, marginBottom: 0, backgroundColor: COLORS.success }]}
+                      onPress={handleSaveParsedWorkouts}
+                    >
+                      <Check size={20} color="#FFF" />
+                      <Text style={styles.importButtonText}>Save to Repertoire</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={{ alignSelf: 'center', marginTop: 10, paddingVertical: 6 }}
+                      onPress={() => setParsedWorkouts(null)}
+                    >
+                      <Text style={{ color: COLORS.textMuted, fontSize: 14 }}>Cancel</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+
+              {/* Final result after saving */}
+              {templateImportResult && !templateImportLoading && (
+                <View style={[
+                  styles.importResultContainer,
+                  templateImportResult.success ? styles.importResultSuccess : styles.importResultError
+                ]}>
+                  {templateImportResult.success ? (
+                    <>
+                      <Check size={24} color="#10B981" />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.importResultSuccessText}>
+                          Saved {templateImportResult.names.length} workout template{templateImportResult.names.length > 1 ? 's' : ''} to your repertoire!
+                        </Text>
+                        {templateImportResult.hasWeeks ? (
+                          Object.entries(
+                            templateImportResult.names.reduce((acc, name) => {
+                              const weekMatch = name.match(/^W(\d+)\s*-\s*/);
+                              const week = weekMatch ? `Week ${weekMatch[1]}` : 'General';
+                              if (!acc[week]) acc[week] = [];
+                              acc[week].push(weekMatch ? name.replace(/^W\d+\s*-\s*/, '') : name);
+                              return acc;
+                            }, {})
+                          ).map(([week, names], wi) => (
+                            <View key={wi} style={{ marginTop: 6 }}>
+                              <Text style={[styles.importResultSuccessText, { fontSize: 13, fontWeight: '600' }]}>{week}</Text>
+                              {names.map((name, ni) => (
+                                <Text key={ni} style={[styles.importResultSuccessText, { fontSize: 12, marginTop: 1, marginLeft: 8 }]}>
+                                  {'\u2022'} {name}
+                                </Text>
+                              ))}
+                            </View>
+                          ))
+                        ) : (
+                          templateImportResult.names.map((name, i) => (
+                            <Text key={i} style={[styles.importResultSuccessText, { fontSize: 13, marginTop: 2 }]}>
+                              {'\u2022'} {name}
+                            </Text>
+                          ))
+                        )}
+                      </View>
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle size={24} color="#EF4444" />
+                      <Text style={styles.importResultErrorText}>{templateImportResult.error}</Text>
+                    </>
+                  )}
+                </View>
+              )}
+
+              {Platform.OS === 'web' && (
+                <input
+                  ref={templateInputRef}
+                  type="file"
+                  accept=".csv,.xlsx,.xls"
+                  onChange={handleTemplateFileSelect}
+                  style={{ display: 'none' }}
+                />
+              )}
+
+              <TouchableOpacity
+                style={[styles.importButton, (templateImportLoading || parsedWorkouts) && styles.importButtonDisabled]}
+                onPress={() => {
+                  if (Platform.OS === 'web') {
+                    templateInputRef.current?.click();
+                  } else {
+                    showToast('Template import available on web version', 'info');
+                  }
+                }}
+                disabled={templateImportLoading || !!parsedWorkouts}
+              >
+                <Upload size={20} color="#FFF" />
+                <Text style={styles.importButtonText}>
+                  {templateImportLoading ? 'Processing...' : 'Upload Filled Template'}
                 </Text>
               </TouchableOpacity>
             </ScrollView>

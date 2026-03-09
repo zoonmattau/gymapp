@@ -482,6 +482,7 @@ const CommunityScreen = ({ route }) => {
   // Activity Feed
   const [activityFeed, setActivityFeed] = useState([]);
   const [feedLimit, setFeedLimit] = useState(5);
+  const [workoutLimit, setWorkoutLimit] = useState(3);
   const [userLikes, setUserLikes] = useState({});
 
   // Community Workouts
@@ -697,7 +698,7 @@ const CommunityScreen = ({ route }) => {
     try {
       const { data } = await publishedWorkoutService.getPublishedWorkouts({
         sort: workoutSort,
-        limit: 20,
+        limit: 50,
       });
       if (data) {
         setCommunityWorkouts(data);
@@ -881,6 +882,9 @@ const CommunityScreen = ({ route }) => {
         exercises: (exercises || []).map(ex => ({
           name: ex.name,
           sets: ex.sets || 3,
+          targetReps: ex.reps,
+          suggestedWeight: ex.weight,
+          targetRpe: ex.rpe,
         })),
       },
     });
@@ -2233,44 +2237,62 @@ const CommunityScreen = ({ route }) => {
             <Text style={styles.emptyStateCardText}>Be the first to share a workout!</Text>
           </View>
         ) : (
-          communityWorkouts.slice(0, 3).map((workout) => (
-            <View key={workout.id} style={styles.workoutCard}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <View style={[styles.workoutInfo, { flex: 1 }]}>
-                  <Text style={styles.workoutName}>{workout.name}</Text>
-                  <Text style={styles.workoutMeta}>
-                    by @{workout.creator?.username || workout.creator_username || 'unknown'} • {workout.exercises?.length || workout.exercise_count || 0} exercises{getDurationRange(workout) ? ` • ${getDurationRange(workout)}` : ''}
-                  </Text>
+          <>
+            {communityWorkouts.slice(0, workoutLimit).map((workout) => (
+              <View key={workout.id} style={styles.workoutCard}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <View style={[styles.workoutInfo, { flex: 1 }]}>
+                    <Text style={styles.workoutName}>{workout.name}</Text>
+                    <Text style={styles.workoutMeta}>
+                      by @{workout.creator?.username || workout.creator_username || 'unknown'} • {workout.exercises?.length || workout.exercise_count || 0} exercises{getDurationRange(workout) ? ` • ${getDurationRange(workout)}` : ''}
+                    </Text>
+                  </View>
+                  {workout.creator_id === user?.id && (
+                    <TouchableOpacity
+                      onPress={() => handleDeletePublishedWorkout(workout.id)}
+                      style={{ padding: 6 }}
+                    >
+                      <Trash2 size={16} color={COLORS.textMuted} />
+                    </TouchableOpacity>
+                  )}
                 </View>
-                {workout.creator_id === user?.id && (
-                  <TouchableOpacity
-                    onPress={() => handleDeletePublishedWorkout(workout.id)}
-                    style={{ padding: 6 }}
-                  >
-                    <Trash2 size={16} color={COLORS.textMuted} />
-                  </TouchableOpacity>
-                )}
-              </View>
-              <View style={styles.workoutStats}>
-                <Text style={styles.workoutStatText}>{(workout.average_rating || 0).toFixed(1)} rating • {workout.completion_count || 0} completions</Text>
-              </View>
-              <WorkoutExercisePreview exercises={workout.exercises} COLORS={COLORS} />
+                <View style={styles.workoutStats}>
+                  <Text style={styles.workoutStatText}>{(workout.average_rating || 0).toFixed(1)} rating • {workout.completion_count || 0} completions</Text>
+                </View>
+                <WorkoutExercisePreview exercises={workout.exercises} COLORS={COLORS} />
 
-              <View style={styles.workoutActions}>
-                <TouchableOpacity
-                  style={[styles.saveButton, savedWorkoutIds.has(workout.id) && styles.saveButtonActive]}
-                  onPress={() => handleSaveWorkout(workout.id)}
-                >
-                  <Text style={[styles.saveButtonText, savedWorkoutIds.has(workout.id) && styles.saveButtonTextActive]}>
-                    {savedWorkoutIds.has(workout.id) ? 'Saved' : 'Save'}
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.startButton} onPress={() => handleStartCommunityWorkout(workout)}>
-                  <Text style={styles.startButtonText}>Start</Text>
-                </TouchableOpacity>
+                <View style={styles.workoutActions}>
+                  <TouchableOpacity
+                    style={[styles.saveButton, savedWorkoutIds.has(workout.id) && styles.saveButtonActive]}
+                    onPress={() => handleSaveWorkout(workout.id)}
+                  >
+                    <Text style={[styles.saveButtonText, savedWorkoutIds.has(workout.id) && styles.saveButtonTextActive]}>
+                      {savedWorkoutIds.has(workout.id) ? 'Saved' : 'Save'}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.startButton} onPress={() => handleStartCommunityWorkout(workout)}>
+                    <Text style={styles.startButtonText}>Start</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
-          ))
+            ))}
+            {communityWorkouts.length > workoutLimit && (
+              <TouchableOpacity
+                style={styles.loadMoreBtn}
+                onPress={() => setWorkoutLimit(prev => prev + 5)}
+              >
+                <Text style={styles.loadMoreText}>Load more ({communityWorkouts.length - workoutLimit} remaining)</Text>
+              </TouchableOpacity>
+            )}
+            {communityWorkouts.length > 3 && workoutLimit > 3 && (
+              <TouchableOpacity
+                style={styles.loadMoreBtn}
+                onPress={() => setWorkoutLimit(3)}
+              >
+                <Text style={styles.loadMoreText}>Show less</Text>
+              </TouchableOpacity>
+            )}
+          </>
         )}
       </View>
 

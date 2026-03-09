@@ -1709,6 +1709,19 @@ export const EXERCISES = [
     ],
   },
   {
+    name: 'Underhand Tricep Extension',
+    muscleGroup: 'Triceps',
+    equipment: 'Cable',
+    type: 'Isolation',
+    description: 'Cable extension with an underhand (supinated) grip. Emphasises the medial head of the tricep with constant cable tension.',
+    tips: [
+      'Use a straight bar or EZ bar on a high cable with an underhand grip.',
+      'Keep elbows pinned to your sides — only your forearms should move.',
+      'Fully extend at the bottom and squeeze the tricep hard.',
+      'Use a controlled tempo — the underhand grip changes the leverage so go lighter than overhand.',
+    ],
+  },
+  {
     name: 'Tricep Dips',
     muscleGroup: 'Triceps',
     equipment: 'Bodyweight',

@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { X, Plus, Minus, Check, Play, Square, RotateCcw } from 'lucide-react-native';
 import { useColors } from '../contexts/ThemeContext';
+import { EXERCISES } from '../constants/exercises';
 
 // Exercises that can have assisted or added weight
 const ASSISTED_WEIGHT_EXERCISES = [
@@ -53,8 +54,17 @@ const LogSetModal = ({
   const [supersetWeight, setSupersetWeight] = useState('');
   const [supersetReps, setSupersetReps] = useState('');
   const [drops, setDrops] = useState([{ weight: '', reps: '' }]);
+  const [isAmrap, setIsAmrap] = useState(false);
   const [weightMode, setWeightMode] = useState(null); // 'added' or 'assisted' for bodyweight exercises
   const [hasInitialized, setHasInitialized] = useState(false);
+  const [supersetTimerRunning, setSupersetTimerRunning] = useState(false);
+  const [supersetElapsedSeconds, setSupersetElapsedSeconds] = useState(0);
+  const supersetTimerRef = useRef(null);
+
+  // Check if superset exercise is timed (isometric)
+  const isSupersetTimed = supersetExercise
+    ? EXERCISES.find(e => e.name.toLowerCase() === supersetExercise.toLowerCase())?.type === 'Isometric'
+    : false;
 
   // Reset state when modal opens fresh (not returning from superset)
   useEffect(() => {
@@ -70,6 +80,7 @@ const LogSetModal = ({
         setSupersetReps(editData.supersetReps?.toString() || '');
         setDrops(editData.drops?.length > 0 ? editData.drops : [{ weight: '', reps: '' }]);
         setWeightMode(editData.weightMode || null);
+        setIsAmrap(editData.isAmrap || false);
       } else {
         setRpe(null);
         setSetType(setNumber === 1 ? 'warmup' : null);
@@ -78,6 +89,7 @@ const LogSetModal = ({
         setSupersetReps('');
         setDrops([{ weight: '', reps: '' }]);
         setWeightMode(null);
+        setIsAmrap(false);
       }
       setHasInitialized(true);
     }
@@ -127,6 +139,41 @@ const LogSetModal = ({
       setReps(elapsedSeconds.toString());
     }
   }, [elapsedSeconds, isTimedExercise]);
+
+  // Superset timer interval
+  useEffect(() => {
+    if (supersetTimerRunning) {
+      supersetTimerRef.current = setInterval(() => {
+        setSupersetElapsedSeconds(prev => prev + 1);
+      }, 1000);
+    } else {
+      clearInterval(supersetTimerRef.current);
+    }
+    return () => clearInterval(supersetTimerRef.current);
+  }, [supersetTimerRunning]);
+
+  // Sync supersetElapsedSeconds to supersetReps for timed superset exercises
+  useEffect(() => {
+    if (isSupersetTimed) {
+      setSupersetReps(supersetElapsedSeconds.toString());
+    }
+  }, [supersetElapsedSeconds, isSupersetTimed]);
+
+  // Reset superset timer when superset exercise changes
+  useEffect(() => {
+    setSupersetTimerRunning(false);
+    setSupersetElapsedSeconds(0);
+    clearInterval(supersetTimerRef.current);
+  }, [supersetExercise]);
+
+  // Clean up superset timer when modal closes
+  useEffect(() => {
+    if (!visible) {
+      setSupersetTimerRunning(false);
+      setSupersetElapsedSeconds(0);
+      clearInterval(supersetTimerRef.current);
+    }
+  }, [visible]);
 
   const formatDuration = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -206,6 +253,7 @@ const LogSetModal = ({
       supersetWeight: setType === 'superset' ? (supersetWeight === 'BW' ? 'BW' : (parseFloat(supersetWeight) || 0)) : null,
       supersetReps: setType === 'superset' ? (parseInt(supersetReps) || 0) : null,
       drops: setType === 'dropset' ? drops : null,
+      isAmrap,
     };
     onSave(setData);
     onClose();
@@ -402,6 +450,21 @@ const LogSetModal = ({
                     <Plus size={24} color={COLORS.text} />
                   </TouchableOpacity>
                 </View>
+                {/* AMRAP Toggle */}
+                <TouchableOpacity
+                  style={[
+                    styles.amrapButton,
+                    isAmrap && styles.amrapButtonSelected,
+                  ]}
+                  onPress={() => setIsAmrap(!isAmrap)}
+                >
+                  <Text style={[
+                    styles.amrapText,
+                    isAmrap && styles.amrapTextSelected,
+                  ]}>
+                    AMRAP
+                  </Text>
+                </TouchableOpacity>
               </>
             )}
           </View>
@@ -553,77 +616,133 @@ const LogSetModal = ({
                   </TouchableOpacity>
                 )}
 
-                {/* Superset Weight & Reps - show after exercise is selected */}
+                {/* Superset Weight & Reps/Duration - show after exercise is selected */}
                 {supersetExercise && (
                   <>
-                    <Text style={styles.inputLabel}>Weight ({weightUnit})</Text>
-                    <View style={styles.inputRow}>
-                      <TouchableOpacity
-                        style={styles.adjustButton}
-                        onPress={() => adjustSupersetWeight(-2.5)}
-                      >
-                        <Minus size={24} color={COLORS.text} />
-                      </TouchableOpacity>
-                      <View style={styles.inputWrapper}>
-                        <TextInput
-                          style={styles.mainInput}
-                          value={supersetWeight}
-                          onChangeText={setSupersetWeight}
-                          keyboardType="decimal-pad"
-                          placeholder="0"
-                          placeholderTextColor={COLORS.textMuted}
-                          textAlign="center"
-                        />
-                      </View>
-                      <TouchableOpacity
-                        style={styles.adjustButton}
-                        onPress={() => adjustSupersetWeight(2.5)}
-                      >
-                        <Plus size={24} color={COLORS.text} />
-                      </TouchableOpacity>
-                    </View>
-                    {/* Bodyweight Option for Superset */}
-                    <TouchableOpacity
-                      style={[
-                        styles.bodyweightButton,
-                        supersetWeight === 'BW' && styles.bodyweightButtonSelected,
-                      ]}
-                      onPress={() => setSupersetWeight(supersetWeight === 'BW' ? '' : 'BW')}
-                    >
-                      <Text style={[
-                        styles.bodyweightText,
-                        supersetWeight === 'BW' && styles.bodyweightTextSelected,
-                      ]}>
-                        Bodyweight
-                      </Text>
-                    </TouchableOpacity>
+                    {!isSupersetTimed && (
+                      <>
+                        <Text style={styles.inputLabel}>Weight ({weightUnit})</Text>
+                        <View style={styles.inputRow}>
+                          <TouchableOpacity
+                            style={styles.adjustButton}
+                            onPress={() => adjustSupersetWeight(-2.5)}
+                          >
+                            <Minus size={24} color={COLORS.text} />
+                          </TouchableOpacity>
+                          <View style={styles.inputWrapper}>
+                            <TextInput
+                              style={styles.mainInput}
+                              value={supersetWeight}
+                              onChangeText={setSupersetWeight}
+                              keyboardType="decimal-pad"
+                              placeholder="0"
+                              placeholderTextColor={COLORS.textMuted}
+                              textAlign="center"
+                            />
+                          </View>
+                          <TouchableOpacity
+                            style={styles.adjustButton}
+                            onPress={() => adjustSupersetWeight(2.5)}
+                          >
+                            <Plus size={24} color={COLORS.text} />
+                          </TouchableOpacity>
+                        </View>
+                        {/* Bodyweight Option for Superset */}
+                        <TouchableOpacity
+                          style={[
+                            styles.bodyweightButton,
+                            supersetWeight === 'BW' && styles.bodyweightButtonSelected,
+                          ]}
+                          onPress={() => setSupersetWeight(supersetWeight === 'BW' ? '' : 'BW')}
+                        >
+                          <Text style={[
+                            styles.bodyweightText,
+                            supersetWeight === 'BW' && styles.bodyweightTextSelected,
+                          ]}>
+                            Bodyweight
+                          </Text>
+                        </TouchableOpacity>
+                      </>
+                    )}
 
-                    <Text style={styles.inputLabel}>Reps</Text>
-                    <View style={styles.inputRow}>
-                      <TouchableOpacity
-                        style={styles.adjustButton}
-                        onPress={() => adjustSupersetReps(-1)}
-                      >
-                        <Minus size={24} color={COLORS.text} />
-                      </TouchableOpacity>
-                      <View style={styles.inputWrapper}>
-                        <TextInput
-                          style={styles.mainInput}
-                          value={supersetReps}
-                          onChangeText={setSupersetReps}
-                          keyboardType="number-pad"
-                          placeholder="0"
-                          placeholderTextColor={COLORS.textMuted}
-                          textAlign="center"
-                        />
-                      </View>
-                      <TouchableOpacity
-                        style={styles.adjustButton}
-                        onPress={() => adjustSupersetReps(1)}
-                      >
-                        <Plus size={24} color={COLORS.text} />
-                      </TouchableOpacity>
-                    </View>
+                    {isSupersetTimed ? (
+                      <>
+                        <Text style={styles.inputLabel}>Duration</Text>
+                        <View style={styles.stopwatchDisplay}>
+                          <Text style={styles.stopwatchTime}>{formatDuration(supersetElapsedSeconds)}</Text>
+                        </View>
+                        <View style={styles.stopwatchControls}>
+                          <TouchableOpacity
+                            style={[styles.stopwatchButton, supersetTimerRunning ? styles.stopwatchButtonStop : styles.stopwatchButtonStart]}
+                            onPress={() => setSupersetTimerRunning(!supersetTimerRunning)}
+                          >
+                            {supersetTimerRunning ? (
+                              <Square size={20} color={COLORS.textOnPrimary} />
+                            ) : (
+                              <Play size={20} color={COLORS.textOnPrimary} />
+                            )}
+                            <Text style={styles.stopwatchButtonText}>{supersetTimerRunning ? 'Stop' : 'Start'}</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.stopwatchResetButton}
+                            onPress={() => {
+                              setSupersetTimerRunning(false);
+                              setSupersetElapsedSeconds(0);
+                            }}
+                          >
+                            <RotateCcw size={20} color={COLORS.textMuted} />
+                            <Text style={styles.stopwatchResetText}>Reset</Text>
+                          </TouchableOpacity>
+                        </View>
+                        <View style={styles.inputRow}>
+                          <TouchableOpacity
+                            style={styles.adjustButton}
+                            onPress={() => setSupersetElapsedSeconds(prev => Math.max(0, prev - 5))}
+                          >
+                            <Minus size={24} color={COLORS.text} />
+                          </TouchableOpacity>
+                          <View style={styles.inputWrapper}>
+                            <Text style={styles.mainInput}>{supersetElapsedSeconds}s</Text>
+                          </View>
+                          <TouchableOpacity
+                            style={styles.adjustButton}
+                            onPress={() => setSupersetElapsedSeconds(prev => prev + 5)}
+                          >
+                            <Plus size={24} color={COLORS.text} />
+                          </TouchableOpacity>
+                        </View>
+                        <Text style={[styles.inputLabel, { textAlign: 'center', marginTop: -4 }]}>Adjust by 5 seconds</Text>
+                      </>
+                    ) : (
+                      <>
+                        <Text style={styles.inputLabel}>Reps</Text>
+                        <View style={styles.inputRow}>
+                          <TouchableOpacity
+                            style={styles.adjustButton}
+                            onPress={() => adjustSupersetReps(-1)}
+                          >
+                            <Minus size={24} color={COLORS.text} />
+                          </TouchableOpacity>
+                          <View style={styles.inputWrapper}>
+                            <TextInput
+                              style={styles.mainInput}
+                              value={supersetReps}
+                              onChangeText={setSupersetReps}
+                              keyboardType="number-pad"
+                              placeholder="0"
+                              placeholderTextColor={COLORS.textMuted}
+                              textAlign="center"
+                            />
+                          </View>
+                          <TouchableOpacity
+                            style={styles.adjustButton}
+                            onPress={() => adjustSupersetReps(1)}
+                          >
+                            <Plus size={24} color={COLORS.text} />
+                          </TouchableOpacity>
+                        </View>
+                      </>
+                    )}
                   </>
                 )}
               </View>
@@ -878,6 +997,27 @@ const getStyles = (COLORS) => StyleSheet.create({
   },
   bodyweightTextSelected: {
     color: COLORS.textOnPrimary,
+  },
+
+  // AMRAP
+  amrapButton: {
+    alignSelf: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: COLORS.surface,
+    marginBottom: 8,
+  },
+  amrapButtonSelected: {
+    backgroundColor: '#8B5CF6',
+  },
+  amrapText: {
+    color: COLORS.textMuted,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  amrapTextSelected: {
+    color: '#FFFFFF',
   },
 
   // Weight Mode (assisted/added)

@@ -136,6 +136,12 @@ const HealthScreen = () => {
   const [showWaterGoalEdit, setShowWaterGoalEdit] = useState(false);
   const [waterGoalInput, setWaterGoalInput] = useState('');
 
+  // Macro goals editing
+  const [showMacroGoals, setShowMacroGoals] = useState(false);
+  const [macroGoalInputs, setMacroGoalInputs] = useState({
+    calories: '', protein: '', carbs: '', fats: ''
+  });
+
   // Modals
   const [showAddMeal, setShowAddMeal] = useState(false);
   const [showWaterEntry, setShowWaterEntry] = useState(false);
@@ -150,6 +156,60 @@ const HealthScreen = () => {
     setToastMessage(message);
     setToastType(type);
     setToastVisible(true);
+  };
+
+  const openMacroGoals = () => {
+    setMacroGoalInputs({
+      calories: nutritionGoals.calories.toString(),
+      protein: nutritionGoals.protein.toString(),
+      carbs: nutritionGoals.carbs.toString(),
+      fats: nutritionGoals.fats.toString(),
+    });
+    setShowMacroGoals(true);
+  };
+
+  const saveMacroGoals = async () => {
+    const cal = parseInt(macroGoalInputs.calories);
+    const pro = parseInt(macroGoalInputs.protein);
+    const carb = parseInt(macroGoalInputs.carbs);
+    const fat = parseInt(macroGoalInputs.fats);
+
+    if (!cal || cal < 500 || cal > 10000) {
+      showToast('Calories must be between 500 and 10,000', 'error');
+      return;
+    }
+    if (isNaN(pro) || pro < 0 || pro > 1000) {
+      showToast('Protein must be between 0 and 1,000g', 'error');
+      return;
+    }
+    if (isNaN(carb) || carb < 0 || carb > 1000) {
+      showToast('Carbs must be between 0 and 1,000g', 'error');
+      return;
+    }
+    if (isNaN(fat) || fat < 0 || fat > 1000) {
+      showToast('Fats must be between 0 and 1,000g', 'error');
+      return;
+    }
+
+    try {
+      const { error } = await profileService.updateProfile(user.id, {
+        calorie_goal: cal,
+        protein_goal: pro,
+        carb_goal: carb,
+        fat_goal: fat,
+      });
+      if (error) {
+        console.log('Error saving macro goals:', error);
+        showToast('Failed to save goals', 'error');
+        return;
+      }
+      await refreshProfile();
+      setShowMacroGoals(false);
+      showToast('Macro goals updated');
+    } catch (error) {
+      console.log('Error saving macro goals:', error);
+      showToast('Failed to save goals', 'error');
+    }
   };
 
   // Goals - read from user profile
@@ -806,57 +866,59 @@ const HealthScreen = () => {
           >
             <Text style={styles.logMealBtnText}>Log Meal</Text>
           </TouchableOpacity>
-          <View style={styles.macroRingsRow}>
-            {/* Protein Ring */}
-            <View style={styles.macroRingItem}>
-              <View style={styles.macroRingWrapper}>
-                <Svg width={56} height={56} style={{ transform: [{ rotate: '-90deg' }] }}>
-                  <Circle cx={28} cy={28} r={23} stroke={COLORS.surfaceLight} strokeWidth={5} fill="none" />
-                  <Circle
-                    cx={28}
-                    cy={28}
-                    r={23}
-                    stroke={proteinComplete ? COLORS.success : COLORS.primary}
-                    strokeWidth={5}
-                    fill="none"
-                    strokeDasharray={2 * Math.PI * 23}
-                    strokeDashoffset={2 * Math.PI * 23 * (1 - Math.min(proteinPercent / 100, 1))}
-                    strokeLinecap="round"
-                  />
-                </Svg>
-                <View style={[styles.macroRingInner, { position: 'absolute' }]}>
-                  <Text style={[styles.macroRingValue, { color: proteinComplete ? COLORS.success : COLORS.primary }]}>{proteinPercent}%</Text>
+          <TouchableOpacity activeOpacity={0.7} onPress={openMacroGoals}>
+            <View style={styles.macroRingsRow}>
+              {/* Protein Ring */}
+              <View style={styles.macroRingItem}>
+                <View style={styles.macroRingWrapper}>
+                  <Svg width={56} height={56} style={{ transform: [{ rotate: '-90deg' }] }}>
+                    <Circle cx={28} cy={28} r={23} stroke={COLORS.surfaceLight} strokeWidth={5} fill="none" />
+                    <Circle
+                      cx={28}
+                      cy={28}
+                      r={23}
+                      stroke={proteinComplete ? COLORS.success : COLORS.primary}
+                      strokeWidth={5}
+                      fill="none"
+                      strokeDasharray={2 * Math.PI * 23}
+                      strokeDashoffset={2 * Math.PI * 23 * (1 - Math.min(proteinPercent / 100, 1))}
+                      strokeLinecap="round"
+                    />
+                  </Svg>
+                  <View style={[styles.macroRingInner, { position: 'absolute' }]}>
+                    <Text style={[styles.macroRingValue, { color: proteinComplete ? COLORS.success : COLORS.primary }]}>{proteinPercent}%</Text>
+                  </View>
                 </View>
+                <Text style={[styles.macroRingLabel, proteinComplete && { color: COLORS.success }]}>Protein</Text>
+                <Text style={[styles.macroRingSubtext, proteinComplete && { color: COLORS.success }]}>{proteinIntake}g / {nutritionGoals.protein}g</Text>
               </View>
-              <Text style={[styles.macroRingLabel, proteinComplete && { color: COLORS.success }]}>Protein</Text>
-              <Text style={[styles.macroRingSubtext, proteinComplete && { color: COLORS.success }]}>{proteinIntake}g / {nutritionGoals.protein}g</Text>
-            </View>
 
-            {/* Carbs Ring */}
-            <View style={styles.macroRingItem}>
-              <View style={styles.macroRingWrapper}>
-                <Svg width={56} height={56} style={{ transform: [{ rotate: '-90deg' }] }}>
-                  <Circle cx={28} cy={28} r={23} stroke={COLORS.surfaceLight} strokeWidth={5} fill="none" />
-                  <Circle
-                    cx={28}
-                    cy={28}
-                    r={23}
-                    stroke={COLORS.primary}
-                    strokeWidth={5}
-                    fill="none"
-                    strokeDasharray={2 * Math.PI * 23}
-                    strokeDashoffset={2 * Math.PI * 23 * (1 - Math.min(carbsPercent / 100, 1))}
-                    strokeLinecap="round"
-                  />
-                </Svg>
-                <View style={[styles.macroRingInner, { position: 'absolute' }]}>
-                  <Text style={[styles.macroRingValue, { color: COLORS.primary }]}>{carbsPercent}%</Text>
+              {/* Carbs Ring */}
+              <View style={styles.macroRingItem}>
+                <View style={styles.macroRingWrapper}>
+                  <Svg width={56} height={56} style={{ transform: [{ rotate: '-90deg' }] }}>
+                    <Circle cx={28} cy={28} r={23} stroke={COLORS.surfaceLight} strokeWidth={5} fill="none" />
+                    <Circle
+                      cx={28}
+                      cy={28}
+                      r={23}
+                      stroke={COLORS.primary}
+                      strokeWidth={5}
+                      fill="none"
+                      strokeDasharray={2 * Math.PI * 23}
+                      strokeDashoffset={2 * Math.PI * 23 * (1 - Math.min(carbsPercent / 100, 1))}
+                      strokeLinecap="round"
+                    />
+                  </Svg>
+                  <View style={[styles.macroRingInner, { position: 'absolute' }]}>
+                    <Text style={[styles.macroRingValue, { color: COLORS.primary }]}>{carbsPercent}%</Text>
+                  </View>
                 </View>
+                <Text style={styles.macroRingLabel}>Carbs</Text>
+                <Text style={styles.macroRingSubtext}>{carbsIntake}g / {nutritionGoals.carbs}g</Text>
               </View>
-              <Text style={styles.macroRingLabel}>Carbs</Text>
-              <Text style={styles.macroRingSubtext}>{carbsIntake}g / {nutritionGoals.carbs}g</Text>
             </View>
-          </View>
+          </TouchableOpacity>
           {/* Recent Meals */}
           <View style={styles.recentInCard}>
             {meals.length === 0 ? (
@@ -1040,12 +1102,20 @@ const HealthScreen = () => {
         {/* REMAINING TODAY Section */}
         <View style={styles.remainingHeader}>
           <Text style={styles.remainingTitle}>REMAINING TODAY</Text>
-          <TouchableOpacity
-            style={styles.adjustedBadge}
-            onPress={() => setShowAdjustedInfo(true)}
-          >
-            <Text style={styles.adjustedBadgeText}>adjusted</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <TouchableOpacity
+              onPress={openMacroGoals}
+              style={{ padding: 4 }}
+            >
+              <Pencil size={16} color={COLORS.textMuted} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.adjustedBadge}
+              onPress={() => setShowAdjustedInfo(true)}
+            >
+              <Text style={styles.adjustedBadgeText}>adjusted</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.remainingCardsRow}>
@@ -1981,6 +2051,85 @@ const HealthScreen = () => {
         onHide={() => setToastVisible(false)}
       />
 
+      {/* Macro Goals Modal */}
+      <Modal
+        visible={showMacroGoals}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowMacroGoals(false)}
+      >
+        <View
+          style={styles.adjustedModalOverlay}
+          onClick={() => setShowMacroGoals(false)}
+        >
+          <View
+            style={styles.macroGoalsModalContent}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <View style={styles.macroGoalsHeader}>
+              <Text style={styles.adjustedModalTitle}>Macro Goals</Text>
+              <TouchableOpacity onPress={() => setShowMacroGoals(false)}>
+                <X size={20} color={COLORS.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.macroGoalsGrid}>
+              <View style={styles.macroGoalField}>
+                <Text style={styles.macroGoalLabel}>Calories</Text>
+                <TextInput
+                  style={styles.macroGoalInput}
+                  value={macroGoalInputs.calories}
+                  onChangeText={(v) => setMacroGoalInputs(prev => ({ ...prev, calories: v }))}
+                  keyboardType="number-pad"
+                  placeholder="2200"
+                  placeholderTextColor={COLORS.textMuted}
+                />
+              </View>
+              <View style={styles.macroGoalField}>
+                <Text style={styles.macroGoalLabel}>Protein (g)</Text>
+                <TextInput
+                  style={styles.macroGoalInput}
+                  value={macroGoalInputs.protein}
+                  onChangeText={(v) => setMacroGoalInputs(prev => ({ ...prev, protein: v }))}
+                  keyboardType="number-pad"
+                  placeholder="150"
+                  placeholderTextColor={COLORS.textMuted}
+                />
+              </View>
+              <View style={styles.macroGoalField}>
+                <Text style={styles.macroGoalLabel}>Carbs (g)</Text>
+                <TextInput
+                  style={styles.macroGoalInput}
+                  value={macroGoalInputs.carbs}
+                  onChangeText={(v) => setMacroGoalInputs(prev => ({ ...prev, carbs: v }))}
+                  keyboardType="number-pad"
+                  placeholder="250"
+                  placeholderTextColor={COLORS.textMuted}
+                />
+              </View>
+              <View style={styles.macroGoalField}>
+                <Text style={styles.macroGoalLabel}>Fats (g)</Text>
+                <TextInput
+                  style={styles.macroGoalInput}
+                  value={macroGoalInputs.fats}
+                  onChangeText={(v) => setMacroGoalInputs(prev => ({ ...prev, fats: v }))}
+                  keyboardType="number-pad"
+                  placeholder="70"
+                  placeholderTextColor={COLORS.textMuted}
+                />
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={styles.adjustedModalButton}
+              onPress={saveMacroGoals}
+            >
+              <Text style={styles.adjustedModalButtonText}>Save Goals</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {/* Adjusted Info Modal */}
       <Modal
         visible={showAdjustedInfo}
@@ -2764,6 +2913,44 @@ const getStyles = (COLORS) => StyleSheet.create({
     color: COLORS.textOnPrimary,
     fontSize: 15,
     fontWeight: '600',
+  },
+  macroGoalsModalContent: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 340,
+  },
+  macroGoalsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  macroGoalsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 20,
+  },
+  macroGoalField: {
+    width: '47%',
+  },
+  macroGoalLabel: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
+    marginBottom: 6,
+  },
+  macroGoalInput: {
+    backgroundColor: COLORS.background,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '600',
+    borderWidth: 1,
+    borderColor: COLORS.surfaceLight,
   },
   remainingCardsRow: {
     flexDirection: 'row',

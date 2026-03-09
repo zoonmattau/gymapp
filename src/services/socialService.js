@@ -939,6 +939,92 @@ export const socialService = {
       return { data: [], error: err };
     }
   },
+  // Get combined friends list (following + followers, deduplicated)
+  async getFriendsList(userId) {
+    try {
+      if (!userId) return { data: [], error: null };
+
+      const [followingResult, followersResult] = await Promise.all([
+        this.getFollowing(userId),
+        this.getFollowers(userId),
+      ]);
+
+      const friendsMap = {};
+
+      // Add users we follow
+      (followingResult.data || []).forEach(item => {
+        const profile = item.following;
+        if (profile?.id) {
+          friendsMap[profile.id] = {
+            id: profile.id,
+            username: profile.username || 'user',
+            first_name: profile.first_name,
+            last_name: profile.last_name,
+            name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || profile.username || 'User',
+            avatar_url: profile.avatar_url,
+          };
+        }
+      });
+
+      // Add users who follow us (deduplicates by id)
+      (followersResult.data || []).forEach(item => {
+        const profile = item.follower;
+        if (profile?.id && !friendsMap[profile.id]) {
+          friendsMap[profile.id] = {
+            id: profile.id,
+            username: profile.username || 'user',
+            first_name: profile.first_name,
+            last_name: profile.last_name,
+            name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || profile.username || 'User',
+            avatar_url: profile.avatar_url,
+          };
+        }
+      });
+
+      return { data: Object.values(friendsMap), error: null };
+    } catch (err) {
+      console.warn('Error getting friends list:', err?.message);
+      return { data: [], error: err };
+    }
+  },
+
+  // Share a workout to selected friends
+  async shareWorkoutToFriends(fromUserId, fromUserName, sessionId, friendIds) {
+    try {
+      if (!fromUserId || !sessionId || !friendIds?.length) {
+        return { error: new Error('Missing required parameters') };
+      }
+
+      // Insert shared_workouts rows
+      const rows = friendIds.map(toUserId => ({
+        from_user_id: fromUserId,
+        to_user_id: toUserId,
+        session_id: sessionId,
+      }));
+
+      const { error: insertError } = await supabase
+        .from('shared_workouts')
+        .insert(rows);
+
+      if (insertError) {
+        console.warn('Error inserting shared_workouts:', insertError?.message);
+        return { error: insertError };
+      }
+
+      // Send notifications to each friend
+      const { notificationService } = require('./notificationService');
+      await Promise.all(
+        friendIds.map(friendId =>
+          notificationService.notifySharedWorkout(friendId, fromUserId, fromUserName, sessionId)
+        )
+      );
+
+      return { error: null };
+    } catch (err) {
+      console.warn('Error sharing workout to friends:', err?.message);
+      return { error: err };
+    }
+  },
 };
 
 // Helper function to format activity time
