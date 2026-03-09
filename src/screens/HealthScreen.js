@@ -1343,8 +1343,10 @@ const HealthScreen = () => {
                     setWaterGoalInput(waterGoalL);
                     setShowWaterGoalEdit(true);
                   }}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
                 >
                   <Text style={styles.waterProgressValue}>{waterGoalL}L</Text>
+                  <Pencil size={14} color={COLORS.textMuted} />
                 </TouchableOpacity>
               )}
               <Text style={styles.waterProgressLabel}>goal</Text>
