@@ -11,8 +11,9 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Linking,
 } from 'react-native';
-import { Mail, Lock, Eye, EyeOff, ArrowLeft } from 'lucide-react-native';
+import { Mail, Lock, Eye, EyeOff, ArrowLeft, Check } from 'lucide-react-native';
 import { useColors } from '../contexts/ThemeContext';
 import { supabase } from '../lib/supabase';
 
@@ -25,6 +26,7 @@ const RegisterScreen = ({ navigation }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  const [agreedToPrivacy, setAgreedToPrivacy] = useState(false);
 
   const validateForm = () => {
     const newErrors = {};
@@ -45,6 +47,10 @@ const RegisterScreen = ({ navigation }) => {
       newErrors.confirmPassword = 'Please confirm your password';
     } else if (password !== confirmPassword) {
       newErrors.confirmPassword = 'Passwords do not match';
+    }
+
+    if (!agreedToPrivacy) {
+      newErrors.privacy = 'You must agree to the Privacy Policy and Terms of Service';
     }
 
     setErrors(newErrors);
@@ -209,12 +215,47 @@ const RegisterScreen = ({ navigation }) => {
               )}
             </TouchableOpacity>
 
-            {/* Terms */}
-            <Text style={styles.termsText}>
-              By creating an account, you agree to our{' '}
-              <Text style={styles.termsLink}>Terms of Service</Text> and{' '}
-              <Text style={styles.termsLink}>Privacy Policy</Text>
-            </Text>
+            {/* Privacy Policy Agreement */}
+            <View style={styles.privacyRow}>
+              <TouchableOpacity
+                style={[styles.checkbox, agreedToPrivacy && styles.checkboxChecked, errors.privacy && styles.checkboxError]}
+                onPress={() => { setAgreedToPrivacy(!agreedToPrivacy); setErrors(prev => ({ ...prev, privacy: undefined })); }}
+                activeOpacity={0.7}
+              >
+                {agreedToPrivacy && <Check size={14} color={COLORS.textOnPrimary} />}
+              </TouchableOpacity>
+              <Text style={styles.termsText}>
+                I have read and agree to the{' '}
+                <Text
+                  style={styles.termsLink}
+                  onPress={() => {
+                    const url = 'https://www.uprep.com.au/privacy/';
+                    if (Platform.OS === 'web') {
+                      window.open(url, '_blank');
+                    } else {
+                      Linking.openURL(url);
+                    }
+                  }}
+                >
+                  Privacy Policy
+                </Text>
+                {' '}and{' '}
+                <Text
+                  style={styles.termsLink}
+                  onPress={() => {
+                    const url = 'https://www.uprep.com.au/terms/';
+                    if (Platform.OS === 'web') {
+                      window.open(url, '_blank');
+                    } else {
+                      Linking.openURL(url);
+                    }
+                  }}
+                >
+                  Terms of Service
+                </Text>
+              </Text>
+            </View>
+            {errors.privacy && <Text style={styles.errorText}>{errors.privacy}</Text>}
           </View>
 
           {/* Login Link */}
@@ -321,15 +362,37 @@ const getStyles = (COLORS) => StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
   },
+  privacyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    gap: 10,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: COLORS.textMuted,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  checkboxError: {
+    borderColor: COLORS.error,
+  },
   termsText: {
     color: COLORS.textMuted,
-    fontSize: 12,
-    textAlign: 'center',
-    marginTop: 8,
+    fontSize: 13,
     lineHeight: 18,
+    flex: 1,
   },
   termsLink: {
     color: COLORS.primary,
+    textDecorationLine: 'underline',
   },
   loginContainer: {
     flexDirection: 'row',
