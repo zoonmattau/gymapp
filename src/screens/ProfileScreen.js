@@ -1914,6 +1914,20 @@ const ProfileScreen = () => {
             <ChevronRight size={18} color={COLORS.textMuted} />
           </TouchableOpacity>
 
+          {/* Privacy Policy */}
+          <TouchableOpacity
+            style={styles.settingsItem}
+            onPress={() => {
+              if (Platform.OS === 'web') {
+                window.open('https://www.uprep.com.au/privacy/', '_blank');
+              }
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.settingsLabel}>Privacy Policy</Text>
+            <ChevronRight size={18} color={COLORS.textMuted} />
+          </TouchableOpacity>
+
           {/* About UpRep */}
           <TouchableOpacity style={[styles.settingsItem, { borderBottomWidth: 0 }]} onPress={() => setShowAboutModal(true)} activeOpacity={0.7}>
             <Text style={styles.settingsLabel}>About UpRep</Text>
