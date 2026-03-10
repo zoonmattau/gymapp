@@ -9,7 +9,7 @@ export const useTheme = () => useContext(ThemeContext);
 export const useColors = () => useContext(ThemeContext).colors;
 
 export const ThemeProvider = ({ children }) => {
-  const [mode, setMode] = useState('light');
+  const [mode, setMode] = useState('dark');
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {

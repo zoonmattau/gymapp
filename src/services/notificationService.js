@@ -57,6 +57,28 @@ export const notificationService = {
     }
   },
 
+  // Get unread shared workout count
+  async getUnreadSharedWorkoutCount(userId) {
+    try {
+      const { count, error } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('type', 'shared_workout')
+        .eq('read', false);
+
+      if (error) {
+        console.warn('getUnreadSharedWorkoutCount error:', error?.message);
+        return { count: 0, error: null };
+      }
+
+      return { count: count || 0, error: null };
+    } catch (err) {
+      console.warn('getUnreadSharedWorkoutCount error:', err?.message);
+      return { count: 0, error: null };
+    }
+  },
+
   // Mark notification as read
   async markAsRead(notificationId) {
     try {

@@ -583,7 +583,7 @@ const WorkoutHistoryScreen = ({ navigation }) => {
             onPress={() => setShowFriendPickerModal(false)}
           >
             <View style={[styles.modalContainer, { maxHeight: 480 }]} onClick={e => e.stopPropagation()}>
-              <TouchableOpacity activeOpacity={1}>
+              <View>
                 <View style={styles.modalHeader}>
                   <Text style={styles.modalTitle}>Send to Friends</Text>
                   <TouchableOpacity onPress={() => setShowFriendPickerModal(false)} style={styles.modalCloseButton}>
@@ -624,7 +624,7 @@ const WorkoutHistoryScreen = ({ navigation }) => {
                     </Text>
                   </TouchableOpacity>
                 )}
-              </TouchableOpacity>
+              </View>
             </View>
           </TouchableOpacity>
         </Modal>
@@ -771,7 +771,7 @@ const WorkoutHistoryScreen = ({ navigation }) => {
           onPress={() => setShowFriendPickerModal(false)}
         >
           <View style={[styles.modalContainer, { maxHeight: 480 }]} {...(Platform.OS === 'web' ? { onClick: e => e.stopPropagation() } : {})}>
-            <TouchableOpacity activeOpacity={1}>
+            <View>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Send to Friends</Text>
                 <TouchableOpacity onPress={() => setShowFriendPickerModal(false)} style={styles.modalCloseButton}>
@@ -812,7 +812,7 @@ const WorkoutHistoryScreen = ({ navigation }) => {
                   </Text>
                 </TouchableOpacity>
               )}
-            </TouchableOpacity>
+            </View>
           </View>
         </TouchableOpacity>
       </Modal>

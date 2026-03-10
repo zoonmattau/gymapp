@@ -906,32 +906,34 @@ const ProgressScreen = () => {
       <View style={styles.chartCard}>
         {weightChartData && filteredWeightHistory.length > 0 ? (
           <>
-            <LineChart
-              data={weightChartData}
-              width={chartWidth}
-              height={180}
-              chartConfig={chartConfig}
-              bezier
-              style={styles.chart}
-              withInnerLines={true}
-              withOuterLines={false}
-              withVerticalLines={false}
-              withHorizontalLines={true}
-              withVerticalLabels={true}
-              withHorizontalLabels={true}
-              fromZero={false}
-              segments={4}
-              onDataPointClick={({ index }) => {
-                const point = filteredWeightHistory[index];
-                const prevPoint = filteredWeightHistory[index - 1];
-                if (point) {
-                  setSelectedWeightPoint({
-                    ...point,
-                    change: prevPoint ? point.weight - prevPoint.weight : null,
-                  });
-                }
-              }}
-            />
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ minWidth: chartWidth }}>
+              <LineChart
+                data={weightChartData}
+                width={Math.max(chartWidth, filteredWeightHistory.length * 50)}
+                height={180}
+                chartConfig={chartConfig}
+                bezier
+                style={styles.chart}
+                withInnerLines={true}
+                withOuterLines={false}
+                withVerticalLines={false}
+                withHorizontalLines={true}
+                withVerticalLabels={true}
+                withHorizontalLabels={true}
+                fromZero={false}
+                segments={4}
+                onDataPointClick={({ index }) => {
+                  const point = filteredWeightHistory[index];
+                  const prevPoint = filteredWeightHistory[index - 1];
+                  if (point) {
+                    setSelectedWeightPoint({
+                      ...point,
+                      change: prevPoint ? point.weight - prevPoint.weight : null,
+                    });
+                  }
+                }}
+              />
+            </ScrollView>
             {selectedWeightPoint && (
               <TouchableOpacity
                 style={styles.weightTooltip}
@@ -942,23 +944,27 @@ const ProgressScreen = () => {
                   {selectedWeightPoint.date ? new Date(selectedWeightPoint.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '--'}
                 </Text>
                 <Text style={styles.weightTooltipValue}>{formatWeight(selectedWeightPoint.weight)}</Text>
-                {selectedWeightPoint.change !== null && (
-                  <View style={styles.weightTooltipChange}>
-                    {selectedWeightPoint.change > 0.05 ? (
-                      <TrendingUp size={12} color={COLORS.success} />
-                    ) : selectedWeightPoint.change < -0.05 ? (
-                      <TrendingDown size={12} color={COLORS.primary} />
-                    ) : (
-                      <Minus size={12} color={COLORS.textMuted} />
-                    )}
-                    <Text style={[
-                      styles.weightTooltipChangeText,
-                      { color: selectedWeightPoint.change > 0.05 ? COLORS.success : selectedWeightPoint.change < -0.05 ? COLORS.primary : COLORS.textMuted }
-                    ]}>
-                      {selectedWeightPoint.change > 0 ? '+' : ''}{formatWeight(selectedWeightPoint.change)}
-                    </Text>
-                  </View>
-                )}
+                {selectedWeightPoint.change !== null && (() => {
+                  const wantToGain = weightData.target > (filteredWeightHistory[filteredWeightHistory.length - 1]?.weight || weightData.current);
+                  const gained = selectedWeightPoint.change > 0.05;
+                  const lost = selectedWeightPoint.change < -0.05;
+                  const isGood = gained ? wantToGain : lost ? !wantToGain : false;
+                  const changeColor = (gained || lost) ? (isGood ? COLORS.success : '#FF6B6B') : COLORS.textMuted;
+                  return (
+                    <View style={styles.weightTooltipChange}>
+                      {gained ? (
+                        <TrendingUp size={12} color={changeColor} />
+                      ) : lost ? (
+                        <TrendingDown size={12} color={changeColor} />
+                      ) : (
+                        <Minus size={12} color={COLORS.textMuted} />
+                      )}
+                      <Text style={[styles.weightTooltipChangeText, { color: changeColor }]}>
+                        {selectedWeightPoint.change > 0 ? '+' : ''}{formatWeight(selectedWeightPoint.change)}
+                      </Text>
+                    </View>
+                  );
+                })()}
               </TouchableOpacity>
             )}
             <View style={styles.chartGoalLine}>
@@ -1114,20 +1120,22 @@ const ProgressScreen = () => {
             )}
           </View>
           {sleepChartData ? (
-            <LineChart
-              data={sleepChartData}
-              width={trendCardWidth - 32}
-              height={160}
-              chartConfig={trendChartConfig('#8B5CF6')}
-              bezier
-              withShadow={false}
-              withInnerLines={true}
-              withOuterLines={false}
-              withVerticalLines={false}
-              withHorizontalLines={true}
-              segments={3}
-              style={{ marginLeft: -8 }}
-            />
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ minWidth: trendCardWidth - 32 }}>
+              <LineChart
+                data={sleepChartData}
+                width={Math.max(trendCardWidth - 32, (sleepHistory?.length || 0) * 50)}
+                height={160}
+                chartConfig={trendChartConfig('#8B5CF6')}
+                bezier
+                withShadow={false}
+                withInnerLines={true}
+                withOuterLines={false}
+                withVerticalLines={false}
+                withHorizontalLines={true}
+                segments={3}
+                style={{ marginLeft: -8 }}
+              />
+            </ScrollView>
           ) : (
             <View style={styles.trendChartEmpty}>
               <Text style={styles.trendChartEmptyText}>No sleep data yet</Text>
@@ -1176,8 +1184,9 @@ const ProgressScreen = () => {
               const startEntry = arr[arr.length - 1];
               const diffFromStart = startEntry ? entry.weight - startEntry.weight : 0;
 
-              // Determine if goal is to gain or lose weight
-              const wantToGain = weightData.target > weightData.current;
+              // Determine if goal is to gain or lose weight based on target vs first entry
+              const firstWeight = arr[arr.length - 1]?.weight || weightData.current;
+              const wantToGain = weightData.target > firstWeight;
 
               // Color logic: green = good progress, red = bad progress
               const getDiffColor = (diff) => {

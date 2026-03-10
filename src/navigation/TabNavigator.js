@@ -7,6 +7,7 @@ import { useColors } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useActiveWorkout } from '../contexts/ActiveWorkoutContext';
 import { socialService } from '../services/socialService';
+import { notificationService } from '../services/notificationService';
 import WorkoutBanner from '../components/WorkoutBanner';
 
 // Screens
@@ -30,8 +31,11 @@ const TabNavigator = () => {
     if (!user?.id) return;
 
     const fetchPendingCount = async () => {
-      const { data } = await socialService.getPendingFollowRequests(user.id);
-      setPendingCount(data ? data.length : 0);
+      const [{ data: requests }, { count: sharedCount }] = await Promise.all([
+        socialService.getPendingFollowRequests(user.id),
+        notificationService.getUnreadSharedWorkoutCount(user.id),
+      ]);
+      setPendingCount((requests?.length || 0) + (sharedCount || 0));
     };
 
     fetchPendingCount();

@@ -705,6 +705,34 @@ export const EXERCISES = [
       'Great for upper back thickness and posture.',
     ],
   },
+  {
+    name: 'High Row',
+    muscleGroup: 'Back',
+    equipment: 'Machine',
+    type: 'Compound',
+    description: 'Machine row with a high pulling angle. Targets the upper back, rear delts, and rhomboids.',
+    tips: [
+      'Pull the handles toward your upper chest or neck level.',
+      'Keep your chest pressed into the pad to isolate the back.',
+      'Flare your elbows out slightly to emphasise upper back and rear delts.',
+      'Squeeze hard at peak contraction — hold for 1 second.',
+      'Great alternative to face pulls for upper back thickness.',
+    ],
+  },
+  {
+    name: 'Low Row',
+    muscleGroup: 'Back',
+    equipment: 'Machine',
+    type: 'Compound',
+    description: 'Machine row with a low pulling angle. Targets the lats, lower traps, and mid-back.',
+    tips: [
+      'Pull the handles toward your lower abdomen or hips.',
+      'Keep your elbows tucked close to your body for maximum lat engagement.',
+      'Let your shoulder blades fully protract at the stretch for full ROM.',
+      'Lean your chest into the pad to remove momentum.',
+      'Excellent for building lat width and lower back thickness.',
+    ],
+  },
 
   {
     name: 'Trap Bar Deadlift',

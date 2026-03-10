@@ -1009,7 +1009,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     marginBottom: 8,
   },
   amrapButtonSelected: {
-    backgroundColor: '#8B5CF6',
+    backgroundColor: COLORS.primary,
   },
   amrapText: {
     color: COLORS.textMuted,
@@ -1017,7 +1017,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     fontWeight: '600',
   },
   amrapTextSelected: {
-    color: '#FFFFFF',
+    color: COLORS.textOnPrimary,
   },
 
   // Weight Mode (assisted/added)

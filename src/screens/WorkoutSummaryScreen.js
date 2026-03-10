@@ -759,11 +759,13 @@ const WorkoutSummaryScreen = ({ route, navigation }) => {
               style={{
                 minWidth: screenWidth,
                 width: screenWidth,
-                scrollSnapAlign: 'center',
+                scrollSnapAlign: 'start',
                 display: 'flex',
                 justifyContent: 'center',
+                alignItems: 'center',
                 paddingLeft: 24,
                 paddingRight: 24,
+                boxSizing: 'border-box',
               }}
             >
               {renderShareCard(card, index)}
@@ -1221,7 +1223,7 @@ const WorkoutSummaryScreen = ({ route, navigation }) => {
           onPress={() => setShowFriendPickerModal(false)}
         >
           <View style={[styles.modalContainer, { maxHeight: 480 }]} {...(Platform.OS === 'web' ? { onClick: e => e.stopPropagation() } : {})}>
-            <TouchableOpacity activeOpacity={1}>
+            <View>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Send to Friends</Text>
                 <TouchableOpacity onPress={() => setShowFriendPickerModal(false)} style={styles.modalCloseButton}>
@@ -1262,7 +1264,7 @@ const WorkoutSummaryScreen = ({ route, navigation }) => {
                   </Text>
                 </TouchableOpacity>
               )}
-            </TouchableOpacity>
+            </View>
           </View>
         </TouchableOpacity>
       </Modal>

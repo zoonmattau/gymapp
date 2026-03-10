@@ -29,6 +29,7 @@ import {
   Pencil,
   Lightbulb,
   Share2,
+  Info,
 } from 'lucide-react-native';
 import { useColors } from '../contexts/ThemeContext';
 import { EXERCISES } from '../constants/exercises';
@@ -1287,7 +1288,27 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
                 </View>
               )}
               <View style={styles.exerciseInfo}>
-                <ExerciseLink exerciseName={exercise.name} style={styles.exerciseName} />
+                <View style={styles.exerciseNameRow}>
+                  <ExerciseLink exerciseName={exercise.name} style={styles.exerciseName} />
+                  {getExerciseTips(exercise.name) && (
+                    <TouchableOpacity
+                      onPress={(e) => { e.stopPropagation(); setExpandedTips(expandedTips === exercise.id ? null : exercise.id); }}
+                      style={styles.inlineIconBtn}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Info size={18} color={expandedTips === exercise.id ? COLORS.primary : COLORS.textMuted} />
+                    </TouchableOpacity>
+                  )}
+                  {historyCache[exercise.name]?.data?.length > 0 && (
+                    <TouchableOpacity
+                      onPress={(e) => { e.stopPropagation(); setExpandedHistory(expandedHistory === exercise.id ? null : exercise.id); }}
+                      style={styles.inlineIconBtn}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Clock size={18} color={expandedHistory === exercise.id ? COLORS.primary : COLORS.textMuted} />
+                    </TouchableOpacity>
+                  )}
+                </View>
                 <Text style={styles.exerciseSets}>
                   {exercise.sets.filter(s => s.completed).length}/{exercise.sets.length} sets
                 </Text>
@@ -1324,134 +1345,61 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
             {/* Sets (expanded) */}
             {expandedExercise === exercise.id && (
               <View style={styles.setsContainer}>
-                {/* Tips Section */}
-                {(() => {
+                {/* Coaching Cues Dropdown (toggled by info icon) */}
+                {expandedTips === exercise.id && (() => {
                   const exerciseTips = getExerciseTips(exercise.name);
                   if (!exerciseTips) return null;
-                  const tipsOpen = expandedTips === exercise.id;
                   return (
-                    <View style={styles.tipsWrapper}>
-                      <TouchableOpacity
-                        style={styles.tipsToggle}
-                        onPress={() => setExpandedTips(tipsOpen ? null : exercise.id)}
-                        activeOpacity={0.7}
-                      >
-                        <View style={styles.tipsToggleLeft}>
-                          <Lightbulb size={14} color={COLORS.primary} />
-                          <Text style={styles.tipsToggleText}>Coaching Cues</Text>
-                        </View>
-                        {tipsOpen ? (
-                          <ChevronUp size={14} color={COLORS.textMuted} />
-                        ) : (
-                          <ChevronDown size={14} color={COLORS.textMuted} />
-                        )}
-                      </TouchableOpacity>
-                      {tipsOpen && (
-                        <View style={styles.tipsContent}>
-                          {exerciseTips.description && (
-                            <Text style={styles.tipsDescription}>{exerciseTips.description}</Text>
-                          )}
-                          {exerciseTips.tips?.map((tip, i) => (
-                            <View key={i} style={styles.tipRow}>
-                              <Text style={styles.tipBullet}>·</Text>
-                              <Text style={styles.tipText}>{tip}</Text>
-                            </View>
-                          ))}
-                        </View>
+                    <View style={styles.inlineDropdown}>
+                      {exerciseTips.description && (
+                        <Text style={styles.tipsDescription}>{exerciseTips.description}</Text>
                       )}
-                    </View>
-                  );
-                })()}
-
-                {/* Recent Sessions (collapsible) */}
-                {(() => {
-                  const history = historyCache[exercise.name];
-                  if (!history) return null;
-                  if (history.loading) {
-                    return (
-                      <View style={styles.historyWrapper}>
-                        <View style={styles.historyToggle}>
-                          <View style={styles.historyToggleLeft}>
-                            <Clock size={14} color="#D97706" />
-                            <Text style={styles.historyToggleText}>Recent Sessions</Text>
-                          </View>
-                          <ActivityIndicator size="small" color="#D97706" />
-                        </View>
-                      </View>
-                    );
-                  }
-                  const sessions = history.data || [];
-                  if (sessions.length === 0) return null;
-                  const historyOpen = expandedHistory === exercise.id;
-
-                  return (
-                    <View style={styles.historyWrapper}>
-                      <TouchableOpacity
-                        style={styles.historyToggle}
-                        onPress={() => setExpandedHistory(historyOpen ? null : exercise.id)}
-                        activeOpacity={0.7}
-                      >
-                        <View style={styles.historyToggleLeft}>
-                          <Clock size={14} color="#D97706" />
-                          <Text style={styles.historyToggleText}>Recent Sessions</Text>
-                        </View>
-                        {historyOpen ? (
-                          <ChevronUp size={14} color={COLORS.textMuted} />
-                        ) : (
-                          <ChevronDown size={14} color={COLORS.textMuted} />
-                        )}
-                      </TouchableOpacity>
-                      {historyOpen && (
-                        <View style={styles.historyContent}>
-                          {sessions.map((session, idx) => {
-                            const dateStr = formatRelativeDate(session.date);
-                            return (
-                              <View key={session.sessionId || idx} style={styles.historySession}>
-                                <Text style={styles.historySessionDate}>{dateStr}</Text>
-                                <View style={styles.historyPills}>
-                                  {session.sets.map((s, i) => (
-                                    <View key={i} style={styles.historyPill}>
-                                      <Text style={styles.historyPillText}>
-                                        {isTimedExercise(exercise.name)
-                                          ? formatDuration(s.reps)
-                                          : `${s.weight}${weightUnit} × ${s.reps}`
-                                        }
-                                      </Text>
-                                      {s.rpe && (
-                                        <View style={[styles.historyRpeBadge, { backgroundColor: getRpeColor(s.rpe) }]}>
-                                          <Text style={styles.historyRpeText}>{s.rpe}</Text>
-                                        </View>
-                                      )}
-                                    </View>
-                                  ))}
-                                </View>
-                              </View>
-                            );
-                          })}
-                        </View>
-                      )}
-                    </View>
-                  );
-                })()}
-
-                {/* This Workout - completed sets */}
-                {exercise.sets.filter(s => s.completed).length > 0 && (
-                  <View style={styles.thisWorkoutSection}>
-                    <Text style={styles.thisWorkoutLabel}>This Workout:</Text>
-                    <View style={styles.thisWorkoutPills}>
-                      {exercise.sets.filter(s => s.completed).map((s) => (
-                        <View key={s.id} style={styles.thisWorkoutPill}>
-                          <Text style={styles.thisWorkoutPillText}>
-                            {isTimedExercise(exercise.name)
-                              ? formatDuration(s.reps)
-                              : `${s.weight || 0}${weightUnit} × ${s.reps || 0}`
-                            }
-                          </Text>
+                      {exerciseTips.tips?.map((tip, i) => (
+                        <View key={i} style={styles.tipRow}>
+                          <Text style={styles.tipBullet}>·</Text>
+                          <Text style={styles.tipText}>{tip}</Text>
                         </View>
                       ))}
                     </View>
-                  </View>
-                )}
+                  );
+                })()}
+
+                {/* Recent Sessions Dropdown (toggled by clock icon) */}
+                {expandedHistory === exercise.id && (() => {
+                  const history = historyCache[exercise.name];
+                  if (!history || history.loading) return null;
+                  const sessions = (history.data || []).slice(0, 5);
+                  if (sessions.length === 0) return null;
+                  return (
+                    <View style={styles.inlineDropdown}>
+                      {sessions.map((session, idx) => {
+                        const dateStr = formatRelativeDate(session.date);
+                        return (
+                          <View key={session.sessionId || idx} style={styles.historySession}>
+                            <Text style={styles.historySessionDate}>{dateStr}</Text>
+                            <View style={styles.historyPills}>
+                              {session.sets.map((s, i) => (
+                                <View key={i} style={styles.historyPill}>
+                                  <Text style={styles.historyPillText}>
+                                    {isTimedExercise(exercise.name)
+                                      ? formatDuration(s.reps)
+                                      : `${s.weight}${weightUnit} × ${s.reps}`
+                                    }
+                                  </Text>
+                                  {s.rpe && (
+                                    <View style={[styles.historyRpeBadge, { backgroundColor: getRpeColor(s.rpe) }]}>
+                                      <Text style={styles.historyRpeText}>{s.rpe}</Text>
+                                    </View>
+                                  )}
+                                </View>
+                              ))}
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  );
+                })()}
 
                 {/* Set Rows — completed sets dimmed, pending sets highlighted */}
                 {exercise.sets.length > 0 && (
@@ -1986,10 +1934,42 @@ const getStyles = (COLORS) => StyleSheet.create({
   exerciseInfo: {
     flex: 1,
   },
+  exerciseNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   exerciseName: {
     color: COLORS.text,
     fontSize: 16,
     fontWeight: '600',
+  },
+  inlineIconBtn: {
+    padding: 2,
+  },
+  inlineIconCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    borderColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  inlineIconCircleActive: {
+    backgroundColor: COLORS.primary,
+  },
+  inlineIconCircleHistory: {
+    borderColor: '#D97706',
+  },
+  inlineIconCircleHistoryActive: {
+    backgroundColor: '#D97706',
+  },
+  inlineDropdown: {
+    backgroundColor: COLORS.cardLight || COLORS.surface,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
   },
   exerciseSets: {
     color: COLORS.textMuted,
@@ -2091,7 +2071,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     backgroundColor: '#10B981', // Green for added weight
   },
   amrapBadge: {
-    backgroundColor: '#8B5CF6', // Purple for AMRAP
+    backgroundColor: COLORS.primary,
   },
   rpeBadge: {
     backgroundColor: COLORS.primary,

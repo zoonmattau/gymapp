@@ -988,6 +988,66 @@ export const socialService = {
     }
   },
 
+  // Get shared workout details (session + grouped exercises)
+  async getSharedWorkoutDetails(sessionId) {
+    try {
+      if (!sessionId) return { data: null, error: new Error('Missing sessionId') };
+
+      const [sessionResult, setsResult] = await Promise.all([
+        supabase
+          .from('workout_sessions')
+          .select('*')
+          .eq('id', sessionId)
+          .single(),
+        supabase
+          .from('workout_sets')
+          .select('*')
+          .eq('session_id', sessionId)
+          .order('completed_at', { ascending: true }),
+      ]);
+
+      if (sessionResult.error || !sessionResult.data) {
+        return { data: null, error: sessionResult.error || new Error('Session not found') };
+      }
+
+      const session = sessionResult.data;
+      const sets = setsResult.data || [];
+
+      // Group sets by exercise name
+      const exerciseMap = {};
+      sets.forEach(set => {
+        const name = set.exercise_name || 'Unknown Exercise';
+        if (!exerciseMap[name]) {
+          exerciseMap[name] = { name, sets: [] };
+        }
+        exerciseMap[name].sets.push({
+          weight: set.weight,
+          reps: set.reps,
+          rpe: set.rpe,
+          completed: true,
+          isWarmup: set.is_warmup,
+        });
+      });
+
+      const exercises = Object.values(exerciseMap);
+
+      return {
+        data: {
+          session,
+          exercises,
+          totalSets: sets.length,
+          totalVolume: session.total_volume || 0,
+          duration: session.duration_minutes || 0,
+          workoutName: session.workout_name || 'Workout',
+        },
+        error: null,
+      };
+    } catch (err) {
+      console.warn('Error getting shared workout details:', err?.message);
+      return { data: null, error: err };
+    }
+  },
+
   // Share a workout to selected friends
   async shareWorkoutToFriends(fromUserId, fromUserName, sessionId, friendIds) {
     try {

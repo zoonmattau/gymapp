@@ -35,6 +35,9 @@ import {
   Bell,
   ChevronRight,
   Trash2,
+  Eye,
+  Download,
+  Play,
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useColors } from '../contexts/ThemeContext';
@@ -44,6 +47,7 @@ import { profileService } from '../services/profileService';
 import { publishedWorkoutService } from '../services/publishedWorkoutService';
 import { competitionService } from '../services/competitionService';
 import { workoutService } from '../services/workoutService';
+import { notificationService } from '../services/notificationService';
 import { supabase } from '../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -505,6 +509,9 @@ const CommunityScreen = ({ route }) => {
   // Follow Requests (for Followers tab)
   const [pendingRequests, setPendingRequests] = useState([]);
 
+  // Shared Workouts
+  const [sharedWorkouts, setSharedWorkouts] = useState([]);
+
   // Following search
   const [followingSearchQuery, setFollowingSearchQuery] = useState('');
   const [followingSearchResults, setFollowingSearchResults] = useState([]);
@@ -725,8 +732,52 @@ const CommunityScreen = ({ route }) => {
       if (requestsResult.data) {
         setPendingRequests(requestsResult.data);
       }
+      // Also load shared workouts
+      loadSharedWorkouts();
     } catch (error) {
       console.log('Error loading followers:', error);
+    }
+  };
+
+  const loadSharedWorkouts = async () => {
+    try {
+      // Fetch unread shared_workout notifications
+      const { data: notifs } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('type', 'shared_workout')
+        .eq('read', false)
+        .order('created_at', { ascending: false });
+
+      if (!notifs || notifs.length === 0) {
+        setSharedWorkouts([]);
+        return;
+      }
+
+      // Enrich each with sender profile and workout details
+      const enriched = await Promise.all(notifs.map(async (notif) => {
+        const [profileResult, workoutResult] = await Promise.all([
+          notif.from_user_id
+            ? supabase.from('profiles').select('id, username, first_name, last_name, avatar_url').eq('id', notif.from_user_id).single()
+            : { data: null },
+          notif.reference_id
+            ? socialService.getSharedWorkoutDetails(notif.reference_id)
+            : { data: null },
+        ]);
+
+        return {
+          notificationId: notif.id,
+          referenceId: notif.reference_id,
+          createdAt: notif.created_at,
+          fromUser: profileResult.data || null,
+          workout: workoutResult.data || null,
+        };
+      }));
+
+      setSharedWorkouts(enriched.filter(sw => sw.workout));
+    } catch (error) {
+      console.log('Error loading shared workouts:', error);
     }
   };
 
@@ -842,6 +893,85 @@ const CommunityScreen = ({ route }) => {
     } catch (error) {
       console.log('Error rejecting request:', error);
       setPendingRequests(prev => [...prev, request]);
+    }
+  };
+
+  const handlePreviewSharedWorkout = async (sharedWorkout) => {
+    const { workout, referenceId } = sharedWorkout;
+    navigation.navigate('WorkoutSummary', {
+      summary: {
+        sessionId: referenceId,
+        workoutName: workout.workoutName,
+        duration: workout.duration * 60,
+        totalSets: workout.totalSets,
+        completedSets: workout.totalSets,
+        exercises: workout.exercises,
+        totalVolume: workout.totalVolume,
+        newPRs: [],
+        isFromHistory: true,
+      },
+    });
+  };
+
+  const handleSaveSharedWorkout = async (sharedWorkout) => {
+    try {
+      const { workout, notificationId } = sharedWorkout;
+      // Save as a template via published workouts
+      const exercises = workout.exercises.map(ex => ({
+        name: ex.name,
+        sets: ex.sets.length,
+        reps: ex.sets[0]?.reps || 0,
+        weight: ex.sets[0]?.weight || 0,
+      }));
+
+      await publishedWorkoutService.publishWorkout({
+        user_id: user.id,
+        name: workout.workoutName,
+        exercises: JSON.stringify(exercises),
+        is_public: false,
+      });
+
+      // Mark notification as read and remove from list
+      await notificationService.markAsRead(notificationId);
+      setSharedWorkouts(prev => prev.filter(sw => sw.notificationId !== notificationId));
+      Alert.alert('Saved', 'Workout saved to your collection');
+    } catch (error) {
+      console.log('Error saving shared workout:', error);
+      Alert.alert('Error', 'Failed to save workout');
+    }
+  };
+
+  const handleStartSharedWorkout = async (sharedWorkout) => {
+    try {
+      const { workout, notificationId } = sharedWorkout;
+      // Mark notification as read and remove from list
+      await notificationService.markAsRead(notificationId);
+      setSharedWorkouts(prev => prev.filter(sw => sw.notificationId !== notificationId));
+
+      // Navigate to ActiveWorkout with exercises pre-loaded
+      navigation.navigate('ActiveWorkout', {
+        workoutName: workout.workoutName,
+        workout: {
+          name: workout.workoutName,
+          exercises: workout.exercises.map(ex => ({
+            name: ex.name,
+            sets: ex.sets.length || 3,
+            targetReps: ex.sets[0]?.reps,
+            suggestedWeight: ex.sets[0]?.weight,
+          })),
+        },
+      });
+    } catch (error) {
+      console.log('Error starting shared workout:', error);
+    }
+  };
+
+  const handleDismissSharedWorkout = async (sharedWorkout) => {
+    try {
+      await notificationService.markAsRead(sharedWorkout.notificationId);
+      setSharedWorkouts(prev => prev.filter(sw => sw.notificationId !== sharedWorkout.notificationId));
+    } catch (error) {
+      console.log('Error dismissing shared workout:', error);
     }
   };
 
@@ -1711,6 +1841,55 @@ const CommunityScreen = ({ route }) => {
         </>
       )}
 
+      {/* Shared Workouts Section */}
+      {sharedWorkouts.length > 0 && (
+        <>
+          <Text style={styles.sectionLabel}>SHARED WORKOUTS ({sharedWorkouts.length})</Text>
+          {sharedWorkouts.map((sw) => {
+            const sender = sw.fromUser;
+            const workout = sw.workout;
+            return (
+              <View key={sw.notificationId} style={styles.sharedWorkoutCard}>
+                <View style={styles.sharedWorkoutHeader}>
+                  <View style={styles.userAvatar}>
+                    {sender?.avatar_url ? (
+                      <Image source={{ uri: sender.avatar_url }} style={styles.userAvatarImage} />
+                    ) : (
+                      <Text style={styles.userAvatarText}>
+                        {sender?.username?.[0]?.toUpperCase() || 'U'}
+                      </Text>
+                    )}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.userName}>@{sender?.username || 'user'} shared a workout</Text>
+                    <Text style={styles.sharedWorkoutName}>
+                      "{workout.workoutName}" · {workout.exercises.length} exercise{workout.exercises.length !== 1 ? 's' : ''} · {workout.duration}min
+                    </Text>
+                  </View>
+                  <TouchableOpacity onPress={() => handleDismissSharedWorkout(sw)} style={{ padding: 4 }}>
+                    <X size={16} color={COLORS.textMuted} />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.sharedWorkoutActions}>
+                  <TouchableOpacity style={styles.sharedWorkoutBtnOutline} onPress={() => handlePreviewSharedWorkout(sw)}>
+                    <Eye size={14} color={COLORS.primary} />
+                    <Text style={styles.sharedWorkoutBtnOutlineText}>Preview</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.sharedWorkoutBtnOutline} onPress={() => handleSaveSharedWorkout(sw)}>
+                    <Download size={14} color={COLORS.primary} />
+                    <Text style={styles.sharedWorkoutBtnOutlineText}>Save</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.sharedWorkoutBtnFilled} onPress={() => handleStartSharedWorkout(sw)}>
+                    <Play size={14} color="#FFFFFF" />
+                    <Text style={styles.sharedWorkoutBtnFilledText}>Start</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            );
+          })}
+        </>
+      )}
+
       {/* Followers Section */}
       <Text style={styles.sectionLabel}>FOLLOWERS ({followers.length})</Text>
 
@@ -2430,6 +2609,55 @@ const CommunityScreen = ({ route }) => {
         </>
       )}
 
+      {/* Shared Workouts Section */}
+      {sharedWorkouts.length > 0 && (
+        <>
+          <Text style={styles.sectionLabel}>SHARED WORKOUTS ({sharedWorkouts.length})</Text>
+          {sharedWorkouts.map((sw) => {
+            const sender = sw.fromUser;
+            const workout = sw.workout;
+            return (
+              <View key={sw.notificationId} style={styles.sharedWorkoutCard}>
+                <View style={styles.sharedWorkoutHeader}>
+                  <View style={styles.userAvatar}>
+                    {sender?.avatar_url ? (
+                      <Image source={{ uri: sender.avatar_url }} style={styles.userAvatarImage} />
+                    ) : (
+                      <Text style={styles.userAvatarText}>
+                        {sender?.username?.[0]?.toUpperCase() || 'U'}
+                      </Text>
+                    )}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.userName}>@{sender?.username || 'user'} shared a workout</Text>
+                    <Text style={styles.sharedWorkoutName}>
+                      "{workout.workoutName}" · {workout.exercises.length} exercise{workout.exercises.length !== 1 ? 's' : ''} · {workout.duration}min
+                    </Text>
+                  </View>
+                  <TouchableOpacity onPress={() => handleDismissSharedWorkout(sw)} style={{ padding: 4 }}>
+                    <X size={16} color={COLORS.textMuted} />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.sharedWorkoutActions}>
+                  <TouchableOpacity style={styles.sharedWorkoutBtnOutline} onPress={() => handlePreviewSharedWorkout(sw)}>
+                    <Eye size={14} color={COLORS.primary} />
+                    <Text style={styles.sharedWorkoutBtnOutlineText}>Preview</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.sharedWorkoutBtnOutline} onPress={() => handleSaveSharedWorkout(sw)}>
+                    <Download size={14} color={COLORS.primary} />
+                    <Text style={styles.sharedWorkoutBtnOutlineText}>Save</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.sharedWorkoutBtnFilled} onPress={() => handleStartSharedWorkout(sw)}>
+                    <Play size={14} color="#FFFFFF" />
+                    <Text style={styles.sharedWorkoutBtnFilledText}>Start</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            );
+          })}
+        </>
+      )}
+
       {/* My Activity */}
       <Text style={styles.sectionLabel}>MY ACTIVITY</Text>
       {myActivityLoading ? (
@@ -2551,7 +2779,7 @@ const CommunityScreen = ({ route }) => {
           />
         }
       >
-        <View style={[styles.header, { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' }]}>
+        <View style={[styles.header, { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 8 }]}>
           {pendingRequests.length > 0 && (
             <TouchableOpacity
               onPress={() => setActiveTab('profile')}
@@ -2559,6 +2787,16 @@ const CommunityScreen = ({ route }) => {
             >
               <Text style={styles.requestsBadgeText}>
                 {pendingRequests.length} request{pendingRequests.length > 1 ? 's' : ''}
+              </Text>
+            </TouchableOpacity>
+          )}
+          {sharedWorkouts.length > 0 && (
+            <TouchableOpacity
+              onPress={() => setActiveTab('profile')}
+              style={styles.requestsBadge}
+            >
+              <Text style={styles.requestsBadgeText}>
+                {sharedWorkouts.length} shared workout{sharedWorkouts.length > 1 ? 's' : ''}
               </Text>
             </TouchableOpacity>
           )}
@@ -5000,6 +5238,59 @@ const getStyles = (COLORS) => StyleSheet.create({
   visibilityOptionDesc: {
     color: COLORS.textMuted,
     fontSize: 11,
+  },
+
+  // Shared Workout Card
+  sharedWorkoutCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 8,
+  },
+  sharedWorkoutHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  sharedWorkoutName: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  sharedWorkoutActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  sharedWorkoutBtnOutline: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+  },
+  sharedWorkoutBtnOutlineText: {
+    color: COLORS.primary,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  sharedWorkoutBtnFilled: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: COLORS.primary,
+  },
+  sharedWorkoutBtnFilledText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
   },
 });
 
