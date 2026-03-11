@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { notificationService } from './notificationService';
 
 export const socialService = {
   // =====================================================
@@ -1072,7 +1073,6 @@ export const socialService = {
       }
 
       // Send notifications to each friend
-      const { notificationService } = require('./notificationService');
       await Promise.all(
         friendIds.map(friendId =>
           notificationService.notifySharedWorkout(friendId, fromUserId, fromUserName, sessionId)
