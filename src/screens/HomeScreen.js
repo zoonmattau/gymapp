@@ -325,33 +325,31 @@ const HomeScreen = () => {
         createdAt: req.created_at,
       }));
 
-      // Get shared workout notifications
-      const { data: sharedNotifs } = await supabase
-        .from('notifications')
+      // Get shared workouts from shared_workouts table
+      const { data: sharedRows } = await supabase
+        .from('shared_workouts')
         .select('*')
-        .eq('user_id', user.id)
-        .eq('type', 'shared_workout')
-        .eq('read', false)
+        .eq('to_user_id', user.id)
         .order('created_at', { ascending: false });
 
-      // Enrich shared workout notifs with sender profile
-      const enrichedShared = await Promise.all((sharedNotifs || []).map(async (notif) => {
+      // Enrich shared workout with sender profile
+      const enrichedShared = await Promise.all((sharedRows || []).map(async (share) => {
         let fromUser = null;
-        if (notif.from_user_id) {
+        if (share.from_user_id) {
           const { data: profile } = await supabase
             .from('profiles')
             .select('id, first_name, last_name, username, avatar_url')
-            .eq('id', notif.from_user_id)
+            .eq('id', share.from_user_id)
             .single();
           fromUser = profile;
         }
         return {
-          id: notif.id,
+          id: share.id,
           type: 'shared_workout',
           fromUser,
-          createdAt: notif.created_at,
-          referenceId: notif.reference_id,
-          notificationId: notif.id,
+          createdAt: share.created_at,
+          referenceId: share.session_id,
+          shareId: share.id,
         };
       }));
 
@@ -397,9 +395,10 @@ const HomeScreen = () => {
 
   const handleViewSharedWorkout = async (notif) => {
     try {
-      // Mark notification as read
-      await notificationService.markAsRead(notif.notificationId);
-      // Remove from local list
+      // Remove shared workout and update list
+      if (notif.shareId) {
+        await supabase.from('shared_workouts').delete().eq('id', notif.shareId);
+      }
       setNotifications(prev => prev.filter(n => n.id !== notif.id));
       setShowNotificationsModal(false);
 

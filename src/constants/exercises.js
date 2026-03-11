@@ -3575,6 +3575,19 @@ export const EXERCISES = [
     ],
   },
   {
+    name: 'Calf Extension',
+    muscleGroup: 'Calves',
+    equipment: 'Machine',
+    type: 'Isolation',
+    description: 'Machine-based calf extension targeting the tibialis anterior and overall lower leg development.',
+    tips: [
+      'Control the movement — slow eccentric for maximum tension.',
+      'Full range of motion: stretch at the bottom, squeeze at the top.',
+      'Keep your feet flat on the pad and push through your toes.',
+      'Pairs well with calf raises for balanced lower leg development.',
+    ],
+  },
+  {
     name: 'Calf Raise (Bodyweight)',
     muscleGroup: 'Calves',
     equipment: 'Bodyweight',

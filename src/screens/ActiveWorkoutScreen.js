@@ -42,6 +42,7 @@ import AnatomyModal from '../components/AnatomyModal';
 import { useAuth } from '../contexts/AuthContext';
 import { useActiveWorkout } from '../contexts/ActiveWorkoutContext';
 import { workoutService } from '../services/workoutService';
+import { supabase } from '../lib/supabase';
 import ExerciseLink from '../components/ExerciseLink';
 import { setPausedWorkout, clearPausedWorkout } from '../utils/workoutStore';
 
@@ -185,6 +186,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
   const [showPRCelebration, setShowPRCelebration] = useState(false);
   const [prCelebrationData, setPRCelebrationData] = useState(null); // { exercise, weight, reps, e1rm, improvement }
   const [existingPRs, setExistingPRs] = useState({}); // { exerciseName: { weight, reps, e1rm } }
+  const [prsLoaded, setPrsLoaded] = useState(false);
   const prAnimValue = useRef(new Animated.Value(0)).current;
   const timerRef = useRef(null);
   const restTimerRef = useRef(null);
@@ -293,26 +295,62 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
     loadExerciseHistory();
   }, [user?.id]);
 
-  // Load existing PRs for comparison during workout
+  // Load existing PRs by scanning full workout history
+  // Tracks best weight + best reps at that weight per exercise
   useEffect(() => {
     const loadExistingPRs = async () => {
       if (user?.id) {
+        console.log('[PR] Starting PR baseline load for user:', user.id);
         try {
-          const { data } = await workoutService.getPersonalRecords(user.id);
-          if (data && data.length > 0) {
-            const prMap = {};
-            data.forEach(pr => {
-              const name = pr.exercise_name || pr.exercise;
-              const e1rm = pr.reps === 1 ? pr.weight : Math.round(pr.weight * (1 + pr.reps / 30));
-              // Keep the best E1RM for each exercise
-              if (!prMap[name] || e1rm > prMap[name].e1rm) {
-                prMap[name] = { weight: pr.weight, reps: pr.reps, e1rm };
+          const { data: sessions, error: sessErr } = await supabase
+            .from('workout_sessions')
+            .select('id')
+            .eq('user_id', user.id)
+            .not('ended_at', 'is', null);
+
+          console.log('[PR] Sessions query:', sessions?.length, 'sessions, error:', sessErr);
+
+          const prMap = {};
+
+          if (!sessErr && sessions && sessions.length > 0) {
+            const batchSize = 200;
+            for (let i = 0; i < sessions.length; i += batchSize) {
+              const batch = sessions.slice(i, i + batchSize).map(s => s.id);
+              const { data: sets, error: setsErr } = await supabase
+                .from('workout_sets')
+                .select('exercise_name, weight, reps')
+                .in('session_id', batch)
+                .eq('is_warmup', false);
+
+              if (!setsErr && sets) {
+                sets.forEach(s => {
+                  const w = parseFloat(s.weight) || 0;
+                  const r = parseInt(s.reps) || 0;
+                  if (w <= 0 || r <= 0 || s.weight === 'BW') return;
+                  const name = s.exercise_name;
+                  if (!prMap[name]) {
+                    prMap[name] = { weight: w, reps: r };
+                  } else if (w > prMap[name].weight) {
+                    // New heavier weight = new PR
+                    prMap[name] = { weight: w, reps: r };
+                  } else if (w === prMap[name].weight && r > prMap[name].reps) {
+                    // Same weight but more reps = new PR
+                    prMap[name] = { weight: w, reps: r };
+                  }
+                });
               }
-            });
-            setExistingPRs(prMap);
+            }
           }
+
+          console.log('[PR] Baseline loaded:', Object.keys(prMap).length, 'exercises');
+          Object.entries(prMap).forEach(([name, pr]) => {
+            console.log('[PR]', name, ':', pr.weight, 'kg x', pr.reps);
+          });
+          setExistingPRs(prMap);
+          setPrsLoaded(true);
         } catch (error) {
-          console.log('Error loading existing PRs:', error);
+          console.error('[PR] Error loading PRs:', error);
+          setPrsLoaded(true);
         }
       }
     };
@@ -541,31 +579,41 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
   };
 
   // Check if set is a PR and trigger celebration
+  // PR = heavier weight OR same weight with more reps
   const checkForPR = (exerciseName, weight, reps, isWarmup) => {
-    // Don't count warmup sets as PRs
     if (isWarmup) return;
-
-    // Skip timed exercises and bodyweight-only
+    if (!prsLoaded) return;
     if (isTimedExercise(exerciseName) || weight === 'BW' || weight === 0) return;
 
     const numWeight = parseFloat(weight) || 0;
     const numReps = parseInt(reps) || 0;
     if (numWeight <= 0 || numReps <= 0) return;
 
-    // Calculate E1RM using Epley formula
-    const newE1rm = numReps === 1 ? numWeight : Math.round(numWeight * (1 + numReps / 30));
-
     const existingPR = existingPRs[exerciseName];
-    const existingE1rm = existingPR?.e1rm || 0;
+    const prevWeight = existingPR?.weight || 0;
+    const prevReps = existingPR?.reps || 0;
 
-    // Check if this is a new PR (better E1RM)
-    if (newE1rm > existingE1rm) {
-      const improvement = existingE1rm > 0 ? newE1rm - existingE1rm : 0;
+    console.log('[PR-check]', exerciseName, numWeight, 'x', numReps, 'vs best:', prevWeight, 'x', prevReps);
 
-      // Update existing PRs to track during this workout
+    // PR if: heavier weight, OR same weight with more reps
+    const isNewPR = numWeight > prevWeight || (numWeight === prevWeight && numReps > prevReps);
+
+    if (isNewPR) {
+      let prType = '';
+      if (!existingPR) {
+        prType = 'first';
+      } else if (numWeight > prevWeight) {
+        prType = 'weight';
+      } else {
+        prType = 'reps';
+      }
+
+      console.log('[PR-check] NEW PR!', prType);
+
+      // Update baseline for this workout
       setExistingPRs(prev => ({
         ...prev,
-        [exerciseName]: { weight: numWeight, reps: numReps, e1rm: newE1rm }
+        [exerciseName]: { weight: numWeight, reps: numReps }
       }));
 
       // Trigger celebration
@@ -573,13 +621,13 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
         exercise: exerciseName,
         weight: numWeight,
         reps: numReps,
-        e1rm: newE1rm,
-        improvement,
-        isFirstPR: existingE1rm === 0,
+        weightIncrease: numWeight > prevWeight ? numWeight - prevWeight : 0,
+        repIncrease: numWeight === prevWeight && numReps > prevReps ? numReps - prevReps : 0,
+        isFirstPR: !existingPR,
+        prType,
       });
       setShowPRCelebration(true);
 
-      // Animate
       prAnimValue.setValue(0);
       Animated.sequence([
         Animated.spring(prAnimValue, {
@@ -589,7 +637,6 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
           useNativeDriver: true,
         }),
       ]).start();
-
     }
   };
 
@@ -603,7 +650,12 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
       ? Math.round(prCelebrationData.e1rm * 2.205)
       : prCelebrationData.e1rm;
 
-    const message = `🏆 NEW PR!\n\n${prCelebrationData.exercise}\n${displayWeight}${weightUnit} × ${prCelebrationData.reps} reps\n\nEst. 1RM: ${displayE1rm}${weightUnit}${prCelebrationData.improvement > 0 ? `\n📈 +${weightUnit === 'lbs' ? Math.round(prCelebrationData.improvement * 2.205) : prCelebrationData.improvement}${weightUnit} improvement!` : ''}\n\n#UpRep`;
+    const improvementText = prCelebrationData.weightIncrease > 0
+      ? `\n📈 +${weightUnit === 'lbs' ? Math.round(prCelebrationData.weightIncrease * 2.205) : prCelebrationData.weightIncrease}${weightUnit} increase!`
+      : prCelebrationData.repIncrease > 0
+        ? `\n📈 +${prCelebrationData.repIncrease} extra rep${prCelebrationData.repIncrease > 1 ? 's' : ''}!`
+        : '';
+    const message = `🏆 NEW PR!\n\n${prCelebrationData.exercise}\n${displayWeight}${weightUnit} × ${prCelebrationData.reps} reps${improvementText}\n\n#UpRep`;
 
     try {
       await Share.share({
@@ -1729,17 +1781,19 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
               </Text>
               <Text style={styles.prCelebrationReps}>× {prCelebrationData.reps} reps</Text>
             </View>
-            <View style={styles.prCelebrationE1rm}>
-              <Text style={styles.prCelebrationE1rmLabel}>Est. 1RM</Text>
-              <Text style={styles.prCelebrationE1rmValue}>
-                {weightUnit === 'lbs' ? Math.round(prCelebrationData.e1rm * 2.205) : prCelebrationData.e1rm}{weightUnit}
-              </Text>
-            </View>
-            {prCelebrationData.improvement > 0 && (
+            {prCelebrationData.weightIncrease > 0 && (
               <View style={styles.prCelebrationImprovement}>
                 <ArrowUp size={16} color="#10B981" />
                 <Text style={styles.prCelebrationImprovementText}>
-                  +{weightUnit === 'lbs' ? Math.round(prCelebrationData.improvement * 2.205) : prCelebrationData.improvement}{weightUnit} from previous best
+                  +{weightUnit === 'lbs' ? Math.round(prCelebrationData.weightIncrease * 2.205) : prCelebrationData.weightIncrease}{weightUnit} from previous best
+                </Text>
+              </View>
+            )}
+            {prCelebrationData.repIncrease > 0 && (
+              <View style={styles.prCelebrationImprovement}>
+                <ArrowUp size={16} color="#10B981" />
+                <Text style={styles.prCelebrationImprovementText}>
+                  +{prCelebrationData.repIncrease} extra rep{prCelebrationData.repIncrease > 1 ? 's' : ''} from previous best
                 </Text>
               </View>
             )}

@@ -185,11 +185,21 @@ const WorkoutSummaryScreen = ({ route, navigation }) => {
   };
 
   const handleSendToFriends = async () => {
-    if (!selectedFriends.length || !sessionId) return;
+    if (!selectedFriends.length || !sessionId) {
+      console.log('Share blocked - selectedFriends:', selectedFriends.length, 'sessionId:', sessionId);
+      return;
+    }
     setShareSubmitting(true);
     const userName = `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() || profile?.username || 'Someone';
-    await socialService.shareWorkoutToFriends(user.id, userName, sessionId, selectedFriends);
+    console.log('Sharing workout:', { userId: user.id, userName, sessionId, friendIds: selectedFriends });
+    const { error } = await socialService.shareWorkoutToFriends(user.id, userName, sessionId, selectedFriends);
     setShareSubmitting(false);
+    if (error) {
+      console.error('Share failed:', error);
+      alert('Failed to share workout: ' + (error?.message || 'Unknown error'));
+    } else {
+      console.log('Share succeeded!');
+    }
     setShowFriendPickerModal(false);
     setSelectedFriends([]);
   };

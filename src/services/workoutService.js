@@ -612,6 +612,73 @@ export const workoutService = {
     return { data: null, error: null, isNewPR: false };
   },
 
+  // One-time backfill: scan all workout history and populate personal_records
+  async backfillPersonalRecords(userId) {
+    try {
+      // Get all completed sessions
+      const { data: sessions, error: sessErr } = await supabase
+        .from('workout_sessions')
+        .select('id')
+        .eq('user_id', userId)
+        .not('ended_at', 'is', null);
+
+      if (sessErr || !sessions || sessions.length === 0) return;
+
+      // Build best E1RM per exercise from all workout sets
+      const prMap = {}; // { exerciseName: { weight, reps, e1rm } }
+
+      // Process in batches
+      const batchSize = 100;
+      for (let i = 0; i < sessions.length; i += batchSize) {
+        const batch = sessions.slice(i, i + batchSize).map(s => s.id);
+        const { data: sets } = await supabase
+          .from('workout_sets')
+          .select('exercise_name, weight, reps')
+          .in('session_id', batch)
+          .eq('is_warmup', false);
+
+        if (sets) {
+          sets.forEach(s => {
+            const w = parseFloat(s.weight) || 0;
+            const r = parseInt(s.reps) || 0;
+            if (w <= 0 || r <= 0 || s.weight === 'BW') return;
+            const e1rm = r === 1 ? w : Math.round(w * (1 + r / 30));
+            if (!prMap[s.exercise_name] || e1rm > prMap[s.exercise_name].e1rm) {
+              prMap[s.exercise_name] = { weight: w, reps: r, e1rm };
+            }
+          });
+        }
+      }
+
+      // Insert into personal_records for each exercise (skip if already exists with higher e1rm)
+      for (const [exerciseName, best] of Object.entries(prMap)) {
+        const { data: existing } = await supabase
+          .from('personal_records')
+          .select('e1rm')
+          .eq('user_id', userId)
+          .eq('exercise_name', exerciseName)
+          .order('e1rm', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (!existing || best.e1rm > existing.e1rm) {
+          await supabase.from('personal_records').insert({
+            user_id: userId,
+            exercise_name: exerciseName,
+            weight: best.weight,
+            reps: best.reps,
+            e1rm: best.e1rm,
+            achieved_at: new Date().toISOString(),
+          });
+        }
+      }
+
+      console.log('PR backfill complete:', Object.keys(prMap).length, 'exercises');
+    } catch (err) {
+      console.error('PR backfill error:', err);
+    }
+  },
+
   // Get user's active program
   async getActiveProgram(userId) {
     const { data, error } = await supabase

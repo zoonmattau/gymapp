@@ -113,6 +113,7 @@ export const notificationService = {
   // Create a notification
   async createNotification(userId, type, title, message, fromUserId = null, referenceId = null) {
     try {
+      console.log('createNotification:', { userId, type, title, fromUserId, referenceId });
       const { data, error } = await supabase
         .from('notifications')
         .insert({
@@ -126,9 +127,14 @@ export const notificationService = {
         .select()
         .single();
 
+      if (error) {
+        console.error('createNotification DB error:', error);
+      } else {
+        console.log('createNotification success:', data?.id);
+      }
       return { data, error };
     } catch (err) {
-      console.warn('createNotification error:', err?.message);
+      console.error('createNotification exception:', err);
       return { data: null, error: err };
     }
   },

@@ -1053,6 +1053,7 @@ export const socialService = {
   async shareWorkoutToFriends(fromUserId, fromUserName, sessionId, friendIds) {
     try {
       if (!fromUserId || !sessionId || !friendIds?.length) {
+        console.log('shareWorkoutToFriends: missing params', { fromUserId, sessionId, friendIds });
         return { error: new Error('Missing required parameters') };
       }
 
@@ -1063,25 +1064,30 @@ export const socialService = {
         session_id: sessionId,
       }));
 
+      console.log('shareWorkoutToFriends: inserting shared_workouts rows', rows);
       const { error: insertError } = await supabase
         .from('shared_workouts')
         .insert(rows);
 
       if (insertError) {
-        console.warn('Error inserting shared_workouts:', insertError?.message);
+        console.error('Error inserting shared_workouts:', insertError);
         return { error: insertError };
       }
+      console.log('shareWorkoutToFriends: shared_workouts insert OK');
 
       // Send notifications to each friend
-      await Promise.all(
-        friendIds.map(friendId =>
-          notificationService.notifySharedWorkout(friendId, fromUserId, fromUserName, sessionId)
-        )
+      console.log('shareWorkoutToFriends: sending notifications via notificationService');
+      const notifResults = await Promise.all(
+        friendIds.map(async (friendId) => {
+          const result = await notificationService.notifySharedWorkout(friendId, fromUserId, fromUserName, sessionId);
+          console.log('Notification result for', friendId, ':', result);
+          return result;
+        })
       );
 
       return { error: null };
     } catch (err) {
-      console.warn('Error sharing workout to friends:', err?.message);
+      console.error('Error sharing workout to friends:', err);
       return { error: err };
     }
   },

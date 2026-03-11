@@ -7,7 +7,7 @@ import { useColors } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useActiveWorkout } from '../contexts/ActiveWorkoutContext';
 import { socialService } from '../services/socialService';
-import { notificationService } from '../services/notificationService';
+import { supabase } from '../lib/supabase';
 import WorkoutBanner from '../components/WorkoutBanner';
 
 // Screens
@@ -33,7 +33,10 @@ const TabNavigator = () => {
     const fetchPendingCount = async () => {
       const [{ data: requests }, { count: sharedCount }] = await Promise.all([
         socialService.getPendingFollowRequests(user.id),
-        notificationService.getUnreadSharedWorkoutCount(user.id),
+        supabase
+          .from('shared_workouts')
+          .select('*', { count: 'exact', head: true })
+          .eq('to_user_id', user.id),
       ]);
       setPendingCount((requests?.length || 0) + (sharedCount || 0));
     };

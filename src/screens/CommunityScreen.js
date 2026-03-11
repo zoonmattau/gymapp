@@ -741,35 +741,35 @@ const CommunityScreen = ({ route }) => {
 
   const loadSharedWorkouts = async () => {
     try {
-      // Fetch unread shared_workout notifications
-      const { data: notifs } = await supabase
-        .from('notifications')
+      // Query shared_workouts table directly (more reliable than notifications)
+      const { data: shares, error } = await supabase
+        .from('shared_workouts')
         .select('*')
-        .eq('user_id', user.id)
-        .eq('type', 'shared_workout')
-        .eq('read', false)
+        .eq('to_user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (!notifs || notifs.length === 0) {
+      console.log('loadSharedWorkouts: shares=', shares?.length, 'error=', error);
+
+      if (!shares || shares.length === 0) {
         setSharedWorkouts([]);
         return;
       }
 
       // Enrich each with sender profile and workout details
-      const enriched = await Promise.all(notifs.map(async (notif) => {
+      const enriched = await Promise.all(shares.map(async (share) => {
         const [profileResult, workoutResult] = await Promise.all([
-          notif.from_user_id
-            ? supabase.from('profiles').select('id, username, first_name, last_name, avatar_url').eq('id', notif.from_user_id).single()
+          share.from_user_id
+            ? supabase.from('profiles').select('id, username, first_name, last_name, avatar_url').eq('id', share.from_user_id).single()
             : { data: null },
-          notif.reference_id
-            ? socialService.getSharedWorkoutDetails(notif.reference_id)
+          share.session_id
+            ? socialService.getSharedWorkoutDetails(share.session_id)
             : { data: null },
         ]);
 
         return {
-          notificationId: notif.id,
-          referenceId: notif.reference_id,
-          createdAt: notif.created_at,
+          shareId: share.id,
+          sessionId: share.session_id,
+          createdAt: share.created_at,
           fromUser: profileResult.data || null,
           workout: workoutResult.data || null,
         };
@@ -897,10 +897,10 @@ const CommunityScreen = ({ route }) => {
   };
 
   const handlePreviewSharedWorkout = async (sharedWorkout) => {
-    const { workout, referenceId } = sharedWorkout;
+    const { workout, sessionId } = sharedWorkout;
     navigation.navigate('WorkoutSummary', {
       summary: {
-        sessionId: referenceId,
+        sessionId: sessionId,
         workoutName: workout.workoutName,
         duration: workout.duration * 60,
         totalSets: workout.totalSets,
@@ -915,7 +915,7 @@ const CommunityScreen = ({ route }) => {
 
   const handleSaveSharedWorkout = async (sharedWorkout) => {
     try {
-      const { workout, notificationId } = sharedWorkout;
+      const { workout, shareId } = sharedWorkout;
       // Save as a template via published workouts
       const exercises = workout.exercises.map(ex => ({
         name: ex.name,
@@ -931,9 +931,9 @@ const CommunityScreen = ({ route }) => {
         is_public: false,
       });
 
-      // Mark notification as read and remove from list
-      await notificationService.markAsRead(notificationId);
-      setSharedWorkouts(prev => prev.filter(sw => sw.notificationId !== notificationId));
+      // Remove shared workout and update list
+      await supabase.from('shared_workouts').delete().eq('id', shareId);
+      setSharedWorkouts(prev => prev.filter(sw => sw.shareId !== shareId));
       Alert.alert('Saved', 'Workout saved to your collection');
     } catch (error) {
       console.log('Error saving shared workout:', error);
@@ -943,10 +943,10 @@ const CommunityScreen = ({ route }) => {
 
   const handleStartSharedWorkout = async (sharedWorkout) => {
     try {
-      const { workout, notificationId } = sharedWorkout;
-      // Mark notification as read and remove from list
-      await notificationService.markAsRead(notificationId);
-      setSharedWorkouts(prev => prev.filter(sw => sw.notificationId !== notificationId));
+      const { workout, shareId } = sharedWorkout;
+      // Remove shared workout and update list
+      await supabase.from('shared_workouts').delete().eq('id', shareId);
+      setSharedWorkouts(prev => prev.filter(sw => sw.shareId !== shareId));
 
       // Navigate to ActiveWorkout with exercises pre-loaded
       navigation.navigate('ActiveWorkout', {
@@ -968,8 +968,8 @@ const CommunityScreen = ({ route }) => {
 
   const handleDismissSharedWorkout = async (sharedWorkout) => {
     try {
-      await notificationService.markAsRead(sharedWorkout.notificationId);
-      setSharedWorkouts(prev => prev.filter(sw => sw.notificationId !== sharedWorkout.notificationId));
+      await supabase.from('shared_workouts').delete().eq('id', sharedWorkout.shareId);
+      setSharedWorkouts(prev => prev.filter(sw => sw.shareId !== sharedWorkout.shareId));
     } catch (error) {
       console.log('Error dismissing shared workout:', error);
     }
@@ -1849,7 +1849,7 @@ const CommunityScreen = ({ route }) => {
             const sender = sw.fromUser;
             const workout = sw.workout;
             return (
-              <View key={sw.notificationId} style={styles.sharedWorkoutCard}>
+              <View key={sw.shareId} style={styles.sharedWorkoutCard}>
                 <View style={styles.sharedWorkoutHeader}>
                   <View style={styles.userAvatar}>
                     {sender?.avatar_url ? (
@@ -2617,7 +2617,7 @@ const CommunityScreen = ({ route }) => {
             const sender = sw.fromUser;
             const workout = sw.workout;
             return (
-              <View key={sw.notificationId} style={styles.sharedWorkoutCard}>
+              <View key={sw.shareId} style={styles.sharedWorkoutCard}>
                 <View style={styles.sharedWorkoutHeader}>
                   <View style={styles.userAvatar}>
                     {sender?.avatar_url ? (
