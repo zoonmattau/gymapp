@@ -1336,7 +1336,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
                 </TouchableOpacity>
               ) : (
                 <View style={styles.exerciseIcon}>
-                  <Dumbbell size={20} color="#3B82F6" />
+                  <Dumbbell size={20} color="#67C6D8" />
                 </View>
               )}
               <View style={styles.exerciseInfo}>
@@ -1589,7 +1589,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
                   style={styles.addSetButton}
                   onPress={() => openAddSetModal(exercise.id, exercise.name)}
                 >
-                  <Plus size={16} color="#3B82F6" />
+                  <Plus size={16} color="#67C6D8" />
                   <Text style={styles.addSetText}>Add Set</Text>
                 </TouchableOpacity>
               </View>
@@ -1603,7 +1603,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
           style={styles.addExerciseButton}
           onPress={() => setShowExerciseModal(true)}
         >
-          <Plus size={20} color="#3B82F6" />
+          <Plus size={20} color="#67C6D8" />
           <Text style={styles.addExerciseText}>Add Exercise</Text>
         </TouchableOpacity>
 
@@ -1841,7 +1841,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: '#3B82F6',
+    backgroundColor: '#67C6D8',
   },
   backButton: {
     padding: 4,
@@ -1866,7 +1866,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     fontSize: 14,
   },
   restBanner: {
-    backgroundColor: '#2563EB',
+    backgroundColor: '#7DD3E4',
     paddingHorizontal: 16,
     paddingVertical: 12,
     flexDirection: 'row',
@@ -1969,7 +1969,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     marginBottom: 12,
     overflow: 'hidden',
     borderLeftWidth: 4,
-    borderLeftColor: '#3B82F6',
+    borderLeftColor: '#67C6D8',
   },
   exerciseHeader: {
     flexDirection: 'row',
@@ -1980,7 +1980,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: '#3B82F620',
+    backgroundColor: '#67C6D820',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
@@ -2110,7 +2110,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     color: COLORS.text,
   },
   warmupBadge: {
-    backgroundColor: '#3B82F6',
+    backgroundColor: '#67C6D8',
   },
   dropsetBadge: {
     backgroundColor: COLORS.error,
@@ -2259,12 +2259,12 @@ const getStyles = (COLORS) => StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 12,
     gap: 8,
-    backgroundColor: '#3B82F615',
+    backgroundColor: '#67C6D815',
     borderRadius: 10,
     marginTop: 4,
   },
   addSetText: {
-    color: '#3B82F6',
+    color: '#67C6D8',
     fontWeight: '600',
     fontSize: 14,
   },
@@ -2272,16 +2272,16 @@ const getStyles = (COLORS) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#3B82F610',
+    backgroundColor: '#67C6D810',
     borderRadius: 14,
     paddingVertical: 18,
     gap: 10,
     borderWidth: 2,
-    borderColor: '#3B82F640',
+    borderColor: '#67C6D840',
     borderStyle: 'dashed',
   },
   addExerciseText: {
-    color: '#3B82F6',
+    color: '#67C6D8',
     fontSize: 16,
     fontWeight: '600',
   },
@@ -2302,7 +2302,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     fontWeight: '600',
   },
   finishButton: {
-    backgroundColor: '#3B82F6',
+    backgroundColor: '#67C6D8',
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 10,

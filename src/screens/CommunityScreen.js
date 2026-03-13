@@ -610,6 +610,7 @@ const CommunityScreen = ({ route }) => {
   const loadInitialData = async () => {
     loadFollowingIds();
     loadFollowers();
+    loadSharedWorkouts();
   };
 
   const loadFollowingIds = async () => {
@@ -2259,6 +2260,51 @@ const CommunityScreen = ({ route }) => {
   // Combined Community tab - all content in one scrollable view
   const renderCommunity = () => (
     <>
+      {/* Shared Workout Notifications */}
+      {sharedWorkouts.length > 0 && (
+        <>
+          <Text style={styles.sectionLabel}>NOTIFICATIONS ({sharedWorkouts.length})</Text>
+          {sharedWorkouts.map((sw) => {
+            const sender = sw.fromUser;
+            const workout = sw.workout;
+            return (
+              <View key={sw.shareId} style={styles.sharedWorkoutCard}>
+                <View style={styles.sharedWorkoutHeader}>
+                  <View style={styles.userAvatar}>
+                    {sender?.avatar_url ? (
+                      <Image source={{ uri: sender.avatar_url }} style={styles.userAvatarImage} />
+                    ) : (
+                      <Text style={styles.userAvatarText}>
+                        {sender?.username?.[0]?.toUpperCase() || 'U'}
+                      </Text>
+                    )}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.userName}>@{sender?.username || 'user'} shared a workout</Text>
+                    <Text style={styles.sharedWorkoutName}>
+                      "{workout.workoutName}" · {workout.exercises.length} exercise{workout.exercises.length !== 1 ? 's' : ''} · {workout.duration}min
+                    </Text>
+                  </View>
+                  <TouchableOpacity onPress={() => handleDismissSharedWorkout(sw)} style={{ padding: 4 }}>
+                    <X size={16} color={COLORS.textMuted} />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.sharedWorkoutActions}>
+                  <TouchableOpacity style={styles.sharedWorkoutBtnOutline} onPress={() => handlePreviewSharedWorkout(sw)}>
+                    <Eye size={14} color={COLORS.primary} />
+                    <Text style={styles.sharedWorkoutBtnOutlineText}>Preview</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.sharedWorkoutBtnFilled} onPress={() => handleSaveSharedWorkout(sw)}>
+                    <Download size={14} color="#FFFFFF" />
+                    <Text style={styles.sharedWorkoutBtnFilledText}>Save</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            );
+          })}
+        </>
+      )}
+
       {/* Search Users */}
       <View style={styles.searchContainer}>
         <Search size={18} color={COLORS.textMuted} />
