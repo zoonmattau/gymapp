@@ -927,19 +927,8 @@ const WorkoutsScreen = () => {
     : null;
   const todayWorkoutCounts = todayCompletedWorkout ? workoutSetCounts[todayCompletedWorkout.id] : null;
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={COLORS.primary}
-          />
-        }
-      >
+  const scrollContent = (
+      <>
         {/* Week Section */}
         <View style={styles.section}>
           <View style={styles.weekHeader}>
@@ -1174,12 +1163,11 @@ const WorkoutsScreen = () => {
                     <View style={styles.todayPRsContainer}>
                       <Text style={styles.todayPRsTitle}>{todayPRs.length} New PR{todayPRs.length > 1 ? 's' : ''}</Text>
                       {todayPRs.map((pr, idx) => {
-                        const e1rm = pr.reps === 1 ? pr.weight : Math.round(pr.weight * (1 + pr.reps / 30));
-                        const displayE1rm = weightUnit === 'lbs' ? Math.round(e1rm * 2.205) : e1rm;
+                        const displayWeight = weightUnit === 'lbs' ? Math.round(pr.weight * 2.205) : pr.weight;
                         return (
                           <View key={idx} style={styles.todayPRRow}>
                             <Text style={styles.todayPRExercise} numberOfLines={1}>{pr.exercise_name}</Text>
-                            <Text style={styles.todayPRWeight}>{displayE1rm}{weightUnit}</Text>
+                            <Text style={styles.todayPRWeight}>{displayWeight}{weightUnit}</Text>
                           </View>
                         );
                       })}
@@ -1308,12 +1296,10 @@ const WorkoutsScreen = () => {
                           const topWeight = weights.length > 0 ? Math.max(...weights) : 0;
                           const displayWeight = weightUnit === 'lbs' ? Math.round(topWeight * 2.205) : topWeight;
 
-                          // Calculate best e1RM from this workout
-                          const bestE1rm = workingSets.reduce((best, s) => {
+                          // Calculate max weight from this workout
+                          const maxWeight = workingSets.reduce((best, s) => {
                             const w = parseFloat(s.weight) || 0;
-                            const r = parseInt(s.reps) || 0;
-                            const e1rm = w * (1 + r / 30);
-                            return e1rm > best ? e1rm : best;
+                            return w > best ? w : best;
                           }, 0);
 
                           const isGraphExpanded = expandedExerciseGraph === exercise.name;
@@ -1342,20 +1328,18 @@ const WorkoutsScreen = () => {
                               {isGraphExpanded && (
                                 <View style={styles.exerciseGraphContainer}>
                                   {history.length >= 2 ? (() => {
-                                    // Group by session date, find max e1RM per session
-                                    const sessionE1rms = {};
+                                    // Group by session date, find max weight per session
+                                    const sessionMaxWeights = {};
                                     history.forEach(h => {
                                       const date = h.session?.started_at?.split('T')[0] || 'unknown';
                                       const w = parseFloat(h.weight) || 0;
-                                      const r = parseInt(h.reps) || 0;
-                                      const e1rm = w * (1 + r / 30);
-                                      if (!sessionE1rms[date] || e1rm > sessionE1rms[date]) {
-                                        sessionE1rms[date] = e1rm;
+                                      if (!sessionMaxWeights[date] || w > sessionMaxWeights[date]) {
+                                        sessionMaxWeights[date] = w;
                                       }
                                     });
 
-                                    const sortedDates = Object.keys(sessionE1rms).sort();
-                                    const chartData = sortedDates.slice(-10).map(d => Math.round(sessionE1rms[d]));
+                                    const sortedDates = Object.keys(sessionMaxWeights).sort();
+                                    const chartData = sortedDates.slice(-10).map(d => Math.round(sessionMaxWeights[d]));
                                     const labels = sortedDates.slice(-10).map(d => {
                                       const date = new Date(d);
                                       return `${date.getDate()}/${date.getMonth() + 1}`;
@@ -1483,8 +1467,11 @@ const WorkoutsScreen = () => {
         </View>
 
         <View style={{ height: 100 }} />
-      </ScrollView>
+      </>
+  );
 
+  const modals = (
+      <>
       {/* Start Workout Modal */}
       <Modal
         visible={showStartModal}
@@ -1976,6 +1963,49 @@ const WorkoutsScreen = () => {
           </View>
         </View>
       </Modal>
+      </>
+  );
+
+  if (Platform.OS === 'web') {
+    return (
+      <View style={{ flex: 1, position: 'relative', backgroundColor: COLORS.background }}>
+        <SafeAreaView style={styles.container}>
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            overflowY: 'auto',
+            WebkitOverflowScrolling: 'touch',
+            backgroundColor: COLORS.background,
+          }}>
+            <View style={{ paddingHorizontal: 0 }}>
+              {scrollContent}
+            </View>
+          </div>
+          {modals}
+        </SafeAreaView>
+      </View>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={COLORS.primary}
+          />
+        }
+      >
+        {scrollContent}
+      </ScrollView>
+      {modals}
     </SafeAreaView>
   );
 };
@@ -2403,18 +2433,6 @@ const getStyles = (COLORS) => StyleSheet.create({
   },
   exerciseDetailLeft: {
     flex: 1,
-  },
-  e1rmBadge: {
-    backgroundColor: COLORS.primary + '20',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    marginRight: 8,
-  },
-  e1rmBadgeText: {
-    color: COLORS.primary,
-    fontSize: 11,
-    fontWeight: '600',
   },
   exerciseGraphContainer: {
     backgroundColor: COLORS.surfaceLight,

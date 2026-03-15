@@ -33,12 +33,12 @@ const ExerciseHistoryScreen = ({ route, navigation }) => {
   const { exerciseName } = route.params;
   const [loading, setLoading] = useState(true);
   const [selectedPeriod, setSelectedPeriod] = useState('3m');
-  const [selectedMetric, setSelectedMetric] = useState('e1rm');
+  const [selectedMetric, setSelectedMetric] = useState('weight');
   const [historyData, setHistoryData] = useState([]);
   const [expandedSessions, setExpandedSessions] = useState({});
 
   const METRICS = [
-    { key: 'e1rm', label: 'E1RM' },
+    { key: 'weight', label: 'Weight' },
     { key: 'volume', label: 'Volume' },
     { key: 'sets', label: 'Sets' },
     { key: 'reps', label: 'Reps' },
@@ -126,15 +126,14 @@ const ExerciseHistoryScreen = ({ route, navigation }) => {
         // Sort sets within each session
         sessionsWithSets.forEach(session => {
           session.sets.sort((a, b) => (a.setNumber || 0) - (b.setNumber || 0));
-          // Calculate best set (highest e1rm)
+          // Calculate best set (highest weight, then most reps)
           const workingSets = session.sets.filter(s => !s.isWarmup && s.weight > 0);
           if (workingSets.length > 0) {
             session.bestSet = workingSets.reduce((best, set) => {
-              const e1rm = set.weight * (1 + set.reps / 30);
-              const bestE1rm = best.weight * (1 + best.reps / 30);
-              return e1rm > bestE1rm ? set : best;
+              if (set.weight > best.weight) return set;
+              if (set.weight === best.weight && set.reps > best.reps) return set;
+              return best;
             }, workingSets[0]);
-            session.bestE1rm = session.bestSet.weight * (1 + session.bestSet.reps / 30);
           }
         });
 
@@ -234,8 +233,8 @@ const ExerciseHistoryScreen = ({ route, navigation }) => {
   const getMetricValue = (session) => {
     const workingSets = session.sets.filter(s => !s.isWarmup);
     switch (selectedMetric) {
-      case 'e1rm':
-        return session.bestE1rm ? Math.round(formatWeight(session.bestE1rm)) : 0;
+      case 'weight':
+        return session.bestSet ? Math.round(formatWeight(session.bestSet.weight)) : 0;
       case 'volume':
         return Math.round(formatWeight(workingSets.reduce((sum, s) => sum + (s.weight * s.reps), 0)));
       case 'sets':
@@ -250,8 +249,8 @@ const ExerciseHistoryScreen = ({ route, navigation }) => {
   // Get metric value for a single set (1W view)
   const getSetMetricValue = (set) => {
     switch (selectedMetric) {
-      case 'e1rm':
-        return Math.round(formatWeight(set.weight * (1 + set.reps / 30)));
+      case 'weight':
+        return Math.round(formatWeight(set.weight));
       case 'volume':
         return Math.round(formatWeight(set.weight * set.reps));
       case 'sets':
@@ -269,8 +268,8 @@ const ExerciseHistoryScreen = ({ route, navigation }) => {
       return null;
     }
 
-    // For 1W with e1rm/volume: show all sets, otherwise show per workout
-    if (selectedPeriod === '1w' && (selectedMetric === 'e1rm' || selectedMetric === 'volume')) {
+    // For 1W with weight/volume: show all sets, otherwise show per workout
+    if (selectedPeriod === '1w' && (selectedMetric === 'weight' || selectedMetric === 'volume')) {
       const allSets = [];
       historyData.forEach(session => {
         const workingSets = session.sets.filter(s => !s.isWarmup && s.weight > 0 && s.reps > 0);
@@ -410,7 +409,7 @@ const ExerciseHistoryScreen = ({ route, navigation }) => {
                 <View style={styles.chartContainer}>
                   <View style={styles.chartHeader}>
                     <Text style={styles.chartTitle}>
-                      {selectedMetric === 'e1rm' ? `Est. 1RM (${weightUnit})` :
+                      {selectedMetric === 'weight' ? `Weight (${weightUnit})` :
                        selectedMetric === 'volume' ? `Volume (${weightUnit})` :
                        selectedMetric === 'sets' ? 'Sets' : 'Reps'}
                     </Text>
@@ -479,7 +478,7 @@ const ExerciseHistoryScreen = ({ route, navigation }) => {
               <View style={styles.chartContainer}>
                 <View style={styles.chartHeader}>
                   <Text style={styles.chartTitle}>
-                    {selectedMetric === 'e1rm' ? `Est. 1RM (${weightUnit})` :
+                    {selectedMetric === 'weight' ? `Weight (${weightUnit})` :
                      selectedMetric === 'volume' ? `Volume (${weightUnit})` :
                      selectedMetric === 'sets' ? 'Sets' : 'Reps'}
                   </Text>

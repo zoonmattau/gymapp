@@ -37,6 +37,7 @@ import { sleepService } from '../services/sleepService';
 import AddMealModal from '../components/AddMealModal';
 import WaterEntryModal from '../components/WaterEntryModal';
 import { profileService } from '../services/profileService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from '../components/Toast';
 
 const TABS = [
@@ -105,6 +106,7 @@ const HealthScreen = () => {
   const [waterEntries, setWaterEntries] = useState([]); // Individual water logs
   const [meals, setMeals] = useState([]);
   const [nutritionHistory, setNutritionHistory] = useState([]);
+  const [weeklyWaterData, setWeeklyWaterData] = useState({}); // { '2026-03-15': 2500, ... }
 
   // Supplements state
   const [supplements, setSupplements] = useState([]);
@@ -135,6 +137,7 @@ const HealthScreen = () => {
   // Water goal editing
   const [showWaterGoalEdit, setShowWaterGoalEdit] = useState(false);
   const [waterGoalInput, setWaterGoalInput] = useState('');
+  const [waterGoalMl, setWaterGoalMl] = useState(3500);
 
   // Macro goals editing
   const [showMacroGoals, setShowMacroGoals] = useState(false);
@@ -218,7 +221,7 @@ const HealthScreen = () => {
     protein: profile?.protein_goal || 150,
     carbs: profile?.carb_goal || 250,
     fats: profile?.fat_goal || 70,
-    water: profile?.water_goal || 3500,
+    water: waterGoalMl,
   };
 
   // Nutrition mode
@@ -227,6 +230,13 @@ const HealthScreen = () => {
     description: 'Stay in a calorie deficit to lose fat',
     color: '#7C2D2D', // Dark red/maroon
   };
+
+  // Load water goal from AsyncStorage on mount
+  useEffect(() => {
+    AsyncStorage.getItem('@water_goal_ml').then(val => {
+      if (val) setWaterGoalMl(parseInt(val) || 3500);
+    }).catch(() => {});
+  }, []);
 
   // Reload data when screen comes into focus (syncs with HomeScreen)
   useFocusEffect(
@@ -238,6 +248,7 @@ const HealthScreen = () => {
         loadSleepData();
         loadSleepHistory();
         loadNutritionHistory();
+        loadWeeklyWater();
       }
     }, [user])
   );
@@ -310,6 +321,29 @@ const HealthScreen = () => {
       }
     } catch (error) {
       console.log('Error loading nutrition history:', error);
+    }
+  };
+
+  const loadWeeklyWater = async () => {
+    try {
+      const today = new Date();
+      const dayOfWeek = today.getDay();
+      const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      const monday = new Date(today);
+      monday.setDate(today.getDate() + mondayOffset);
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+
+      const { data, error } = await nutritionService.getWaterLogsRange(
+        user.id,
+        getLocalDateString(monday),
+        getLocalDateString(sunday)
+      );
+      if (data) {
+        setWeeklyWaterData(data);
+      }
+    } catch (error) {
+      console.log('Error loading weekly water:', error);
     }
   };
 
@@ -470,8 +504,9 @@ const HealthScreen = () => {
       try {
         const dateStr = getLocalDateString(selectedDate);
         await nutritionService.logWater(user.id, amount, dateStr);
-        // Reload entries and history to update chart
+        // Reload entries and chart data
         await loadWaterEntries();
+        await loadWeeklyWater();
         await loadNutritionHistory();
       } catch (error) {
         console.log('Error saving water:', error);
@@ -495,6 +530,7 @@ const HealthScreen = () => {
           await loadWaterEntries();
           await loadDateNutrition();
         }
+        await loadWeeklyWater();
         await loadNutritionHistory();
       } catch (error) {
         console.log('Error deleting water:', error);
@@ -1297,49 +1333,32 @@ const HealthScreen = () => {
                   />
                   <Text style={{ color: COLORS.text, fontSize: 20, fontWeight: '700' }}>L</Text>
                   <TouchableOpacity
-                    onPress={async () => {
+                    onPress={() => {
                       const liters = parseFloat(waterGoalInput);
                       if (!liters || liters <= 0 || liters > 20) {
                         showToast('Enter a value between 0.1 and 20 liters', 'error');
                         return;
                       }
                       const ml = Math.round(liters * 1000);
-                      await profileService.updateProfile(user.id, { water_goal: ml });
-                      await refreshProfile();
+                      setWaterGoalMl(ml);
+                      AsyncStorage.setItem('@water_goal_ml', String(ml)).catch(() => {});
                       setShowWaterGoalEdit(false);
                       showToast(`Water goal set to ${liters}L`);
                     }}
-                    onClick={async () => {
-                      const liters = parseFloat(waterGoalInput);
-                      if (!liters || liters <= 0 || liters > 20) {
-                        showToast('Enter a value between 0.1 and 20 liters', 'error');
-                        return;
-                      }
-                      const ml = Math.round(liters * 1000);
-                      await profileService.updateProfile(user.id, { water_goal: ml });
-                      await refreshProfile();
-                      setShowWaterGoalEdit(false);
-                      showToast(`Water goal set to ${liters}L`);
-                    }}
-                    style={{ marginLeft: 8 }}
+                    style={{ marginLeft: 8, padding: 8 }}
                   >
-                    <Text style={{ color: COLORS.success, fontWeight: '600' }}>Save</Text>
+                    <Text style={{ color: COLORS.success, fontWeight: '700', fontSize: 15 }}>Save</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => setShowWaterGoalEdit(false)}
-                    onClick={() => setShowWaterGoalEdit(false)}
-                    style={{ marginLeft: 8 }}
+                    style={{ marginLeft: 8, padding: 8 }}
                   >
-                    <Text style={{ color: COLORS.error, fontWeight: '600' }}>Cancel</Text>
+                    <Text style={{ color: COLORS.error, fontWeight: '700', fontSize: 15 }}>Cancel</Text>
                   </TouchableOpacity>
                 </View>
               ) : (
                 <TouchableOpacity
                   onPress={() => {
-                    setWaterGoalInput(waterGoalL);
-                    setShowWaterGoalEdit(true);
-                  }}
-                  onClick={() => {
                     setWaterGoalInput(waterGoalL);
                     setShowWaterGoalEdit(true);
                   }}
@@ -1444,14 +1463,19 @@ const HealthScreen = () => {
                   const date = new Date(today);
                   date.setDate(today.getDate() + mondayOffset + idx);
                   const dateStr = getLocalDateString(date);
-                  const dayData = nutritionHistory.find(d => d.log_date === dateStr);
-                  const intake = dayData?.water_intake || 0;
+                  const intake = weeklyWaterData[dateStr] || 0;
                   const percent = Math.min(100, (intake / nutritionGoals.water) * 100);
                   const isToday = date.toDateString() === today.toDateString();
                   const isFuture = date > today;
 
                   return (
                     <View key={idx} style={styles.waterWeekDay}>
+                      {intake > 0 && (
+                        <Text style={[
+                          styles.waterWeekAmount,
+                          percent >= 100 && { color: COLORS.success },
+                        ]}>{(intake / 1000).toFixed(1)}L</Text>
+                      )}
                       <View style={styles.waterWeekBarContainer}>
                         <View
                           style={[
@@ -3203,7 +3227,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     paddingLeft: 12,
-    height: 160,
+    height: 180,
     marginBottom: 16,
   },
   waterWeekYAxis: {
@@ -3247,8 +3271,13 @@ const getStyles = (COLORS) => StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
+  waterWeekAmount: {
+    color: COLORS.textMuted,
+    fontSize: 9,
+    fontWeight: '600',
+  },
   waterWeekBarContainer: {
-    flex: 1,
+    height: 95,
     width: 20,
     backgroundColor: COLORS.surfaceLight,
     borderRadius: 4,

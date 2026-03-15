@@ -26,11 +26,13 @@ export const prLeaderboardService = {
         return { data: [], error: null };
       }
 
-      // Deduplicate to get best PR per exercise (by e1rm)
+      // Deduplicate to get best PR per exercise (by weight, then reps)
       const bestPRsByExercise = {};
       for (const pr of userPRs) {
         const existing = bestPRsByExercise[pr.exercise_name];
-        if (!existing || (pr.e1rm || 0) > (existing.e1rm || 0)) {
+        if (!existing ||
+            (pr.weight || 0) > (existing.weight || 0) ||
+            ((pr.weight || 0) === (existing.weight || 0) && (pr.reps || 0) > (existing.reps || 0))) {
           bestPRsByExercise[pr.exercise_name] = pr;
         }
       }
@@ -50,8 +52,8 @@ export const prLeaderboardService = {
         })
       );
 
-      // Sort by e1rm descending (strongest lifts first)
-      prsWithRankings.sort((a, b) => (b.e1rm || 0) - (a.e1rm || 0));
+      // Sort by weight descending, then reps
+      prsWithRankings.sort((a, b) => (b.weight || 0) - (a.weight || 0) || (b.reps || 0) - (a.reps || 0));
 
       return { data: prsWithRankings, error: null };
     } catch (err) {

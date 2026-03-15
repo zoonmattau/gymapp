@@ -316,7 +316,7 @@ const WorkoutSummaryScreen = ({ route, navigation }) => {
     else if (period === '1Y') startDate = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
     else startDate = new Date('2020-01-01');
 
-    // Get current workout's best value (e1RM for weighted, volume for bodyweight)
+    // Get current workout's best value (max weight for weighted, volume for bodyweight)
     const currentExercise = exercises.find(ex => ex.name === exerciseName);
     let currentBestValue = 0;
     let isBW = true;
@@ -325,10 +325,8 @@ const WorkoutSummaryScreen = ({ route, navigation }) => {
         const w = parseFloat(set.weight) || 0, r = parseInt(set.reps) || 0;
         if (w > 0) {
           isBW = false;
-          const e1rm = r === 1 ? w : w * (1 + r / 30);
-          if (e1rm > currentBestValue) currentBestValue = e1rm;
+          if (w > currentBestValue) currentBestValue = w;
         } else if (r > 0) {
-          // Bodyweight: use volume (reps * bodyweight)
           const vol = r * userBodyweight;
           if (vol > currentBestValue) currentBestValue = vol;
         }
@@ -345,8 +343,7 @@ const WorkoutSummaryScreen = ({ route, navigation }) => {
           const w = parseFloat(set.weight) || 0, r = parseInt(set.reps) || 0;
           const date = set.completed_at?.split('T')[0];
           if (w > 0) {
-            const e1rm = r === 1 ? w : w * (1 + r / 30);
-            if (!valueByDate[date] || e1rm > valueByDate[date]) valueByDate[date] = e1rm;
+            if (!valueByDate[date] || w > valueByDate[date]) valueByDate[date] = w;
           } else if (r > 0) {
             // Bodyweight: track volume (reps * bodyweight)
             const vol = r * userBodyweight;
@@ -554,14 +551,12 @@ const WorkoutSummaryScreen = ({ route, navigation }) => {
               {newPRs.map((pr, i) => {
                 const w = parseFloat(pr.weight) || 0;
                 const r = parseInt(pr.reps) || 0;
-                const e1rm = w > 0 && r > 0 ? (r === 1 ? w : w * (1 + r / 30)) : 0;
                 const displayWeight = weightUnit === 'lbs' ? Math.round(w * 2.205) : w;
-                const displayE1rm = weightUnit === 'lbs' ? Math.round(e1rm * 2.205) : Math.round(e1rm);
                 return (
                   <View key={i} style={styles.prCardItem}>
                     <Text style={styles.prCardExercise}>{pr.exercise}</Text>
                     <Text style={styles.prCardWeight}>
-                      {displayWeight} {weightUnit} × {r} {e1rm > 0 ? `(e1RM: ${displayE1rm})` : ''}
+                      {displayWeight} {weightUnit} × {r} reps
                     </Text>
                   </View>
                 );
@@ -581,17 +576,15 @@ const WorkoutSummaryScreen = ({ route, navigation }) => {
       const exerciseData = EXERCISES.find(e => e.name === ex.name);
       const muscle = exerciseData?.muscleGroup || ex.muscleGroup;
 
-      // Find the best set (highest estimated 1RM using Epley formula)
-      const setsWithE1RM = completedSetsArr.map((s, i) => {
+      // Find the best set (heaviest weight, then most reps at same weight)
+      const setsWithData = completedSetsArr.map((s, i) => {
         const weight = parseFloat(s.weight) || 0;
         const reps = parseInt(s.reps) || 0;
-        const e1rm = reps === 1 ? weight : weight * (1 + reps / 30);
-        return { ...s, index: i, e1rm, weight, reps };
+        return { ...s, index: i, weight, reps };
       });
-      const bestSet = setsWithE1RM.length > 0
-        ? setsWithE1RM.reduce((best, s) => s.e1rm > (best?.e1rm || 0) ? s : best, setsWithE1RM[0])
-        : { weight: 0, reps: 0, e1rm: 0 };
-      const estimated1RM = bestSet?.e1rm || 0;
+      const bestSet = setsWithData.length > 0
+        ? setsWithData.reduce((best, s) => s.weight > best.weight || (s.weight === best.weight && s.reps > best.reps) ? s : best, setsWithData[0])
+        : { weight: 0, reps: 0 };
 
       // Get weight range
       const weights = completedSetsArr.map(s => parseFloat(s.weight) || 0).filter(w => w > 0);
@@ -610,8 +603,6 @@ const WorkoutSummaryScreen = ({ route, navigation }) => {
       if (maxWeight > 0) {
         const displayWeight = weightUnit === 'lbs' ? Math.round((bestSet?.weight || 0) * 2.205) : bestSet?.weight;
         heroStats.push({ value: displayWeight, unit: weightUnit, label: `× ${bestSet?.reps} reps`, sublabel: 'Top Set' });
-        const display1RM = weightUnit === 'lbs' ? Math.round(estimated1RM * 2.205) : Math.round(estimated1RM);
-        heroStats.push({ value: display1RM, unit: weightUnit, sublabel: 'Est. 1RM' });
         const displayVol = weightUnit === 'lbs' ? Math.round(totalVolume * 2.205) : Math.round(totalVolume);
         heroStats.push({
           value: displayVol >= 1000 ? `${(displayVol/1000).toFixed(1)}K` : displayVol,
@@ -880,14 +871,11 @@ const WorkoutSummaryScreen = ({ route, navigation }) => {
                         {completedSets.map((set, setIdx) => {
                           const w = parseFloat(set.weight) || 0;
                           const r = parseInt(set.reps) || 0;
-                          const e1rm = w > 0 && r > 0 ? (r === 1 ? w : w * (1 + r / 30)) : 0;
-                          const displayE1rm = weightUnit === 'lbs' ? Math.round(e1rm * 2.205) : Math.round(e1rm);
                           const displayW = w > 0 ? (weightUnit === 'lbs' ? Math.round(w * 2.205) : w) : 'BW';
                           return (
                             <View key={setIdx} style={styles.setRow}>
                               <Text style={styles.setWeight}>{displayW}{w > 0 ? weightUnit : ''}</Text>
                               <Text style={styles.setReps}>×{r}</Text>
-                              {e1rm > 0 && <Text style={styles.setE1rm}>e1RM {displayE1rm}</Text>}
                               {set.rpe && <Text style={styles.setRpe}>@{set.rpe}</Text>}
                             </View>
                           );
@@ -945,7 +933,7 @@ const WorkoutSummaryScreen = ({ route, navigation }) => {
                           </View>
                         ) : (
                           <View style={styles.chartBox}>
-                            <Text style={styles.e1rmLabel}>Best e1RM</Text>
+                            <Text style={styles.e1rmLabel}>Best Weight</Text>
                             <Text style={styles.e1rmValue}>
                               {exerciseHistory[exercise.name]?.data?.[0]
                                 ? `${weightUnit === 'lbs' ? Math.round(exerciseHistory[exercise.name].data[0] * 2.205) : Math.round(exerciseHistory[exercise.name].data[0])}${weightUnit}`
@@ -970,9 +958,7 @@ const WorkoutSummaryScreen = ({ route, navigation }) => {
           {newPRs.map((pr, index) => {
             const w = parseFloat(pr.weight) || 0;
             const r = parseInt(pr.reps) || 0;
-            const e1rm = w > 0 && r > 0 ? (r === 1 ? w : w * (1 + r / 30)) : 0;
             const displayWeight = weightUnit === 'lbs' ? Math.round(w * 2.205) : w;
-            const displayE1rm = weightUnit === 'lbs' ? Math.round(e1rm * 2.205) : Math.round(e1rm);
             return (
               <View key={index} style={styles.prCard}>
                 <Trophy size={24} color={COLORS.warning} />
@@ -982,7 +968,6 @@ const WorkoutSummaryScreen = ({ route, navigation }) => {
                     <Text style={styles.prValue}>
                       {displayWeight}{weightUnit} x {r} reps
                     </Text>
-                    {e1rm > 0 && <Text style={styles.prE1rm}>e1RM: {displayE1rm}{weightUnit}</Text>}
                   </View>
                 </View>
               </View>

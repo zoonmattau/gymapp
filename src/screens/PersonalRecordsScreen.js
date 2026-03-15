@@ -15,6 +15,7 @@ import ExerciseLink from '../components/ExerciseLink';
 import { useColors } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { workoutService } from '../services/workoutService';
+import { supabase } from '../lib/supabase';
 import { EXERCISES } from '../constants/exercises';
 
 const TIME_FILTERS = [
@@ -51,28 +52,70 @@ const PersonalRecordsScreen = ({ navigation }) => {
 
   const loadPersonalRecords = async () => {
     try {
-      // Try to load PRs from the workout service
-      const { data } = await workoutService.getPersonalRecords(user?.id);
-      if (data && data.length > 0) {
-        // Map database fields to display format
-        const formattedPRs = data.map(pr => {
-          const exerciseName = pr.exercise_name || pr.exercise || 'Unknown Exercise';
-          return {
-            exercise: exerciseName,
-            muscleGroup: getMuscleGroup(exerciseName),
-            weight: pr.weight || 0,
-            reps: pr.reps || 1,
-            achievedAt: pr.achieved_at ? new Date(pr.achieved_at) : new Date(),
-            date: pr.achieved_at
-              ? new Date(pr.achieved_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-              : pr.date || 'Recently',
-            e1rm: pr.e1rm || calculateE1RM(pr.weight || 0, pr.reps || 1),
-          };
-        });
-        setPersonalRecords(formattedPRs);
-      } else {
+      // Compute PRs directly from workout_sets (source of truth)
+      const { data: sessions } = await supabase
+        .from('workout_sessions')
+        .select('id, started_at')
+        .eq('user_id', user?.id)
+        .not('ended_at', 'is', null)
+        .order('started_at', { ascending: false });
+
+      if (!sessions || sessions.length === 0) {
         setPersonalRecords([]);
+        setLoading(false);
+        return;
       }
+
+      const sessionIds = sessions.map(s => s.id);
+      const sessionDateMap = {};
+      sessions.forEach(s => { sessionDateMap[s.id] = s.started_at; });
+
+      const { data: sets } = await supabase
+        .from('workout_sets')
+        .select('exercise_name, weight, reps, session_id')
+        .in('session_id', sessionIds)
+        .eq('is_warmup', false);
+
+      if (!sets || sets.length === 0) {
+        setPersonalRecords([]);
+        setLoading(false);
+        return;
+      }
+
+      // Find best set per exercise (highest weight, then most reps at same weight)
+      const prMap = {};
+      sets.forEach(set => {
+        const name = set.exercise_name;
+        if (!name) return;
+        const w = parseFloat(set.weight) || 0;
+        const r = parseInt(set.reps) || 0;
+        if (w <= 0 || r <= 0) return;
+
+        const date = sessionDateMap[set.session_id];
+
+        if (!prMap[name]) {
+          prMap[name] = { weight: w, reps: r, date };
+        } else if (w > prMap[name].weight) {
+          prMap[name] = { weight: w, reps: r, date };
+        } else if (w === prMap[name].weight && r > prMap[name].reps) {
+          prMap[name] = { weight: w, reps: r, date };
+        }
+      });
+
+      const formattedPRs = Object.entries(prMap).map(([exerciseName, pr]) => ({
+        exercise: exerciseName,
+        muscleGroup: getMuscleGroup(exerciseName),
+        weight: pr.weight,
+        reps: pr.reps,
+        achievedAt: pr.date ? new Date(pr.date) : new Date(),
+        date: pr.date
+          ? new Date(pr.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+          : 'Unknown',
+      }));
+
+      // Sort by weight descending, then reps descending
+      formattedPRs.sort((a, b) => b.weight - a.weight || b.reps - a.reps);
+      setPersonalRecords(formattedPRs);
     } catch (error) {
       console.log('Error loading PRs:', error);
       setPersonalRecords([]);
@@ -105,12 +148,6 @@ const PersonalRecordsScreen = ({ navigation }) => {
     });
   }, [personalRecords, timeFilter, muscleFilter]);
 
-  // Calculate estimated 1RM using Epley formula
-  const calculateE1RM = (weight, reps) => {
-    if (reps === 1) return weight;
-    return Math.round(weight * (1 + reps / 30));
-  };
-
   const renderPRItem = ({ item }) => (
     <View style={styles.prCard}>
       <View style={styles.prLeft}>
@@ -123,12 +160,6 @@ const PersonalRecordsScreen = ({ navigation }) => {
         <Text style={styles.prWeight}>{weightUnit === 'lbs' ? Math.round(item.weight * 2.205) : item.weight}{weightUnit}</Text>
         <Text style={styles.prReps}>x {item.reps} reps</Text>
       </View>
-      {item.weight > 0 && item.reps > 0 && (
-        <View style={styles.prE1RM}>
-          <Text style={styles.prE1RMLabel}>Est. 1RM</Text>
-          <Text style={styles.prE1RMValue}>{weightUnit === 'lbs' ? Math.round(calculateE1RM(item.weight, item.reps) * 2.205) : calculateE1RM(item.weight, item.reps)}{weightUnit}</Text>
-        </View>
-      )}
     </View>
   );
 
@@ -164,9 +195,100 @@ const PersonalRecordsScreen = ({ navigation }) => {
     );
   }
 
+  const content = personalRecords.length === 0 ? (
+    renderEmptyState()
+  ) : (
+    <>
+      {/* Filters Section */}
+      <View style={styles.filtersContainer}>
+        {/* Time Filter */}
+        <View style={styles.filterSection}>
+          <Text style={styles.filterLabel}>When</Text>
+          <View style={styles.filterRow}>
+            {TIME_FILTERS.map(filter => (
+              <TouchableOpacity
+                key={filter.key}
+                style={[styles.filterChip, timeFilter === filter.key && styles.filterChipActive]}
+                onPress={() => setTimeFilter(filter.key)}
+              >
+                <Text style={[styles.filterChipText, timeFilter === filter.key && styles.filterChipTextActive]}>
+                  {filter.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Muscle Filter */}
+        <View style={[styles.filterSection, { marginBottom: 0 }]}>
+          <Text style={styles.filterLabel}>Muscle Group</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterRow}
+          >
+            {MUSCLE_FILTERS.map(muscle => (
+              <TouchableOpacity
+                key={muscle}
+                style={[styles.filterChip, muscleFilter === muscle && styles.filterChipActive]}
+                onPress={() => setMuscleFilter(muscle)}
+              >
+                <Text style={[styles.filterChipText, muscleFilter === muscle && styles.filterChipTextActive]}>
+                  {muscle}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      </View>
+
+      {/* Result count */}
+      <Text style={styles.resultCount}>
+        {filteredRecords.length} PR{filteredRecords.length !== 1 ? 's' : ''}
+      </Text>
+
+      {/* PR List */}
+      {filteredRecords.map((item, index) => (
+        <View key={`${item.exercise}-${index}`}>
+          {renderPRItem({ item })}
+        </View>
+      ))}
+      <View style={{ height: 40 }} />
+    </>
+  );
+
+  if (Platform.OS === 'web') {
+    return (
+      <View style={{ flex: 1, position: 'relative', backgroundColor: COLORS.background }}>
+        <SafeAreaView style={styles.container}>
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            overflowY: 'auto',
+            WebkitOverflowScrolling: 'touch',
+            backgroundColor: COLORS.background,
+          }}>
+            <View style={styles.header}>
+              <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                <ArrowLeft size={24} color={COLORS.text} />
+              </TouchableOpacity>
+              <Text style={styles.title}>Personal Records</Text>
+              <View style={{ width: 24 }} />
+            </View>
+            <View style={{ paddingHorizontal: 16 }}>
+              {content}
+            </View>
+          </div>
+        </SafeAreaView>
+      </View>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <ArrowLeft size={24} color={COLORS.text} />
@@ -174,69 +296,9 @@ const PersonalRecordsScreen = ({ navigation }) => {
         <Text style={styles.title}>Personal Records</Text>
         <View style={{ width: 24 }} />
       </View>
-
-      {personalRecords.length === 0 ? (
-        renderEmptyState()
-      ) : (
-        <>
-          {/* Filters Section */}
-          <View style={styles.filtersContainer}>
-            {/* Time Filter */}
-            <View style={styles.filterSection}>
-              <Text style={styles.filterLabel}>When</Text>
-              <View style={styles.filterRow}>
-                {TIME_FILTERS.map(filter => (
-                  <TouchableOpacity
-                    key={filter.key}
-                    style={[styles.filterChip, timeFilter === filter.key && styles.filterChipActive]}
-                    onPress={() => setTimeFilter(filter.key)}
-                  >
-                    <Text style={[styles.filterChipText, timeFilter === filter.key && styles.filterChipTextActive]}>
-                      {filter.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            {/* Muscle Filter */}
-            <View style={[styles.filterSection, { marginBottom: 0 }]}>
-              <Text style={styles.filterLabel}>Muscle Group</Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.filterRow}
-              >
-                {MUSCLE_FILTERS.map(muscle => (
-                  <TouchableOpacity
-                    key={muscle}
-                    style={[styles.filterChip, muscleFilter === muscle && styles.filterChipActive]}
-                    onPress={() => setMuscleFilter(muscle)}
-                  >
-                    <Text style={[styles.filterChipText, muscleFilter === muscle && styles.filterChipTextActive]}>
-                      {muscle}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          </View>
-
-          {/* Result count */}
-          <Text style={styles.resultCount}>
-            {filteredRecords.length} PR{filteredRecords.length !== 1 ? 's' : ''}
-          </Text>
-
-          {/* PR List */}
-          <FlatList
-            data={filteredRecords}
-            keyExtractor={(item, index) => `${item.exercise}-${index}`}
-            renderItem={renderPRItem}
-            contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
-          />
-        </>
-      )}
+      <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
+        {content}
+      </ScrollView>
     </SafeAreaView>
   );
 };
@@ -270,7 +332,6 @@ const getStyles = (COLORS) => StyleSheet.create({
   },
   filtersContainer: {
     backgroundColor: COLORS.surface,
-    marginHorizontal: 16,
     marginTop: 16,
     borderRadius: 16,
     padding: 16,
@@ -311,7 +372,6 @@ const getStyles = (COLORS) => StyleSheet.create({
   resultCount: {
     color: COLORS.textMuted,
     fontSize: 13,
-    marginHorizontal: 16,
     marginTop: 16,
     marginBottom: 8,
   },
@@ -366,22 +426,6 @@ const getStyles = (COLORS) => StyleSheet.create({
   prReps: {
     color: COLORS.textMuted,
     fontSize: 12,
-  },
-  prE1RM: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.surfaceLight,
-  },
-  prE1RMLabel: {
-    color: COLORS.textMuted,
-    fontSize: 12,
-  },
-  prE1RMValue: {
-    color: COLORS.primary,
-    fontSize: 14,
-    fontWeight: '600',
   },
   emptyState: {
     flex: 1,

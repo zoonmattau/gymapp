@@ -52,6 +52,7 @@ import { socialService } from '../services/socialService';
 import { notificationService } from '../services/notificationService';
 import { competitionService } from '../services/competitionService';
 import { profileService } from '../services/profileService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getPausedWorkout, clearPausedWorkout } from '../utils/workoutStore';
 import { getCustomTemplates } from '../utils/customTemplateStore';
 import { useAuth } from '../contexts/AuthContext';
@@ -183,10 +184,18 @@ const HomeScreen = () => {
     fetchBodyweight();
   }, [user?.id]);
 
+  const [waterGoalMl, setWaterGoalMl] = useState(3500);
+
+  useEffect(() => {
+    AsyncStorage.getItem('@water_goal_ml').then(val => {
+      if (val) setWaterGoalMl(parseInt(val) || 3500);
+    }).catch(() => {});
+  }, []);
+
   const nutritionGoals = {
     calories: profile?.calorie_goal || 2200,
     protein: profile?.protein_goal || 150,
-    water: profile?.water_goal || 3500,
+    water: waterGoalMl,
   };
 
   // Check for saved workout on initial mount (runs once)
@@ -903,6 +912,7 @@ const HomeScreen = () => {
         sessionId: savedWorkout.sessionId,
         resumedExercises: savedWorkout.exercises,
         resumedTime: savedWorkout.elapsedTime,
+        resumedStartTime: savedWorkout.workoutStartTime || null,
       });
       clearPausedWorkout();
       setSavedWorkout(null);

@@ -450,6 +450,7 @@ const CreateWorkoutScreen = ({ navigation }) => {
         onClose={() => setShowExerciseSearch(false)}
         onSelect={addExercise}
         excludeExercises={exercises.map(e => e.name)}
+        userId={user?.id}
       />
     </SafeAreaView>
   );

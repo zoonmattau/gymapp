@@ -511,6 +511,8 @@ const CommunityScreen = ({ route }) => {
 
   // Shared Workouts
   const [sharedWorkouts, setSharedWorkouts] = useState([]);
+  const [showSharedWorkoutModal, setShowSharedWorkoutModal] = useState(false);
+  const [selectedSharedWorkout, setSelectedSharedWorkout] = useState(null);
 
   // Following search
   const [followingSearchQuery, setFollowingSearchQuery] = useState('');
@@ -564,6 +566,7 @@ const CommunityScreen = ({ route }) => {
 
   const searchTimerRef = useRef(null);
   const followingSearchTimerRef = useRef(null);
+  const sharedWorkoutModalShownRef = useRef(false);
 
   useEffect(() => {
     if (user?.id) {
@@ -606,6 +609,15 @@ const CommunityScreen = ({ route }) => {
     }, 400);
     return () => clearTimeout(followingSearchTimerRef.current);
   }, [followingSearchQuery]);
+
+  // Auto-show shared workout modal when workouts are first loaded
+  useEffect(() => {
+    if (sharedWorkouts.length > 0 && !sharedWorkoutModalShownRef.current) {
+      sharedWorkoutModalShownRef.current = true;
+      setSelectedSharedWorkout(sharedWorkouts[0]);
+      setShowSharedWorkoutModal(true);
+    }
+  }, [sharedWorkouts]);
 
   const loadInitialData = async () => {
     loadFollowingIds();
@@ -2268,7 +2280,14 @@ const CommunityScreen = ({ route }) => {
             const sender = sw.fromUser;
             const workout = sw.workout;
             return (
-              <View key={sw.shareId} style={styles.sharedWorkoutCard}>
+              <TouchableOpacity
+                key={sw.shareId}
+                style={styles.sharedWorkoutCard}
+                onPress={() => {
+                  setSelectedSharedWorkout(sw);
+                  setShowSharedWorkoutModal(true);
+                }}
+              >
                 <View style={styles.sharedWorkoutHeader}>
                   <View style={styles.userAvatar}>
                     {sender?.avatar_url ? (
@@ -2285,21 +2304,9 @@ const CommunityScreen = ({ route }) => {
                       "{workout.workoutName}" · {workout.exercises.length} exercise{workout.exercises.length !== 1 ? 's' : ''} · {workout.duration}min
                     </Text>
                   </View>
-                  <TouchableOpacity onPress={() => handleDismissSharedWorkout(sw)} style={{ padding: 4 }}>
-                    <X size={16} color={COLORS.textMuted} />
-                  </TouchableOpacity>
+                  <ChevronRight size={16} color={COLORS.textMuted} />
                 </View>
-                <View style={styles.sharedWorkoutActions}>
-                  <TouchableOpacity style={styles.sharedWorkoutBtnOutline} onPress={() => handlePreviewSharedWorkout(sw)}>
-                    <Eye size={14} color={COLORS.primary} />
-                    <Text style={styles.sharedWorkoutBtnOutlineText}>Preview</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.sharedWorkoutBtnFilled} onPress={() => handleSaveSharedWorkout(sw)}>
-                    <Download size={14} color="#FFFFFF" />
-                    <Text style={styles.sharedWorkoutBtnFilledText}>Save</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
+              </TouchableOpacity>
             );
           })}
         </>
@@ -2838,7 +2845,10 @@ const CommunityScreen = ({ route }) => {
           )}
           {sharedWorkouts.length > 0 && (
             <TouchableOpacity
-              onPress={() => setActiveTab('profile')}
+              onPress={() => {
+                setSelectedSharedWorkout(sharedWorkouts[0]);
+                setShowSharedWorkoutModal(true);
+              }}
               style={styles.requestsBadge}
             >
               <Text style={styles.requestsBadgeText}>
@@ -3202,6 +3212,132 @@ const CommunityScreen = ({ route }) => {
             )}
           </ScrollView>
         </SafeAreaView>
+      </Modal>
+
+      {/* Shared Workout Popup Modal */}
+      <Modal
+        visible={showSharedWorkoutModal && selectedSharedWorkout !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setShowSharedWorkoutModal(false);
+          setSelectedSharedWorkout(null);
+        }}
+      >
+        <View style={styles.swModalOverlay}>
+          <View style={styles.swModalContainer}>
+            {selectedSharedWorkout && (() => {
+              const sender = selectedSharedWorkout.fromUser;
+              const workout = selectedSharedWorkout.workout;
+              return (
+                <>
+                  {/* Close button */}
+                  <TouchableOpacity
+                    onPress={() => {
+                      setShowSharedWorkoutModal(false);
+                      setSelectedSharedWorkout(null);
+                    }}
+                    style={styles.swModalClose}
+                  >
+                    <X size={20} color={COLORS.textMuted} />
+                  </TouchableOpacity>
+
+                  {/* Sender info */}
+                  <View style={styles.swModalSender}>
+                    <View style={styles.swModalAvatar}>
+                      {sender?.avatar_url ? (
+                        <Image source={{ uri: sender.avatar_url }} style={styles.swModalAvatarImage} />
+                      ) : (
+                        <Text style={styles.swModalAvatarText}>
+                          {sender?.username?.[0]?.toUpperCase() || 'U'}
+                        </Text>
+                      )}
+                    </View>
+                    <Text style={styles.swModalSenderText}>
+                      @{sender?.username || 'user'} shared a workout with you
+                    </Text>
+                  </View>
+
+                  {/* Workout name */}
+                  <Text style={styles.swModalWorkoutName}>{workout.workoutName}</Text>
+
+                  {/* Workout stats */}
+                  <View style={styles.swModalStats}>
+                    <View style={styles.swModalStat}>
+                      <Dumbbell size={16} color={COLORS.primary} />
+                      <Text style={styles.swModalStatText}>
+                        {workout.exercises.length} exercise{workout.exercises.length !== 1 ? 's' : ''}
+                      </Text>
+                    </View>
+                    <View style={styles.swModalStat}>
+                      <Clock size={16} color={COLORS.primary} />
+                      <Text style={styles.swModalStatText}>{workout.duration} min</Text>
+                    </View>
+                    {workout.totalSets > 0 && (
+                      <View style={styles.swModalStat}>
+                        <Target size={16} color={COLORS.primary} />
+                        <Text style={styles.swModalStatText}>{workout.totalSets} sets</Text>
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Exercise list */}
+                  <ScrollView style={styles.swModalExerciseList} showsVerticalScrollIndicator={false}>
+                    {workout.exercises.map((ex, idx) => (
+                      <View key={idx} style={styles.swModalExerciseRow}>
+                        <Text style={styles.swModalExerciseName}>{ex.name}</Text>
+                        <Text style={styles.swModalExerciseSets}>
+                          {ex.sets.length} {ex.sets.length === 1 ? 'set' : 'sets'}
+                          {ex.sets[0]?.weight > 0 ? ` · ${ex.sets[0].weight}${weightUnit}` : ''}
+                        </Text>
+                      </View>
+                    ))}
+                  </ScrollView>
+
+                  {/* Action buttons */}
+                  <View style={styles.swModalActions}>
+                    <TouchableOpacity
+                      style={styles.swModalBtnOutline}
+                      onPress={() => {
+                        setShowSharedWorkoutModal(false);
+                        setSelectedSharedWorkout(null);
+                        handlePreviewSharedWorkout(selectedSharedWorkout);
+                      }}
+                    >
+                      <Eye size={16} color={COLORS.primary} />
+                      <Text style={styles.swModalBtnOutlineText}>Preview</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.swModalBtnFilled}
+                      onPress={() => {
+                        const sw = selectedSharedWorkout;
+                        setShowSharedWorkoutModal(false);
+                        setSelectedSharedWorkout(null);
+                        handleSaveSharedWorkout(sw);
+                      }}
+                    >
+                      <Download size={16} color="#FFFFFF" />
+                      <Text style={styles.swModalBtnFilledText}>Save</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Dismiss link */}
+                  <TouchableOpacity
+                    style={styles.swModalDismiss}
+                    onPress={() => {
+                      const sw = selectedSharedWorkout;
+                      setShowSharedWorkoutModal(false);
+                      setSelectedSharedWorkout(null);
+                      handleDismissSharedWorkout(sw);
+                    }}
+                  >
+                    <Text style={styles.swModalDismissText}>Dismiss</Text>
+                  </TouchableOpacity>
+                </>
+              );
+            })()}
+          </View>
+        </View>
       </Modal>
 
       {/* Challenge Detail Modal */}
@@ -5337,6 +5473,150 @@ const getStyles = (COLORS) => StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '600',
+  },
+
+  // Shared Workout Popup Modal
+  swModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  swModalContainer: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 380,
+    maxHeight: '80%',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  swModalClose: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    zIndex: 1,
+    padding: 4,
+  },
+  swModalSender: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingRight: 28,
+  },
+  swModalAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.surfaceLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  swModalAvatarImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  swModalAvatarText: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  swModalSenderText: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    flex: 1,
+  },
+  swModalWorkoutName: {
+    color: COLORS.text,
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 12,
+  },
+  swModalStats: {
+    flexDirection: 'row',
+    gap: 16,
+    marginBottom: 16,
+  },
+  swModalStat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  swModalStatText: {
+    color: COLORS.textMuted,
+    fontSize: 13,
+  },
+  swModalExerciseList: {
+    maxHeight: 200,
+    marginBottom: 20,
+  },
+  swModalExerciseRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 6,
+  },
+  swModalExerciseName: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '500',
+    flex: 1,
+  },
+  swModalExerciseSets: {
+    color: COLORS.textMuted,
+    fontSize: 13,
+  },
+  swModalActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  swModalBtnOutline: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+  },
+  swModalBtnOutlineText: {
+    color: COLORS.primary,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  swModalBtnFilled: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: COLORS.primary,
+  },
+  swModalBtnFilledText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  swModalDismiss: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    marginTop: 4,
+  },
+  swModalDismissText: {
+    color: COLORS.textMuted,
+    fontSize: 14,
   },
 });
 

@@ -76,17 +76,27 @@ export const nutritionService = {
     }
   },
 
-  // Update daily nutrition totals
+  // Update daily nutrition totals (merges with existing row to avoid overwriting other fields)
   async updateDailyNutrition(userId, date, totals) {
     try {
+      // Fetch existing row first so we don't overwrite unrelated fields
+      const { data: existing } = await this.getDailyNutrition(userId, date);
+
+      const merged = {
+        user_id: userId,
+        log_date: date,
+        total_calories: existing?.total_calories || 0,
+        total_protein: existing?.total_protein || 0,
+        total_carbs: existing?.total_carbs || 0,
+        total_fats: existing?.total_fats || 0,
+        water_intake: existing?.water_intake || 0,
+        ...totals,
+        updated_at: new Date().toISOString(),
+      };
+
       const { data, error } = await supabase
         .from('daily_nutrition')
-        .upsert({
-          user_id: userId,
-          log_date: date,
-          ...totals,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'user_id,log_date' })
+        .upsert(merged, { onConflict: 'user_id,log_date' })
         .select()
         .maybeSingle();
 
@@ -224,6 +234,27 @@ export const nutritionService = {
       .order('logged_at', { ascending: false });
 
     return { data, error };
+  },
+
+  // Get water logs for a date range (for weekly chart)
+  async getWaterLogsRange(userId, startDate, endDate) {
+    const { data, error } = await supabase
+      .from('water_logs')
+      .select('log_date, amount_ml')
+      .eq('user_id', userId)
+      .gte('log_date', startDate)
+      .lte('log_date', endDate)
+      .order('log_date');
+
+    if (error || !data) return { data: [], error };
+
+    // Group by date and sum
+    const grouped = {};
+    data.forEach(log => {
+      grouped[log.log_date] = (grouped[log.log_date] || 0) + log.amount_ml;
+    });
+
+    return { data: grouped, error: null };
   },
 
   // Delete a water log entry

@@ -35,6 +35,8 @@ const ProgressScreen = () => {
   const styles = getStyles(COLORS);
   const { user, profile, refreshProfile } = useAuth();
   const [chartPeriod, setChartPeriod] = useState('7D');
+  const [showGoalLine, setShowGoalLine] = useState(true);
+  const [showTrendLine, setShowTrendLine] = useState(false);
   const [trendsPeriod, setTrendsPeriod] = useState('7D');
   const [selectedWeightPoint, setSelectedWeightPoint] = useState(null);
   const [showWeighInModal, setShowWeighInModal] = useState(false);
@@ -630,6 +632,25 @@ const ProgressScreen = () => {
     });
   };
 
+  // Calculate trend line (linear regression)
+  const getTrendLineData = () => {
+    const weights = filteredWeightHistory.map(w => w.weight);
+    const n = weights.length;
+    if (n < 2) return weights;
+
+    let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+    for (let i = 0; i < n; i++) {
+      sumX += i;
+      sumY += weights[i];
+      sumXY += i * weights[i];
+      sumX2 += i * i;
+    }
+    const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+    const intercept = (sumY - slope * sumX) / n;
+
+    return weights.map((_, i) => Math.round((intercept + slope * i) * 10) / 10);
+  };
+
   const weightChartData = filteredWeightHistory.length > 0 ? {
     labels: getChartLabels(),
     datasets: [
@@ -638,6 +659,20 @@ const ProgressScreen = () => {
         color: (opacity = 1) => `rgba(6, 182, 212, ${opacity})`,
         strokeWidth: 2,
       },
+      // Goal weight line (flat horizontal)
+      ...(showGoalLine && weightData.target > 0 ? [{
+        data: filteredWeightHistory.map(() => weightData.target),
+        color: (opacity = 1) => `rgba(74, 222, 128, ${opacity * 0.7})`,
+        strokeWidth: 2,
+        withDots: false,
+      }] : []),
+      // Trend line (linear regression)
+      ...(showTrendLine && filteredWeightHistory.length >= 2 ? [{
+        data: getTrendLineData(),
+        color: (opacity = 1) => `rgba(251, 191, 36, ${opacity * 0.7})`,
+        strokeWidth: 2,
+        withDots: false,
+      }] : []),
     ],
   } : null;
 
@@ -967,18 +1002,41 @@ const ProgressScreen = () => {
                 })()}
               </TouchableOpacity>
             )}
-            <View style={styles.chartGoalLine}>
-              <Text style={styles.chartGoalText}>Goal: {formatWeight(weightData.target)}</Text>
-            </View>
             <View style={styles.chartLegend}>
               <View style={styles.chartLegendItem}>
                 <View style={[styles.chartLegendDot, { backgroundColor: COLORS.primary }]} />
                 <Text style={styles.chartLegendText}>Actual</Text>
               </View>
-              <View style={styles.chartLegendItem}>
-                <View style={[styles.chartLegendDot, { backgroundColor: COLORS.success }]} />
-                <Text style={styles.chartLegendText}>Goal</Text>
-              </View>
+              {weightData.target > 0 && (
+                <TouchableOpacity
+                  style={styles.chartLegendItem}
+                  onPress={() => setShowGoalLine(!showGoalLine)}
+                >
+                  <View style={[
+                    styles.chartLegendDot,
+                    { backgroundColor: showGoalLine ? COLORS.success : COLORS.surfaceLight },
+                    !showGoalLine && { borderWidth: 1, borderColor: COLORS.textMuted },
+                  ]} />
+                  <Text style={[
+                    styles.chartLegendText,
+                    !showGoalLine && { color: COLORS.textMuted },
+                  ]}>Goal ({formatWeight(weightData.target)})</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                style={styles.chartLegendItem}
+                onPress={() => setShowTrendLine(!showTrendLine)}
+              >
+                <View style={[
+                  styles.chartLegendDot,
+                  { backgroundColor: showTrendLine ? '#FBBF24' : COLORS.surfaceLight },
+                  !showTrendLine && { borderWidth: 1, borderColor: COLORS.textMuted },
+                ]} />
+                <Text style={[
+                  styles.chartLegendText,
+                  !showTrendLine && { color: COLORS.textMuted },
+                ]}>Trend</Text>
+              </TouchableOpacity>
             </View>
           </>
         ) : (
@@ -1173,11 +1231,18 @@ const ProgressScreen = () => {
       <Text style={styles.sectionLabel}>WEIGH-IN HISTORY</Text>
       <View style={styles.historyCard}>
         {weightHistory.length > 0 ? (
-          <ScrollView
-            style={styles.historyScrollView}
-            nestedScrollEnabled={true}
-            showsVerticalScrollIndicator={true}
-          >
+          <>
+            <View style={styles.historyHeaderRow}>
+              <Text style={styles.historyHeaderText}>Date</Text>
+              <Text style={[styles.historyHeaderText, { minWidth: 55, textAlign: 'right' }]}>Weight</Text>
+              <Text style={[styles.historyHeaderText, { minWidth: 45, textAlign: 'right' }]}>Change</Text>
+              <Text style={[styles.historyHeaderText, { minWidth: 45, textAlign: 'right' }]}>Total</Text>
+            </View>
+            <ScrollView
+              style={styles.historyScrollView}
+              nestedScrollEnabled={true}
+              showsVerticalScrollIndicator={true}
+            >
             {weightHistory.slice().reverse().map((entry, index, arr) => {
               const nextEntry = arr[index + 1];
               const diffFromLast = nextEntry ? entry.weight - nextEntry.weight : 0;
@@ -1226,7 +1291,8 @@ const ProgressScreen = () => {
                 </View>
               );
             })}
-          </ScrollView>
+            </ScrollView>
+          </>
         ) : (
           <Text style={styles.historyEmptyText}>Log your weigh-ins to track progress</Text>
         )}
@@ -1916,8 +1982,26 @@ const getStyles = (COLORS) => StyleSheet.create({
     padding: 16,
     maxHeight: 300,
   },
+  historyHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: 8,
+    marginBottom: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.surfaceLight,
+    gap: 12,
+  },
+  historyHeaderText: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    minWidth: 50,
+  },
   historyScrollView: {
-    maxHeight: 268,
+    maxHeight: 250,
     ...(Platform.OS === 'web' ? { overflow: 'auto' } : {}),
   },
   historyRow: {

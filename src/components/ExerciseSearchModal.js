@@ -13,6 +13,7 @@ import {
 import { X, Search } from 'lucide-react-native';
 import { useColors } from '../contexts/ThemeContext';
 import { EXERCISES } from '../constants/exercises';
+import { workoutService } from '../services/workoutService';
 import MuscleMap, { PRIMARY_VIEW } from './MuscleMap';
 import { getMuscleColor } from '../constants/muscleColors';
 
@@ -35,7 +36,7 @@ const SUPERSET_PAIRS = {
   'Full Body': ['Full Body'],
 };
 
-const ExerciseSearchModal = ({ visible, onClose, onSelect, excludeExercises = [], isSuperset = false, currentExercise = null }) => {
+const ExerciseSearchModal = ({ visible, onClose, onSelect, excludeExercises = [], isSuperset = false, currentExercise = null, userId = null, weightUnit = 'kg' }) => {
   const COLORS = useColors();
   const styles = getStyles(COLORS);
   const [searchQuery, setSearchQuery] = useState('');
@@ -43,6 +44,8 @@ const ExerciseSearchModal = ({ visible, onClose, onSelect, excludeExercises = []
   const [selectedMuscle, setSelectedMuscle] = useState('All');
   const searchInputRef = useRef(null);
   const debounceRef = useRef(null);
+  const [exerciseSummaries, setExerciseSummaries] = useState({});
+  const summariesLoadedRef = useRef(false);
 
   // Reset state every time modal opens
   useEffect(() => {
@@ -50,6 +53,15 @@ const ExerciseSearchModal = ({ visible, onClose, onSelect, excludeExercises = []
       setSearchQuery('');
       setDebouncedQuery('');
       setSelectedMuscle('All');
+      // Load exercise summaries once
+      if (userId && !summariesLoadedRef.current) {
+        workoutService.getExerciseSummaries(userId).then(({ data }) => {
+          if (data) {
+            setExerciseSummaries(data);
+            summariesLoadedRef.current = true;
+          }
+        });
+      }
     }
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -197,28 +209,58 @@ const ExerciseSearchModal = ({ visible, onClose, onSelect, excludeExercises = []
     onClose();
   }, [onSelect, onClose]);
 
+  const formatLastDate = useCallback((dateStr) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays}d ago`;
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${date.getDate()} ${months[date.getMonth()]}`;
+  }, []);
+
   // Memoized exercise row
-  const renderExerciseItem = useCallback(({ item, index }) => (
-    <TouchableOpacity
-      style={styles.exerciseItem}
-      onPress={() => handleSelect(item)}
-    >
-      <View style={styles.exerciseIcon}>
-        <MuscleMap
-          view={PRIMARY_VIEW[item.muscleGroup] || 'front'}
-          highlightedMuscle={item.muscleGroup}
-          highlightColor={getMuscleColor(item.muscleGroup)}
-          size={32}
-        />
-      </View>
-      <View style={styles.exerciseInfo}>
-        <Text style={styles.exerciseName}>{item.name}</Text>
-        <Text style={styles.exerciseMeta}>
-          {item.muscleGroup} • {item.equipment}
-        </Text>
-      </View>
-    </TouchableOpacity>
-  ), [styles, handleSelect]);
+  const renderExerciseItem = useCallback(({ item, index }) => {
+    const summary = exerciseSummaries[item.name];
+    const displayWeight = summary?.bestWeight
+      ? (weightUnit === 'lbs' ? Math.round(summary.bestWeight * 2.205) : summary.bestWeight)
+      : null;
+
+    return (
+      <TouchableOpacity
+        style={styles.exerciseItem}
+        onPress={() => handleSelect(item)}
+      >
+        <View style={styles.exerciseIcon}>
+          <MuscleMap
+            view={PRIMARY_VIEW[item.muscleGroup] || 'front'}
+            highlightedMuscle={item.muscleGroup}
+            highlightColor={getMuscleColor(item.muscleGroup)}
+            size={32}
+          />
+        </View>
+        <View style={[styles.exerciseInfo, { flex: 1 }]}>
+          <Text style={styles.exerciseName}>{item.name}</Text>
+          <Text style={styles.exerciseMeta}>
+            {item.muscleGroup} • {item.equipment}
+          </Text>
+        </View>
+        {summary && (
+          <View style={styles.exerciseHistory}>
+            <Text style={styles.exerciseHistoryBest}>
+              {displayWeight}{weightUnit} × {summary.bestReps}
+            </Text>
+            <Text style={styles.exerciseHistoryDate}>
+              {formatLastDate(summary.lastDate)}
+            </Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  }, [styles, handleSelect, exerciseSummaries, weightUnit, formatLastDate]);
 
   const exerciseKeyExtractor = useCallback((item, index) => `${item.name}-${index}`, []);
 
@@ -454,6 +496,20 @@ const getStyles = (COLORS) => StyleSheet.create({
     color: COLORS.textMuted,
     fontSize: 12,
     marginTop: 2,
+  },
+  exerciseHistory: {
+    alignItems: 'flex-end',
+    marginLeft: 8,
+  },
+  exerciseHistoryBest: {
+    color: COLORS.primary,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  exerciseHistoryDate: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    marginTop: 1,
   },
   emptyState: {
     alignItems: 'center',

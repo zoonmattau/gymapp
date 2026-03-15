@@ -13,7 +13,6 @@ import {
   Animated,
   Share,
 } from 'react-native';
-// LineChart removed — no longer showing e1RM graph
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   ArrowLeft,
@@ -30,6 +29,7 @@ import {
   Lightbulb,
   Share2,
   Info,
+  Trophy,
 } from 'lucide-react-native';
 import { useColors } from '../contexts/ThemeContext';
 import { EXERCISES } from '../constants/exercises';
@@ -136,6 +136,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
     sessionId: initialSessionId,
     resumedExercises,
     resumedTime,
+    resumedStartTime,
   } = route?.params || {};
 
   const [workoutName, setWorkoutName] = useState(initialName || 'Workout');
@@ -144,7 +145,11 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
   const [expandedExercise, setExpandedExercise] = useState(resumedExercises?.length > 0 ? resumedExercises[0]?.id : null);
   const [workoutTime, setWorkoutTime] = useState(resumedTime || 0);
   const [workoutStartTime] = useState(() => {
-    // Calculate start time based on resumed time or current time
+    // Use the original start time if available (preserves accuracy across resume)
+    if (resumedStartTime) {
+      return resumedStartTime;
+    }
+    // Fall back to back-calculating from elapsed time
     if (resumedTime) {
       return Date.now() - (resumedTime * 1000);
     }
@@ -184,8 +189,9 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
   const [anatomyMuscle, setAnatomyMuscle] = useState(null);
   const [anatomyExercise, setAnatomyExercise] = useState(null);
   const [showPRCelebration, setShowPRCelebration] = useState(false);
-  const [prCelebrationData, setPRCelebrationData] = useState(null); // { exercise, weight, reps, e1rm, improvement }
-  const [existingPRs, setExistingPRs] = useState({}); // { exerciseName: { weight, reps, e1rm } }
+  const [prCelebrationData, setPRCelebrationData] = useState(null); // { exercise, weight, reps, improvement }
+  const [existingPRs, setExistingPRs] = useState({}); // { exerciseName: { weight, reps } }
+  const existingPRsRef = useRef({});
   const [prsLoaded, setPrsLoaded] = useState(false);
   const prAnimValue = useRef(new Animated.Value(0)).current;
   const timerRef = useRef(null);
@@ -234,7 +240,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
         workout,
         sessionId,
         exercises,
-        elapsedTime: workoutTime,
+        elapsedTime: Math.floor((Date.now() - workoutStartTime) / 1000),
         workoutStartTime,
         savedAt: Date.now(),
       };
@@ -259,7 +265,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
             workout: workoutRef.current,
             sessionId: sessionIdRef.current,
             exercises: currentExercises,
-            elapsedTime: workoutTimeRef.current,
+            elapsedTime: Math.floor((Date.now() - workoutStartTime) / 1000),
             workoutStartTime,
             savedAt: Date.now(),
           };
@@ -347,6 +353,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
             console.log('[PR]', name, ':', pr.weight, 'kg x', pr.reps);
           });
           setExistingPRs(prMap);
+          existingPRsRef.current = prMap;
           setPrsLoaded(true);
         } catch (error) {
           console.error('[PR] Error loading PRs:', error);
@@ -531,15 +538,29 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
   };
 
   const completeSet = (exerciseId, setId) => {
+    const exercise = exercises.find(ex => ex.id === exerciseId);
+    const set = exercise?.sets.find(s => s.id === setId);
+    const isCompleting = set && !set.completed;
+
+    // Check for PR when completing (not uncompleting) a set with weight/reps
+    let isPR = false;
+    if (isCompleting && set && set.weight && set.reps) {
+      isPR = checkForPR(exercise.name, set.weight, set.reps, set.isWarmup || set.setType === 'warmup');
+    }
+
     setExercises(exercises.map(ex => {
       if (ex.id === exerciseId) {
         return {
           ...ex,
-          sets: ex.sets.map(set => {
-            if (set.id === setId) {
-              return { ...set, completed: !set.completed };
+          sets: ex.sets.map(s => {
+            if (s.id === setId) {
+              return {
+                ...s,
+                completed: !s.completed,
+                isPR: isCompleting ? (isPR || s.isPR || false) : s.isPR,
+              };
             }
-            return set;
+            return s;
           }),
         };
       }
@@ -547,7 +568,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
     }));
 
     // Start rest timer after completing a set (only if enabled in profile)
-    if (restTimerEnabled) {
+    if (restTimerEnabled && isCompleting) {
       setRestTimer(restDuration);
       setIsResting(true);
     }
@@ -581,15 +602,15 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
   // Check if set is a PR and trigger celebration
   // PR = heavier weight OR same weight with more reps
   const checkForPR = (exerciseName, weight, reps, isWarmup) => {
-    if (isWarmup) return;
-    if (!prsLoaded) return;
-    if (isTimedExercise(exerciseName) || weight === 'BW' || weight === 0) return;
+    if (isWarmup) return false;
+    if (!prsLoaded) return false;
+    if (isTimedExercise(exerciseName) || weight === 'BW' || weight === 0) return false;
 
     const numWeight = parseFloat(weight) || 0;
     const numReps = parseInt(reps) || 0;
-    if (numWeight <= 0 || numReps <= 0) return;
+    if (numWeight <= 0 || numReps <= 0) return false;
 
-    const existingPR = existingPRs[exerciseName];
+    const existingPR = existingPRsRef.current[exerciseName];
     const prevWeight = existingPR?.weight || 0;
     const prevReps = existingPR?.reps || 0;
 
@@ -610,11 +631,12 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
 
       console.log('[PR-check] NEW PR!', prType);
 
-      // Update baseline for this workout
-      setExistingPRs(prev => ({
-        ...prev,
-        [exerciseName]: { weight: numWeight, reps: numReps }
-      }));
+      // Update baseline immediately via ref (so next check sees it) and via state
+      existingPRsRef.current = {
+        ...existingPRsRef.current,
+        [exerciseName]: { weight: numWeight, reps: numReps },
+      };
+      setExistingPRs(existingPRsRef.current);
 
       // Trigger celebration
       setPRCelebrationData({
@@ -637,7 +659,10 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
           useNativeDriver: true,
         }),
       ]).start();
+
+      return true;
     }
+    return false;
   };
 
   const sharePR = async () => {
@@ -646,9 +671,6 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
     const displayWeight = weightUnit === 'lbs'
       ? Math.round(prCelebrationData.weight * 2.205)
       : prCelebrationData.weight;
-    const displayE1rm = weightUnit === 'lbs'
-      ? Math.round(prCelebrationData.e1rm * 2.205)
-      : prCelebrationData.e1rm;
 
     const improvementText = prCelebrationData.weightIncrease > 0
       ? `\n📈 +${weightUnit === 'lbs' ? Math.round(prCelebrationData.weightIncrease * 2.205) : prCelebrationData.weightIncrease}${weightUnit} increase!`
@@ -674,7 +696,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
     const { exerciseId, exerciseName, setNumber } = selectedSetToLog;
 
     // Check for PR before adding the set
-    checkForPR(exerciseName, setData.weight, setData.reps, setData.isWarmup);
+    const isPR = checkForPR(exerciseName, setData.weight, setData.reps, setData.isWarmup);
 
     // Add a new set with the logged data
     setExercises(exercises.map(ex => {
@@ -687,6 +709,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
           setType: setData.setType,
           isWarmup: setData.isWarmup || false,
           isAmrap: setData.isAmrap || false,
+          isPR: isPR || false,
           supersetExercise: setData.supersetExercise,
           supersetWeight: setData.supersetWeight,
           supersetReps: setData.supersetReps,
@@ -956,28 +979,24 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
         saveError = true;
       }
 
-      // Check for PRs in parallel
-      console.log('Checking PRs for exercises:', currentExercises.map(e => ({ name: e.name, sets: e.sets })));
+      // Save PRs that were flagged during the workout (only sets marked isPR)
       const prPromises = currentExercises
         .filter(exercise => !isTimedExercise(exercise.name))
         .map(exercise => {
-          const completedSets = exercise.sets.filter(s => s.completed && s.weight && s.reps);
-          console.log('PR check for', exercise.name, '- completed sets:', completedSets.length);
-          if (completedSets.length === 0) return null;
+          const prSets = exercise.sets.filter(s => s.completed && s.isPR);
+          if (prSets.length === 0) return null;
 
-          const bestSet = completedSets.reduce((best, set) => {
-            const weight = set.weight === 'BW' ? 0 : parseFloat(set.weight) || 0;
-            const reps = parseInt(set.reps) || 0;
-            const bestWeight = best.weight === 'BW' ? 0 : parseFloat(best.weight) || 0;
-            const bestReps = parseInt(best.reps) || 0;
-            const e1rm = weight * (1 + reps / 30);
-            const bestE1rm = bestWeight * (1 + bestReps / 30);
-            return e1rm > bestE1rm ? set : best;
-          }, completedSets[0]);
+          // Pick the best PR set for this exercise
+          const bestPR = prSets.reduce((best, set) => {
+            const w = parseFloat(set.weight) || 0;
+            const r = parseInt(set.reps) || 0;
+            const bw = parseFloat(best.weight) || 0;
+            const br = parseInt(best.reps) || 0;
+            return w > bw || (w === bw && r > br) ? set : best;
+          }, prSets[0]);
 
-          const weight = bestSet.weight === 'BW' ? 0 : parseFloat(bestSet.weight) || 0;
-          const reps = parseInt(bestSet.reps) || 0;
-          console.log('Best set for', exercise.name, ':', weight, 'x', reps);
+          const weight = parseFloat(bestPR.weight) || 0;
+          const reps = parseInt(bestPR.reps) || 0;
           if (weight > 0 && reps > 0) {
             return workoutService.checkAndCreatePR(
               currentUserId,
@@ -986,7 +1005,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
               weight,
               reps,
               currentSessionId
-            ).catch(err => console.error('Error checking PR for', exercise.name, err));
+            ).catch(err => console.error('Error saving PR for', exercise.name, err));
           }
           return null;
         })
@@ -1007,37 +1026,25 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
     clearPausedWorkout();
     clearBackgroundWorkout();
 
-    // Collect any new PRs for the summary
+    // Collect PRs from sets that were flagged during the workout
     const newPRs = [];
     for (const exercise of currentExercises) {
       if (isTimedExercise(exercise.name)) continue;
-      const completedSets = exercise.sets.filter(s => s.completed && s.weight && s.reps);
-      if (completedSets.length === 0) continue;
+      const prSets = exercise.sets.filter(s => s.completed && s.isPR);
+      if (prSets.length === 0) continue;
 
-      const bestSet = completedSets.reduce((best, set) => {
-        const weight = set.weight === 'BW' ? 0 : parseFloat(set.weight) || 0;
-        const reps = parseInt(set.reps) || 0;
-        const bestWeight = best.weight === 'BW' ? 0 : parseFloat(best.weight) || 0;
-        const bestReps = parseInt(best.reps) || 0;
-        const e1rm = weight * (1 + reps / 30);
-        const bestE1rm = bestWeight * (1 + bestReps / 30);
-        return e1rm > bestE1rm ? set : best;
-      }, completedSets[0]);
+      // Pick the best PR set for this exercise (highest weight, then most reps)
+      const bestPR = prSets.reduce((best, set) => {
+        const w = parseFloat(set.weight) || 0;
+        const r = parseInt(set.reps) || 0;
+        const bw = parseFloat(best.weight) || 0;
+        const br = parseInt(best.reps) || 0;
+        return w > bw || (w === bw && r > br) ? set : best;
+      }, prSets[0]);
 
-      // Check against history to see if this is a PR (simplified check)
-      const history = historyCache[exercise.name]?.data || [];
-      const weight = bestSet.weight === 'BW' ? 0 : parseFloat(bestSet.weight) || 0;
-      const reps = parseInt(bestSet.reps) || 0;
-      const e1rm = weight * (1 + reps / 30);
-
-      const previousBest = history.reduce((best, h) => {
-        const hWeight = parseFloat(h.weight) || 0;
-        const hReps = parseInt(h.reps) || 0;
-        const hE1rm = hWeight * (1 + hReps / 30);
-        return hE1rm > best ? hE1rm : best;
-      }, 0);
-
-      if (e1rm > previousBest && weight > 0) {
+      const weight = parseFloat(bestPR.weight) || 0;
+      const reps = parseInt(bestPR.reps) || 0;
+      if (weight > 0) {
         newPRs.push({ exercise: exercise.name, weight, reps });
       }
     }
@@ -1089,6 +1096,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
       sessionId,
       exercises,
       elapsedTime: currentElapsed,
+      workoutStartTime,
     });
 
     // Set lightweight context for the banner
@@ -1127,12 +1135,14 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
     setIsSaving(true);
 
     // Store paused workout data in global store
+    const currentElapsed = Math.floor((Date.now() - workoutStartTime) / 1000);
     const pausedWorkoutData = {
       workoutName,
       workout,
       sessionId: sessionId,
       exercises,
-      elapsedTime: workoutTime,
+      elapsedTime: currentElapsed,
+      workoutStartTime,
     };
 
     setPausedWorkout(pausedWorkoutData);
@@ -1470,6 +1480,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
                             <View style={[
                               styles.setRowCompact,
                               set.completed && styles.setRowCompleted,
+                              set.completed && set.isPR && styles.setRowPR,
                               !set.completed && styles.setRowPending,
                               isActive && styles.setRowActive,
                             ]}>
@@ -1477,15 +1488,27 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
                               <View style={styles.setRowLeft}>
                                 <TouchableOpacity
                                   onPress={() => completeSet(exercise.id, set.id)}
-                                  style={[styles.setCheckmark, set.completed && styles.setCheckmarkDone]}
+                                  style={[
+                                    styles.setCheckmark,
+                                    set.completed && !set.isPR && styles.setCheckmarkDone,
+                                    set.completed && set.isPR && styles.setCheckmarkPR,
+                                  ]}
                                 >
-                                  <Check size={14} color={set.completed ? COLORS.textOnPrimary : COLORS.textMuted} />
+                                  {set.completed && set.isPR ? (
+                                    <Trophy size={14} color="#FFFFFF" />
+                                  ) : (
+                                    <Check size={14} color={set.completed ? COLORS.textOnPrimary : COLORS.textMuted} />
+                                  )}
                                 </TouchableOpacity>
                                 <Text style={[
                                   styles.setLabel,
                                   set.completed && styles.setLabelCompleted,
+                                  set.completed && set.isPR && styles.setLabelPR,
                                   !set.completed && styles.setLabelPending,
                                 ]}>Set {set.id}</Text>
+                                {set.isPR && (
+                                  <Trophy size={14} color="#F59E0B" style={{ marginLeft: 4 }} />
+                                )}
                               </View>
 
                               {/* Right side: Weight x Reps + Badges + conditionally Edit/Delete */}
@@ -1624,6 +1647,8 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
         excludeExercises={exercises.map(ex => ex.name)}
         isSuperset={!!selectedSetToLog}
         currentExercise={selectedSetToLog?.exerciseName}
+        userId={user?.id}
+        weightUnit={weightUnit}
       />
 
       {/* Log Set Modal */}
@@ -2144,52 +2169,25 @@ const getStyles = (COLORS) => StyleSheet.create({
   },
   setLabelCompleted: {},
   setWeightRepsCompleted: {},
+  // PR set row — gold outline
+  setRowPR: {
+    borderWidth: 1.5,
+    borderColor: '#F59E0B',
+    borderLeftWidth: 3,
+    borderLeftColor: '#F59E0B',
+    backgroundColor: '#F59E0B' + '10',
+  },
+  setCheckmarkPR: {
+    backgroundColor: '#F59E0B',
+  },
+  setLabelPR: {
+    color: '#F59E0B',
+    fontWeight: '700',
+  },
   // Pending set row — neutral (no accent)
   setRowPending: {},
   setLabelPending: {},
   setWeightRepsPending: {},
-  // Estimated 1RM badge on completed sets
-  setE1rm: {
-    color: COLORS.primary,
-    fontSize: 11,
-    fontWeight: '600',
-    marginLeft: 8,
-    backgroundColor: COLORS.primary + '15',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  // 1RM History Graph Section
-  e1rmGraphSection: {
-    marginTop: 12,
-    marginBottom: 8,
-    padding: 12,
-    backgroundColor: COLORS.surfaceLight,
-    borderRadius: 10,
-  },
-  e1rmGraphTitle: {
-    color: COLORS.text,
-    fontSize: 13,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  e1rmChart: {
-    borderRadius: 8,
-    marginLeft: -10,
-  },
-  e1rmStatsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-  },
-  e1rmStatText: {
-    color: COLORS.textMuted,
-    fontSize: 11,
-    fontWeight: '500',
-  },
   // Active row (tapped to reveal icons)
   setRowActive: {
     backgroundColor: COLORS.primary + '12',
@@ -2644,26 +2642,6 @@ const getStyles = (COLORS) => StyleSheet.create({
     color: COLORS.textMuted,
     fontSize: 24,
     fontWeight: '600',
-  },
-  prCelebrationE1rm: {
-    backgroundColor: COLORS.surfaceLight,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 16,
-  },
-  prCelebrationE1rmLabel: {
-    color: COLORS.textMuted,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  prCelebrationE1rmValue: {
-    color: COLORS.primary,
-    fontSize: 20,
-    fontWeight: '700',
   },
   prCelebrationImprovement: {
     flexDirection: 'row',

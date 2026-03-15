@@ -302,10 +302,13 @@ const LogSetModal = ({
               <View style={styles.inputWrapper}>
                 <TextInput
                   style={styles.mainInput}
-                  value={weight}
-                  onChangeText={setWeight}
+                  value={weight === 'BW' ? '' : weight}
+                  onChangeText={(text) => {
+                    const cleaned = text.replace(/[^0-9.]/g, '');
+                    setWeight(cleaned);
+                  }}
                   keyboardType="decimal-pad"
-                  placeholder="0"
+                  placeholder={weight === 'BW' ? 'BW' : '0'}
                   placeholderTextColor={COLORS.textMuted}
                   textAlign="center"
                 />

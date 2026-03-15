@@ -491,6 +491,66 @@ export const workoutService = {
     }
   },
 
+  // Get exercise summaries for search modal: last performed date + best set per exercise
+  async getExerciseSummaries(userId) {
+    try {
+      const { data: sessions, error: sessionsError } = await supabase
+        .from('workout_sessions')
+        .select('id, started_at')
+        .eq('user_id', userId)
+        .not('ended_at', 'is', null)
+        .order('started_at', { ascending: false });
+
+      if (sessionsError || !sessions || sessions.length === 0) {
+        return { data: {}, error: null };
+      }
+
+      const sessionIds = sessions.map(s => s.id);
+      const sessionDateMap = {};
+      sessions.forEach(s => {
+        sessionDateMap[s.id] = s.started_at;
+      });
+
+      const { data: sets, error } = await supabase
+        .from('workout_sets')
+        .select('exercise_name, weight, reps, session_id')
+        .in('session_id', sessionIds)
+        .eq('is_warmup', false);
+
+      if (error || !sets) return { data: {}, error: null };
+
+      // Build summary per exercise: last date + best set (by weight, then reps)
+      const summaries = {};
+      sets.forEach(set => {
+        const name = set.exercise_name;
+        if (!name) return;
+        const weight = parseFloat(set.weight) || 0;
+        const reps = parseInt(set.reps) || 0;
+        const date = sessionDateMap[set.session_id];
+
+        if (!summaries[name]) {
+          summaries[name] = { lastDate: date, bestWeight: weight, bestReps: reps };
+        } else {
+          // Update last date (most recent)
+          if (date && (!summaries[name].lastDate || date > summaries[name].lastDate)) {
+            summaries[name].lastDate = date;
+          }
+          // Update best set (highest weight wins, then most reps at same weight)
+          if (weight > summaries[name].bestWeight ||
+              (weight === summaries[name].bestWeight && reps > summaries[name].bestReps)) {
+            summaries[name].bestWeight = weight;
+            summaries[name].bestReps = reps;
+          }
+        }
+      });
+
+      return { data: summaries, error: null };
+    } catch (err) {
+      console.warn('Exception in getExerciseSummaries:', err?.message);
+      return { data: {}, error: null };
+    }
+  },
+
   // Get detailed exercise history (last N sessions with full set data for a specific exercise)
   async getDetailedExerciseHistory(userId, exerciseName, sessionLimit = 5) {
     try {
@@ -560,13 +620,11 @@ export const workoutService = {
     }
   },
 
-  // Check and create PR if applicable
+  // Check and create PR if applicable (PR = heavier weight OR same weight + more reps)
   async checkAndCreatePR(userId, exerciseId, exerciseName, weight, reps, sessionId = null) {
     console.log('checkAndCreatePR called:', { userId, exerciseName, weight, reps, sessionId });
-    // Calculate estimated 1RM using Epley formula
-    const e1rm = weight * (1 + reps / 30);
 
-    // Get current PR for this exercise (by name since exerciseId may be null)
+    // Get current PR for this exercise
     let query = supabase
       .from('personal_records')
       .select('*')
@@ -579,13 +637,18 @@ export const workoutService = {
     }
 
     const { data: currentPR } = await query
-      .order('e1rm', { ascending: false })
+      .order('weight', { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    // Check if new PR
-    if (!currentPR || e1rm > currentPR.e1rm) {
-      console.log('Creating new PR for', exerciseName, '- e1rm:', e1rm);
+    // PR = heavier weight, or same weight with more reps
+    const isNewPR = !currentPR ||
+      weight > (currentPR.weight || 0) ||
+      (weight === (currentPR.weight || 0) && reps > (currentPR.reps || 0));
+
+    if (isNewPR) {
+      console.log('Creating new PR for', exerciseName, ':', weight, 'x', reps);
+      const e1rm = weight * (1 + reps / 30); // keep for DB schema compatibility
       const { data, error } = await supabase
         .from('personal_records')
         .insert({
@@ -603,8 +666,6 @@ export const workoutService = {
 
       if (error) {
         console.error('PR insert error:', error);
-      } else {
-        console.log('PR created successfully:', data);
       }
       return { data, error, isNewPR: true };
     }
@@ -624,8 +685,8 @@ export const workoutService = {
 
       if (sessErr || !sessions || sessions.length === 0) return;
 
-      // Build best E1RM per exercise from all workout sets
-      const prMap = {}; // { exerciseName: { weight, reps, e1rm } }
+      // Build best set per exercise (highest weight, then most reps at same weight)
+      const prMap = {}; // { exerciseName: { weight, reps } }
 
       // Process in batches
       const batchSize = 100;
@@ -642,32 +703,38 @@ export const workoutService = {
             const w = parseFloat(s.weight) || 0;
             const r = parseInt(s.reps) || 0;
             if (w <= 0 || r <= 0 || s.weight === 'BW') return;
-            const e1rm = r === 1 ? w : Math.round(w * (1 + r / 30));
-            if (!prMap[s.exercise_name] || e1rm > prMap[s.exercise_name].e1rm) {
-              prMap[s.exercise_name] = { weight: w, reps: r, e1rm };
+            if (!prMap[s.exercise_name] ||
+                w > prMap[s.exercise_name].weight ||
+                (w === prMap[s.exercise_name].weight && r > prMap[s.exercise_name].reps)) {
+              prMap[s.exercise_name] = { weight: w, reps: r };
             }
           });
         }
       }
 
-      // Insert into personal_records for each exercise (skip if already exists with higher e1rm)
+      // Insert into personal_records for each exercise (skip if already exists with higher weight/reps)
       for (const [exerciseName, best] of Object.entries(prMap)) {
         const { data: existing } = await supabase
           .from('personal_records')
-          .select('e1rm')
+          .select('weight, reps')
           .eq('user_id', userId)
           .eq('exercise_name', exerciseName)
-          .order('e1rm', { ascending: false })
+          .order('weight', { ascending: false })
           .limit(1)
           .maybeSingle();
 
-        if (!existing || best.e1rm > existing.e1rm) {
+        const isNewPR = !existing ||
+          best.weight > (existing.weight || 0) ||
+          (best.weight === (existing.weight || 0) && best.reps > (existing.reps || 0));
+
+        if (isNewPR) {
+          const e1rm = best.reps === 1 ? best.weight : Math.round(best.weight * (1 + best.reps / 30));
           await supabase.from('personal_records').insert({
             user_id: userId,
             exercise_name: exerciseName,
             weight: best.weight,
             reps: best.reps,
-            e1rm: best.e1rm,
+            e1rm,
             achieved_at: new Date().toISOString(),
           });
         }
