@@ -1671,7 +1671,12 @@ const HealthScreen = () => {
 
   const renderSleepTab = () => {
     const displayDate = new Date(selectedSleepDate);
-    const dateLabel = displayDate.toLocaleDateString('en-US', {
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const isLastNight = displayDate.toDateString() === yesterday.toDateString();
+    const isTonight = displayDate.toDateString() === today.toDateString();
+    const dateLabel = isLastNight ? 'Last Night' : isTonight ? 'Tonight' : displayDate.toLocaleDateString('en-US', {
       weekday: 'short',
       month: 'short',
       day: 'numeric'
@@ -3372,7 +3377,7 @@ const getStyles = (COLORS) => StyleSheet.create({
   supplementProgressBar: {
     width: '100%',
     height: 10,
-    backgroundColor: COLORS.surfaceLight,
+    backgroundColor: COLORS.border,
     borderRadius: 5,
     overflow: 'hidden',
     marginBottom: 8,

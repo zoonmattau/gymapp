@@ -1365,6 +1365,11 @@ const HomeScreen = () => {
           <View style={styles.statsContainer}>
             {quickStats.map(renderProgressCircle)}
           </View>
+          {quickStats.every(s => (s.current || 0) === 0) && (
+            <Text style={{ color: COLORS.textMuted, fontSize: 12, textAlign: 'center', marginTop: 8 }}>
+              Tap a ring to start logging meals, water, or supplements
+            </Text>
+          )}
         </View>
 
         {/* Log Food Section */}

@@ -38,6 +38,7 @@ const ProgressScreen = () => {
   const [showGoalLine, setShowGoalLine] = useState(true);
   const [showTrendLine, setShowTrendLine] = useState(false);
   const [trendsPeriod, setTrendsPeriod] = useState('7D');
+  const [activeTrendIndex, setActiveTrendIndex] = useState(0);
   const [selectedWeightPoint, setSelectedWeightPoint] = useState(null);
   const [showWeighInModal, setShowWeighInModal] = useState(false);
   const [showGoalModal, setShowGoalModal] = useState(false);
@@ -1070,6 +1071,11 @@ const ProgressScreen = () => {
         showsHorizontalScrollIndicator={false}
         style={styles.trendsScrollView}
         contentContainerStyle={styles.trendsScrollContent}
+        onScroll={(e) => {
+          const idx = Math.round(e.nativeEvent.contentOffset.x / (e.nativeEvent.layoutMeasurement.width || 1));
+          if (idx !== activeTrendIndex) setActiveTrendIndex(idx);
+        }}
+        scrollEventThrottle={100}
       >
         {/* Calories Card */}
         <View style={[styles.trendCard, { width: trendCardWidth }]}>
@@ -1201,6 +1207,11 @@ const ProgressScreen = () => {
           )}
         </View>
       </ScrollView>
+      <View style={styles.trendsDots}>
+        {['Calories', 'Protein', 'Water', 'Sleep'].map((_, idx) => (
+          <View key={idx} style={[styles.trendsDot, activeTrendIndex === idx && styles.trendsDotActive]} />
+        ))}
+      </View>
 
       {/* MEASUREMENTS Section */}
       <Text style={styles.sectionLabel}>MEASUREMENTS</Text>
@@ -2214,11 +2225,27 @@ const getStyles = (COLORS) => StyleSheet.create({
   },
   trendsScrollView: {
     marginHorizontal: -16,
-    marginBottom: 16,
+    marginBottom: 4,
   },
   trendsScrollContent: {
     paddingHorizontal: 16,
     gap: 12,
+  },
+  trendsDots: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
+    marginBottom: 16,
+  },
+  trendsDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: COLORS.surfaceLight,
+  },
+  trendsDotActive: {
+    backgroundColor: COLORS.primary,
+    width: 18,
   },
   trendCard: {
     backgroundColor: COLORS.surface,

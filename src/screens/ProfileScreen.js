@@ -59,6 +59,7 @@ import { supabase } from '../lib/supabase';
 import { EXPERIENCE_LEVELS, EQUIPMENT_OPTIONS } from '../constants/experience';
 import { workoutService } from '../services/workoutService';
 import { publishedWorkoutService } from '../services/publishedWorkoutService';
+import { socialService } from '../services/socialService';
 import ExperienceLevelModal from '../components/ExperienceLevelModal';
 import EquipmentModal from '../components/EquipmentModal';
 import BaseLiftsModal from '../components/BaseLiftsModal';
@@ -88,6 +89,10 @@ const ProfileScreen = () => {
   // Base Lifts
   const [baseLifts, setBaseLifts] = useState({});
   const [showBaseLiftsModal, setShowBaseLiftsModal] = useState(false);
+
+  // Social counts
+  const [followersCount, setFollowersCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
 
   // Units
   const [units, setUnits] = useState('metric');
@@ -294,6 +299,19 @@ const ProfileScreen = () => {
       }
     };
     loadStats();
+  }, [user?.id]);
+
+  // Load social counts
+  useEffect(() => {
+    if (user?.id) {
+      Promise.all([
+        socialService.getFollowers(user.id),
+        socialService.getFollowing(user.id),
+      ]).then(([followersResult, followingResult]) => {
+        setFollowersCount(followersResult.data?.length || 0);
+        setFollowingCount(followingResult.data?.length || 0);
+      }).catch(() => {});
+    }
   }, [user?.id]);
 
   // Load private_account from profile
@@ -1531,7 +1549,9 @@ const ProfileScreen = () => {
     if (profile?.first_name && profile?.last_name) {
       return `${profile.first_name} ${profile.last_name}`;
     }
-    return 'User Last';
+    if (profile?.first_name) return profile.first_name;
+    if (profile?.username) return profile.username;
+    return '';
   };
 
   const getMemberSince = () => {
@@ -1705,12 +1725,12 @@ const ProfileScreen = () => {
           {/* Followers / Following */}
           <View style={styles.followRow}>
             <TouchableOpacity style={styles.followItem} onPress={() => navigation.navigate('Community', { initialTab: 'profile' })} activeOpacity={0.7}>
-              <Text style={styles.followCount}>0</Text>
+              <Text style={styles.followCount}>{followersCount}</Text>
               <Text style={styles.followLabel}>followers</Text>
             </TouchableOpacity>
             <View style={styles.followDivider} />
             <TouchableOpacity style={styles.followItem} onPress={() => navigation.navigate('Community', { initialTab: 'profile' })} activeOpacity={0.7}>
-              <Text style={styles.followCount}>0</Text>
+              <Text style={styles.followCount}>{followingCount}</Text>
               <Text style={styles.followLabel}>following</Text>
             </TouchableOpacity>
           </View>
@@ -1865,7 +1885,7 @@ const ProfileScreen = () => {
           <TouchableOpacity style={styles.settingsItem} onPress={() => setShowBaseLiftsModal(true)} activeOpacity={0.7}>
             <View style={styles.settingsLabelContainer}>
               <Text style={styles.settingsLabel}>Base Lifts</Text>
-              <Text style={styles.settingsSubLabel}>{countBaseLifts()} lifts set for weight estimation</Text>
+              <Text style={styles.settingsSubLabel}>{countBaseLifts() > 0 ? `${countBaseLifts()} lifts set for weight estimation` : 'Set your base lifts for smarter weight suggestions'}</Text>
             </View>
             <ChevronRight size={18} color={COLORS.textMuted} />
           </TouchableOpacity>
@@ -1958,19 +1978,9 @@ const ProfileScreen = () => {
               <Star size={28} color={COLORS.warning} fill={COLORS.warning} />
             </View>
             <View style={styles.rateInfo}>
-              <Text style={styles.rateTitle}>Rate us on the App Store</Text>
-              <Text style={styles.rateSubtitle}>Your feedback helps us improve and reach more fitness enthusiasts!</Text>
+              <Text style={styles.rateTitle}>Share UpRep with friends</Text>
+              <Text style={styles.rateSubtitle}>Help us grow the community — app store ratings coming soon!</Text>
             </View>
-          </View>
-          <View style={styles.storeButtons}>
-            <TouchableOpacity style={styles.storeBtn} onPress={() => showToast('App Store link coming soon!', 'info')} activeOpacity={0.7}>
-              <Smartphone size={18} color={COLORS.text} />
-              <Text style={styles.storeBtnText}>iOS</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.storeBtn} onPress={() => showToast('Google Play link coming soon!', 'info')} activeOpacity={0.7}>
-              <Smartphone size={18} color={COLORS.text} />
-              <Text style={styles.storeBtnText}>Android</Text>
-            </TouchableOpacity>
           </View>
         </View>
 
