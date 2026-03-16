@@ -818,7 +818,7 @@ const LogSetModal = ({
 
                 {/* Add Another Drop Button */}
                 <TouchableOpacity style={styles.addDropButton} onPress={addDrop}>
-                  <Plus size={18} color={COLORS.error} />
+                  <Plus size={18} color={COLORS.primary} />
                   <Text style={styles.addDropText}>Add Another Drop</Text>
                 </TouchableOpacity>
               </View>
@@ -1114,19 +1114,19 @@ const getStyles = (COLORS) => StyleSheet.create({
     alignItems: 'center',
   },
   setTypeWarmupSelected: {
-    backgroundColor: '#3B82F6',
+    backgroundColor: COLORS.primary,
     borderWidth: 2,
-    borderColor: '#60A5FA',
+    borderColor: COLORS.primary,
   },
   setTypeSupersetSelected: {
-    backgroundColor: '#D97706',
+    backgroundColor: COLORS.primary,
     borderWidth: 2,
-    borderColor: '#3b82f6',
+    borderColor: COLORS.primary,
   },
   setTypeDropsetSelected: {
-    backgroundColor: COLORS.error,
+    backgroundColor: COLORS.primary,
     borderWidth: 2,
-    borderColor: '#3b82f6',
+    borderColor: COLORS.primary,
   },
   setTypeText: {
     color: COLORS.textMuted,
@@ -1144,10 +1144,10 @@ const getStyles = (COLORS) => StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#D97706', // Darker amber/yellow
+    borderColor: COLORS.primary,
   },
   supersetLabel: {
-    color: '#D97706', // Darker amber/yellow
+    color: COLORS.primary,
     fontSize: 12,
     fontWeight: '600',
     marginBottom: 12,
@@ -1177,10 +1177,10 @@ const getStyles = (COLORS) => StyleSheet.create({
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: COLORS.error,
+    borderColor: COLORS.primary,
   },
   dropLabel: {
-    color: COLORS.error,
+    color: COLORS.primary,
     fontSize: 12,
     fontWeight: '600',
     marginBottom: 12,
@@ -1199,11 +1199,11 @@ const getStyles = (COLORS) => StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: COLORS.error,
+    borderColor: COLORS.primary,
     borderStyle: 'dashed',
   },
   addDropText: {
-    color: COLORS.error,
+    color: COLORS.primary,
     fontSize: 16,
     fontWeight: '600',
   },

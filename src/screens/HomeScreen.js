@@ -1217,11 +1217,11 @@ const HomeScreen = () => {
     if (!todayWorkout) {
       return (
         <TouchableOpacity
-          style={[styles.workoutCard, { justifyContent: 'center', alignItems: 'center', paddingVertical: 20 }]}
+          style={[styles.workoutCard, { justifyContent: 'center', alignItems: 'center', paddingVertical: 20, backgroundColor: COLORS.primary }]}
           onPress={openStartWorkoutModal}
           activeOpacity={0.7}
         >
-          <Text style={[styles.workoutButtonText, { color: COLORS.primary, fontSize: 16 }]}>Start Workout</Text>
+          <Text style={[styles.workoutButtonText, { color: COLORS.textOnPrimary, fontSize: 16 }]}>Start Workout</Text>
         </TouchableOpacity>
       );
     }
@@ -2299,7 +2299,7 @@ const HomeScreen = () => {
                 style={[
                   styles.toggleButton,
                   selectedWorkoutType === 'freeform' && styles.toggleButtonActive,
-                  selectedWorkoutType === 'freeform' && { backgroundColor: COLORS.accent }
+                  selectedWorkoutType === 'freeform' && { backgroundColor: COLORS.primary }
                 ]}
                 onPress={() => setSelectedWorkoutType('freeform')}
               >
@@ -2312,7 +2312,7 @@ const HomeScreen = () => {
                 style={[
                   styles.toggleButton,
                   selectedWorkoutType === 'browse' && styles.toggleButtonActive,
-                  selectedWorkoutType === 'browse' && { backgroundColor: COLORS.warning }
+                  selectedWorkoutType === 'browse' && { backgroundColor: COLORS.primary }
                 ]}
                 onPress={() => setSelectedWorkoutType('browse')}
               >
@@ -2344,8 +2344,7 @@ const HomeScreen = () => {
               {selectedWorkoutType === 'freeform' && (
                 <>
                   <View style={styles.typeDescHeader}>
-                    <Dumbbell size={20} color={COLORS.accent} />
-                    <Text style={styles.typeDescTitle}>Blank Workout</Text>
+                    <Text style={[styles.typeDescTitle, { color: COLORS.primary }]}>Blank Workout</Text>
                   </View>
                   <Text style={styles.typeDescText}>
                     Start empty and add exercises as you go. Complete flexibility to train however you want today.
@@ -2355,8 +2354,8 @@ const HomeScreen = () => {
               {selectedWorkoutType === 'browse' && (
                 <>
                   <View style={styles.typeDescHeader}>
-                    <Search size={20} color={COLORS.warning} />
-                    <Text style={styles.typeDescTitle}>Browse Templates</Text>
+                    <Search size={20} color={COLORS.primary} />
+                    <Text style={[styles.typeDescTitle, { color: COLORS.primary }]}>Browse Templates</Text>
                   </View>
                   <Text style={styles.typeDescText}>
                     Choose from pre-built workout templates for different muscle groups and goals.
@@ -2478,7 +2477,7 @@ const HomeScreen = () => {
                 <TouchableOpacity
                   style={[
                     styles.startWorkoutButton,
-                    { backgroundColor: selectedWorkoutType === 'scheduled' ? COLORS.primary : COLORS.accent }
+                    { backgroundColor: COLORS.primary }
                   ]}
                   onPress={() => {
                     if (selectedWorkoutType === 'scheduled') {

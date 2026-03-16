@@ -12,6 +12,7 @@ import {
   TextInput,
 } from 'react-native';
 import { X, TrendingUp, TrendingDown, Minus } from 'lucide-react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { LineChart } from 'react-native-chart-kit';
 import { useColors } from '../contexts/ThemeContext';
@@ -193,33 +194,16 @@ const ProgressScreen = () => {
       // Get weights
       const { data: weights, error } = await weightService.getAllWeights(user.id);
 
-      // Get target weight - try localStorage first (most reliable for web)
+      // Get target weight from AsyncStorage (single source of truth)
       let target = 0;
-      if (Platform.OS === 'web') {
-        try {
-          const stored = localStorage.getItem(`target_weight_${user.id}`);
-          if (stored) {
-            target = parseFloat(stored) || 0;
-          }
-        } catch (e) {
-          console.log('localStorage read error:', e);
+      try {
+        const stored = await AsyncStorage.getItem(`@target_weight_${user.id}`);
+        if (stored) {
+          target = parseFloat(stored) || 0;
         }
+      } catch (e) {
+        console.log('AsyncStorage read error:', e);
       }
-
-      // If no localStorage value, try database
-      if (target === 0) {
-        try {
-          const [profileResult, goalsResult] = await Promise.all([
-            supabase.from('profiles').select('target_weight').eq('id', user.id).maybeSingle(),
-            supabase.from('user_goals').select('target_weight').eq('user_id', user.id).maybeSingle()
-          ]);
-          target = profileResult.data?.target_weight || goalsResult.data?.target_weight || 0;
-        } catch (e) {
-          console.log('DB target weight fetch error:', e);
-        }
-      }
-
-      console.log('Target weight loaded:', target);
 
       console.log('getAllWeights result:', { weights, error, count: weights?.length, target });
 
@@ -490,39 +474,17 @@ const ProgressScreen = () => {
     setShowTargetWeightModal(false);
 
     if (user?.id) {
-      // Save to localStorage (reliable for web)
-      if (Platform.OS === 'web') {
-        try {
-          localStorage.setItem(`target_weight_${user.id}`, weight.toString());
-        } catch (e) {
-          console.log('localStorage save error:', e);
-        }
-      }
-
       // Update local state immediately
       setWeightData(prev => ({ ...prev, target: weight }));
 
-      // Save to both profiles and user_goals for consistency
-      const [profileResult, goalsResult] = await Promise.all([
-        supabase
-          .from('profiles')
-          .update({ target_weight: weight })
-          .eq('id', user.id),
-        supabase
-          .from('user_goals')
-          .upsert({
-            user_id: user.id,
-            target_weight: weight,
-            updated_at: new Date().toISOString(),
-          }, { onConflict: 'user_id' }),
-      ]);
-
-      if (profileResult.error && goalsResult.error) {
-        console.log('DB save errors:', profileResult.error, goalsResult.error);
-        showToast('Target weight saved locally but failed to sync', 'error');
-      } else {
-        showToast('Target weight saved', 'success');
+      // Save to AsyncStorage
+      try {
+        await AsyncStorage.setItem(`@target_weight_${user.id}`, weight.toString());
+      } catch (e) {
+        console.log('AsyncStorage save error:', e);
       }
+
+      showToast(`Target weight set to ${weight}kg`, 'success');
     }
   };
 

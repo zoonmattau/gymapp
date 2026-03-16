@@ -375,6 +375,7 @@ const FeedCard = ({ activity, weightUnit, navigation }) => {
             <Text style={styles.prReps}>× {activity.data?.reps} reps</Text>
           </View>
         )}
+
       </View>
 
       {/* Expand/collapse for workouts */}

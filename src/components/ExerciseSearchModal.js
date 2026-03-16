@@ -523,7 +523,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     marginBottom: 8,
   },
   suggestedTitle: {
-    color: '#D97706',
+    color: COLORS.primary,
     fontSize: 12,
     fontWeight: '600',
     letterSpacing: 0.5,
@@ -536,10 +536,10 @@ const getStyles = (COLORS) => StyleSheet.create({
   },
   suggestedItem: {
     borderWidth: 1,
-    borderColor: '#D97706',
+    borderColor: COLORS.primary,
   },
   suggestedIcon: {
-    backgroundColor: '#D9770620',
+    backgroundColor: COLORS.primary + '20',
   },
   divider: {
     marginTop: 16,

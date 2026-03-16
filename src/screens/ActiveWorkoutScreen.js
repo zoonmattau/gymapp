@@ -12,7 +12,9 @@ import {
   Modal,
   Animated,
   Share,
+  Dimensions,
 } from 'react-native';
+import { LineChart } from 'react-native-chart-kit';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   ArrowLeft,
@@ -171,6 +173,8 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState('success');
   const [showFinishModal, setShowFinishModal] = useState(false);
+  const [showNameModal, setShowNameModal] = useState(false);
+  const [finishNameInput, setFinishNameInput] = useState('');
   const [showCancelModal, setShowCancelModal] = useState(false); // kept for potential future use
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showDeleteSetModal, setShowDeleteSetModal] = useState(false);
@@ -185,6 +189,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
   const [expandedHistory, setExpandedHistory] = useState(null); // exercise id with history open
   const [activeSetRow, setActiveSetRow] = useState(null); // "exerciseId-setId" string of tapped set, or null
   const [historyCache, setHistoryCache] = useState({}); // { exerciseName: { loading, data } }
+  const [historyMetric, setHistoryMetric] = useState('topSet'); // topSet, volume, totalReps, maxReps, avgWeight
   const [anatomyModalVisible, setAnatomyModalVisible] = useState(false);
   const [anatomyMuscle, setAnatomyMuscle] = useState(null);
   const [anatomyExercise, setAnatomyExercise] = useState(null);
@@ -876,7 +881,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
     setSetToDelete(null);
   };
 
-  const finishWorkout = async () => {
+  const finishWorkout = async (overrideName) => {
     if (isFinishing) return; // Prevent double-tap
     setIsFinishing(true);
 
@@ -1052,7 +1057,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
     // Build summary data for WorkoutSummaryScreen
     const summaryData = {
       sessionId: currentSessionId,
-      workoutName: workoutName || 'Workout',
+      workoutName: overrideName || workoutName || 'Workout',
       duration: currentWorkoutTime,
       totalSets: totalSetsCount,
       completedSets: completedSetsCount,
@@ -1171,7 +1176,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
     setHistoryCache(prev => ({ ...prev, [exerciseName]: { loading: true, data: [] } }));
 
     try {
-      const { data } = await workoutService.getDetailedExerciseHistory(user?.id, exerciseName, 5);
+      const { data } = await workoutService.getDetailedExerciseHistory(user?.id, exerciseName, 12);
       setHistoryCache(prev => ({ ...prev, [exerciseName]: { loading: false, data: data || [] } }));
     } catch (err) {
       console.log('Error fetching exercise history:', err);
@@ -1197,8 +1202,8 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
         <View style={styles.headerButtons}>
           <TouchableOpacity
             style={[styles.finishButton, (isSaving || isFinishing) && styles.buttonDisabled]}
-            onPress={finishWorkout}
-            onClick={(isSaving || isFinishing) ? undefined : finishWorkout}
+            onPress={() => { setFinishNameInput(workoutName); setShowNameModal(true); }}
+            onClick={(isSaving || isFinishing) ? undefined : () => { setFinishNameInput(workoutName); setShowNameModal(true); }}
             disabled={isSaving || isFinishing}
           >
             <Text style={styles.finishButtonText}>Finish</Text>
@@ -1333,20 +1338,25 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
                     setAnatomyExercise(exercise.name);
                     setAnatomyModalVisible(true);
                   }}
-                  style={styles.exerciseIcon}
+                  style={styles.exerciseIconTappable}
                 >
-                  <MuscleMap
-                    view={PRIMARY_VIEW[muscle] || 'front'}
-                    highlightedMuscle={muscle}
-                    size={36}
-                    highlightColor={COLORS.primary}
-                    baseColor={COLORS.textMuted + '40'}
-                    outlineColor={COLORS.textMuted + '60'}
-                  />
+                  <View style={styles.exerciseIcon}>
+                    <MuscleMap
+                      view={PRIMARY_VIEW[muscle] || 'front'}
+                      highlightedMuscle={muscle}
+                      size={36}
+                      highlightColor={COLORS.primary}
+                      baseColor={COLORS.textMuted + '40'}
+                      outlineColor={COLORS.textMuted + '60'}
+                    />
+                  </View>
+                  <Text style={styles.tapMeText}>tap me</Text>
                 </TouchableOpacity>
               ) : (
-                <View style={styles.exerciseIcon}>
-                  <Dumbbell size={20} color="#67C6D8" />
+                <View style={styles.exerciseIconTappable}>
+                  <View style={styles.exerciseIcon}>
+                    <Dumbbell size={20} color="#67C6D8" />
+                  </View>
                 </View>
               )}
               <View style={styles.exerciseInfo}>
@@ -1426,15 +1436,155 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
                   );
                 })()}
 
-                {/* Recent Sessions Dropdown (toggled by clock icon) */}
+                {/* Exercise History with Chart (toggled by clock icon) */}
                 {expandedHistory === exercise.id && (() => {
                   const history = historyCache[exercise.name];
-                  if (!history || history.loading) return null;
-                  const sessions = (history.data || []).slice(0, 5);
-                  if (sessions.length === 0) return null;
+                  if (!history) return null;
+                  if (history.loading) return (
+                    <View style={styles.inlineDropdown}>
+                      <Text style={{ color: COLORS.textMuted, textAlign: 'center', padding: 16 }}>Loading history...</Text>
+                    </View>
+                  );
+                  const allSessions = (history.data || []);
+                  if (allSessions.length === 0) return null;
+
+                  // Sort sessions oldest first for chart
+                  const sorted = [...allSessions].sort((a, b) => new Date(a.date) - new Date(b.date));
+                  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+                  const METRICS = [
+                    { key: 'topSet', label: 'Top Set' },
+                    { key: 'volume', label: 'Volume' },
+                    { key: 'powerIndex', label: 'Power Index' },
+                    { key: 'sets', label: 'Sets' },
+                    { key: 'totalReps', label: 'Total Reps' },
+                  ];
+
+                  const getMetricValue = (session) => {
+                    const sets = session.sets || [];
+                    switch (historyMetric) {
+                      case 'topSet': {
+                        const weights = sets.map(s => parseFloat(s.weight) || 0).filter(w => w > 0);
+                        return weights.length > 0 ? Math.max(...weights) : 0;
+                      }
+                      case 'volume':
+                        return sets.reduce((sum, s) => sum + (parseFloat(s.weight) || 0) * (parseInt(s.reps) || 0), 0);
+                      case 'powerIndex': {
+                        let best = 0;
+                        sets.forEach(s => {
+                          const v = (parseFloat(s.weight) || 0) * (parseInt(s.reps) || 0);
+                          if (v > best) best = v;
+                        });
+                        return best;
+                      }
+                      case 'sets':
+                        return sets.length;
+                      case 'totalReps':
+                        return sets.reduce((sum, s) => sum + (parseInt(s.reps) || 0), 0);
+                      default:
+                        return 0;
+                    }
+                  };
+
+                  const getMetricUnit = () => {
+                    switch (historyMetric) {
+                      case 'topSet': return weightUnit;
+                      case 'volume': case 'powerIndex': return weightUnit;
+                      case 'sets': return 'sets';
+                      case 'totalReps': return 'reps';
+                      default: return '';
+                    }
+                  };
+
+                  const chartValues = sorted.map(s => getMetricValue(s)).filter(v => v > 0);
+                  const chartLabels = sorted.filter(s => getMetricValue(s) > 0).map((s, i, arr) => {
+                    if (arr.length <= 6 || i === 0 || i === arr.length - 1) {
+                      const d = new Date(s.date);
+                      return `${d.getDate()} ${months[d.getMonth()]}`;
+                    }
+                    return '';
+                  });
+
+                  const latestValue = chartValues.length > 0 ? chartValues[chartValues.length - 1] : 0;
+                  const prevValue = chartValues.length > 1 ? chartValues[chartValues.length - 2] : null;
+                  const diff = prevValue !== null ? latestValue - prevValue : null;
+                  const screenW = Dimensions.get('window').width;
+
                   return (
                     <View style={styles.inlineDropdown}>
-                      {sessions.map((session, idx) => {
+                      {/* Metric Toggle */}
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
+                        <View style={styles.historyMetricRow}>
+                          {METRICS.map(m => (
+                            <TouchableOpacity
+                              key={m.key}
+                              style={[styles.historyMetricBtn, historyMetric === m.key && styles.historyMetricBtnActive]}
+                              onPress={() => setHistoryMetric(m.key)}
+                            >
+                              <Text style={[styles.historyMetricText, historyMetric === m.key && styles.historyMetricTextActive]}>
+                                {m.label}
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      </ScrollView>
+
+                      {/* Latest value + trend */}
+                      <View style={{ flexDirection: 'row', alignItems: 'baseline', marginBottom: 8, gap: 8 }}>
+                        <Text style={{ color: COLORS.text, fontSize: 22, fontWeight: '700' }}>
+                          {historyMetric === 'volume' && latestValue >= 1000
+                            ? `${(latestValue / 1000).toFixed(1)}K`
+                            : latestValue}
+                        </Text>
+                        <Text style={{ color: COLORS.textMuted, fontSize: 13 }}>{getMetricUnit()}</Text>
+                        {diff !== null && Math.abs(diff) > 0.1 && (
+                          <Text style={{ color: diff > 0 ? COLORS.success : '#FF6B6B', fontSize: 13, fontWeight: '600' }}>
+                            {diff > 0 ? '+' : ''}{historyMetric === 'volume' && Math.abs(diff) >= 1000
+                              ? `${(diff / 1000).toFixed(1)}K`
+                              : Math.round(diff)}
+                          </Text>
+                        )}
+                      </View>
+
+                      {/* Chart */}
+                      {chartValues.length >= 2 ? (
+                        <View style={{ marginHorizontal: -12, marginBottom: 8 }}>
+                          <LineChart
+                            data={{
+                              labels: chartLabels,
+                              datasets: [{ data: chartValues, color: () => COLORS.primary, strokeWidth: 2 }],
+                            }}
+                            width={screenW - 64}
+                            height={170}
+                            chartConfig={{
+                              backgroundColor: 'transparent',
+                              backgroundGradientFrom: COLORS.surface,
+                              backgroundGradientTo: COLORS.surface,
+                              decimalPlaces: 0,
+                              color: () => COLORS.primary,
+                              labelColor: () => COLORS.textMuted,
+                              propsForDots: { r: '3', strokeWidth: '1', stroke: COLORS.primary },
+                              propsForBackgroundLines: { stroke: COLORS.surfaceLight, strokeDasharray: '3 3' },
+                              propsForLabels: { fontSize: 10 },
+                            }}
+                            bezier
+                            withVerticalLabels={true}
+                            withVerticalLines={false}
+                            withHorizontalLabels={true}
+                            withHorizontalLines={true}
+                            fromZero={false}
+                            segments={3}
+                            style={{ borderRadius: 8 }}
+                          />
+                        </View>
+                      ) : chartValues.length === 1 ? (
+                        <View style={{ alignItems: 'center', paddingVertical: 12, marginBottom: 8 }}>
+                          <Text style={{ color: COLORS.textMuted, fontSize: 12 }}>Complete more sessions to see a trend</Text>
+                        </View>
+                      ) : null}
+
+                      {/* Recent sessions (last 3) */}
+                      {allSessions.slice(0, 3).map((session, idx) => {
                         const dateStr = formatRelativeDate(session.date);
                         return (
                           <View key={session.sessionId || idx} style={styles.historySession}>
@@ -1762,6 +1912,89 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
         }}
       />
 
+      {/* Name Workout Modal */}
+      <Modal
+        visible={showNameModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowNameModal(false)}
+      >
+        <View style={{
+          flex: 1,
+          backgroundColor: 'rgba(0,0,0,0.7)',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: 24,
+        }}>
+          <View style={{
+            backgroundColor: COLORS.surface,
+            borderRadius: 16,
+            padding: 24,
+            width: '100%',
+            maxWidth: 340,
+            borderWidth: 1,
+            borderColor: COLORS.border,
+          }}>
+            <Text style={{ color: COLORS.text, fontSize: 18, fontWeight: 'bold', textAlign: 'center', marginBottom: 4 }}>
+              Name Your Workout
+            </Text>
+            <Text style={{ color: COLORS.textMuted, fontSize: 13, textAlign: 'center', marginBottom: 16 }}>
+              Give this workout a name to find it later
+            </Text>
+            <TextInput
+              style={{
+                backgroundColor: COLORS.surfaceLight,
+                borderRadius: 12,
+                padding: 14,
+                color: COLORS.text,
+                fontSize: 16,
+                textAlign: 'center',
+                marginBottom: 20,
+                borderWidth: 1,
+                borderColor: COLORS.border,
+              }}
+              value={finishNameInput}
+              onChangeText={setFinishNameInput}
+              placeholder="e.g. Push Day, Leg Day..."
+              placeholderTextColor={COLORS.textMuted}
+              autoFocus
+              selectTextOnFocus
+            />
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  paddingVertical: 14,
+                  borderRadius: 12,
+                  backgroundColor: COLORS.surfaceLight,
+                  alignItems: 'center',
+                }}
+                onPress={() => setShowNameModal(false)}
+              >
+                <Text style={{ color: COLORS.textMuted, fontSize: 15, fontWeight: '600' }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  paddingVertical: 14,
+                  borderRadius: 12,
+                  backgroundColor: COLORS.primary,
+                  alignItems: 'center',
+                }}
+                onPress={() => {
+                  const name = finishNameInput.trim() || 'Workout';
+                  setWorkoutName(name);
+                  setShowNameModal(false);
+                  finishWorkout(name);
+                }}
+              >
+                <Text style={{ color: COLORS.textOnPrimary, fontSize: 15, fontWeight: '600' }}>Finish</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Anatomy Modal */}
       <AnatomyModal
         visible={anatomyModalVisible}
@@ -2001,6 +2234,10 @@ const getStyles = (COLORS) => StyleSheet.create({
     alignItems: 'center',
     padding: 16,
   },
+  exerciseIconTappable: {
+    alignItems: 'center',
+    marginRight: 14,
+  },
   exerciseIcon: {
     width: 44,
     height: 44,
@@ -2008,7 +2245,13 @@ const getStyles = (COLORS) => StyleSheet.create({
     backgroundColor: '#67C6D820',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 14,
+  },
+  tapMeText: {
+    color: COLORS.primary,
+    fontSize: 8,
+    fontWeight: '600',
+    marginTop: 2,
+    letterSpacing: 0.5,
   },
   exerciseInfo: {
     flex: 1,
@@ -2049,6 +2292,27 @@ const getStyles = (COLORS) => StyleSheet.create({
     borderRadius: 10,
     padding: 12,
     marginBottom: 8,
+  },
+  historyMetricRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  historyMetricBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: COLORS.surfaceLight,
+  },
+  historyMetricBtnActive: {
+    backgroundColor: COLORS.primary,
+  },
+  historyMetricText: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  historyMetricTextActive: {
+    color: COLORS.textOnPrimary,
   },
   exerciseSets: {
     color: COLORS.textMuted,
@@ -2138,10 +2402,10 @@ const getStyles = (COLORS) => StyleSheet.create({
     backgroundColor: '#67C6D8',
   },
   dropsetBadge: {
-    backgroundColor: COLORS.error,
+    backgroundColor: COLORS.primary,
   },
   supersetBadge: {
-    backgroundColor: '#D97706', // Darker amber/yellow
+    backgroundColor: COLORS.primary,
   },
   assistedBadge: {
     backgroundColor: '#6366F1', // Indigo for assisted
