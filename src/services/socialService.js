@@ -356,7 +356,7 @@ export const socialService = {
         return { data: null, error: profileError };
       }
 
-      const isPrivate = targetProfile?.private_account !== false;
+      const isPrivate = targetProfile?.private_account === true;
       const now = new Date().toISOString();
 
       const { data, error } = await supabase
@@ -790,12 +790,12 @@ export const socialService = {
     try {
       if (!userId) return { data: [], error: null };
 
-      // First get list of users being followed
+      // First get list of users being followed (include pending for non-private accounts)
       const { data: following } = await supabase
         .from('friendships')
         .select('friend_id')
         .eq('user_id', userId)
-        .eq('status', 'accepted');
+        .in('status', ['accepted', 'pending']);
 
       const followingIds = (following || []).map(f => f.friend_id);
       // Include current user's activity in the feed

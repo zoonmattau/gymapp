@@ -39,7 +39,7 @@ import {
   Download,
   Play,
 } from 'lucide-react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useColors } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { socialService } from '../services/socialService';
@@ -478,11 +478,18 @@ const CommunityScreen = ({ route }) => {
   const navigation = useNavigation();
   const COLORS = useColors();
   const styles = getStyles(COLORS);
-  const { user, profile } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const weightUnit = profile?.weight_unit || 'kg';
   const initialTab = route?.params?.initialTab || 'community';
   const [activeTab, setActiveTab] = useState(initialTab);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Refresh profile when screen is focused to ensure up-to-date data
+  useFocusEffect(
+    useCallback(() => {
+      if (user?.id) refreshProfile();
+    }, [user?.id])
+  );
 
   // Activity Feed
   const [activityFeed, setActivityFeed] = useState([]);
@@ -2371,6 +2378,31 @@ const CommunityScreen = ({ route }) => {
         </>
       )}
 
+      {/* Activity Feed */}
+      <Text style={styles.sectionLabel}>FEED</Text>
+      {activityFeed.length === 0 ? (
+        <View style={styles.emptyStateCard}>
+          <Text style={styles.emptyStateCardTitle}>No activity yet</Text>
+          <Text style={styles.emptyStateCardText}>
+            Follow friends to see their workouts and PRs here
+          </Text>
+        </View>
+      ) : (
+        <>
+          {activityFeed.slice(0, feedLimit).map((activity) => (
+            <FeedCard key={activity.id} activity={activity} weightUnit={weightUnit} navigation={navigation} />
+          ))}
+          {activityFeed.length > feedLimit && (
+            <TouchableOpacity
+              style={styles.loadMoreBtn}
+              onPress={() => setFeedLimit(prev => prev + 5)}
+            >
+              <Text style={styles.loadMoreText}>Load more ({activityFeed.length - feedLimit} remaining)</Text>
+            </TouchableOpacity>
+          )}
+        </>
+      )}
+
       {/* Suggested Users */}
       {suggestedUsers.length > 0 && !searchQuery && (
         <View style={styles.suggestedSection}>
@@ -2421,31 +2453,6 @@ const CommunityScreen = ({ route }) => {
             ))}
           </ScrollView>
         </View>
-      )}
-
-      {/* Activity Feed */}
-      <Text style={styles.sectionLabel}>RECENT ACTIVITY</Text>
-      {activityFeed.length === 0 ? (
-        <View style={styles.emptyStateCard}>
-          <Text style={styles.emptyStateCardTitle}>No activity yet</Text>
-          <Text style={styles.emptyStateCardText}>
-            Follow friends to see their workouts and PRs here
-          </Text>
-        </View>
-      ) : (
-        <>
-          {activityFeed.slice(0, feedLimit).map((activity) => (
-            <FeedCard key={activity.id} activity={activity} weightUnit={weightUnit} navigation={navigation} />
-          ))}
-          {activityFeed.length > feedLimit && (
-            <TouchableOpacity
-              style={styles.loadMoreBtn}
-              onPress={() => setFeedLimit(prev => prev + 5)}
-            >
-              <Text style={styles.loadMoreText}>Load more ({activityFeed.length - feedLimit} remaining)</Text>
-            </TouchableOpacity>
-          )}
-        </>
       )}
 
       {/* Community Workouts */}

@@ -55,6 +55,7 @@ import { profileService } from '../services/profileService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getPausedWorkout, clearPausedWorkout } from '../utils/workoutStore';
 import { getCustomTemplates } from '../utils/customTemplateStore';
+import { GOAL_INFO } from '../constants/goals';
 import { useAuth } from '../contexts/AuthContext';
 import { useActiveWorkout } from '../contexts/ActiveWorkoutContext';
 import AddMealModal from '../components/AddMealModal';
@@ -150,6 +151,7 @@ const HomeScreen = () => {
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [readNotifIds, setReadNotifIds] = useState(new Set());
 
   // Weekly muscle sets tracking
   const [weeklyMuscleSets, setWeeklyMuscleSets] = useState({});
@@ -468,6 +470,41 @@ const HomeScreen = () => {
     setShowNotificationsModal(true);
   };
 
+  const closeNotifications = () => {
+    setReadNotifIds(new Set(notifications.map(n => n.id)));
+    setShowNotificationsModal(false);
+  };
+
+  const handleDismissNotification = async (notif) => {
+    try {
+      if (notif.type === 'shared_workout' && notif.shareId) {
+        await supabase.from('shared_workouts').delete().eq('id', notif.shareId);
+      } else if (notif.type === 'friend_request') {
+        await supabase.from('follows').delete().eq('id', notif.id);
+      }
+      setNotifications(prev => prev.filter(n => n.id !== notif.id));
+    } catch (error) {
+      console.log('Error dismissing notification:', error);
+    }
+  };
+
+  const handleClearAllNotifications = async () => {
+    try {
+      const friendIds = notifications.filter(n => n.type === 'friend_request').map(n => n.id);
+      const shareIds = notifications.filter(n => n.type === 'shared_workout' && n.shareId).map(n => n.shareId);
+
+      if (friendIds.length > 0) {
+        await supabase.from('follows').delete().in('id', friendIds);
+      }
+      if (shareIds.length > 0) {
+        await supabase.from('shared_workouts').delete().in('id', shareIds);
+      }
+      setNotifications([]);
+    } catch (error) {
+      console.log('Error clearing notifications:', error);
+    }
+  };
+
   const openSocialModal = async (tab) => {
     setSocialModalTab(tab);
     setShowSocialModal(true);
@@ -680,6 +717,24 @@ const HomeScreen = () => {
           }
         });
       }
+      // Include sets from the active/paused workout (not yet saved to DB)
+      const paused = getPausedWorkout();
+      if (paused && paused.exercises?.length > 0) {
+        paused.exercises.forEach(ex => {
+          const groupKey = exerciseToGroupMap[ex.name];
+          if (groupKey) {
+            (ex.sets || []).forEach(set => {
+              if (set.completed && !set.isWarmup && set.setType !== 'warmup') {
+                counts[groupKey] += 1;
+                const w = set.weight === 'BW' ? 0 : parseFloat(set.weight) || 0;
+                const weight = w > 0 ? w : userBodyweight;
+                volumes[groupKey] += weight * (parseInt(set.reps) || 0);
+              }
+            });
+          }
+        });
+      }
+
       setWeeklyMuscleSets(counts);
       setWeeklyMuscleVolume(volumes);
     } catch (error) {
@@ -1314,9 +1369,9 @@ const HomeScreen = () => {
               onPress={openNotifications}
             >
               <Bell size={18} color={COLORS.textMuted} />
-              {notifications.length > 0 && (
+              {notifications.filter(n => !readNotifIds.has(n.id)).length > 0 && (
                 <View style={styles.notificationBadge}>
-                  <Text style={styles.notificationBadgeText}>{notifications.length}</Text>
+                  <Text style={styles.notificationBadgeText}>{notifications.filter(n => !readNotifIds.has(n.id)).length}</Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -1683,7 +1738,9 @@ const HomeScreen = () => {
                           const goalWeight = profile?.goal_weight
                             ? (unit === 'lbs' ? profile.goal_weight * 2.205 : profile.goal_weight)
                             : null;
-                          const chartWidth = Dimensions.get('window').width * 0.8;
+                          const screenWidth = Dimensions.get('window').width;
+                          // Chart container is flex:2 out of flex:3 total, minus section padding (32) and gap (8)
+                          const chartWidth = Math.floor((screenWidth - 32 - 8) * (2 / 3));
 
                           return (
                             <LineChart
@@ -1703,7 +1760,7 @@ const HomeScreen = () => {
                                   }] : []),
                                 ],
                               }}
-                              width={chartWidth}
+                              width={chartWidth + 60}
                               height={200}
                               withVerticalLabels={false}
                               withHorizontalLabels={false}
@@ -1731,7 +1788,7 @@ const HomeScreen = () => {
                                 },
                               }}
                               bezier
-                              style={{ borderRadius: 8, marginLeft: -60, marginRight: -20 }}
+                              style={{ borderRadius: 8, marginLeft: -60 }}
                               onDataPointClick={({ index }) => {
                                 setSelectedWeightPoint(selectedWeightPoint === index ? null : index);
                                 setSelectedSleepPoint(null);
@@ -1746,13 +1803,17 @@ const HomeScreen = () => {
                                 const prevValue = idx > 0 ? weightData[idx - 1] : null;
                                 const diff = prevValue !== null ? value - prevValue : 0;
                                 const trendStr = diff > 0 ? `+${diff.toFixed(1)}` : diff < 0 ? diff.toFixed(1) : '0';
-                                const trendColor = diff > 0 ? '#EF4444' : diff < 0 ? '#22C55E' : COLORS.textMuted;
+                                const wantToLose = GOAL_INFO[profile?.fitness_goal]?.weightDirection === 'lose';
+                                const gained = diff > 0;
+                                const lost = diff < 0;
+                                const isGood = gained ? !wantToLose : lost ? wantToLose : false;
+                                const trendColor = (gained || lost) ? (isGood ? '#22C55E' : '#EF4444') : COLORS.textMuted;
 
                                 // Position tooltip to stay in bounds
                                 const tooltipWidth = 70;
                                 const tooltipHeight = 42;
-                                const visibleLeft = 70;
-                                const visibleRight = chartWidth - 40;
+                                const visibleLeft = 10;
+                                const visibleRight = chartWidth;
                                 let tooltipX = x - tooltipWidth / 2;
                                 if (tooltipX < visibleLeft) tooltipX = visibleLeft;
                                 if (tooltipX + tooltipWidth > visibleRight) tooltipX = visibleRight - tooltipWidth;
@@ -1831,12 +1892,16 @@ const HomeScreen = () => {
                         const nextEntry = weightHistory[index + 1];
                         const diff = nextEntry ? entry.weight - nextEntry.weight : 0;
 
+                        const wantToLose = GOAL_INFO[profile?.fitness_goal]?.weightDirection === 'lose';
+                        const isGood = diff > 0.05 ? !wantToLose : diff < -0.05 ? wantToLose : null;
+                        const trendColor = isGood === null ? COLORS.textMuted : isGood ? COLORS.success : '#EF4444';
+
                         return (
                           <View key={entry.id || index} style={styles.weightHistoryRow}>
                             <Text style={styles.weightHistoryDate}>{monthDay}</Text>
                             <View style={styles.weightHistoryTrend}>
-                              {diff > 0.05 && <TrendingUp size={12} color={COLORS.success} />}
-                              {diff < -0.05 && <TrendingDown size={12} color={COLORS.primary} />}
+                              {diff > 0.05 && <TrendingUp size={12} color={trendColor} />}
+                              {diff < -0.05 && <TrendingDown size={12} color={trendColor} />}
                               {Math.abs(diff) <= 0.05 && <Minus size={12} color={COLORS.textMuted} />}
                             </View>
                             <Text style={styles.weightHistoryValue}>{displayWeight}</Text>
@@ -1902,7 +1967,8 @@ const HomeScreen = () => {
                         {(() => {
                           const reversedSleepHistory = sleepHistory.slice(0, 7).reverse();
                           const sleepData = reversedSleepHistory.map(e => e.hours_slept || 0);
-                          const chartWidth = Dimensions.get('window').width * 0.8;
+                          const screenWidth = Dimensions.get('window').width;
+                          const chartWidth = Math.floor((screenWidth - 32 - 8) * (2 / 3));
 
                           return (
                             <LineChart
@@ -1922,7 +1988,7 @@ const HomeScreen = () => {
                                   },
                                 ],
                               }}
-                              width={chartWidth}
+                              width={chartWidth + 60}
                               height={200}
                               withVerticalLabels={false}
                               withHorizontalLabels={false}
@@ -1950,7 +2016,7 @@ const HomeScreen = () => {
                                 },
                               }}
                               bezier
-                              style={{ borderRadius: 8, marginLeft: -60, marginRight: -20 }}
+                              style={{ borderRadius: 8, marginLeft: -60 }}
                               getDotColor={(dataPoint) =>
                                 dataPoint >= sleepGoal ? '#8B5CF6' : '#EF4444'
                               }
@@ -1973,8 +2039,8 @@ const HomeScreen = () => {
                                 // Position tooltip to stay in bounds
                                 const tooltipWidth = 65;
                                 const tooltipHeight = 42;
-                                const visibleLeft = 70;
-                                const visibleRight = chartWidth - 40;
+                                const visibleLeft = 10;
+                                const visibleRight = chartWidth;
                                 let tooltipX = x - tooltipWidth / 2;
                                 if (tooltipX < visibleLeft) tooltipX = visibleLeft;
                                 if (tooltipX + tooltipWidth > visibleRight) tooltipX = visibleRight - tooltipWidth;
@@ -2107,6 +2173,7 @@ const HomeScreen = () => {
         currentWeight={lastWeight}
         lastWeighInDate={weightHistory.length > 0 ? weightHistory[0].log_date : null}
         weightHistory={weightHistory}
+        weightDirection={GOAL_INFO[profile?.fitness_goal]?.weightDirection}
       />
 
       <SleepEntryModal
@@ -2187,19 +2254,26 @@ const HomeScreen = () => {
         visible={showNotificationsModal}
         transparent
         animationType="fade"
-        onRequestClose={() => setShowNotificationsModal(false)}
+        onRequestClose={closeNotifications}
       >
         <TouchableOpacity
           style={styles.notifModalOverlay}
           activeOpacity={1}
-          onPress={() => setShowNotificationsModal(false)}
+          onPress={closeNotifications}
         >
           <View style={styles.notifModalContainer}>
             <View style={styles.notifModalHeader}>
               <Text style={styles.notifModalTitle}>Notifications</Text>
-              <TouchableOpacity onPress={() => setShowNotificationsModal(false)}>
-                <X size={20} color={COLORS.textMuted} />
-              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                {notifications.length > 0 && (
+                  <TouchableOpacity onPress={handleClearAllNotifications}>
+                    <Text style={{ color: COLORS.primary, fontSize: 13, fontWeight: '600' }}>Clear all</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity onPress={closeNotifications}>
+                  <X size={20} color={COLORS.textMuted} />
+                </TouchableOpacity>
+              </View>
             </View>
 
             <ScrollView style={styles.notifModalContent} showsVerticalScrollIndicator={false}>
@@ -2231,29 +2305,30 @@ const HomeScreen = () => {
                         </Text>
                       </View>
                     </View>
-                    {notif.type === 'shared_workout' ? (
-                      <TouchableOpacity
-                        style={styles.notifViewBtn}
-                        onPress={() => handleViewSharedWorkout(notif)}
-                      >
-                        <Text style={styles.notifViewBtnText}>View</Text>
-                      </TouchableOpacity>
-                    ) : (
-                      <View style={styles.notifActions}>
+                    <View style={styles.notifActions}>
+                      {notif.type === 'shared_workout' ? (
+                        <TouchableOpacity
+                          style={styles.notifViewBtn}
+                          onPress={() => handleViewSharedWorkout(notif)}
+                        >
+                          <Text style={styles.notifViewBtnText}>View</Text>
+                        </TouchableOpacity>
+                      ) : (
                         <TouchableOpacity
                           style={styles.notifAcceptBtn}
                           onPress={() => handleAcceptRequest(notif)}
                         >
                           <Check size={16} color="#FFF" />
                         </TouchableOpacity>
-                        <TouchableOpacity
-                          style={styles.notifDeclineBtn}
-                          onPress={() => handleDeclineRequest(notif)}
-                        >
-                          <X size={16} color={COLORS.textMuted} />
-                        </TouchableOpacity>
-                      </View>
-                    )}
+                      )}
+                      <TouchableOpacity
+                        style={styles.notifDeclineBtn}
+                        onPress={() => handleDismissNotification(notif)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <X size={14} color={COLORS.textMuted} />
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 ))
               )}
@@ -3242,10 +3317,12 @@ const getStyles = (COLORS) => StyleSheet.create({
   },
   weightChartHalf: {
     flex: 2,
+    overflow: 'hidden',
   },
   chartWithLabel: {
     position: 'relative',
     width: '100%',
+    overflow: 'hidden',
   },
   goalLabelOnChart: {
     position: 'absolute',

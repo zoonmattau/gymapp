@@ -336,6 +336,7 @@ const getStyles = (COLORS) => StyleSheet.create({
     flex: 1,
     color: COLORS.text,
     fontSize: 16,
+    ...(Platform.OS === 'web' ? { outlineStyle: 'none', cursor: 'text' } : {}),
   },
   eyeIcon: {
     padding: 4,

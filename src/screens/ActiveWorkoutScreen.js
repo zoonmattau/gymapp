@@ -584,9 +584,10 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
     const exercise = exercises.find(ex => ex.id === exerciseId);
     const nextSetNumber = exercise ? exercise.sets.length + 1 : 1;
 
-    // Get the weight from the last set (if any)
+    // Get the weight and reps from the last set (if any)
     const lastSet = exercise?.sets?.length > 0 ? exercise.sets[exercise.sets.length - 1] : null;
     const previousWeight = lastSet?.weight || '';
+    const previousReps = lastSet?.reps || '';
 
     // If the last set was a superset, pre-populate the superset exercise
     if (lastSet?.setType === 'superset' && lastSet?.supersetExercise) {
@@ -599,6 +600,7 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
       exerciseName,
       setNumber: nextSetNumber,
       weight: previousWeight,
+      reps: previousReps,
       isNewSet: true,
     });
     setShowLogSetModal(true);
@@ -615,9 +617,25 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
     const numReps = parseInt(reps) || 0;
     if (numWeight <= 0 || numReps <= 0) return false;
 
+    // Check against both DB history AND completed sets in the current session
     const existingPR = existingPRsRef.current[exerciseName];
-    const prevWeight = existingPR?.weight || 0;
-    const prevReps = existingPR?.reps || 0;
+    let prevWeight = existingPR?.weight || 0;
+    let prevReps = existingPR?.reps || 0;
+
+    // Also check current session's completed sets for this exercise
+    const currentExercise = exercises.find(ex => ex.name === exerciseName);
+    if (currentExercise) {
+      currentExercise.sets.forEach(s => {
+        if (s.completed && !s.isWarmup && s.setType !== 'warmup') {
+          const w = parseFloat(s.weight) || 0;
+          const r = parseInt(s.reps) || 0;
+          if (w > prevWeight || (w === prevWeight && r > prevReps)) {
+            prevWeight = w;
+            prevReps = r;
+          }
+        }
+      });
+    }
 
     console.log('[PR-check]', exerciseName, numWeight, 'x', numReps, 'vs best:', prevWeight, 'x', prevReps);
 
@@ -1385,6 +1403,13 @@ const ActiveWorkoutScreen = ({ route, navigation }) => {
                   {exercise.sets.filter(s => s.completed).length}/{exercise.sets.length} sets
                 </Text>
               </View>
+              <TouchableOpacity
+                onPress={(e) => { e.stopPropagation(); openAddSetModal(exercise.id, exercise.name); }}
+                style={styles.headerAddSetButton}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Plus size={18} color="#67C6D8" />
+              </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => deleteExercise(exercise.id)}
                 style={styles.deleteButton}
@@ -2215,10 +2240,9 @@ const getStyles = (COLORS) => StyleSheet.create({
     flex: 1,
     paddingHorizontal: 16,
     paddingTop: 16,
-    ...(Platform.OS === 'web' ? { overflowY: 'auto', WebkitOverflowScrolling: 'touch' } : {}),
+    ...(Platform.OS === 'web' ? { flex: 1, minHeight: 0, overflow: 'auto', WebkitOverflowScrolling: 'touch' } : {}),
   },
   contentContainer: {
-    flexGrow: 1,
     paddingBottom: 100,
   },
   exerciseCard: {
@@ -2318,6 +2342,10 @@ const getStyles = (COLORS) => StyleSheet.create({
     color: COLORS.textMuted,
     fontSize: 12,
     marginTop: 2,
+  },
+  headerAddSetButton: {
+    padding: 8,
+    marginRight: 2,
   },
   deleteButton: {
     padding: 8,

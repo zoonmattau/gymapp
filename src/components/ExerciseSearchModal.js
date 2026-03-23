@@ -165,7 +165,8 @@ const ExerciseSearchModal = ({ visible, onClose, onSelect, excludeExercises = []
         const name = ex.name.toLowerCase();
         const group = ex.muscleGroup.toLowerCase();
         const equip = (ex.equipment || '').toLowerCase();
-        const searchable = `${name} ${group} ${equip}`;
+        const aka = (ex.aka || []).map(a => a.toLowerCase()).join(' ');
+        const searchable = `${name} ${group} ${equip} ${aka}`;
 
         let score = 0;
         let allMatch = true;
@@ -177,6 +178,15 @@ const ExerciseSearchModal = ({ visible, onClose, onSelect, excludeExercises = []
               score += 10; // Strong: name match
               termMatched = true;
               break;
+            }
+          }
+          if (!termMatched) {
+            for (const term of termSet) {
+              if (aka.includes(term)) {
+                score += 7; // Good: alias match
+                termMatched = true;
+                break;
+              }
             }
           }
           if (!termMatched) {

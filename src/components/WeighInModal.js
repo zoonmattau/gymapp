@@ -21,7 +21,7 @@ const getLocalDateString = (date = new Date()) => {
   return `${year}-${month}-${day}`;
 };
 
-const WeighInModal = ({ visible, onClose, onSave, unit = 'kg', currentWeight = 0, lastWeighInDate = null, weightHistory = [] }) => {
+const WeighInModal = ({ visible, onClose, onSave, unit = 'kg', currentWeight = 0, lastWeighInDate = null, weightHistory = [], weightDirection }) => {
   const COLORS = useColors();
   const styles = getStyles(COLORS);
   const [weight, setWeight] = useState('');
@@ -124,15 +124,20 @@ const WeighInModal = ({ visible, onClose, onSave, unit = 'kg', currentWeight = 0
                 textAlign="center"
               />
               <Text style={styles.unitLabel}>{unit}</Text>
-              {currentWeight > 0 && weight && parseFloat(weight) !== currentWeight && (
-                <Text style={[
-                  styles.weightDiff,
-                  { color: parseFloat(weight) > currentWeight ? COLORS.success : COLORS.primary }
-                ]}>
-                  {parseFloat(weight) > currentWeight ? '+' : ''}
-                  {(parseFloat(weight) - currentWeight).toFixed(1)} {unit}
-                </Text>
-              )}
+              {currentWeight > 0 && weight && parseFloat(weight) !== currentWeight && (() => {
+                const gained = parseFloat(weight) > currentWeight;
+                const wantToLose = weightDirection === 'lose';
+                const isGood = gained ? !wantToLose : wantToLose;
+                return (
+                  <Text style={[
+                    styles.weightDiff,
+                    { color: isGood ? COLORS.success : '#EF4444' }
+                  ]}>
+                    {gained ? '+' : ''}
+                    {(parseFloat(weight) - currentWeight).toFixed(1)} {unit}
+                  </Text>
+                );
+              })()}
             </View>
             <TouchableOpacity
               style={styles.adjustButton}

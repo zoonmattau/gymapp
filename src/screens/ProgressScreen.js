@@ -1292,6 +1292,7 @@ const ProgressScreen = () => {
           currentWeight={weightData.current}
           unit={weightUnit}
           lastWeighInDate={lastWeighInDate}
+          weightDirection={GOAL_INFO[profile?.fitness_goal]?.weightDirection}
         />
         <GoalModal
           visible={showGoalModal}
@@ -1450,6 +1451,7 @@ const ProgressScreen = () => {
         currentWeight={weightData.current}
         unit={weightUnit}
         lastWeighInDate={lastWeighInDate}
+        weightDirection={GOAL_INFO[profile?.fitness_goal]?.weightDirection}
       />
       <GoalModal
         visible={showGoalModal}

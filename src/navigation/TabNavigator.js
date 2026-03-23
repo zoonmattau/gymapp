@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -6,8 +6,6 @@ import { Home, Dumbbell, Apple, User, TrendingUp, Users } from 'lucide-react-nat
 import { useColors } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useActiveWorkout } from '../contexts/ActiveWorkoutContext';
-import { socialService } from '../services/socialService';
-import { supabase } from '../lib/supabase';
 import WorkoutBanner from '../components/WorkoutBanner';
 
 // Screens
@@ -25,26 +23,6 @@ const TabNavigator = () => {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { isActive } = useActiveWorkout();
-  const [pendingCount, setPendingCount] = useState(0);
-
-  useEffect(() => {
-    if (!user?.id) return;
-
-    const fetchPendingCount = async () => {
-      const [{ data: requests }, { count: sharedCount }] = await Promise.all([
-        socialService.getPendingFollowRequests(user.id),
-        supabase
-          .from('shared_workouts')
-          .select('*', { count: 'exact', head: true })
-          .eq('to_user_id', user.id),
-      ]);
-      setPendingCount((requests?.length || 0) + (sharedCount || 0));
-    };
-
-    fetchPendingCount();
-    const interval = setInterval(fetchPendingCount, 30000);
-    return () => clearInterval(interval);
-  }, [user?.id]);
 
   // For web, use compact height with minimal padding
   // For native, use safe area insets
@@ -108,8 +86,6 @@ const TabNavigator = () => {
         component={CommunityScreen}
         options={{
           tabBarIcon: ({ color }) => <Users size={20} color={color} />,
-          tabBarBadge: pendingCount > 0 ? pendingCount : undefined,
-          tabBarBadgeStyle: { backgroundColor: '#EF4444', fontSize: 10 },
         }}
       />
       <Tab.Screen

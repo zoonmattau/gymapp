@@ -5,6 +5,7 @@ export const EXERCISES = [
     muscleGroup: 'Chest',
     equipment: 'Barbell',
     type: 'Compound',
+    aka: ['flat bench', 'bench press', 'bb bench'],
     description: 'The cornerstone chest movement. Builds overall pressing strength and chest mass.',
     tips: [
       'Retract and depress your shoulder blades before unracking — keep this position throughout.',
@@ -19,6 +20,7 @@ export const EXERCISES = [
     muscleGroup: 'Chest',
     equipment: 'Barbell',
     type: 'Compound',
+    aka: ['incline bench', 'incline press'],
     description: 'Emphasises the upper (clavicular) head of the pecs and anterior delts.',
     tips: [
       'Set the bench to 30–45°. Higher angles recruit more front delt and less upper chest.',
@@ -45,6 +47,7 @@ export const EXERCISES = [
     muscleGroup: 'Chest',
     equipment: 'Dumbbells',
     type: 'Compound',
+    aka: ['db bench', 'dumbbell flat press'],
     description: 'Greater range of motion than barbell. Fixes strength imbalances and allows a more natural pressing path.',
     tips: [
       'At the bottom, let elbows drop slightly below shoulder level for a full stretch.',
@@ -109,6 +112,7 @@ export const EXERCISES = [
     muscleGroup: 'Chest',
     equipment: 'Dumbbells',
     type: 'Isolation',
+    aka: ['dumbbell fly', 'chest fly', 'db fly', 'dumbbell flye'],
     description: 'An isolation arc movement that stretches the chest and builds the mind-muscle connection.',
     tips: [
       'Think "hugging a tree" — a wide arc, not a press.',
@@ -122,6 +126,7 @@ export const EXERCISES = [
     muscleGroup: 'Chest',
     equipment: 'Bodyweight',
     type: 'Compound',
+    aka: ['pushup', 'pushups', 'press up', 'press ups'],
     description: 'Foundational pushing pattern. Scalable and highly effective for chest, triceps, and core.',
     tips: [
       'Hands slightly wider than shoulder-width, fingers angled outward slightly.',
@@ -150,6 +155,7 @@ export const EXERCISES = [
     muscleGroup: 'Chest',
     equipment: 'Machine',
     type: 'Isolation',
+    aka: ['pec deck', 'chest fly machine', 'pec fly', 'butterfly'],
     description: 'Machine version of the fly — great for beginners or as a finishing burnout.',
     tips: [
       'Adjust the seat so your arms are parallel to the floor at mid-range.',
@@ -229,6 +235,7 @@ export const EXERCISES = [
     muscleGroup: 'Chest',
     equipment: 'Cable',
     type: 'Isolation',
+    aka: ['cable fly', 'cable flye'],
     description: 'Mid-height cable fly with handles at shoulder level. Targets the mid-chest with constant tension.',
     tips: [
       'Set cables at shoulder height for mid-chest emphasis.',
@@ -401,6 +408,7 @@ export const EXERCISES = [
     muscleGroup: 'Back',
     equipment: 'Barbell',
     type: 'Compound',
+    aka: ['conventional deadlift', 'barbell deadlift', 'dl'],
     description: 'The ultimate full-body compound lift. Trains the entire posterior chain.',
     tips: [
       'Set up with the bar directly over your midfoot, about 1 inch from your shins.',
@@ -416,6 +424,7 @@ export const EXERCISES = [
     muscleGroup: 'Hamstrings',
     equipment: 'Barbell',
     type: 'Compound',
+    aka: ['rdl', 'stiff leg deadlift', 'romanian dl'],
     description: 'Hip hinge movement that stretches and strengthens the hamstrings. Starts from the top, not the floor.',
     tips: [
       'Start standing with the bar at hip height. Push hips back while keeping a slight knee bend.',
@@ -430,6 +439,7 @@ export const EXERCISES = [
     muscleGroup: 'Back',
     equipment: 'Barbell',
     type: 'Compound',
+    aka: ['bent over row', 'bb row', 'barbell bent over row'],
     description: 'The primary upper back builder. Trains the entire posterior chain from a hinge position.',
     tips: [
       'Hinge forward until your torso is around 45–70° parallel to the floor.',
@@ -471,6 +481,7 @@ export const EXERCISES = [
     muscleGroup: 'Back',
     equipment: 'Cable',
     type: 'Compound',
+    aka: ['lat pull down', 'lat pull', 'pulldown'],
     description: 'Vertical pull that targets the lats for width. Great for those who can\'t do pull ups yet.',
     tips: [
       'Lean back slightly (10–15°) with your chest up.',
@@ -485,6 +496,7 @@ export const EXERCISES = [
     muscleGroup: 'Back',
     equipment: 'Bodyweight',
     type: 'Compound',
+    aka: ['pullup', 'pull-up', 'pullups'],
     description: 'The gold standard for lat width. One of the most effective back exercises.',
     tips: [
       'Start from a dead hang with full arm extension every rep.',
@@ -499,6 +511,7 @@ export const EXERCISES = [
     muscleGroup: 'Back',
     equipment: 'Bodyweight',
     type: 'Compound',
+    aka: ['chinup', 'chin-up', 'underhand pull up', 'chin ups'],
     description: 'Underhand grip pull up — more bicep recruitment, easier for most beginners.',
     tips: [
       'Supinated (palms facing you) grip at shoulder-width.',
@@ -512,6 +525,7 @@ export const EXERCISES = [
     muscleGroup: 'Back',
     equipment: 'Cable',
     type: 'Compound',
+    aka: ['seated row', 'cable row', 'low row'],
     description: 'Horizontal pull with constant cable tension. Excellent for back thickness.',
     tips: [
       'Sit tall with a slight forward lean at the start of each rep.',
@@ -526,6 +540,7 @@ export const EXERCISES = [
     muscleGroup: 'Back',
     equipment: 'Barbell',
     type: 'Compound',
+    aka: ['t bar row', 'landmine row'],
     description: 'Landmine or T-bar setup row. Allows heavy loading with a natural grip.',
     tips: [
       'V-handle = neutral grip = more lat. Wide handle = more upper back.',
@@ -539,6 +554,7 @@ export const EXERCISES = [
     muscleGroup: 'Back',
     equipment: 'Cable',
     type: 'Isolation',
+    aka: ['face pull', 'rear delt pull'],
     description: 'Essential for shoulder health and rear delt/upper trap development.',
     tips: [
       'Set the cable at or slightly above eye level with a rope attachment.',
@@ -962,6 +978,7 @@ export const EXERCISES = [
     muscleGroup: 'Shoulders',
     equipment: 'Barbell',
     type: 'Compound',
+    aka: ['ohp', 'military press', 'shoulder press'],
     description: 'The premier overhead strength movement. Builds front delts, upper traps, and triceps.',
     tips: [
       'Grip slightly wider than shoulder-width. Elbows slightly forward (in front of the bar).',
@@ -976,6 +993,7 @@ export const EXERCISES = [
     muscleGroup: 'Shoulders',
     equipment: 'Barbell',
     type: 'Compound',
+    aka: ['ohp', 'military press', 'standing press'],
     description: 'The premier overhead strength movement. Builds front delts, upper traps, and triceps.',
     tips: [
       'Grip slightly wider than shoulder-width. Elbows slightly forward (in front of the bar).',
@@ -990,6 +1008,7 @@ export const EXERCISES = [
     muscleGroup: 'Shoulders',
     equipment: 'Dumbbells',
     type: 'Compound',
+    aka: ['db shoulder press', 'seated press', 'db ohp', 'dumbbell shoulder press'],
     description: 'Seated overhead press with dumbbells. Allows a more natural pressing path.',
     tips: [
       'Let the dumbbells rotate naturally — palms face each other at the bottom, forward at the top.',
@@ -1003,6 +1022,7 @@ export const EXERCISES = [
     muscleGroup: 'Shoulders',
     equipment: 'Dumbbells',
     type: 'Compound',
+    aka: ['arnold dumbbell press'],
     description: 'Dumbbell press with a rotational component. Hits all three delt heads through the rotation.',
     tips: [
       'Start with palms facing you (like a finished curl), end with palms forward at the top.',
@@ -1016,6 +1036,7 @@ export const EXERCISES = [
     muscleGroup: 'Shoulders',
     equipment: 'Dumbbells',
     type: 'Isolation',
+    aka: ['side raise', 'lateral raise', 'side lateral', 'dumbbell lateral raise'],
     description: 'The best exercise for building lateral (medial) delt width. The key to broad shoulders.',
     tips: [
       'Lead with your elbows, not your hands. Think of lifting with the elbows.',
@@ -1071,6 +1092,7 @@ export const EXERCISES = [
     muscleGroup: 'Shoulders',
     equipment: 'Barbell',
     type: 'Compound',
+    aka: ['upright row', 'upright barbell row'],
     description: 'Compound movement for lateral delts and traps. Controversial due to shoulder impingement risk.',
     tips: [
       'Use a wide grip (wider than shoulder-width) to reduce impingement risk.',
@@ -1123,6 +1145,7 @@ export const EXERCISES = [
     muscleGroup: 'Shoulders',
     equipment: 'Machine',
     type: 'Isolation',
+    aka: ['reverse fly', 'rear delt fly', 'reverse fly machine'],
     description: 'Machine rear delt fly. Sit facing the pad and push handles back to target the posterior deltoid.',
     tips: [
       'Adjust the seat so your arms are at shoulder height when gripping the handles.',
@@ -1319,6 +1342,7 @@ export const EXERCISES = [
     muscleGroup: 'Shoulders',
     equipment: 'Dumbbells',
     type: 'Compound',
+    aka: ['standing dumbbell press', 'standing db press'],
     description: 'Standing dumbbell press for overhead strength. More core demand than seated version.',
     tips: [
       'Stand with feet shoulder-width. Press dumbbells from shoulder height to overhead.',
@@ -1386,6 +1410,7 @@ export const EXERCISES = [
     muscleGroup: 'Biceps',
     equipment: 'Barbell',
     type: 'Isolation',
+    aka: ['bb curl', 'standing curl', 'bicep curl'],
     description: 'Classic and effective bicep mass builder. Allows heavy loading in a stable position.',
     tips: [
       'Keep elbows pinned to your sides throughout the lift — don\'t let them drift forward.',
@@ -1400,6 +1425,7 @@ export const EXERCISES = [
     muscleGroup: 'Biceps',
     equipment: 'Barbell',
     type: 'Isolation',
+    aka: ['ez curl', 'easy bar curl'],
     description: 'Angled grip reduces wrist stress. Still primarily biceps, with more brachialis involvement.',
     tips: [
       'The angled grip is easier on the wrists and elbows than straight bar.',
@@ -1425,6 +1451,7 @@ export const EXERCISES = [
     muscleGroup: 'Biceps',
     equipment: 'Dumbbells',
     type: 'Isolation',
+    aka: ['hammer curl', 'neutral grip curl'],
     description: 'Neutral grip curl. Heavily targets the brachialis, which sits under the bicep and adds thickness.',
     tips: [
       'Palms face each other (neutral grip) throughout the entire rep.',
@@ -1438,6 +1465,7 @@ export const EXERCISES = [
     muscleGroup: 'Biceps',
     equipment: 'Barbell',
     type: 'Isolation',
+    aka: ['preacher curl', 'scott curl', 'preacher bench curl'],
     description: 'Bicep curl on a preacher bench — upper arm is braced and cannot swing.',
     tips: [
       'Don\'t fully extend at the bottom — stop just before full lockout to protect the distal tendon.',
@@ -1464,6 +1492,7 @@ export const EXERCISES = [
     muscleGroup: 'Biceps',
     equipment: 'Dumbbells',
     type: 'Isolation',
+    aka: ['concentration curl', 'seated curl', 'isolation curl'],
     description: 'Complete isolation of the bicep with the elbow braced on your thigh.',
     tips: [
       'Brace your elbow on the inside of your thigh — eliminate ALL cheating.',
@@ -1702,6 +1731,7 @@ export const EXERCISES = [
     muscleGroup: 'Triceps',
     equipment: 'Cable',
     type: 'Isolation',
+    aka: ['cable pushdown', 'tricep pressdown', 'rope pushdown', 'tricep pushdown'],
     description: 'One of the most popular tricep exercises. The rope attachment allows maximum ROM.',
     tips: [
       'Keep elbows pinned to your sides and stationary throughout.',
@@ -1715,6 +1745,7 @@ export const EXERCISES = [
     muscleGroup: 'Triceps',
     equipment: 'Barbell',
     type: 'Isolation',
+    aka: ['skull crusher', 'lying tricep extension', 'french press', 'nose breaker'],
     description: 'Heavy tricep isolation with barbell or EZ bar. Excellent for mass building.',
     tips: [
       'Lower the bar toward your forehead or slightly behind your head — not your throat.',
@@ -1754,6 +1785,7 @@ export const EXERCISES = [
     muscleGroup: 'Triceps',
     equipment: 'Bodyweight',
     type: 'Compound',
+    aka: ['dip', 'dips', 'parallel bar dip'],
     description: 'Parallel bar dips focused on triceps by keeping the torso upright.',
     tips: [
       'Stay upright (vertical torso) to target triceps over chest.',
@@ -1793,6 +1825,7 @@ export const EXERCISES = [
     muscleGroup: 'Triceps',
     equipment: 'Cable',
     type: 'Isolation',
+    aka: ['overhead cable extension', 'cable overhead tricep', 'cable tricep extension'],
     description: 'Overhead extension using cable for constant tension. Best for long head development.',
     tips: [
       'Set the cable low or behind you. Face away from the machine.',
@@ -2018,6 +2051,7 @@ export const EXERCISES = [
     muscleGroup: 'Quads',
     equipment: 'Barbell',
     type: 'Compound',
+    aka: ['back squat', 'bb squat', 'squat', 'barbell squat'],
     description: 'The king of lower body exercises. The most effective movement for overall leg development and strength.',
     tips: [
       'Bar sits on the shelf of your upper traps (high bar) or rear delts (low bar).',
@@ -2033,6 +2067,7 @@ export const EXERCISES = [
     muscleGroup: 'Quads',
     equipment: 'Barbell',
     type: 'Compound',
+    aka: ['barbell front squat'],
     description: 'Quad-dominant squat with the bar on the front of the shoulders. More upright torso than back squat.',
     tips: [
       'Clean grip (fingers under the bar, elbows HIGH) or cross-arm grip — both work.',
@@ -2046,6 +2081,7 @@ export const EXERCISES = [
     muscleGroup: 'Quads',
     equipment: 'Machine',
     type: 'Compound',
+    aka: ['45 degree leg press', 'machine leg press'],
     description: 'Machine squat variant. Allows heavy loading without the skill requirement of barbell squats.',
     tips: [
       'Don\'t lock your knees at the top — leave a slight bend to protect the joint.',
@@ -2060,6 +2096,7 @@ export const EXERCISES = [
     muscleGroup: 'Quads',
     equipment: 'Machine',
     type: 'Isolation',
+    aka: ['quad extension', 'knee extension'],
     description: 'Pure quad isolation. Great as a finishing or warm-up movement.',
     tips: [
       'Pause and squeeze hard at the top for 1–2 seconds.',
@@ -2086,6 +2123,7 @@ export const EXERCISES = [
     muscleGroup: 'Quads',
     equipment: 'Dumbbells',
     type: 'Compound',
+    aka: ['bss', 'rear foot elevated split squat', 'rfess'],
     description: 'Rear-foot elevated split squat. One of the most effective single-leg exercises.',
     tips: [
       'Rear foot on a bench or box. Front foot far enough forward to allow a full dip.',
@@ -2100,6 +2138,7 @@ export const EXERCISES = [
     muscleGroup: 'Quads',
     equipment: 'Machine',
     type: 'Compound',
+    aka: ['hack squat machine', 'machine squat'],
     description: 'Machine squat that allows a large ROM and significant quad loading without lower back stress.',
     tips: [
       'Go deep — full ROM on the hack squat is highly effective for quads.',
@@ -2113,6 +2152,7 @@ export const EXERCISES = [
     muscleGroup: 'Quads',
     equipment: 'Dumbbells',
     type: 'Compound',
+    aka: ['db goblet squat', 'dumbbell squat'],
     description: 'Squat while holding a dumbbell or kettlebell at your chest. Perfect for technique and mobility.',
     tips: [
       'Hold the dumbbell vertically by one end at your chest.',
@@ -2126,6 +2166,7 @@ export const EXERCISES = [
     muscleGroup: 'Quads',
     equipment: 'Dumbbells',
     type: 'Compound',
+    aka: ['box step up', 'step ups', 'step up'],
     description: 'Functional unilateral lower body movement. Builds hip strength and balance.',
     tips: [
       'Use a box height that puts your thigh parallel or slightly above when your foot is on it.',
@@ -2166,6 +2207,7 @@ export const EXERCISES = [
     muscleGroup: 'Quads',
     equipment: 'Dumbbells',
     type: 'Compound',
+    aka: ['walking lunge', 'forward lunge', 'lunges'],
     description: 'Forward-stepping lunges that travel across the floor. Builds leg strength, balance, and conditioning.',
     tips: [
       'Take a long stride and lower your rear knee toward the ground.',
@@ -2481,6 +2523,7 @@ export const EXERCISES = [
     muscleGroup: 'Hamstrings',
     equipment: 'Machine',
     type: 'Isolation',
+    aka: ['hamstring curl', 'leg curl', 'ham curl', 'lying hamstring curl'],
     description: 'Prone hamstring curl machine. Excellent isolation with minimal lower back involvement.',
     tips: [
       'Don\'t let your hips rise off the pad at the bottom.',
@@ -2507,6 +2550,7 @@ export const EXERCISES = [
     muscleGroup: 'Hamstrings',
     equipment: 'Barbell',
     type: 'Compound',
+    aka: ['good morning', 'barbell good morning'],
     description: 'Bar on the back, hip hinge movement. Builds hamstring and lower back strength.',
     tips: [
       'Same hip hinge as RDL but bar is on your upper back.',
@@ -2520,6 +2564,7 @@ export const EXERCISES = [
     muscleGroup: 'Hamstrings',
     equipment: 'Bodyweight',
     type: 'Compound',
+    aka: ['nordic hamstring curl', 'nhc'],
     description: 'Advanced bodyweight hamstring exercise. One of the best for injury prevention.',
     tips: [
       'Kneel with ankles secured (under a barbell, in a machine, or partner holds).',
@@ -2534,6 +2579,7 @@ export const EXERCISES = [
     muscleGroup: 'Hamstrings',
     equipment: 'Machine',
     type: 'Compound',
+    aka: ['ghr', 'glute ham developer', 'glute ham raise'],
     description: 'Done on a GHR machine — trains both knee flexion and hip extension simultaneously.',
     tips: [
       'Requires a GHR (glute-ham raise) machine.',
@@ -2720,6 +2766,7 @@ export const EXERCISES = [
     muscleGroup: 'Glutes',
     equipment: 'Barbell',
     type: 'Compound',
+    aka: ['barbell hip thrust', 'glute bridge', 'bb hip thrust'],
     description: 'The most effective exercise for glute hypertrophy. Loads the glutes through full hip extension.',
     tips: [
       'Shoulders rest on a bench, feet flat on the floor, bar over hips with a foam pad.',
@@ -2762,6 +2809,7 @@ export const EXERCISES = [
     muscleGroup: 'Glutes',
     equipment: 'Barbell',
     type: 'Compound',
+    aka: ['wide stance deadlift', 'sumo dl'],
     description: 'Wide stance deadlift. More hip and glute dominant than conventional deadlift.',
     tips: [
       'Stance 2× shoulder-width or wider with significant toe flare.',
@@ -3053,6 +3101,7 @@ export const EXERCISES = [
     muscleGroup: 'Core',
     equipment: 'Bodyweight',
     type: 'Isometric',
+    aka: ['front plank', 'prone hold'],
     description: 'Foundational core stability exercise. Trains anti-extension and whole-body tension.',
     tips: [
       'Neutral spine — don\'t let your hips sag or pike up.',
@@ -3080,6 +3129,7 @@ export const EXERCISES = [
     muscleGroup: 'Core',
     equipment: 'Bodyweight',
     type: 'Isolation',
+    aka: ['crunch', 'ab crunch'],
     description: 'Classic abdominal flexion exercise.',
     tips: [
       'Don\'t pull on your neck — fingertips behind your ears, not clasped.',
@@ -3106,6 +3156,7 @@ export const EXERCISES = [
     muscleGroup: 'Core',
     equipment: 'Bodyweight',
     type: 'Isolation',
+    aka: ['hanging leg raise', 'hanging knee raise', 'leg raise'],
     description: 'Challenging core exercise from a dead hang. Builds serious abdominal strength.',
     tips: [
       'Dead hang from a bar, then raise legs to perpendicular or above.',
@@ -3119,6 +3170,7 @@ export const EXERCISES = [
     muscleGroup: 'Core',
     equipment: 'Bodyweight',
     type: 'Isolation',
+    aka: ['russian twist', 'seated twist'],
     description: 'Rotational core exercise that targets the obliques.',
     tips: [
       'Feet elevated makes this harder; feet on floor is the easier start.',
@@ -3145,6 +3197,7 @@ export const EXERCISES = [
     muscleGroup: 'Core',
     equipment: 'Equipment',
     type: 'Compound',
+    aka: ['ab roller', 'wheel rollout', 'ab wheel'],
     description: 'Anti-extension core exercise. One of the most challenging and effective ab movements.',
     tips: [
       'Start on your knees. Roll out as far as you can while keeping your lower back from arching.',
@@ -3171,6 +3224,7 @@ export const EXERCISES = [
     muscleGroup: 'Core',
     equipment: 'Bodyweight',
     type: 'Isolation',
+    aka: ['deadbug'],
     description: 'Spine-safe core stability exercise. Excellent for building anti-extension control.',
     tips: [
       'Lie on your back, lower back pressed firmly into the floor throughout.',
@@ -3211,6 +3265,7 @@ export const EXERCISES = [
     muscleGroup: 'Core',
     equipment: 'Cable',
     type: 'Compound',
+    aka: ['wood chop', 'cable chop', 'cable woodchop', 'cable twist'],
     description: 'Rotational core exercise using a cable. Trains the obliques through a powerful chopping motion.',
     tips: [
       'Set the cable high for downward chops or low for upward chops.',
@@ -3237,6 +3292,7 @@ export const EXERCISES = [
     muscleGroup: 'Core',
     equipment: 'Bodyweight',
     type: 'Isolation',
+    aka: ['sit up', 'situp', 'sit-up', 'decline situp'],
     description: 'Sit ups on a decline bench. The angle increases the difficulty and range of motion.',
     tips: [
       'Hook your feet under the pads on a decline bench.',
@@ -3329,6 +3385,7 @@ export const EXERCISES = [
     muscleGroup: 'Core',
     equipment: 'Equipment',
     type: 'Compound',
+    aka: ['tgu', 'get up'],
     description: 'Full-body movement going from lying down to standing while holding a weight overhead.',
     tips: [
       'Start lying on your back with a kettlebell or dumbbell pressed overhead.',
@@ -3368,6 +3425,7 @@ export const EXERCISES = [
     muscleGroup: 'Core',
     equipment: 'Cable',
     type: 'Compound',
+    aka: ['cable woodchop', 'high to low woodchop', 'cable chop'],
     description: 'Rotational cable pull from high to low. Targets obliques and rotational core strength.',
     tips: [
       'Set a cable at the highest position. Stand sideways to the machine.',
@@ -3500,6 +3558,7 @@ export const EXERCISES = [
     muscleGroup: 'Calves',
     equipment: 'Machine',
     type: 'Isolation',
+    aka: ['calf raise', 'standing calf raise', 'calf press'],
     description: 'Primary calf builder targeting the gastrocnemius. Full stretch is critical for growth.',
     tips: [
       'Full ROM is non-negotiable — a deep stretch at the bottom drives most of the growth.',
@@ -3659,6 +3718,7 @@ export const EXERCISES = [
     muscleGroup: 'Traps',
     equipment: 'Barbell',
     type: 'Isolation',
+    aka: ['shrugs', 'bb shrug', 'shoulder shrug', 'barbell shrug'],
     description: 'Directly targets the upper trapezius. Can be loaded very heavily.',
     tips: [
       'Lift straight UP, hold for 2 seconds, lower slowly.',
@@ -3672,6 +3732,7 @@ export const EXERCISES = [
     muscleGroup: 'Traps',
     equipment: 'Dumbbells',
     type: 'Isolation',
+    aka: ['db shrug', 'dumbbell shrug'],
     description: 'Dumbbell version of the shrug with a more natural arm path.',
     tips: [
       'Dumbbells at your sides — lift shoulders straight up.',
@@ -3684,6 +3745,7 @@ export const EXERCISES = [
     muscleGroup: 'Traps',
     equipment: 'Dumbbells',
     type: 'Compound',
+    aka: ['farmers walk', 'farmers carry', 'farmer carry', 'farmer walk'],
     description: 'Carry heavy weights for distance or time. One of the most functional exercises.',
     tips: [
       'Shoulders back and down, chest up, neutral spine.',
@@ -3804,6 +3866,7 @@ export const EXERCISES = [
     muscleGroup: 'Forearms',
     equipment: 'Barbell',
     type: 'Isolation',
+    aka: ['wrist curl', 'forearm curl', 'barbell wrist curl'],
     description: 'Targets the wrist flexors on the underside of the forearm.',
     tips: [
       'Forearm rested on your thigh or a bench, wrist hanging off the edge.',
@@ -3817,6 +3880,7 @@ export const EXERCISES = [
     muscleGroup: 'Forearms',
     equipment: 'Barbell',
     type: 'Isolation',
+    aka: ['reverse wrist curl', 'wrist extension'],
     description: 'Targets wrist extensors on the top of the forearm. Often neglected and a common culprit for tennis elbow.',
     tips: [
       'Overhand grip, forearm rested on a bench with wrist off the edge.',
@@ -3937,6 +4001,7 @@ export const EXERCISES = [
     muscleGroup: 'Full Body',
     equipment: 'Barbell',
     type: 'Compound',
+    aka: ['clean'],
     description: 'Olympic weightlifting movement. Develops explosive power through the entire posterior chain.',
     tips: [
       'Bar starts over your midfoot. Setup like a deadlift.',
@@ -3964,6 +4029,7 @@ export const EXERCISES = [
     muscleGroup: 'Full Body',
     equipment: 'Barbell',
     type: 'Compound',
+    aka: ['snatch', 'barbell snatch'],
     description: 'Olympic lift where the bar goes from the floor to overhead in one explosive movement.',
     tips: [
       'Wide overhand grip (snatch grip). Same setup as power clean.',
@@ -3977,6 +4043,7 @@ export const EXERCISES = [
     muscleGroup: 'Full Body',
     equipment: 'Equipment',
     type: 'Compound',
+    aka: ['kb swing', 'russian swing'],
     description: 'Hip hinge ballistic movement. Builds explosive power and conditioning simultaneously.',
     tips: [
       'This is a HIP HINGE — not a squat. Sit back, not down.',
@@ -3991,6 +4058,7 @@ export const EXERCISES = [
     muscleGroup: 'Full Body',
     equipment: 'Equipment',
     type: 'Compound',
+    aka: ['box jump', 'plyometric jump'],
     description: 'Plyometric power exercise. Develops explosive lower body power and fast-twitch fibers.',
     tips: [
       'Land softly with bent knees to absorb the impact.',
@@ -4005,6 +4073,7 @@ export const EXERCISES = [
     muscleGroup: 'Full Body',
     equipment: 'Bodyweight',
     type: 'Compound',
+    aka: ['burpee'],
     description: 'High-intensity full body conditioning exercise. Great for cardiovascular fitness.',
     tips: [
       '6-count movement: squat down, kick feet back, chest to floor, push up, feet forward, jump.',
@@ -4018,6 +4087,7 @@ export const EXERCISES = [
     muscleGroup: 'Full Body',
     equipment: 'Equipment',
     type: 'Compound',
+    aka: ['battle rope', 'battling ropes'],
     description: 'Conditioning tool that builds upper body endurance and cardiovascular fitness.',
     tips: [
       'Stance slightly wider than shoulder-width, slight knee bend.',
@@ -4044,6 +4114,7 @@ export const EXERCISES = [
     muscleGroup: 'Full Body',
     equipment: 'Barbell',
     type: 'Compound',
+    aka: ['thruster', 'barbell thruster', 'squat to press'],
     description: 'Front squat directly into an overhead press in one fluid motion. Ultimate full-body conditioning exercise.',
     tips: [
       'Start in a front rack position. Squat down to full depth.',
@@ -4057,6 +4128,7 @@ export const EXERCISES = [
     muscleGroup: 'Full Body',
     equipment: 'Dumbbells',
     type: 'Compound',
+    aka: ['man maker', 'manmaker'],
     description: 'Burpee with dumbbell rows and an overhead press. One of the most demanding full-body exercises.',
     tips: [
       'Start standing with dumbbells. Drop to a push up position.',
@@ -4096,6 +4168,7 @@ export const EXERCISES = [
     muscleGroup: 'Full Body',
     equipment: 'Barbell',
     type: 'Compound',
+    aka: ['clean & press', 'clean press'],
     description: 'Clean the bar from the floor to the front rack, then press it overhead. Classic strength movement.',
     tips: [
       'Clean the bar to your shoulders using explosive hip drive.',
@@ -4546,6 +4619,1523 @@ export const EXERCISES = [
       'Keep your working thigh parallel to the floor.',
       'Hold as long as possible — switch legs and match the time.',
       'Great for skiing prep, knee rehab, and quad endurance.',
+    ],
+  },
+
+  // ─── ADDITIONAL EXERCISES ──────────────────────────────────────────────────
+
+  // ─── CABLE MACHINE VARIATIONS ──────────────────────────────────────────────
+  {
+    name: 'Cable Chest Press',
+    muscleGroup: 'Chest',
+    equipment: 'Cable',
+    type: 'Compound',
+    description: 'Standing cable press that provides constant tension throughout the entire range of motion.',
+    tips: [
+      'Stagger your stance for balance and brace your core.',
+      'Press forward and slightly inward to mimic a fly-press hybrid.',
+      'Control the eccentric — don\'t let the cables snap back.',
+    ],
+  },
+  {
+    name: 'Cable Reverse Fly',
+    muscleGroup: 'Shoulders',
+    equipment: 'Cable',
+    type: 'Isolation',
+    description: 'Standing rear delt fly using cables crossed at face height for constant tension.',
+    tips: [
+      'Cross the cables so each hand grabs the opposite side.',
+      'Keep a slight bend in the elbows throughout.',
+      'Squeeze your shoulder blades together at the peak.',
+    ],
+  },
+  {
+    name: 'Cable Face Pull (Rope)',
+    muscleGroup: 'Shoulders',
+    equipment: 'Cable',
+    type: 'Compound',
+    description: 'High cable pull toward the face using a rope, targeting rear delts and external rotators.',
+    tips: [
+      'Pull toward your forehead, not your chin.',
+      'Externally rotate at the end so your fists point up.',
+      'Use lighter weight and focus on the squeeze.',
+    ],
+  },
+  {
+    name: 'Cable Bicep Curl (Bar)',
+    muscleGroup: 'Biceps',
+    equipment: 'Cable',
+    type: 'Isolation',
+    description: 'Low cable curl using a straight bar for constant tension throughout the curl.',
+    tips: [
+      'Stand upright and keep elbows pinned to your sides.',
+      'Squeeze hard at the top and control the eccentric.',
+      'Avoid leaning back to cheat the weight up.',
+    ],
+  },
+  {
+    name: 'Cable Lateral Raise (Behind Back)',
+    muscleGroup: 'Shoulders',
+    equipment: 'Cable',
+    type: 'Isolation',
+    description: 'Single arm lateral raise with the cable running behind the body for a unique resistance curve.',
+    tips: [
+      'Stand sideways to the machine with the cable behind your back.',
+      'Raise your arm to shoulder height — no higher.',
+      'This variation loads the lateral delt hardest at the top.',
+    ],
+  },
+  {
+    name: 'Cable Tricep Kickback',
+    muscleGroup: 'Triceps',
+    equipment: 'Cable',
+    type: 'Isolation',
+    description: 'Cable version of the kickback offering constant tension, especially at lockout.',
+    tips: [
+      'Hinge at the hips and keep your upper arm parallel to the floor.',
+      'Fully extend the arm and squeeze the tricep.',
+      'Cable tension makes this far more effective than the dumbbell version.',
+    ],
+  },
+  {
+    name: 'Cable Squat',
+    muscleGroup: 'Quads',
+    equipment: 'Cable',
+    type: 'Compound',
+    description: 'Squat performed holding a cable attachment for counterbalance and resistance.',
+    tips: [
+      'Hold the rope or handle at chest height.',
+      'Sit back into the squat using the cable for balance.',
+      'Great for beginners learning squat mechanics.',
+    ],
+  },
+  {
+    name: 'Cable Glute Kickback',
+    muscleGroup: 'Glutes',
+    equipment: 'Cable',
+    type: 'Isolation',
+    description: 'Standing glute kickback with ankle attachment on a low cable for glute isolation.',
+    tips: [
+      'Attach the cable to your ankle and face the machine.',
+      'Kick straight back — don\'t rotate your hip.',
+      'Squeeze the glute at full extension and lower slowly.',
+    ],
+  },
+  {
+    name: 'Cable Wrist Curl',
+    muscleGroup: 'Forearms',
+    equipment: 'Cable',
+    type: 'Isolation',
+    description: 'Wrist curl using a low cable for smooth, constant tension on the forearm flexors.',
+    tips: [
+      'Kneel beside the cable and rest forearms on a bench.',
+      'Curl the wrists up and squeeze at the top.',
+      'Cable tension keeps the forearms loaded throughout.',
+    ],
+  },
+  {
+    name: 'Cable Reverse Wrist Curl',
+    muscleGroup: 'Forearms',
+    equipment: 'Cable',
+    type: 'Isolation',
+    description: 'Reverse wrist curl on a low cable targeting the wrist extensors and brachioradialis.',
+    tips: [
+      'Use a straight bar attachment with an overhand grip.',
+      'Keep forearms stable on a bench or your thighs.',
+      'Use light weight — the extensors are smaller muscles.',
+    ],
+  },
+  {
+    name: 'Cable Calf Raise',
+    muscleGroup: 'Calves',
+    equipment: 'Cable',
+    type: 'Isolation',
+    description: 'Calf raise performed with cable resistance, offering constant tension through the movement.',
+    tips: [
+      'Stand on a step plate for a full range of motion.',
+      'Hold the cable handle at shoulder height.',
+      'Pause at the top for a full contraction.',
+    ],
+  },
+
+  // ─── SMITH MACHINE EXERCISES ───────────────────────────────────────────────
+  {
+    name: 'Smith Machine Front Squat',
+    muscleGroup: 'Quads',
+    equipment: 'Smith Machine',
+    type: 'Compound',
+    description: 'Front squat on the Smith machine allowing more upright torso position and quad emphasis.',
+    tips: [
+      'Cross your arms and rest the bar on front delts.',
+      'Stay upright — the Smith bar path helps with this.',
+      'Go deep for maximum quad activation.',
+    ],
+  },
+  {
+    name: 'Smith Machine Romanian Deadlift',
+    muscleGroup: 'Hamstrings',
+    equipment: 'Smith Machine',
+    type: 'Compound',
+    description: 'RDL on the Smith machine for guided bar path and hamstring/glute targeting.',
+    tips: [
+      'Push your hips straight back — the bar slides down your thighs.',
+      'Keep a slight bend in the knees throughout.',
+      'Great for learning the hip hinge pattern.',
+    ],
+  },
+  {
+    name: 'Smith Machine Calf Raise (Seated)',
+    muscleGroup: 'Calves',
+    equipment: 'Smith Machine',
+    type: 'Isolation',
+    description: 'Seated calf raise using the Smith machine bar across the knees for heavy soleus work.',
+    tips: [
+      'Place a step under your feet for full ROM.',
+      'Rest the bar across your lower thighs just above the knees.',
+      'Slow and controlled — no bouncing.',
+    ],
+  },
+  {
+    name: 'Smith Machine Split Squat',
+    muscleGroup: 'Quads',
+    equipment: 'Smith Machine',
+    type: 'Compound',
+    description: 'Split squat on the Smith machine for stability and unilateral quad work.',
+    tips: [
+      'Front foot should be far enough forward that the knee doesn\'t pass the toes.',
+      'Lower until the rear knee nearly touches the floor.',
+      'The guided bar path lets you focus entirely on the quads.',
+    ],
+  },
+  {
+    name: 'Smith Machine Upright Row',
+    muscleGroup: 'Traps',
+    equipment: 'Smith Machine',
+    type: 'Compound',
+    description: 'Upright row on the Smith machine for guided path and trap/delt emphasis.',
+    tips: [
+      'Use a shoulder-width grip to reduce impingement risk.',
+      'Pull to chest height — no higher.',
+      'Lead with the elbows, not the hands.',
+    ],
+  },
+  {
+    name: 'Smith Machine Close Grip Bench Press',
+    muscleGroup: 'Triceps',
+    equipment: 'Smith Machine',
+    type: 'Compound',
+    description: 'Close grip bench on the Smith machine for tricep-focused pressing with a fixed bar path.',
+    tips: [
+      'Grip the bar at shoulder width or slightly narrower.',
+      'Tuck elbows to roughly 30 degrees.',
+      'Lower the bar to lower chest and press up explosively.',
+    ],
+  },
+  {
+    name: 'Smith Machine Incline Row',
+    muscleGroup: 'Back',
+    equipment: 'Smith Machine',
+    type: 'Compound',
+    description: 'Bent over row performed on the Smith machine for a controlled, guided pulling motion.',
+    tips: [
+      'Hinge forward roughly 45 degrees.',
+      'Pull the bar toward your lower chest.',
+      'The fixed bar path helps isolate the lats and mid-back.',
+    ],
+  },
+  {
+    name: 'Smith Machine Reverse Lunge',
+    muscleGroup: 'Glutes',
+    equipment: 'Smith Machine',
+    type: 'Compound',
+    description: 'Reverse lunge on the Smith machine for glute-focused unilateral training with added stability.',
+    tips: [
+      'Step back far enough to achieve a deep lunge position.',
+      'Push through the front heel to return to standing.',
+      'The Smith bar removes the balance component so you can load heavier.',
+    ],
+  },
+
+  // ─── RESISTANCE BAND EXERCISES ─────────────────────────────────────────────
+  {
+    name: 'Band Chest Press',
+    muscleGroup: 'Chest',
+    equipment: 'Resistance Band',
+    type: 'Compound',
+    description: 'Standing chest press using a resistance band looped behind the back.',
+    tips: [
+      'Loop the band around your upper back and press forward.',
+      'Band tension increases at lockout — great for chest activation.',
+      'Keep core braced and maintain an athletic stance.',
+    ],
+  },
+  {
+    name: 'Band Shoulder Press',
+    muscleGroup: 'Shoulders',
+    equipment: 'Resistance Band',
+    type: 'Compound',
+    description: 'Overhead press with a resistance band for progressive tension shoulder work.',
+    tips: [
+      'Stand on the band and press handles overhead.',
+      'Keep your core tight to avoid arching.',
+      'Great for warm-ups or high-rep finishers.',
+    ],
+  },
+  {
+    name: 'Band Bicep Curl',
+    muscleGroup: 'Biceps',
+    equipment: 'Resistance Band',
+    type: 'Isolation',
+    description: 'Bicep curl with a resistance band for increasing tension at the peak contraction.',
+    tips: [
+      'Stand on the band and curl the handles up.',
+      'The band gets harder at the top where the bicep is strongest.',
+      'Keep elbows pinned and avoid swinging.',
+    ],
+  },
+  {
+    name: 'Band Tricep Pushdown',
+    muscleGroup: 'Triceps',
+    equipment: 'Resistance Band',
+    type: 'Isolation',
+    description: 'Tricep pushdown using a band looped over a pull-up bar or door anchor.',
+    tips: [
+      'Pin elbows at your sides throughout.',
+      'Push down until arms are fully extended.',
+      'Excellent travel-friendly tricep exercise.',
+    ],
+  },
+  {
+    name: 'Band Row',
+    muscleGroup: 'Back',
+    equipment: 'Resistance Band',
+    type: 'Compound',
+    description: 'Seated or standing row using a band anchored at mid-torso height.',
+    tips: [
+      'Pull the band to your lower chest and squeeze your back.',
+      'Sit tall and avoid rounding forward.',
+      'Pause at full contraction for maximum engagement.',
+    ],
+  },
+  {
+    name: 'Band Good Morning',
+    muscleGroup: 'Hamstrings',
+    equipment: 'Resistance Band',
+    type: 'Compound',
+    description: 'Good morning movement using a band draped over the neck for hamstring and glute work.',
+    tips: [
+      'Stand on the band and loop it behind your neck.',
+      'Hinge forward at the hips with a slight knee bend.',
+      'Great warm-up or high-rep finisher for the posterior chain.',
+    ],
+  },
+  {
+    name: 'Band Hip Thrust',
+    muscleGroup: 'Glutes',
+    equipment: 'Resistance Band',
+    type: 'Compound',
+    description: 'Hip thrust with a band placed across the hips for glute activation and strength.',
+    tips: [
+      'Loop the band across your hips and anchor it under your feet.',
+      'Drive hips up and squeeze glutes hard at the top.',
+      'Perfect for warm-ups or as a burnout finisher.',
+    ],
+  },
+  {
+    name: 'Band Lateral Walk',
+    muscleGroup: 'Glutes',
+    equipment: 'Resistance Band',
+    type: 'Isolation',
+    description: 'Side-stepping with a band around the knees or ankles to target the glute medius.',
+    tips: [
+      'Stay in a quarter squat position throughout.',
+      'Push your knees out against the band with each step.',
+      'Keep steps small and controlled — don\'t let feet come too close.',
+    ],
+  },
+  {
+    name: 'Band Face Pull',
+    muscleGroup: 'Shoulders',
+    equipment: 'Resistance Band',
+    type: 'Compound',
+    description: 'Face pull using a band for rear delt and rotator cuff work anywhere.',
+    tips: [
+      'Anchor the band at face height and pull toward your face.',
+      'Externally rotate at the end of the movement.',
+      'Great for posture correction and shoulder health.',
+    ],
+  },
+  {
+    name: 'Band Hamstring Curl',
+    muscleGroup: 'Hamstrings',
+    equipment: 'Resistance Band',
+    type: 'Isolation',
+    description: 'Prone hamstring curl using a band anchored low for isolation work.',
+    tips: [
+      'Lie face down and attach the band to your ankle.',
+      'Curl your heel toward your glute.',
+      'Excellent for home workouts and rehab protocols.',
+    ],
+  },
+
+  // ─── BODYWEIGHT PROGRESSIONS ───────────────────────────────────────────────
+  {
+    name: 'Archer Push Ups',
+    muscleGroup: 'Chest',
+    equipment: 'Bodyweight',
+    type: 'Compound',
+    description: 'Wide push up where one arm does most of the work while the other assists from extended position.',
+    tips: [
+      'Place hands wider than shoulder width.',
+      'Shift your body toward one hand as you lower.',
+      'The assisting arm stays straight or nearly straight.',
+    ],
+  },
+  {
+    name: 'Pike Push Ups',
+    muscleGroup: 'Shoulders',
+    equipment: 'Bodyweight',
+    type: 'Compound',
+    description: 'Inverted V push up position targeting the shoulders as a handstand push up progression.',
+    tips: [
+      'Hips stay as high as possible throughout.',
+      'Lower your head toward the floor between your hands.',
+      'Elevate feet on a bench to increase difficulty.',
+    ],
+  },
+  {
+    name: 'Handstand Push Ups',
+    muscleGroup: 'Shoulders',
+    equipment: 'Bodyweight',
+    type: 'Compound',
+    description: 'Inverted pressing movement against a wall targeting shoulders and triceps with full bodyweight.',
+    tips: [
+      'Use a wall for support until freestanding is mastered.',
+      'Lower until head touches the floor, then press up.',
+      'Keep core tight to avoid excessive arching.',
+    ],
+  },
+  {
+    name: 'Planche Lean',
+    muscleGroup: 'Shoulders',
+    equipment: 'Bodyweight',
+    type: 'Isometric',
+    description: 'Leaning plank position with shoulders in front of hands to build planche strength.',
+    tips: [
+      'Start in push up position and lean forward shifting shoulders past your wrists.',
+      'Keep arms locked and protract your shoulder blades.',
+      'Progress gradually — small shifts in lean add significant load.',
+    ],
+  },
+  {
+    name: 'Front Lever Raises',
+    muscleGroup: 'Back',
+    equipment: 'Bodyweight',
+    type: 'Compound',
+    description: 'Hanging from a bar and raising the body to a horizontal position for lat and core strength.',
+    tips: [
+      'Start with tucked knees and progress to full extension.',
+      'Pull the bar toward your hips using your lats.',
+      'Lower with control — no swinging.',
+    ],
+  },
+  {
+    name: 'Back Lever',
+    muscleGroup: 'Back',
+    equipment: 'Bodyweight',
+    type: 'Isometric',
+    description: 'Gymnastic hold where the body is horizontal below the rings or bar, face down.',
+    tips: [
+      'Start with tucked back lever before progressing to full.',
+      'Keep arms straight and shoulders engaged.',
+      'Build up hold time gradually — this is very demanding on shoulders.',
+    ],
+  },
+  {
+    name: 'Muscle Up (Bar)',
+    muscleGroup: 'Full Body',
+    equipment: 'Bodyweight',
+    type: 'Compound',
+    description: 'Pull up transitioning into a dip above the bar. A challenging gymnastic pulling movement.',
+    tips: [
+      'Master explosive pull ups first — chin must go well above the bar.',
+      'Use a slight kip to help transition over the bar.',
+      'Lean forward during the transition phase.',
+    ],
+  },
+  {
+    name: 'Muscle Up (Rings)',
+    muscleGroup: 'Full Body',
+    equipment: 'Gymnastics Rings',
+    type: 'Compound',
+    description: 'Ring muscle up requiring a deep pull and transition. Harder than bar muscle up due to instability.',
+    tips: [
+      'Use a false grip for easier transition.',
+      'Pull the rings to your chest and roll forward on top.',
+      'Rings allow a more natural movement path than bars.',
+    ],
+  },
+  {
+    name: 'Ring Dips',
+    muscleGroup: 'Triceps',
+    equipment: 'Gymnastics Rings',
+    type: 'Compound',
+    description: 'Dips on gymnastic rings requiring significant stabilisation of the shoulders and core.',
+    tips: [
+      'Turn rings out at the top for full lockout.',
+      'Keep rings close to your body throughout.',
+      'Much harder than parallel bar dips due to instability.',
+    ],
+  },
+  {
+    name: 'Ring Push Ups',
+    muscleGroup: 'Chest',
+    equipment: 'Gymnastics Rings',
+    type: 'Compound',
+    description: 'Push ups on gymnastic rings adding instability for enhanced chest and stabiliser activation.',
+    tips: [
+      'Set rings just above floor height.',
+      'Keep rings close to your body — avoid flaring.',
+      'Turn rings out at the top for shoulder stability.',
+    ],
+  },
+  {
+    name: 'Ring Rows',
+    muscleGroup: 'Back',
+    equipment: 'Gymnastics Rings',
+    type: 'Compound',
+    description: 'Inverted row on rings allowing natural hand rotation and increased stabiliser work.',
+    tips: [
+      'Walk your feet forward to make it harder.',
+      'Pull chest to rings and squeeze back at the top.',
+      'Rotate palms from pronated at bottom to neutral at top.',
+    ],
+  },
+  {
+    name: 'Pseudo Planche Push Ups',
+    muscleGroup: 'Chest',
+    equipment: 'Bodyweight',
+    type: 'Compound',
+    description: 'Push ups with hands rotated outward and placed near the hips for extreme chest and front delt loading.',
+    tips: [
+      'Place hands near your waist with fingers pointing out/back.',
+      'Lean forward so shoulders are well past your hands.',
+      'This is a planche progression — much harder than regular push ups.',
+    ],
+  },
+  {
+    name: 'Bodyweight Squat',
+    muscleGroup: 'Quads',
+    equipment: 'Bodyweight',
+    type: 'Compound',
+    description: 'Fundamental squat pattern using only bodyweight. Great for warm-ups and high rep work.',
+    tips: [
+      'Feet shoulder-width, toes slightly out.',
+      'Sit back and down as if sitting in a chair.',
+      'Keep chest up and knees tracking over toes.',
+    ],
+  },
+  {
+    name: 'Shrimp Squat',
+    muscleGroup: 'Quads',
+    equipment: 'Bodyweight',
+    type: 'Compound',
+    description: 'Single-leg squat where the rear leg is held behind you. An advanced pistol squat alternative.',
+    tips: [
+      'Hold your rear foot behind you with one hand.',
+      'Lower until the rear knee touches the floor.',
+      'Requires significant quad strength and ankle mobility.',
+    ],
+  },
+  {
+    name: 'Glute Bridge March',
+    muscleGroup: 'Glutes',
+    equipment: 'Bodyweight',
+    type: 'Compound',
+    description: 'Glute bridge hold while alternating lifting each foot off the ground, mimicking a marching motion.',
+    tips: [
+      'Hold the bridge and lift one knee toward your chest.',
+      'Keep hips level — don\'t let them drop on the lifting side.',
+      'Alternate legs in a controlled marching pattern.',
+    ],
+  },
+
+  // ─── KETTLEBELL EXERCISES ──────────────────────────────────────────────────
+  {
+    name: 'Kettlebell Goblet Squat',
+    muscleGroup: 'Quads',
+    equipment: 'Kettlebell',
+    type: 'Compound',
+    description: 'Squat holding a kettlebell at the chest. Great for grooving squat pattern.',
+    tips: [
+      'Hold the bell by the horns at chest level.',
+      'Use your elbows to push your knees out at the bottom.',
+      'Keep torso upright throughout the movement.',
+    ],
+  },
+  {
+    name: 'Kettlebell Snatch',
+    muscleGroup: 'Full Body',
+    equipment: 'Kettlebell',
+    type: 'Compound',
+    description: 'Explosive hip-driven movement swinging the kettlebell from between the legs to overhead in one motion.',
+    tips: [
+      'Drive with the hips, not the arm.',
+      'Punch through at the top so the bell lands softly on your forearm.',
+      'Master the swing and high pull before attempting snatches.',
+    ],
+  },
+  {
+    name: 'Kettlebell Turkish Get Up',
+    muscleGroup: 'Full Body',
+    equipment: 'Kettlebell',
+    type: 'Compound',
+    description: 'Complex movement from lying to standing while holding a kettlebell overhead. Builds total body stability.',
+    tips: [
+      'Keep your eyes on the bell at all times.',
+      'Move slowly and deliberately through each position.',
+      'Master each phase with no weight before adding the kettlebell.',
+    ],
+  },
+  {
+    name: 'Kettlebell Windmill',
+    muscleGroup: 'Core',
+    equipment: 'Kettlebell',
+    type: 'Compound',
+    description: 'Standing hip hinge to the side while holding a kettlebell overhead. Trains obliques and shoulder stability.',
+    tips: [
+      'Hold the KB overhead with a locked arm and hinge toward the opposite foot.',
+      'Keep your eyes on the bell throughout.',
+      'Push your hip out to the side of the overhead arm.',
+    ],
+  },
+  {
+    name: 'Kettlebell Row',
+    muscleGroup: 'Back',
+    equipment: 'Kettlebell',
+    type: 'Compound',
+    description: 'Single arm row with a kettlebell from a hinged position for lat and mid-back work.',
+    tips: [
+      'Hinge forward and brace your free hand on your knee or a bench.',
+      'Pull the bell toward your hip.',
+      'The offset center of gravity makes this slightly different from dumbbell rows.',
+    ],
+  },
+  {
+    name: 'Kettlebell Floor Press',
+    muscleGroup: 'Chest',
+    equipment: 'Kettlebell',
+    type: 'Compound',
+    description: 'Floor press using kettlebells for chest and tricep work with a natural grip angle.',
+    tips: [
+      'Lie on the floor with knees bent.',
+      'Press the bells up and lower until triceps touch the floor.',
+      'The floor limits ROM, which reduces shoulder stress.',
+    ],
+  },
+  {
+    name: 'Kettlebell Halo',
+    muscleGroup: 'Shoulders',
+    equipment: 'Kettlebell',
+    type: 'Isolation',
+    description: 'Circular movement passing the kettlebell around the head for shoulder mobility and stability.',
+    tips: [
+      'Hold the bell upside down by the horns.',
+      'Circle it around your head in a smooth, controlled arc.',
+      'Alternate directions each set.',
+    ],
+  },
+  {
+    name: 'Kettlebell Sumo Deadlift',
+    muscleGroup: 'Glutes',
+    equipment: 'Kettlebell',
+    type: 'Compound',
+    description: 'Wide stance deadlift with a kettlebell between the feet for glute and inner thigh emphasis.',
+    tips: [
+      'Stand wide with toes pointed out over a heavy KB.',
+      'Grab the handle and drive through your heels to stand.',
+      'Squeeze glutes hard at the top.',
+    ],
+  },
+  {
+    name: 'Kettlebell Renegade Row',
+    muscleGroup: 'Back',
+    equipment: 'Kettlebell',
+    type: 'Compound',
+    description: 'Plank position row alternating arms while holding two kettlebells. Full body and anti-rotation training.',
+    tips: [
+      'Set up in push up position on two KBs.',
+      'Row one bell to your hip while bracing to prevent rotation.',
+      'Keep hips square to the floor throughout.',
+    ],
+  },
+  {
+    name: 'Kettlebell Swing (Single Arm)',
+    muscleGroup: 'Full Body',
+    equipment: 'Kettlebell',
+    type: 'Compound',
+    description: 'One-arm kettlebell swing adding grip challenge and anti-rotation demand to the standard swing.',
+    tips: [
+      'Same hip hinge mechanics as two-arm swing.',
+      'Brace your core hard to resist rotation.',
+      'Switch arms at the top of the swing.',
+    ],
+  },
+  {
+    name: 'Kettlebell Bottoms-Up Press',
+    muscleGroup: 'Shoulders',
+    equipment: 'Kettlebell',
+    type: 'Compound',
+    description: 'Overhead press with the kettlebell held upside down for extreme grip and stability demand.',
+    tips: [
+      'Crush the handle to keep the bell upside down.',
+      'Press slowly — rushing causes loss of balance.',
+      'Use much lighter weight than regular presses.',
+    ],
+  },
+  {
+    name: 'Kettlebell Deadlift',
+    muscleGroup: 'Hamstrings',
+    equipment: 'Kettlebell',
+    type: 'Compound',
+    description: 'Deadlift using a kettlebell between the feet. Great for learning the hip hinge pattern.',
+    tips: [
+      'Stand over the KB with feet shoulder-width apart.',
+      'Hinge at the hips and grip the handle with both hands.',
+      'Drive through your heels and squeeze glutes at the top.',
+    ],
+  },
+
+  // ─── STRONGMAN-STYLE EXERCISES ─────────────────────────────────────────────
+  {
+    name: 'Farmers Walk',
+    muscleGroup: 'Full Body',
+    equipment: 'Dumbbells',
+    type: 'Compound',
+    aka: ["farmer's walk", 'farmers carry', 'farmer carry', 'farmer walk'],
+    description: 'Carrying heavy weights in each hand while walking. Builds grip, traps, core, and total body stability.',
+    tips: [
+      'Stand tall — don\'t lean forward or let the weights pull you down.',
+      'Take short, quick steps and brace your core.',
+      'Squeeze the handles as hard as possible.',
+    ],
+  },
+  {
+    name: 'Atlas Stone Lift',
+    muscleGroup: 'Full Body',
+    equipment: 'Atlas Stone',
+    type: 'Compound',
+    description: 'Lifting a heavy spherical stone from the ground to a platform. Classic strongman movement.',
+    tips: [
+      'Wrap your arms around the stone and pull it into your lap.',
+      'Extend the hips to roll the stone up your body to the platform.',
+      'Use tacky or chalk for grip on the smooth stone.',
+    ],
+  },
+  {
+    name: 'Yoke Walk',
+    muscleGroup: 'Full Body',
+    equipment: 'Yoke',
+    type: 'Compound',
+    description: 'Walking with a heavy yoke frame across the shoulders. Builds core bracing and total body strength.',
+    tips: [
+      'Take short, controlled steps.',
+      'Keep your core maximally braced throughout.',
+      'Look straight ahead — don\'t look down at your feet.',
+    ],
+  },
+  {
+    name: 'Log Press',
+    muscleGroup: 'Shoulders',
+    equipment: 'Log',
+    type: 'Compound',
+    description: 'Overhead pressing a strongman log. The neutral grip and diameter change the pressing mechanics.',
+    tips: [
+      'Clean the log to your chest first using a hip drive.',
+      'Press with a slight layback and neutral grip.',
+      'The thicker diameter forces more forearm activation.',
+    ],
+  },
+  {
+    name: 'Axle Bar Deadlift',
+    muscleGroup: 'Back',
+    equipment: 'Axle Bar',
+    type: 'Compound',
+    description: 'Deadlift with a thick axle bar that significantly challenges grip strength.',
+    tips: [
+      'The thicker bar makes grip the limiting factor.',
+      'Use double overhand to maximise grip training.',
+      'Hook grip or mixed grip if going very heavy.',
+    ],
+  },
+  {
+    name: 'Sandbag Clean',
+    muscleGroup: 'Full Body',
+    equipment: 'Sandbag',
+    type: 'Compound',
+    description: 'Cleaning a sandbag from the ground to the shoulders. Awkward loading builds real-world strength.',
+    tips: [
+      'Bear hug the bag and pull it to your lap.',
+      'Extend your hips explosively to pop it to your shoulders.',
+      'The shifting sand makes this much harder than a barbell clean.',
+    ],
+  },
+  {
+    name: 'Keg Carry',
+    muscleGroup: 'Full Body',
+    equipment: 'Keg',
+    type: 'Compound',
+    description: 'Carrying a heavy keg for distance, building core bracing and full body endurance.',
+    tips: [
+      'Bear hug the keg tight against your chest.',
+      'Keep a tall posture and take deliberate steps.',
+      'Grip the keg hard to prevent slipping.',
+    ],
+  },
+  {
+    name: 'Zercher Carry',
+    muscleGroup: 'Full Body',
+    equipment: 'Barbell',
+    type: 'Compound',
+    description: 'Carrying a barbell in the crook of your elbows while walking. Brutal for core and biceps.',
+    tips: [
+      'Cradle the bar in your elbow creases.',
+      'Keep your torso upright and core braced.',
+      'Use a pad or towel to reduce elbow discomfort.',
+    ],
+  },
+  {
+    name: 'Stone to Shoulder',
+    muscleGroup: 'Full Body',
+    equipment: 'Atlas Stone',
+    type: 'Compound',
+    description: 'Lifting a stone or sandbag from the ground to one shoulder. Functional total body strength builder.',
+    tips: [
+      'Lap the stone, then rotate and drive it to one shoulder.',
+      'Alternate shoulders each rep for balanced development.',
+      'Similar mechanics to Atlas Stone but finishes on the shoulder.',
+    ],
+  },
+  {
+    name: 'Trap Bar Carry',
+    muscleGroup: 'Full Body',
+    equipment: 'Trap Bar',
+    type: 'Compound',
+    description: 'Farmers walk variation using a trap bar, allowing heavier loads than dumbbells.',
+    tips: [
+      'Load the trap bar heavy and walk with it.',
+      'Neutral grip reduces wrist strain compared to regular farmers handles.',
+      'Great for loading beyond what dumbbells allow.',
+    ],
+  },
+
+  // ─── SPORT-SPECIFIC & POWER EXERCISES ──────────────────────────────────────
+  {
+    name: 'Depth Jump',
+    muscleGroup: 'Quads',
+    equipment: 'Plyo Box',
+    type: 'Compound',
+    description: 'Step off a box, land, and immediately jump as high as possible. Develops reactive power.',
+    tips: [
+      'Step off the box — don\'t jump off.',
+      'Minimise ground contact time on landing.',
+      'Start with low boxes (12-18 inches) and progress gradually.',
+    ],
+  },
+  {
+    name: 'Lateral Box Jump',
+    muscleGroup: 'Quads',
+    equipment: 'Plyo Box',
+    type: 'Compound',
+    description: 'Sideways explosive jump onto a box for lateral power and agility development.',
+    tips: [
+      'Stand beside the box and jump laterally onto it.',
+      'Land softly with both feet on top.',
+      'Step down and reset — don\'t rush the jumps.',
+    ],
+  },
+  {
+    name: 'Agility Ladder Drill',
+    muscleGroup: 'Full Body',
+    equipment: 'Agility Ladder',
+    type: 'Compound',
+    description: 'Quick-foot drills through an agility ladder for coordination, speed, and agility.',
+    tips: [
+      'Stay on the balls of your feet throughout.',
+      'Pump your arms to drive your speed.',
+      'Start slow and increase speed as the pattern becomes natural.',
+    ],
+  },
+  {
+    name: 'Medicine Ball Rotational Throw',
+    muscleGroup: 'Core',
+    equipment: 'Medicine Ball',
+    type: 'Compound',
+    description: 'Explosive rotational throw against a wall for rotational power used in sports.',
+    tips: [
+      'Stand sideways to the wall and rotate your torso to throw.',
+      'Drive from the hips through the core to the arms.',
+      'Catch and reset — this is about explosive power, not speed.',
+    ],
+  },
+  {
+    name: 'Medicine Ball Chest Pass',
+    muscleGroup: 'Chest',
+    equipment: 'Medicine Ball',
+    type: 'Compound',
+    description: 'Explosive chest-level throw against a wall for upper body power development.',
+    tips: [
+      'Hold the ball at chest height and push explosively.',
+      'Follow through with full arm extension.',
+      'Catch and immediately throw again for reactive work.',
+    ],
+  },
+  {
+    name: 'Sled Lateral Drag',
+    muscleGroup: 'Glutes',
+    equipment: 'Sled',
+    type: 'Compound',
+    description: 'Dragging a sled sideways for hip abductor and glute medius work.',
+    tips: [
+      'Attach the sled to a belt and walk sideways.',
+      'Stay low in an athletic stance.',
+      'Great for knee health and lateral strength.',
+    ],
+  },
+  {
+    name: 'Hang Snatch',
+    muscleGroup: 'Full Body',
+    equipment: 'Barbell',
+    type: 'Compound',
+    description: 'Snatch from the hang position (above the knees) for explosive hip extension and overhead strength.',
+    tips: [
+      'Start with the bar at mid-thigh with a wide grip.',
+      'Explode the hips and pull under the bar.',
+      'Catch in a wide overhead squat position.',
+    ],
+  },
+  {
+    name: 'Push Jerk',
+    muscleGroup: 'Full Body',
+    equipment: 'Barbell',
+    type: 'Compound',
+    description: 'Explosive overhead movement using a dip-drive to push the bar overhead with a re-dip to catch.',
+    tips: [
+      'Dip and drive through your legs to propel the bar up.',
+      'Re-dip under the bar and catch with locked arms.',
+      'Feet should land in a squat-width stance.',
+    ],
+  },
+  {
+    name: 'Split Jerk',
+    muscleGroup: 'Full Body',
+    equipment: 'Barbell',
+    type: 'Compound',
+    description: 'Olympic lifting movement where you drive the bar overhead and split the feet into a lunge catch.',
+    tips: [
+      'Dip and drive the bar aggressively.',
+      'Split feet front and back and catch with locked arms.',
+      'Recover by bringing the front foot back first.',
+    ],
+  },
+  {
+    name: 'Overhead Squat',
+    muscleGroup: 'Full Body',
+    equipment: 'Barbell',
+    type: 'Compound',
+    description: 'Deep squat while holding a barbell overhead with a wide grip. Tests total body mobility and stability.',
+    tips: [
+      'Use a wide snatch grip and lock the bar overhead.',
+      'Keep the bar directly over mid-foot throughout.',
+      'Requires excellent shoulder, thoracic, and ankle mobility.',
+    ],
+  },
+
+  // ─── ISOLATION WORK — CALVES ───────────────────────────────────────────────
+  {
+    name: 'Seated Band Calf Raise',
+    muscleGroup: 'Calves',
+    equipment: 'Resistance Band',
+    type: 'Isolation',
+    description: 'Seated calf raise using a resistance band over the knees for soleus-focused work.',
+    tips: [
+      'Loop the band over your knees and under your feet.',
+      'Press through the balls of your feet.',
+      'High reps work best — aim for 20 or more.',
+    ],
+  },
+  {
+    name: 'Eccentric Calf Raise',
+    muscleGroup: 'Calves',
+    equipment: 'Bodyweight',
+    type: 'Isolation',
+    description: 'Calf raise focusing on a slow 5-second lowering phase for tendon health and strength.',
+    tips: [
+      'Use both legs to raise up, then lower on one leg slowly.',
+      'Take 5 seconds on the way down.',
+      'Excellent for Achilles tendon rehab and calf hypertrophy.',
+    ],
+  },
+  {
+    name: 'Bent Knee Calf Raise',
+    muscleGroup: 'Calves',
+    equipment: 'Smith Machine',
+    type: 'Isolation',
+    description: 'Calf raise with knees slightly bent to shift emphasis to the soleus muscle.',
+    tips: [
+      'Keep roughly 20 degrees of knee bend.',
+      'Otherwise same technique as standing calf raises.',
+      'The soleus responds best to higher reps and longer time under tension.',
+    ],
+  },
+
+  // ─── ISOLATION WORK — FOREARMS ─────────────────────────────────────────────
+  {
+    name: 'Barbell Wrist Curl',
+    muscleGroup: 'Forearms',
+    equipment: 'Barbell',
+    type: 'Isolation',
+    description: 'Wrist curl using a barbell for forearm flexor mass and strength.',
+    tips: [
+      'Rest forearms on a bench with wrists hanging off the edge.',
+      'Curl the wrists up and squeeze at the top.',
+      'Let the bar roll to your fingertips at the bottom for extra range.',
+    ],
+  },
+  {
+    name: 'Wrist Roller',
+    muscleGroup: 'Forearms',
+    equipment: 'Wrist Roller',
+    type: 'Isolation',
+    description: 'Rolling a weight up and down on a wrist roller device for complete forearm development.',
+    tips: [
+      'Hold arms straight out in front and roll the weight up.',
+      'Roll forward for flexors, backward for extensors.',
+      'Keep arms up — don\'t rest them on anything.',
+    ],
+  },
+  {
+    name: 'Hammer Grip Carry',
+    muscleGroup: 'Forearms',
+    equipment: 'Dumbbells',
+    type: 'Compound',
+    description: 'Walking carry with heavy dumbbells in a neutral grip to build forearm and grip endurance.',
+    tips: [
+      'Hold heavy dumbbells at your sides and walk.',
+      'Squeeze the handles as hard as possible.',
+      'Aim for 30-60 seconds per set.',
+    ],
+  },
+  {
+    name: 'Plate Curl',
+    muscleGroup: 'Forearms',
+    equipment: 'Weight Plate',
+    type: 'Isolation',
+    description: 'Curling a weight plate by its rim for combined forearm and bicep work with grip emphasis.',
+    tips: [
+      'Grip the plate by its edge with fingers on one side, thumb on the other.',
+      'Curl it like a dumbbell curl.',
+      'The wide grip forces massive forearm activation.',
+    ],
+  },
+
+  // ─── ISOLATION WORK — TRAPS ────────────────────────────────────────────────
+  {
+    name: 'Dumbbell Shrug (Incline Bench)',
+    muscleGroup: 'Traps',
+    equipment: 'Dumbbells',
+    type: 'Isolation',
+    description: 'Shrugs performed lying face down on an incline bench to target the mid and lower traps.',
+    tips: [
+      'Lie face down on a 30-45 degree incline bench.',
+      'Shrug the dumbbells up and back toward your spine.',
+      'Targets the often-neglected lower traps.',
+    ],
+  },
+  {
+    name: 'Barbell Power Shrug',
+    muscleGroup: 'Traps',
+    equipment: 'Barbell',
+    type: 'Compound',
+    description: 'Explosive shrug using leg drive and heavy weight for trap overload.',
+    tips: [
+      'Use a slight knee dip to initiate the shrug.',
+      'Shrug the weight as high and fast as possible.',
+      'Great for building thick upper traps with heavier loads.',
+    ],
+  },
+  {
+    name: 'Prone Trap Raise',
+    muscleGroup: 'Traps',
+    equipment: 'Dumbbells',
+    type: 'Isolation',
+    description: 'Face-down on a bench, raising light dumbbells in a Y pattern for lower trap activation.',
+    tips: [
+      'Lie on a flat or slight incline bench face down.',
+      'Raise arms in a Y shape with thumbs pointing up.',
+      'Light weight only — 5-15 lbs is plenty.',
+    ],
+  },
+  {
+    name: 'Cable Shrug (Behind Back)',
+    muscleGroup: 'Traps',
+    equipment: 'Cable',
+    type: 'Isolation',
+    description: 'Cable shrug with the bar behind you for a different angle of trap contraction.',
+    tips: [
+      'Stand in front of a low cable and grab the bar behind you.',
+      'Shrug straight up and hold at the top.',
+      'This angle can help reduce forward shoulder rounding during shrugs.',
+    ],
+  },
+
+  // ─── ISOLATION WORK — HAMSTRINGS ───────────────────────────────────────────
+  {
+    name: 'Dumbbell Leg Curl',
+    muscleGroup: 'Hamstrings',
+    equipment: 'Dumbbells',
+    type: 'Isolation',
+    description: 'Lying leg curl holding a dumbbell between the feet when no machine is available.',
+    tips: [
+      'Lie face down on a bench and squeeze a dumbbell between your feet.',
+      'Curl the weight toward your glutes.',
+      'Go slow — the dumbbell can slip if you rush.',
+    ],
+  },
+  {
+    name: 'Kettlebell Swing (Hip Hinge Focus)',
+    muscleGroup: 'Hamstrings',
+    equipment: 'Kettlebell',
+    type: 'Compound',
+    description: 'Kettlebell swing performed with an emphasis on the hip hinge to target the hamstrings.',
+    tips: [
+      'Focus on pushing hips back and snapping them forward.',
+      'The bell should float from hip drive, not arm lift.',
+      'Feel a deep hamstring stretch at the bottom of each rep.',
+    ],
+  },
+  {
+    name: 'Inverse Leg Curl',
+    muscleGroup: 'Hamstrings',
+    equipment: 'Bodyweight',
+    type: 'Isolation',
+    description: 'Kneeling hamstring curl using bodyweight, lowering the torso forward in a controlled fall.',
+    tips: [
+      'Kneel with ankles secured under a pad or have a partner hold them.',
+      'Slowly lower your torso forward using only hamstring control.',
+      'Push off the floor to assist on the way back up if needed.',
+    ],
+  },
+
+  // ─── MORE GYM MACHINE EXERCISES ────────────────────────────────────────────
+  {
+    name: 'Machine Hack Squat (Reverse)',
+    muscleGroup: 'Glutes',
+    equipment: 'Machine',
+    type: 'Compound',
+    description: 'Reverse hack squat facing the pad for more glute and hamstring emphasis.',
+    tips: [
+      'Face the back pad with chest against it.',
+      'Wider stance shifts emphasis to glutes.',
+      'Go deep for maximum glute stretch.',
+    ],
+  },
+  {
+    name: 'Seated Hip Thrust Machine',
+    muscleGroup: 'Glutes',
+    equipment: 'Machine',
+    type: 'Compound',
+    description: 'Machine-based hip thrust for isolated glute work with easy loading.',
+    tips: [
+      'Adjust the pad to sit across your hips.',
+      'Drive through your heels and squeeze at the top.',
+      'Hold the top position for a count.',
+    ],
+  },
+  {
+    name: 'Chest Press (Converging)',
+    muscleGroup: 'Chest',
+    equipment: 'Machine',
+    type: 'Compound',
+    description: 'Machine press where the handles converge as you push, mimicking a natural pressing arc.',
+    tips: [
+      'Adjust the seat so handles are at mid-chest height.',
+      'Press forward and inward following the machine\'s arc.',
+      'Great for chest isolation without stabiliser fatigue.',
+    ],
+  },
+  {
+    name: 'Assisted Pull Up Machine',
+    muscleGroup: 'Back',
+    equipment: 'Machine',
+    type: 'Compound',
+    description: 'Counterweight-assisted pull ups for building up to bodyweight pull ups.',
+    tips: [
+      'Set the counterweight to reduce your effective bodyweight.',
+      'Use full range — dead hang to chin over bar.',
+      'Gradually reduce the assistance over time.',
+    ],
+  },
+  {
+    name: 'Assisted Dip Machine',
+    muscleGroup: 'Triceps',
+    equipment: 'Machine',
+    type: 'Compound',
+    description: 'Counterweight-assisted dips for building pressing strength toward bodyweight dips.',
+    tips: [
+      'Keep a slight forward lean for more chest activation.',
+      'Lower until upper arms are parallel to the ground.',
+      'Progress by reducing the counterweight over time.',
+    ],
+  },
+  {
+    name: 'Machine Lateral Raise (Plate Loaded)',
+    muscleGroup: 'Shoulders',
+    equipment: 'Machine',
+    type: 'Isolation',
+    description: 'Plate-loaded machine lateral raise for heavy delt work with reduced cheating.',
+    tips: [
+      'Sit upright and press the pads outward with your arms.',
+      'Raise to shoulder height — no higher.',
+      'The machine eliminates momentum for better isolation.',
+    ],
+  },
+  {
+    name: 'Machine Rear Delt Fly',
+    muscleGroup: 'Shoulders',
+    equipment: 'Machine',
+    type: 'Isolation',
+    description: 'Dedicated rear delt fly machine for posterior shoulder isolation.',
+    tips: [
+      'Sit facing the pad and grab the handles wide.',
+      'Squeeze shoulder blades together as you pull back.',
+      'Don\'t use too much weight — this is an isolation move.',
+    ],
+  },
+  {
+    name: 'Machine Seated Leg Curl (Single Leg)',
+    muscleGroup: 'Hamstrings',
+    equipment: 'Machine',
+    type: 'Isolation',
+    description: 'Single-leg seated leg curl for addressing hamstring imbalances.',
+    tips: [
+      'Use one leg at a time to identify and fix strength differences.',
+      'Start with the weaker leg first.',
+      'Match reps and weight on both sides.',
+    ],
+  },
+  {
+    name: 'Rotary Calf Machine',
+    muscleGroup: 'Calves',
+    equipment: 'Machine',
+    type: 'Isolation',
+    description: 'Dedicated rotary calf machine for heavy, controlled calf raises.',
+    tips: [
+      'Place balls of feet on the platform.',
+      'Full stretch at the bottom, peak contraction at the top.',
+      'Pause at the top for 2 seconds on each rep.',
+    ],
+  },
+  {
+    name: 'Cable Hip Flexor Raise',
+    muscleGroup: 'Core',
+    equipment: 'Cable',
+    type: 'Isolation',
+    description: 'Standing hip flexion with ankle cable attachment for hip flexor and lower ab work.',
+    tips: [
+      'Attach cable to your ankle and face away from the machine.',
+      'Lift your knee toward your chest.',
+      'Control the return — don\'t let the weight stack slam.',
+    ],
+  },
+  {
+    name: 'Reverse Hyper Machine',
+    muscleGroup: 'Glutes',
+    equipment: 'Machine',
+    type: 'Compound',
+    description: 'Dedicated reverse hyper machine for glute and lower back work with traction effect on the spine.',
+    tips: [
+      'Lie face down and swing the pendulum back with your glutes.',
+      'Control the swing — don\'t let it become ballistic.',
+      'The traction effect at the bottom can decompress the spine.',
+    ],
+  },
+  {
+    name: 'Hip Thrust (Barbell, Feet Elevated)',
+    muscleGroup: 'Glutes',
+    equipment: 'Barbell',
+    type: 'Compound',
+    description: 'Barbell hip thrust with feet on a bench for increased range of motion and deeper glute stretch.',
+    tips: [
+      'Elevate your feet on a low bench or step.',
+      'This increases ROM for a deeper glute stretch.',
+      'Don\'t over-extend at the top — stop when hips are fully extended.',
+    ],
+  },
+  {
+    name: 'Cable Pull-Down (Straight Arm, Reverse Grip)',
+    muscleGroup: 'Back',
+    equipment: 'Cable',
+    type: 'Isolation',
+    description: 'Straight arm pulldown with underhand grip for a different lat engagement angle.',
+    tips: [
+      'Use an underhand grip on a straight bar.',
+      'Keep arms straight and pull the bar to your thighs.',
+      'Squeeze lats hard at the bottom of the movement.',
+    ],
+  },
+
+  // ─── MISCELLANEOUS ADDITIONS ───────────────────────────────────────────────
+  {
+    name: 'Dumbbell Farmers Walk',
+    muscleGroup: 'Traps',
+    equipment: 'Dumbbells',
+    type: 'Compound',
+    description: 'Heavy dumbbell carry focusing on trap and grip development rather than full body conditioning.',
+    tips: [
+      'Use the heaviest dumbbells you can hold.',
+      'Keep shoulders pulled back and down.',
+      'Walk for distance or time — 40-60 seconds per set.',
+    ],
+  },
+  {
+    name: 'Incline Hammer Curl',
+    muscleGroup: 'Biceps',
+    equipment: 'Dumbbells',
+    type: 'Isolation',
+    description: 'Hammer curls on an incline bench for a longer range of motion and brachialis emphasis.',
+    tips: [
+      'Set bench to 45-60 degrees and let arms hang straight down.',
+      'Curl with palms facing each other (neutral grip).',
+      'The incline pre-stretches the biceps for more activation.',
+    ],
+  },
+  {
+    name: 'Decline Cable Fly',
+    muscleGroup: 'Chest',
+    equipment: 'Cable',
+    type: 'Isolation',
+    description: 'Cable fly on a decline bench for lower chest isolation with constant cable tension.',
+    tips: [
+      'Set cables at floor level and lie on a decline bench.',
+      'Bring handles together over your lower chest.',
+      'Keep a slight bend in the elbows throughout.',
+    ],
+  },
+  {
+    name: 'Barbell Hack Squat',
+    muscleGroup: 'Quads',
+    equipment: 'Barbell',
+    type: 'Compound',
+    description: 'Squat holding a barbell behind the legs. Old-school quad builder popularised by George Hackenschmidt.',
+    tips: [
+      'Hold the barbell behind your legs with a double overhand grip.',
+      'Squat down until thighs are parallel.',
+      'Stay upright — don\'t round forward.',
+    ],
+  },
+  {
+    name: 'Jefferson Squat',
+    muscleGroup: 'Quads',
+    equipment: 'Barbell',
+    type: 'Compound',
+    description: 'Straddle squat with one foot in front of the bar and one behind. Anti-rotation quad work.',
+    tips: [
+      'Straddle the bar and grip it with one hand in front, one behind.',
+      'Squat straight down — resist the rotation.',
+      'Alternate which foot is forward each set.',
+    ],
+  },
+  {
+    name: 'Cable Upright Row (Rope)',
+    muscleGroup: 'Traps',
+    equipment: 'Cable',
+    type: 'Compound',
+    description: 'Upright row using a rope attachment on a low cable for trap and delt work.',
+    tips: [
+      'Pull the rope up to chest height, separating the handles at the top.',
+      'Lead with the elbows.',
+      'The rope allows a more natural wrist position than a bar.',
+    ],
+  },
+  {
+    name: 'EZ Bar Spider Curl',
+    muscleGroup: 'Biceps',
+    equipment: 'EZ Bar',
+    type: 'Isolation',
+    description: 'Spider curl using an EZ bar for a comfortable wrist angle and peak bicep contraction.',
+    tips: [
+      'Lean over the vertical side of a preacher bench.',
+      'Curl the EZ bar up and squeeze at the top.',
+      'Arms hang straight down — gravity works against you the entire time.',
+    ],
+  },
+  {
+    name: 'Seated Cable Overhead Tricep Extension',
+    muscleGroup: 'Triceps',
+    equipment: 'Cable',
+    type: 'Isolation',
+    description: 'Seated overhead extension using a cable for long head tricep emphasis with constant tension.',
+    tips: [
+      'Sit facing away from the cable with a rope overhead.',
+      'Extend arms overhead until locked out.',
+      'Keep elbows pointing forward — don\'t let them flare.',
+    ],
+  },
+  {
+    name: 'Single Arm Lat Pulldown (Cable)',
+    muscleGroup: 'Back',
+    equipment: 'Cable',
+    type: 'Compound',
+    description: 'Unilateral lat pulldown using a single cable handle for addressing back imbalances.',
+    tips: [
+      'Pull the handle down to your shoulder while leaning slightly.',
+      'Focus on driving the elbow down and back.',
+      'Great for mind-muscle connection with the lats.',
+    ],
+  },
+  {
+    name: 'Dumbbell Upright Row',
+    muscleGroup: 'Traps',
+    equipment: 'Dumbbells',
+    type: 'Compound',
+    description: 'Upright row with dumbbells allowing a natural, shoulder-friendly path for trap and delt work.',
+    tips: [
+      'Dumbbells allow each arm to move independently.',
+      'Pull to chest height — lead with the elbows.',
+      'Wider grip reduces shoulder impingement risk.',
+    ],
+  },
+  {
+    name: 'Cable Ab Crunch (Standing, Rope)',
+    muscleGroup: 'Core',
+    equipment: 'Cable',
+    type: 'Isolation',
+    description: 'Standing cable crunch using a rope attachment for weighted ab work.',
+    tips: [
+      'Hold the rope behind your head.',
+      'Crunch forward by flexing the spine — don\'t just bow.',
+      'Keep hips stationary — all movement comes from the abs.',
+    ],
+  },
+  {
+    name: 'GHD Sit Up',
+    muscleGroup: 'Core',
+    equipment: 'GHD Machine',
+    type: 'Compound',
+    description: 'Full range sit up on a GHD machine for powerful hip flexor and ab development.',
+    tips: [
+      'Set up with hips past the pad for full range.',
+      'Lower all the way back and sit up explosively.',
+      'Start with partial range and progress to full — this is intense on the spine.',
+    ],
+  },
+  {
+    name: 'GHD Back Extension',
+    muscleGroup: 'Hamstrings',
+    equipment: 'GHD Machine',
+    type: 'Compound',
+    description: 'Back extension on a GHD machine for posterior chain strengthening.',
+    tips: [
+      'Set up with hips on the pad and lower your torso.',
+      'Extend back up by squeezing glutes and hamstrings.',
+      'Hold a plate across your chest for added resistance.',
+    ],
+  },
+  {
+    name: 'Landmine Row (Single Arm)',
+    muscleGroup: 'Back',
+    equipment: 'Barbell',
+    type: 'Compound',
+    description: 'Single arm row using the end of a landmine-anchored barbell for unique back activation.',
+    tips: [
+      'Stand perpendicular to the bar and row with the arm closest to the end.',
+      'Pull toward your hip and squeeze the lat.',
+      'The arc of the landmine creates a slightly different resistance curve.',
+    ],
+  },
+  {
+    name: 'Dumbbell Calf Raise',
+    muscleGroup: 'Calves',
+    equipment: 'Dumbbells',
+    type: 'Isolation',
+    description: 'Standing calf raise holding dumbbells for simple, effective calf training anywhere.',
+    tips: [
+      'Stand on a step or plate for full range of motion.',
+      'Rise up on the balls of your feet and squeeze.',
+      'Hold heavy dumbbells for progressive overload.',
+    ],
+  },
+  {
+    name: 'Barbell Drag Curl',
+    muscleGroup: 'Biceps',
+    equipment: 'Barbell',
+    type: 'Isolation',
+    description: 'Curl where the bar drags up the body by driving elbows back. Targets the long head of the biceps.',
+    tips: [
+      'Pull elbows back as you curl so the bar stays close to your torso.',
+      'The bar should literally drag up your shirt.',
+      'Shorter range of motion but extreme bicep peak contraction.',
+    ],
+  },
+  {
+    name: 'Dumbbell Pullover (Decline)',
+    muscleGroup: 'Chest',
+    equipment: 'Dumbbells',
+    type: 'Compound',
+    description: 'Pullover performed on a decline bench for enhanced chest stretch and serratus activation.',
+    tips: [
+      'Lie on a decline bench and lower the dumbbell behind your head.',
+      'Feel a deep chest and lat stretch at the bottom.',
+      'Pull the weight back over your chest using your pecs.',
+    ],
+  },
+  {
+    name: 'Landmine Deadlift',
+    muscleGroup: 'Hamstrings',
+    equipment: 'Barbell',
+    type: 'Compound',
+    description: 'Deadlift using a landmine setup for a natural arc and reduced lower back stress.',
+    tips: [
+      'Straddle the bar or stand to one side.',
+      'Hinge at the hips and grab the end of the bar.',
+      'The arc of the landmine makes this more spine-friendly.',
+    ],
+  },
+  {
+    name: 'Chin Up (Wide Grip)',
+    muscleGroup: 'Back',
+    equipment: 'Bodyweight',
+    type: 'Compound',
+    description: 'Wide grip supinated pull targeting the lats with bicep assistance.',
+    tips: [
+      'Grip wider than shoulder width with palms facing you.',
+      'Pull chin over the bar and squeeze the lats.',
+      'The wide supinated grip is a unique lat stimulus.',
+    ],
+  },
+  {
+    name: 'Standing Barbell Calf Raise',
+    muscleGroup: 'Calves',
+    equipment: 'Barbell',
+    type: 'Isolation',
+    description: 'Calf raise with a barbell across the back for heavy loading without a machine.',
+    tips: [
+      'Set up like a squat and stand on a step or plate.',
+      'Rise up on the balls of your feet and squeeze.',
+      'Use a squat rack for safety.',
+    ],
+  },
+  {
+    name: 'Dumbbell Wrist Curl',
+    muscleGroup: 'Forearms',
+    equipment: 'Dumbbells',
+    type: 'Isolation',
+    description: 'Wrist curl with a dumbbell for unilateral forearm flexor work.',
+    tips: [
+      'Rest your forearm on your thigh with wrist hanging off the knee.',
+      'Curl the dumbbell up using only wrist movement.',
+      'High reps (15-25) work best for forearm growth.',
     ],
   },
 ];
